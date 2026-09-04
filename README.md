@@ -1,5 +1,7 @@
 # complex-md
 
+[![npm](https://img.shields.io/npm/v/complex-md)](https://www.npmjs.com/package/complex-md) [![CI](https://github.com/jameslcowan/complex-md/actions/workflows/ci.yml/badge.svg)](https://github.com/jameslcowan/complex-md/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-black)](LICENSE)
+
 complex.md defines and generates COMPLEX.md, a markdown file at the root of a
 repository that tells a coding agent where the structural risk in the codebase
 lives. Computed from the dependency graph and the commit history, not written
