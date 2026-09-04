@@ -136,8 +136,10 @@ const cliVersion = JSON.parse(readFileSync(join(ROOT, 'cli/package.json'), 'utf8
 // track is doubled so the loop is seamless.
 function agentMarquee() {
   const list = JSON.parse(readFileSync(join(ROOT, 'site/logos/agents.json'), 'utf8'));
-  const items = list.map((a) => `<li>${readFileSync(join(ROOT, 'site/logos', a.slug + '.svg'), 'utf8').trim()}<span>${a.name}</span></li>`).join('');
-  return `<div class="marquee" aria-label="Agents that read COMPLEX.md"><ul class="track">${items}</ul><ul class="track" aria-hidden="true">${items}</ul></div>`;
+  const li = (a) => `<li>${readFileSync(join(ROOT, 'site/logos', a.slug + '.svg'), 'utf8').trim()}<span>${a.name}</span></li>`;
+  const row = (agents, cls) => { const items = agents.map(li).join(''); return `<div class="marquee${cls}"><ul class="track">${items}</ul><ul class="track" aria-hidden="true">${items}</ul></div>`; };
+  const half = Math.ceil(list.length / 2);
+  return `<div class="marquees" aria-label="Agents that read COMPLEX.md">${row(list.slice(0, half), '')}${row(list.slice(half), ' reverse')}</div>`;
 }
 const softwareJsonLd = JSON.stringify({
   '@context': 'https://schema.org',

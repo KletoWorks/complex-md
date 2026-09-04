@@ -4,6 +4,15 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-04  Sticky blurred header, install copy button, two-row carousel, phone fixes
+
+**Change:** the header is sticky with a frosted backdrop; the install line
+carries a copy button and, on phones, is full width and centered with the
+buttons; the wide example card wraps on phones instead of clipping and
+drops its long label; the header keeps one row down to 375px; the hero
+columns are vertically centered; the agent carousel is two rows of larger
+marks with different agents, slower, drifting in opposite directions.
+
 ## 2026-09-04  Landing page: agent marquee, accordion FAQ, shorter copy, short footer
 
 **Intent:** the page reads in one pass: short sentences, a clear mission,

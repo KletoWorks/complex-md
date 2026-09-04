@@ -38,7 +38,8 @@ h1, h2, h3 { font-family: var(--cx-sans); font-weight: 600; margin: 0; }
 .inner.narrow { max-width: 744px; }
 
 /* Header: one thin row, brand chip as home, skill download square, nav. */
-.site-header { border-bottom: 1px solid var(--line); background: var(--ground); }
+.site-header { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--ground) 72%, transparent); -webkit-backdrop-filter: saturate(180%) blur(14px); backdrop-filter: saturate(180%) blur(14px); }
+@supports not (backdrop-filter: blur(1px)) { .site-header { background: var(--ground); } }
 .site-header nav { max-width: 1152px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 24px; }
 .brand-group { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
 .brand-chip { font-family: var(--cx-mono); font-weight: 700; font-size: 13px; text-decoration: none; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 7px 11px; line-height: 1; }
@@ -69,13 +70,18 @@ main.doc + .site-footer, main.full + .site-footer { margin-top: 96px; }
 /* Hero: the band, a two column grid at 1152px, the wordmark and the artifact. */
 main.full { padding: 0; }
 .hero { background: var(--band); padding: 80px 0; }
-.hero .inner { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+.hero .inner { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
 .hero h1.wordmark { font-size: 60px; font-weight: 700; line-height: 60px; letter-spacing: -1.5px; }
 .hero .pitch { font-size: 22px; line-height: 30px; font-weight: 500; color: var(--ink); margin: 12px 0 0; max-width: 30ch; }
 .hero .pitch.sub { font-size: 18px; line-height: 28px; font-weight: 400; color: var(--ink-2); max-width: 44ch; }
 .hero .pitch + .pitch { margin-top: 12px; }
 .hero .pitch a { color: inherit; }
-.install { display: inline-flex; align-items: center; gap: 10px; font-family: var(--cx-mono); font-size: 14px; line-height: 20px; background: var(--ground); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; margin: 24px 0 0; box-shadow: var(--shadow); }
+.install { display: inline-flex; align-items: center; gap: 10px; font-family: var(--cx-mono); font-size: 14px; line-height: 20px; background: var(--ground); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 10px 10px 14px; margin: 24px 0 0; box-shadow: var(--shadow); }
+.install code { font-family: inherit; }
+.install .copy { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-left: 6px; color: var(--muted-2); background: transparent; border: 1px solid transparent; border-radius: var(--radius); padding: 0; cursor: pointer; }
+.install .copy:hover { color: var(--ink); border-color: var(--line); background: var(--band); }
+.install .copy.done { color: var(--ink); }
+.install .copy svg { display: block; }
 .install .p { color: var(--muted-2); }
 .ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
 
@@ -106,13 +112,16 @@ main.full { padding: 0; }
 .points li { display: flex; gap: 12px; align-items: flex-start; font-weight: 600; }
 .points li svg { flex: none; width: 20px; height: 20px; margin-top: 2px; }
 
-/* Compatibility: a marquee of monochrome marks, doubled for a seamless
-   loop, paused on hover, static and wrapping when motion is reduced. */
-.marquee { margin-top: 32px; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); display: flex; width: 100%; }
-.marquee .track { list-style: none; margin: 0; padding: 0 48px 0 0; display: flex; flex: none; align-items: center; gap: 48px; animation: marquee 60s linear infinite; }
+/* Compatibility: two marquee rows with different agents, bigger marks,
+   slow, drifting in opposite directions, paused on hover; static and
+   wrapping when motion is reduced. Each track is doubled for a seamless loop. */
+.marquees { margin-top: 36px; display: flex; flex-direction: column; gap: 22px; }
+.marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); display: flex; width: 100%; }
+.marquee .track { list-style: none; margin: 0; padding: 0 64px 0 0; display: flex; flex: none; align-items: center; gap: 64px; animation: marquee 90s linear infinite; }
+.marquee.reverse .track { animation-direction: reverse; animation-duration: 105s; }
 .marquee:hover .track { animation-play-state: paused; }
-.marquee .track li { display: inline-flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 500; color: var(--ink); white-space: nowrap; }
-.marquee .track svg { width: 26px; height: 26px; display: block; flex: none; }
+.marquee .track li { display: inline-flex; align-items: center; gap: 12px; font-size: 17px; font-weight: 500; color: var(--ink); white-space: nowrap; }
+.marquee .track svg { width: 34px; height: 34px; display: block; flex: none; }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
 @media (prefers-reduced-motion: reduce) {
   .marquee { -webkit-mask-image: none; mask-image: none; }
@@ -212,6 +221,13 @@ main.doc .toc a:hover { text-decoration: underline; }
   .hero .inner { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
+  .site-header nav { gap: 14px; }
+  .site-header a.nav { font-size: 13px; }
+  .install { display: flex; width: 100%; justify-content: center; padding: 12px 10px 12px 14px; }
+  .ctas { flex-direction: column; }
+  .ctas .btn { width: 100%; }
+  .file-card.wide pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .wide-only { display: none; }
   .hero { padding: 64px 0; }
   .hero h1.wordmark { font-size: 48px; line-height: 48px; letter-spacing: -1.2px; }
   .section.first { padding-top: 64px; }
