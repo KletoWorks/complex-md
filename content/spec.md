@@ -18,19 +18,19 @@ AGENTS.md tells an agent how to behave. CLAUDE.md tells an agent what the
 project is. COMPLEX.md tells an agent where it is likely to break something,
 and what to do about it before it does.
 
-Spec 0.2 revised 0.1 against the defect-prediction literature and the 2026
-research on how coding agents actually consume context files. Spec 0.3
-revises the analysis itself after running it on a 1,300-file monorepo it
-got mostly wrong: it adds a structural axis (a dependency graph, so a quiet
-file that 46 files import ranks), indexes history by commit instead of by
-calendar (so a six-week-old repository and a six-year-old one are read the
-same way), classifies files by kind, and says what it could not see. The evidence
-and every verdict are in
+The signals rest on the defect-prediction literature and on the 2026
+research into how coding agents actually consume context files; the
+evidence and every verdict are in
 [docs/RESEARCH-signals-and-wiring.md](https://github.com/jameslcowan/complex-md/blob/main/docs/RESEARCH-signals-and-wiring.md).
 The short version: change history carries the signal, descriptive overviews
 are ignored by agents while concrete instructions are followed, and a
 secondary file gets priority by being imported and path-scoped, not by
-claiming it.
+claiming it. The analysis has two axes: a dependency graph over the working
+tree, so a quiet file that 46 files import can rank, and history indexed by
+commit rather than by calendar, so a six-week-old repository and a
+six-year-old one are read the same way. Every file has a kind, and the file
+says what the analysis could not see. What changed between versions is
+recorded in the [changelog](https://github.com/jameslcowan/complex-md/blob/main/CHANGELOG.md).
 
 The efficiency case is specific. Measured on SWE-bench, coding agents spend
 about half their turns and over 300k tokens per issue locating the fault
@@ -95,7 +95,7 @@ the file can be:
 | `other` | Dotfiles and anything unrecognized | no | no | no |
 
 The reasons follow real runs. A manifest with 631 release bumps and four CI
-workflows edited together were the top co-change pairs on fastify at 0.2. A
+workflows edited together were once the top co-change pairs on fastify. A
 markdown file under `specs/` was a test. A 3,600-line test file was a
 hotspot. Twenty-three files under `examples/` filled express's table, and
 `.gitignore` was a config hotspot on requests, until they had kinds of their
@@ -189,7 +189,7 @@ radius by a fixed step, and radius compounds with the chance of a mistake.
 
 The number of test files that reach the file through an import, a path
 reference, or an exact stem match in the same area (`a.test.js` beside
-`a.js`, or `test/a.test.js` for `src/a.js`). Never a substring match; at 0.2
+`a.js`, or `test/a.test.js` for `src/a.js`). Never a substring match; before exact matching,
 that is how `app.js` was reported covered by `admin.test.mjs`. Zero means no
 test references the file, which is a finding the paragraph states; it does
 not mean untested, because a suite that imports the package root (express's
@@ -235,9 +235,8 @@ score = round(10 * log2(1 + loc)
 
 Size, activity and structure, each on its own scale, multiplied. The
 half-point activity floor is what lets a quiet file that everything depends
-on rank at all: at 0.2 the shared database module in a 1,300-file monorepo,
-imported by 46 files and the cause of that week's outage, ranked twentieth
-on churn alone. A file with fewer than three commits and fewer than five
+on rank at all: without it, a shared database module in a 1,300-file
+repository, imported by 46 files, ranks twentieth on churn alone. A file with fewer than three commits and fewer than five
 dependents is never a hotspot. The hotspot list is cut where scores fall
 under a tenth of the top row, between 5 and 15 rows and never more than a
 fifth of the rankable files, so a repository with one dominant file shows
@@ -250,7 +249,7 @@ the parent of each recent fix commit and asks whether the fixed files were
 on the hotspot list. On five repositories (an 800-file monorepo, fastify,
 express, requests, cobra; 40 fixes each) the list recalls 25%, 50%, 73%,
 46% and 61% of the files the next fix touched, at 2 to 3 times chance for
-a list its size. The plain 0.2 formula, `churn_w * loc`, does as well or
+a list its size. The plain product `churn_w * loc` does as well or
 better on every one of them (35%, 52%, 82%, 56%, 61%). The structural term
 in the score does not help find the next fix; it is there so that a quiet
 file with 46 importers is on the list an agent is warned about before it
@@ -395,7 +394,7 @@ computed data plus the actual text of the top hotspot files. Total prose
 stays under 600 words. If a section has nothing worth saying, it says so in
 one sentence.
 
-The 0.2 rule that matters most: **each hotspot paragraph and each coupling
+The rule that matters most: **each hotspot paragraph and each coupling
 paragraph ends with an instruction.** The research is unambiguous that
 agents do not benefit from repository overviews and do follow specific
 directives. A paragraph that only describes a file is the part of the map
@@ -546,7 +545,7 @@ Everything above is in-context instruction, and the measured ceiling for
 in-context instruction is low exactly where COMPLEX.md matters: about 45
 percent compliance when editing existing code, decaying through a session.
 The long-context benchmark authors are explicit that anything critical
-belongs in deterministic enforcement outside the model. Spec 0.2 therefore
+belongs in deterministic enforcement outside the model. The spec therefore
 defines two mechanisms that the CLI installs and the skill wires by hand.
 
 ### Hooks
@@ -653,9 +652,8 @@ nothing, the profile says so, and the prose leaves ownership alone.
 
 ### Why does a file with four commits outrank one with ninety-five?
 
-Because 46 files import it. At 0.2 the score was churn times size, and the
-shared database module of a monorepo, the one whose missing pragma took the
-uptime checker down that week, ranked twentieth behind a 4,000 line
+Because 46 files import it. Ranked by churn times size alone, the shared
+database module of a large repository ranks twentieth behind a 4,000 line
 stylesheet. Churn says where edits happen; the dependency graph says how far
 a mistake travels. Both belong in the score, and structure is what lets the
 map say something on a repository that was assembled last month and has no
@@ -706,52 +704,9 @@ locally by git and grep. Only the signals table and the text of the top 5 to
 Yes. The analysis needs only a clone: run the CLI or the skill inside it
 and the file describes that repository as it stands.
 
-## Changes from 0.1
+## Older files
 
-- `churn_w`, `fixes`, `authors`, `owner_share` added to hotspot rows;
-  `score` is now `round(churn_w * loc)`.
-- Hotspot floor of three commits; ranking scope is source files; bulk
-  commits over 30 files skipped.
-- Co-change excludes manifests, lockfiles, CI configuration and tests.
-- Fan-in is described as blast radius, not risk.
-- Hotspot and coupling paragraphs must end with an instruction; hotspot
-  paragraphs name the tests that cover the file; "Where the risk lives"
-  names where fixes land.
-- Wiring: `@COMPLEX.md` import in CLAUDE.md, path-scoped rules for Claude
-  Code, Cursor and OpenHands, four single-sentence rules each opening with
-  its trigger, exactly one emphasized line, and the co-change rule says
-  open the partner rather than change it.
-- Enforcement and runtime: PreToolUse gate and Stop check hooks for Claude
-  Code and Cursor, an MCP server, and a diff check for CI,
-  all installed by `npx complex-md`.
-
-## Changes from 0.2
-
-- Two axes. A dependency graph over the working tree gives `fan_in` from
-  real resolution (imports, script and link tags, stylesheet imports, shell
-  and Caddy includes, path literals in scripts and configs) instead of a
-  text search for the file's stem, and gives covering `tests` by reference
-  instead of by name fragment.
-- History is indexed by commit: the last 2,000 non-merge commits, recency
-  weights per commit with a half-life of a quarter of the window. The
-  calendar appears only as reported facts.
-- Every tracked file has a `kind`; `source`, `config`, `markup` and `style`
-  rank with weights; tests, docs, data, manifests, CI, generated, vendored
-  and assets do not. Convention files are detected by frequency and
-  excluded from co-change.
-- `score` is `log2(1 + loc) * sqrt(churn_w + 0.5 * fixes_w + 0.5) *
-  (1 + log2(1 + fan_in))^2 * kind_weight`, times ten; a quiet file with many
-  dependents can rank. The hotspot list is cut adaptively between 5 and 15.
-- Co-change reports `coupling`, the share of the quieter file's commits that
-  touched both, and drops pairs under 34 percent. `seams` report the same
-  between areas. `load_bearing` lists untouched files with many dependents.
-- `profile` and `blind_spots` in the front matter; `confidence` states
-  whether history carries weight, and the prose reads it first.
-- MCP: `complex_refs` for symbol definitions and references, hotspots first.
-  `complex_impact` and `complex_lookup` come from the graph, in
-  milliseconds. The wiring block names `load_bearing` and `seams`.
-- The CLI is the reference implementation; the skill's shell path is the
-  degraded twin and says so in `tool`.
-
-A 0.2 file remains valid input for any agent and for the 0.3 hooks and MCP
-server; generators emit 0.3.
+A file written to an earlier spec version remains valid input for any
+agent and for the hooks and MCP server; generators emit the current
+version, and the [changelog](https://github.com/jameslcowan/complex-md/blob/main/CHANGELOG.md)
+records what changed between versions.
