@@ -128,11 +128,39 @@ const siteJsonLd = JSON.stringify({
   license: 'https://opensource.org/license/mit/',
 });
 
+const cliVersion = JSON.parse(readFileSync(join(ROOT, 'cli/package.json'), 'utf8')).version;
+const softwareJsonLd = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'complex-md',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Linux, macOS, Windows',
+  softwareVersion: cliVersion,
+  downloadUrl: 'https://www.npmjs.com/package/complex-md',
+  codeRepository: REPO,
+  license: 'https://opensource.org/license/mit/',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  author: { '@type': 'Person', name: AUTHOR, url: AUTHOR_URL },
+  description: 'Generates COMPLEX.md, a computed map of where edits are risky and where bugs get fixed, and wires it into coding agents.',
+});
+/** FAQPage schema from the rendered FAQ items, so the answers on the page and the answers search engines quote are the same text. */
+function faqJsonLd(html) {
+  const items = [...html.matchAll(/<div class="faq-item">\s*<h3>([\s\S]*?)<\/h3>\s*<p>([\s\S]*?)<\/p>/g)].map(([, q, a]) => ({
+    '@type': 'Question', name: q.replace(/<[^>]+>/g, '').trim(),
+    acceptedAnswer: { '@type': 'Answer', text: a.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() },
+  }));
+  return items.length ? JSON.stringify({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: items }) : null;
+}
+function techArticleJsonLd(title, description, canonical) {
+  return JSON.stringify({ '@context': 'https://schema.org', '@type': 'TechArticle', headline: title, description, url: canonical, author: { '@type': 'Person', name: AUTHOR, url: AUTHOR_URL }, license: 'https://opensource.org/license/mit/', isPartOf: { '@type': 'WebSite', name: 'complex.md', url: ORIGIN } });
+}
+
 function shell({ title, description, path, body, article, layout, toc }) {
   const canonical = ORIGIN + (path === '/' ? '/' : path + '/');
-  const jsonLd = article
-    ? `\n<script type="application/ld+json">${articleJsonLd(article, canonical)}</script>`
-    : `\n<script type="application/ld+json">${siteJsonLd}</script>`;
+  const blocks = article ? [articleJsonLd(article, canonical)] : [siteJsonLd];
+  if (path === '/') { blocks.push(softwareJsonLd); const f = faqJsonLd(body); if (f) blocks.push(f); }
+  if (path === '/spec' || path === '/skill') blocks.push(techArticleJsonLd(title, description, canonical));
+  const jsonLd = blocks.map((b) => `\n<script type="application/ld+json">${b}</script>`).join('');
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -148,9 +176,23 @@ function shell({ title, description, path, body, article, layout, toc }) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="${article ? 'article' : 'website'}">
 <meta property="og:site_name" content="complex.md">
+<meta property="og:image" content="${ORIGIN}/og.png">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1260">
+<meta property="og:image:alt" content="COMPLEX.md: a simple, open file that shows coding agents which parts of a codebase are most likely to break">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${title}">
+<meta name="twitter:description" content="${description}">
+<meta name="twitter:image" content="${ORIGIN}/og.png">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#ffffff">
 <link rel="stylesheet" href="/platform.css">
 <link rel="stylesheet" href="/site.css">
-<script src="/analytics.js" defer></script>${toc ? '\n<script src="/site.js" defer></script>' : ''}${jsonLd}
+<script src="/analytics.js" defer></script>
+<script src="/site.js" defer></script>
+<script src="/pwa-register.js" defer></script>${jsonLd}
 </head>
 <body>
 <header class="site-header">
@@ -253,10 +295,20 @@ mkdirSync(join(ROOT, 'cli/prompts'), { recursive: true });
 cpSync(join(ROOT, 'prompts/generate.md'), join(ROOT, 'cli/prompts/generate.md'));
 cpSync(join(ROOT, 'prompts/integration.md'), join(ROOT, 'cli/prompts/integration.md'));
 
-cpSync(join(ROOT, 'site/site.css'), join(DIST, 'site.css'));
-cpSync(join(ROOT, 'site/site.js'), join(DIST, 'site.js'));
-cpSync(join(ROOT, 'site/404.html'), join(DIST, '404.html'));
-cpSync(join(ROOT, 'site/fonts'), join(DIST, 'fonts'), { recursive: true });
+for (const f of ['site.css', 'site.js', '404.html', 'favicon.svg', 'og.png', 'site.webmanifest', 'pwa-register.js', 'robots.txt']) cpSync(join(ROOT, 'site', f), join(DIST, f));
+for (const d of ['fonts', 'icons', 'offline']) cpSync(join(ROOT, 'site', d), join(DIST, d), { recursive: true });
+// The service worker's cache name keys on a hash of what it precaches, so a
+// changed stylesheet or page is a new cache; deploy stamps it again.
+{
+  const { createHash } = await import('node:crypto');
+  const h = createHash('sha256');
+  for (const f of ['index.html', 'site.css', 'site.js', 'site.webmanifest', 'offline/index.html']) h.update(readFileSync(join(DIST, f)));
+  writeFileSync(join(DIST, 'sw.js'), readFileSync(join(ROOT, 'site/sw.js'), 'utf8').replace('__BUILD_ID__', h.digest('hex').slice(0, 12)));
+}
+
+// Sitemap: every rendered page, articles included; the offline shell is excluded.
+const pages = ['/', '/spec/', '/skill/', '/articles/', ...articles.map((a) => `/articles/${a.slug}/`)];
+writeFileSync(join(DIST, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map((p) => `  <url><loc>${ORIGIN}${p}</loc></url>`).join('\n')}\n</urlset>\n`);
 
 // Dual-audience mirror (RESEARCH.md principle 7): tell agents where the raw
 // markdown lives.

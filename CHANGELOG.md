@@ -4,6 +4,18 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-04  Site: social card, icons, PWA baseline, structured data, sitemap
+
+**Intent:** a shared link renders with an image and a title, the tab has an
+icon, the site installs and works offline, and search and answer engines get
+the same answers the page gives.
+**Change:** `og.png` social card and Twitter card tags; SVG favicon, PNG icons
+(192, 512, maskable, apple-touch); web manifest, service worker with a
+build-id cache name, offline page and register script; `robots.txt` and
+`sitemap.xml`; JSON-LD for the software (SoftwareApplication), the FAQ
+(FAQPage, generated from the page's own answers) and the spec and skill
+pages (TechArticle). File cards gain a copy button.
+
 ## 2026-09-04  0.4.1: releases publish from a tag
 
 **Intent:** a release is a tag push, verified and published by the workflow,
