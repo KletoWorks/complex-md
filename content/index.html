@@ -1,0 +1,238 @@
+<!-- meta
+title: COMPLEX.md | Show your coding agent which files are risky
+description: COMPLEX.md is a simple, open file that shows coding agents which parts of a codebase are most likely to break. It is computed from the repository's own history, so it is measured, not remembered. Spec, CLI, and downloadable skill.
+path: /
+layout: full
+-->
+
+<section class="hero">
+<div class="inner">
+<div>
+<h1 class="wordmark">COMPLEX.md</h1>
+<p class="pitch">A simple, open file that shows coding agents which parts of
+your codebase are most likely to break.</p>
+<p class="pitch">Think of COMPLEX.md as a <strong>risk map for agents</strong>.
+It is computed from your repository's own history, so it knows which files
+break most often, which files everything else depends on, and which files
+change together.</p>
+<div class="install"><span class="p">$</span> npx complex-md</div>
+<div class="ctas">
+<a class="btn solid" href="#how-to-use">How to use it</a>
+<a class="btn line" href="https://github.com/jameslcowan/complex-md"><svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>View on GitHub</a>
+</div>
+</div>
+<div class="file-card">
+<div class="bar"><span class="fname">COMPLEX.md</span><span class="ftag">fastify/fastify at af6e2e43</span></div>
+<pre><span class="fm">---
+<span class="k">complex_md:</span> "0.3"
+<span class="k">generated:</span> 2026-09-02
+<span class="k">hotspots:</span>
+  - <span class="k">path:</span> fastify.js
+    <span class="k">churn:</span> 234  <span class="k">fixes:</span> 53  <span class="k">fan_in:</span> 24  <span class="k">tests:</span> 63
+    <span class="k">score:</span> <span class="hot">29220</span>
+  - <span class="k">path:</span> lib/errors.js
+    <span class="k">churn:</span> 45  <span class="k">fixes:</span> 18  <span class="k">fan_in:</span> 17  <span class="k">tests:</span> 10
+    <span class="k">score:</span> 10806
+<span class="k">co_change:</span>
+  - <span class="k">files:</span> [lib/errors.js, types/errors.d.ts]
+    <span class="k">count:</span> 18  <span class="k">coupling:</span> 95
+---</span>
+
+<span class="prose-h">## Why these files are hot</span>
+
+fastify.js is the constructor and plugin root: 234 of
+the last 2,000 commits touched it, 53 of them bug
+fixes, and 24 modules depend on it. Edits tend to
+break lib/route.js, which moves with it in 45% of its
+commits. Before editing this file, open lib/route.js
+and fastify.d.ts alongside it and run the type tests.</pre>
+</div>
+</div>
+</section>
+
+<section class="section first" id="why">
+<div class="inner narrow">
+<h2>Why COMPLEX.md?</h2>
+<p>AGENTS.md tells a coding agent how to work in your project: how to build
+it, how to test it, what the rules are. A person writes it from memory.</p>
+<p>COMPLEX.md answers a different question: where is the danger? Every
+codebase has a few files that break again and again, a few files that
+everything else depends on, and pairs of files that have to change
+together. People who have worked on the project for years know these
+files by heart. A coding agent starting fresh does not, so it edits them
+like any other file and the same bugs come back.</p>
+<p>COMPLEX.md is measured, not remembered. It reads the repository's own
+history and dependency graph and writes down what it finds, with the
+numbers to prove it and one clear instruction per risky file.</p>
+<ul class="points">
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>Points agents at the files that break most often, before they start looking.</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Warns them before they touch a file that dozens of other files depend on.</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>Shows which files change together, so a fix is never left half done.</li>
+</ul>
+<p>Every number in the example above comes from a real run on the fastify
+web framework. Nothing is made up, the analysis runs on your own machine
+in about a second, and nothing is uploaded.</p>
+</div>
+</section>
+
+<section class="section" id="compatibility">
+<div class="inner">
+<div class="inner narrow">
+<h2>One COMPLEX.md works across many agents</h2>
+<p class="lede">One run writes the file and wires it into the coding agents
+your repository already uses.</p>
+</div>
+<ul class="agents">
+<li>Claude Code</li><li>Cursor</li><li>Codex</li><li>Gemini CLI</li>
+<li>GitHub Copilot</li><li>OpenHands</li><li>Windsurf</li><li>Cline</li>
+<li>Roo Code</li><li>OpenClaw</li><li>Hermes</li>
+<li class="more">and any agent that reads AGENTS.md or can connect to a tool server (MCP)</li>
+</ul>
+</div>
+</section>
+
+<section class="section examples" id="examples">
+<div class="inner">
+<h2>Examples</h2>
+<div class="file-card wide">
+<div class="bar"><span class="fname">COMPLEX.md</span><span class="ftag">fastify/fastify at af6e2e43, generated by complex-md</span></div>
+<pre><span class="fm">---
+<span class="k">complex_md:</span> "0.3"
+<span class="k">generated:</span> 2026-09-02
+<span class="k">commit:</span> af6e2e43
+<span class="k">tool:</span> complex-md/0.4.0
+<span class="k">window_commits:</span> 2000
+<span class="k">files_analyzed:</span> 62
+<span class="k">profile:</span>
+  <span class="k">commits_analyzed:</span> 1871
+  <span class="k">dependency_edges:</span> 372
+  <span class="k">confidence:</span> structure+history
+<span class="k">hotspots:</span>
+  - <span class="k">path:</span> fastify.js  <span class="k">kind:</span> source  <span class="k">loc:</span> 1009
+    <span class="k">churn:</span> 234  <span class="k">churn_w:</span> 75.49  <span class="k">fixes:</span> 53  <span class="k">authors:</span> 66  <span class="k">owner_share:</span> 0.44
+    <span class="k">fan_in:</span> 24  <span class="k">tests:</span> 63  <span class="k">score:</span> <span class="hot">29220</span>
+  - <span class="k">path:</span> lib/errors.js  <span class="k">kind:</span> source  <span class="k">loc:</span> 554
+    <span class="k">churn:</span> 45  <span class="k">churn_w:</span> 15.91  <span class="k">fixes:</span> 18  <span class="k">authors:</span> 30  <span class="k">owner_share:</span> 0.11
+    <span class="k">fan_in:</span> 17  <span class="k">tests:</span> 10  <span class="k">score:</span> 10806
+<span class="k">co_change:</span>
+  - <span class="k">files:</span> [lib/errors.js, types/errors.d.ts]  <span class="k">count:</span> 18  <span class="k">coupling:</span> 95
+<span class="k">blind_spots:</span>
+  - 3 generated or lock files excluded
+---</span>
+
+<span class="prose-h">## Where the risk lives</span>
+
+Risk concentrates in fastify.js, the constructor and plugin root that 24 modules depend on, and in
+lib/errors.js, whose type declaration in types/errors.d.ts moves with it in 95% of its commits.
+
+<span class="prose-h">## Why these files are hot</span>
+
+fastify.js is the constructor and plugin root: 234 of the last 2,000 commits touched it, 53 of them bug
+fixes, and 24 modules depend on it. Edits tend to break lib/route.js, which moves with it in 45% of its
+commits. Before editing this file, open lib/route.js and fastify.d.ts alongside it and run the type tests.
+
+<span class="prose-h">## What to read first</span>
+
+1. fastify.js, the plugin root every request passes through.
+2. lib/route.js, because it moves with fastify.js in nearly half of its commits.</pre>
+</div>
+<div class="examples-row">
+<a class="example" href="https://github.com/jameslcowan/complex-md/blob/main/examples/fastify-COMPLEX.md"><h3>fastify/fastify</h3><p>Fast and low overhead web framework for Node.js. 62 files in scope, 1,871 commits analyzed.</p><div class="meta">JavaScript</div></a>
+<a class="example" href="https://github.com/jameslcowan/complex-md/blob/main/COMPLEX.md"><h3>jameslcowan/complex-md</h3><p>This project, mapping itself. The CLI, the site build and the benchmark coding agent.</p><div class="meta">JavaScript</div></a>
+</div>
+<p class="centered"><a href="https://github.com/jameslcowan/complex-md/tree/main/examples">See the full example files on GitHub</a></p>
+</div>
+</section>
+
+<section class="section" id="how-to-use">
+<div class="inner narrow steps">
+<h2>How to use COMPLEX.md?</h2>
+<h3>1. Run it once in your repository</h3>
+<p>Open a terminal in any git repository and run <code>npx complex-md</code>.
+It reads the history and the dependency graph, writes COMPLEX.md at the
+root of the repository, and connects it to the agents you already use.
+If you have an API key for a model provider, it uses that to write the
+prose. If not, it hands the job to the coding agent you are already
+talking to.</p>
+<h3>2. Or run the skill with any agent</h3>
+<p>No Node.js? Download <a href="/complex-md.skill.md">one markdown file</a>
+and ask your coding agent to run it. The agent does the same analysis with
+git and writes the file itself.</p>
+<h3>3. Let the wiring do its job</h3>
+<p>The file is only useful if the agent reads it, so the tool sets that up
+for you:</p>
+<ul>
+<li>A short block in AGENTS.md or CLAUDE.md that tells the agent when to look at the map.</li>
+<li>Rules that switch on only when the agent opens one of the risky files.</li>
+<li>For agents that support it, a hook that pauses the first edit to a risky file until the agent has read why it is risky.</li>
+<li>A small server the agent can ask questions like "which files does this one affect?" while it works.</li>
+</ul>
+<h3>4. Run it again after big changes</h3>
+<p>The map is cheap to rebuild. After a refactor of a listed file, run the
+command again and commit the new COMPLEX.md with your change.</p>
+</div>
+</section>
+
+<section class="section" id="about">
+<div class="inner narrow">
+<h2>About</h2>
+<p>COMPLEX.md is built by
+<a href="https://jameslcowan.com" rel="author">James L. Cowan Jr.</a> and
+released as open source under the MIT license: the <a href="/spec/">spec</a>,
+the <a href="https://github.com/jameslcowan/complex-md">command line tool
+and benchmark</a>, and the <a href="/complex-md.skill.md">skill</a>.</p>
+<p>The spec changes by evidence. Every signal in the file is backed by
+published research on where bugs come from, and every claim about what the
+file does for an agent is measured in the repository's benchmark rather
+than asserted.</p>
+<p>This site's design follows <a href="https://agents.md">agents.md</a>
+(MIT), because a file for agents should look like the file agents already
+know.</p>
+</div>
+</section>
+
+<section class="section faq" id="faq">
+<div class="inner narrow">
+<h2>FAQ</h2>
+<div class="faq-item">
+<h3>How is this different from AGENTS.md?</h3>
+<p>They work together. AGENTS.md is written by a person and says how to work
+in the project. COMPLEX.md is computed from the project and says where the
+risk is. The wiring step links the two, so an agent that reads one finds
+the other.</p>
+</div>
+<div class="faq-item">
+<h3>Do I need an API key?</h3>
+<p>No. With a key from any of eleven providers, the tool makes one model
+call to write the explanations. Without a key, it writes a prompt file and
+the coding agent you are already using writes COMPLEX.md itself. Either
+way, the analysis of your code never leaves your machine.</p>
+</div>
+<div class="faq-item">
+<h3>What does the score mean?</h3>
+<p>It is a ranking, not a prediction. A higher score means an edit to that
+file has more ways to go wrong: the file changes often, it has needed
+fixes before, and many other files depend on it. The <a href="/spec/">spec</a>
+shows the exact formula and states plainly what the analysis can and
+cannot see.</p>
+</div>
+<div class="faq-item">
+<h3>What if my project uses a language it cannot read?</h3>
+<p>The file says so. Files the analysis could not follow are listed under
+<code>blind_spots</code> with counts, and when they make up most of the
+project, the file says its ranking rests on history and size alone.</p>
+</div>
+<div class="faq-item">
+<h3>Can I write one by hand?</h3>
+<p>Yes. The format is plain markdown with a YAML header, and the spec
+describes every field. There is an <a href="/articles/write-complex-md-by-hand/">article</a>
+that walks through it with seven git commands.</p>
+</div>
+<div class="faq-item">
+<h3>How do I keep it out of my agent's way?</h3>
+<p>Run <code>npx complex-md --no-hooks</code> to skip the edit gate, or
+<code>--no-wire</code> to only write the file. Everything the tool adds to
+your agent files is marked and safe to remove.</p>
+</div>
+</div>
+</section>

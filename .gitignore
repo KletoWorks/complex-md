@@ -1,0 +1,6 @@
+dist/
+node_modules/
+analytics/
+.env
+.env.*
+.complex-md/

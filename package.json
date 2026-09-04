@@ -1,0 +1,14 @@
+{
+  "name": "complex-md-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "COMPLEX.md: a computed markdown file that tells a coding agent where the structural risk in a codebase lives. Spec, skill, CLI, catalog.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "verify": "node scripts/build.mjs",
+    "test": "cd cli && npm test"
+  },
+  "author": "James L. Cowan Jr.",
+  "license": "MIT"
+}

@@ -1,0 +1,426 @@
+{
+  "repo": "fastify/fastify",
+  "path": "/tmp/fastify",
+  "created": "2026-09-03",
+  "months": 12,
+  "tasks": [
+    {
+      "id": "4176096a31",
+      "repo": "fastify/fastify",
+      "base": "83e69762aff047940b376fc2a266d143499ef727",
+      "fix": "4176096a31f5b4c31512c36f578b08a596a72435",
+      "date": "2026-08-23",
+      "title": "fix: callNotFound should run not-found preHandler regardless of registration order",
+      "text": "setContext() in four-oh-four.js takes a detached shallow snapshot of the\nselected not-found context. When a route that calls reply.callNotFound()\nis registered before setNotFoundHandler(), the snapshot is taken before\nthe not-found handler's preReady callback populates its lifecycle hooks,\nso the copied context retains preHandler: null. reply.callNotFound() then\ndispatches the not-found handler directly, skipping the preHandler that\nsetNotFoundHandler() declares.\n\nThis change uses the selected context as the prototype of the route-specific\n404 context instead of copying it, keeping the route's own onSend value, so\nthe route-specific context stays linked to the live one and later hook\npopulation is visible.\n\nAdds a regression test covering the route-first declaration order.",
+      "source": "pr",
+      "gold": [
+        "lib/four-oh-four.js"
+      ],
+      "tests": [
+        "test/404s.test.js"
+      ],
+      "names_gold": true
+    },
+    {
+      "id": "6e95cb9f6d",
+      "repo": "fastify/fastify",
+      "base": "d693f43d890f07a8852b4737b048ed76458139a2",
+      "fix": "6e95cb9f6de47deaf145138661c70a1eec34ec97",
+      "date": "2026-08-16",
+      "title": "routerPath returns url with a trailing slash",
+      "text": "### Prerequisites\r\r\r\n\r\n\r\n### Issue\r\n\r\nOriginally this error comes from [fastify-metrics](https://github.com/SkeLLLa/fastify-metrics) plugin. It relies on two things: \r\n - `onRoute` hook to set up a metric for the route;\r\n - request `routerPath` property to find the route metric from the request context.\r\n \r\n The problem happens when you use a plugin prefix with the `prefixTrailingSlash` option set to `both` (default) value. In this case, the `onRoute` hook will be called only once, so `fastify-metrics` will set up only one route, but internally there are two different routes with two different `routerPath` properties. So `fastify-metrics` will not record metrics for requests with trailing slash.\r\n \r\n Example:\r\n ```js\r\n 'use strict'\r\n\r\nconst fastify = require('fastify')()\r\n\r\nfastify.addHook('onRoute', ({ method, url }) => {\r\n  console.log('New route added:', method, url)\r\n})\r\n\r\nfastify.register(async (fastify) => {\r\n  fastify.get('/', async (request) => {\r\n    console.log(request.routerPath)\r\n  })\r\n}, { prefix: '/foo' })\r\n\r\nfastify.ready(() => {\r\n  fastify.inject({ method: 'GET', url: '/foo' })\r\n  fastify.inject({ method: 'GET', url: '/foo/' })\r\n})\r\n ```\r\n \r\n Output:\r\n ```js\r\n New route added: GET /foo\r\nNew route added: HEAD /foo\r\nNew route added: HEAD /foo/\r\n/foo\r\n/foo/\r\n ```\r\n \r\n If we don't call `onRoute` twice, that means that we want to hide the second route from a user. So from the user's perspective, there should be only one route. If it's true, then we should return `routerPath` with a trimmed trailing slash.",
+      "source": "issue",
+      "gold": [
+        "lib/route.js"
+      ],
+      "tests": [
+        "test/route-prefix.test.js"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "f5ef34443c",
+      "repo": "fastify/fastify",
+      "base": "9a1535bcfe2a780cc6f9c6555df86e5072ca9a29",
+      "fix": "f5ef34443c5be0cfc7fbde44f84253ef5d0ec66e",
+      "date": "2026-08-14",
+      "title": "fix: run preClose hook exactly once per declaring instance",
+      "text": "## What\n\nA single `preClose` hook added to a Fastify instance is executed once for **every** instance in the encapsulation subtree (the declaring instance plus each descendant plugin) instead of exactly once.\n\n### Reproduction\n\n```js\nconst fastify = Fastify()\nlet count = 0\n\nfastify.register(async (child) => {\n  child.get('/x', async () => 'ok')\n})\nfastify.addHook('preClose', async () => { count++ })\n\nawait fastify.ready()\nawait fastify.close()\n\nconsole.log(count) // 2, expected 1\n```\n\nWith two levels of nested plugins the same hook runs 3 times. An equivalent `onReady` hook in the identical setup correctly runs once.\n\n### Root cause\n\nIn `addHook`, the hooks `onReady`, `onListen`, and `onRoute` are special-cased to be stored only on the declaring instance via `this[kHooks].add`. `preClose` was omitted from that list, so it falls into the `else` branch and goes through `_addHook`, which copies the hook into every child via `this[kChildren].forEach`. At close time, `hookRunnerApplication('preClose')` already walks the entire child tree, so each propagated copy fires again.\n\nThat `preClose` is not meant to be inherited is already established elsewhere in the codebase: `buildHooks` in `lib/hooks.js` resets `onReady`, `onListen`, and `preClose` to empty arrays for children. `preClose` was simply left off the special-case list in `addHook`.\n\n### Fix\n\nAdd `preClose` to the same special-case branch as `onReady`/`onListen`/`onRoute` so it is stored only on the declaring instance and not propagated into children. Since `hookRunnerApplication` already recurses the child tree and `buildHooks` already excludes `preClose` from inheritance, each declared hook now fires exactly once.\n\n### Tests\n\nAdded two regression tests in `test/close.test.js` (a single child plugin and nested child plugins) asserting the hook runs exactly once. Both fail on `main` (count 2 and 3) and pass with this change. The full `test/close.test.js` suite (26 tests) stays green.",
+      "source": "pr",
+      "gold": [
+        "fastify.js"
+      ],
+      "tests": [
+        "test/close.test.js"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "15c2fb1933",
+      "repo": "fastify/fastify",
+      "base": "eaff726a68c629c1aedc99f96b3c4b95dfdb38d1",
+      "fix": "15c2fb1933461f846a6160923a2bc4e091039826",
+      "date": "2026-08-13",
+      "title": "fix(content-type): return `undefined` for invalid media types",
+      "text": "While reviewing https://github.com/fastify/fastify/pull/6932, I noticed there was no test for `onRequest`. I then realized that it returns `/`. Even when accessed later in the request lifecycle, the same thing happens if we remove the header with `reply.removeHeader('content-type')`.",
+      "source": "pr",
+      "gold": [
+        "lib/content-type.js"
+      ],
+      "tests": [
+        "test/content-type.test.js"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "e4ffc20532",
+      "repo": "fastify/fastify",
+      "base": "ed664c344f4d7e0171f252d5e886db6d7d241770",
+      "fix": "e4ffc205328db294d550c5855d2573b33f5e9d62",
+      "date": "2026-08-12",
+      "title": "fix: remove raw response headers",
+      "text": "### Description\r\n\r\n`reply.removeHeader()` removed only headers stored in Fastify's internal header map.\r\n\r\nHeaders set through `reply.raw.setHeader()` remained visible through `getHeader()`, `getHeaders()`, and `hasHeader()`, and were still sent to the client after calling `removeHeader()`.\r\n\r\nThis change removes the header from both Fastify's internal header map and the raw response before the headers have been sent. The `headersSent` check preserves the existing non-throwing behavior after transmission.\r\n\r\nThis also means that when both a raw and Fastify-managed value exist for the same header, `removeHeader()` removes the complete effective header rather than revealing the underlying raw value.\r\n\r\n### Tests\r\n\r\nAdded regression coverage for:\r\n\r\n- raw-only headers\r\n- layered raw and Fastify-managed headers\r\n- mixed-case header names\r\n- repeated removal and chainability\r\n- behavior after headers have already been sent\r\n- client-visible response headers\r\n\r\n### Verification\r\n\r\n- `node --test test/internals/reply.test.js`\r\n- `npm test`\r\n- `npm run coverage:ci-check-coverage`\r\n\r\nAll tests passed and coverage remains at 100%.",
+      "source": "pr",
+      "gold": [
+        "lib/reply.js"
+      ],
+      "tests": [
+        "test/internals/reply.test.js"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "27938ac777",
+      "repo": "fastify/fastify",
+      "base": "a2f590563f111ebc8e92b8f17701909e9b19d4b7",
+      "fix": "27938ac777c15482a81881b29f86c82b025f7fae",
+      "date": "2026-08-08",
+      "title": "fix: recognize constructor-assigned built-in properties as decorator …",
+      "text": "## Summary\r\n\r\n`decorate*`'s `dependencies` option rejects the built-in `Request`/`Reply`\r\nproperties that are assigned in the constructor, even though every other\r\ndecorator API treats them as present. Fastify currently gives two different\r\nanswers for the same name:\r\n\r\n```js\r\nconst fastify = Fastify()\r\n\r\nfastify.hasRequestDecorator('body')          // true\r\nfastify.decorateRequest('body', fn)          // FST_ERR_DEC_ALREADY_PRESENT\r\nfastify.decorateRequest('x', fn, ['body'])   // FST_ERR_DEC_MISSING_DEPENDENCY\r\n```\r\n\r\nA decorator cannot declare `body`, `id`, `params`, `query`, `log` or `raw` as\r\na dependency, while at the same time it cannot decorate over them and\r\n`hasRequestDecorator` reports them as present. The same applies to `raw`,\r\n`request` and `log` on `Reply`.\r\n\r\n## Root cause\r\n\r\nFollow-up to #6753.\r\n\r\n#6753 introduced `hasInstanceProperty` to make Fastify aware of properties\r\nassigned in the `Request`/`Reply` constructors rather than defined on the\r\nprototype. It was wired into three call sites: the\r\n`FST_ERR_DEC_ALREADY_PRESENT` guard in `decorateConstructor`,\r\n`checkRequestExistence` and `checkReplyExistence`.\r\n\r\nThe dependency check was not updated. It still resolves names through\r\n`checkExistence` alone, which only looks at the instance, its prototype and\r\n`props`, so constructor-assigned properties fall through and are reported as\r\nmissing.\r\n\r\n## Solution\r\n\r\n`checkDependencies` now falls back to `hasInstanceProperty` when\r\n`checkExistence` does not find a dependency.\r\n\r\nThe instance path is unaffected: `decorate()` passes a plain Fastify\r\ninstance, which has no `instanceProperties`, so the lookup returns `false`\r\nimmediately. The order also keeps the common case unchanged — for ordinary\r\ndecorator dependencies `checkExistence` succeeds and the second lookup is\r\nnever reached.\r\n\r\n## Tests\r\n\r\nAdded to `test/decorator-instance-properties.test.js`:\r\n\r\n- the full built-in sets for both `Request` and `Reply` accepted as\r\n  dependencies\r\n- an encapsulated plugin, to exercise the `parent` chain\r\n- a dependency array mixing built-ins with user decorators\r\n- a regression test asserting that unknown dependencies still throw\r\n  `FST_ERR_DEC_MISSING_DEPENDENCY`, and that a `Reply` decorator depending on\r\n  a `Request`-only property still throws\r\n\r\nAll four new cases fail on the base commit and pass with the change. Full\r\nsuite, lint and type tests are green.",
+      "source": "pr",
+      "gold": [
+        "lib/decorate.js"
+      ],
+      "tests": [
+        "test/decorator-instance-properties.test.js"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "9eaef5123b",
+      "repo": "fastify/fastify",
+      "base": "39e87e892da468bbffd4aeb4360c92dca22f4b53",
+      "fix": "9eaef5123b8824ac64e2b30692e78320d3bb8987",
+      "date": "2026-08-06",
+      "title": "`LogController.requestCompleted` .d.ts `error` type inaccurate",
+      "text": "### Prerequisites\n\n\n\n\n### Fastify version\n\n5.10.0\n\n### Plugin version\n\n_No response_\n\n### Node.js version\n\n24.18.0\n\n### Operating system\n\nmacOS\n\n### Operating system version (i.e. 20.04, 11.3, 10)\n\nn/a\n\n### Description\n\nThe `LogController` introduced in #6580 types `requestCompleted` to receive `error: Error | null`, yet it is being called with `undefined`.\n\n### Link to code that reproduces the bug\n\nn/a\n\n### Expected Behavior\n\nEither `error` should be `null` for successful requests, or the typings should be updated to reflect the actual `undefined` value at runtime.",
+      "source": "issue",
+      "gold": [
+        "lib/log-controller.js",
+        "types/logger.d.ts"
+      ],
+      "tests": [],
+      "names_gold": false
+    },
+    {
+      "id": "7299a57d3f",
+      "repo": "fastify/fastify",
+      "base": "043baf988048c08ee87190193089a3b714f163fe",
+      "fix": "7299a57d3fdce7da49f2c6d19ba08dc673e53f22",
+      "date": "2026-08-03",
+      "title": "fix: clear trailer state when removing all trailers",
+      "text": "### Description\r\n\r\n`reply.removeTrailer()` marked removed trailers as `undefined`, but it did not clear the internal trailer state when all active trailer callbacks were removed.\r\n\r\nBecause the send path checks whether trailer state is non-null, a response could still enter trailer mode after all trailers were removed. That could produce chunked framing, an empty `Trailer` header, and no `Content-Length` even though no trailers remained.\r\n\r\nThis change clears the trailer state when no active trailer callbacks remain, so removing all trailers behaves the same as not registering trailers.\r\n\r\nThe send-trailer path now keeps a stable reference to the trailer state while callbacks are running. This keeps trailer iteration safe if a trailer callback removes other trailers during execution.\r\n\r\n### Changes proposed\r\n\r\n- Clear trailer state when the last active trailer callback is removed\r\n- Preserve trailer mode when other active trailers remain\r\n- Keep trailer callback iteration safe when trailers are removed during callback execution\r\n- Add regression coverage for remove-all and callback-time removal cases\r\n\r\n### Verification\r\n\r\n- Ran `node --test test/reply-trailers.test.js`\r\n- Ran `npm run coverage:ci-check-coverage`\r\n- Ran `npm test`\r\n- Ran `npm run benchmark --if-present`",
+      "source": "pr",
+      "gold": [
+        "lib/reply.js"
+      ],
+      "tests": [
+        "test/reply-trailers.test.js"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "9ba6d6016f",
+      "repo": "fastify/fastify",
+      "base": "74c44c94afea276256721316d25218d1cdd1aae4",
+      "fix": "9ba6d6016fa932118e6cb2a2f68617cab0824f12",
+      "date": "2026-08-03",
+      "title": "fix: do not force close in-flight connections when forceCloseConnections is 'idle'",
+      "text": "### Summary\r\n\r\n`fastify.close()` destroys connections that are still serving a request when\r\n`forceCloseConnections` is `'idle'`. Since `'idle'` is the default whenever the\r\nserver supports `closeIdleConnections()`, this affects the default\r\nconfiguration.\r\n\r\n```\r\nfastify 5.8.5  (before #6669) → 200 OK\r\nfastify 5.10.0 (after #6669)  → ECONNRESET\r\n```\r\n\r\nReproduced with a handler that sleeps 400ms while `close()` is called after\r\n100ms.\r\n\r\n### Root cause\r\n\r\nRegression from #6669. That PR correctly avoided the redundant\r\n`closeIdleConnections()` call on native servers by narrowing the first branch\r\nto `serverFactory`, but the next branch was left with a loose truthiness check\r\ndating back to #3925:\r\n\r\n```js\r\nif (forceCloseConnections === 'idle' && options.serverFactory) {\r\n  instance.server.closeIdleConnections()\r\n} else if (serverHasCloseAllConnections && forceCloseConnections) {\r\n  instance.server.closeAllConnections()\r\n}\r\n```\r\n\r\nThe loose check was safe while the first branch caught `'idle'`\r\nunconditionally — it could only ever see `true`. After #6669 the string\r\n`'idle'` falls through to it, and being truthy it takes the\r\n`closeAllConnections()` path.\r\n\r\n### Fix\r\n\r\nTighten the check to `=== true`, matching the branch below it. Native servers\r\nwith `'idle'` now call neither method and rely on `server.close()`, which has\r\nclosed idle connections since Node.js v19 — the premise of #6669. All\r\nsupported Node.js versions (20, 22, 24, 26) have this behaviour.\r\n\r\nThe `serverFactory` path, `forceCloseConnections: true`, and the\r\n`kKeepAliveConnections` reap loop for servers without `closeAllConnections()`\r\nare unchanged.\r\n\r\n### Tests\r\n\r\nTwo tests added to `test/close.test.js`, both failing on `main` with\r\n`UND_ERR_SOCKET: other side closed`.\r\n\r\nThe existing `'idle'` coverage (`shutsdown while keep-alive connections are\r\nactive (non-async, idle, native)`) calls `close()` from the response callback,\r\nso the socket is already idle by then. The only behavioural difference between\r\n`'idle'` and `true` is what happens to an active request, and nothing\r\nexercised it.\r\n\r\n### Notes\r\n\r\nNo documentation change: this restores the behaviour already described in\r\n`Server.md`, both in the option reference and in the shutdown lifecycle\r\nsection (\"`\\\"idle\\\"` — idle keep-alive connections are closed; in-flight\r\nrequests continue\").\r\n\r\n/cc @trivikr",
+      "source": "pr",
+      "gold": [
+        "fastify.js"
+      ],
+      "tests": [
+        "test/close.test.js"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "0f54a40f63",
+      "repo": "fastify/fastify",
+      "base": "0e9a3b35d8b13c9f261bf29bef46168a5d43c28f",
+      "fix": "0f54a40f63b399bfe06a3deeab832f8b5feb6345",
+      "date": "2026-08-02",
+      "title": "TypeScript types for http2",
+      "text": "### Prerequisites\n\n\n\n\n### Fastify version\n\n4.28.1\n\n### Plugin version\n\n_No response_\n\n### Node.js version\n\n22.8.0\n\n### Operating system\n\nmacOS\n\n### Operating system version (i.e. 20.04, 11.3, 10)\n\n14.1\n\n### Description\n\n```\r\nconst app = fastify({\r\n  bodyLimit: 32 * 1_024 * 1_024,\r\n  // @ts-expect-error - not clear what's wrong with TypeScript here\r\n  http2: config.USE_HTTP2 === true,\r\n  logger: config.FASTIFY_LOGGING,\r\n  trustProxy: true,\r\n});\r\n```\n\n### Link to code that reproduces the bug\n\n_No response_\n\n### Expected Behavior\n\nI would not expect to get type error.\r\n\r\nLooks like TypeScript types do not like `false` value there.\r\n\r\nI also tried `undefined`, but same result.",
+      "source": "issue",
+      "gold": [
+        "fastify.d.ts"
+      ],
+      "tests": [
+        "test/types/fastify.tst.ts"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "0e9a3b35d8",
+      "repo": "fastify/fastify",
+      "base": "b93d611c7cefc2cd4a0b6f05cc864f2b6c397a6d",
+      "fix": "0e9a3b35d8b13c9f261bf29bef46168a5d43c28f",
+      "date": "2026-07-30",
+      "title": "`addHttpMethod` override existing http standard methods",
+      "text": "### Prerequisites\n\n\n\n\n### Issue\n\nWhile reading ticket #6283 and checking the source code, I realized that `addHttpMethod` override existing methods, including standard http methods.\n\nSurprisingly, the name of the function does not reflect its implementation, nor does [the documentation](https://fastify.dev/docs/latest/Reference/Server/#addhttpmethod).\n\nI wonder if we should do something about this. \n\nHere are a few options:\n1. At a minimum, document this behavior.\n2. Disable the override behavior in the next major and add an alternative method (e.g., `setHttpMethod` or `overrideHttpMethod`) or option (e.g. `override: true`).\n3. Perhaps a combination of both.",
+      "source": "issue",
+      "gold": [
+        "fastify.js",
+        "lib/warnings.js",
+        "types/instance.d.ts"
+      ],
+      "tests": [
+        "test/http-methods/custom-http-methods.test.js",
+        "test/types/instance.tst.ts"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "29bdcbb91f",
+      "repo": "fastify/fastify",
+      "base": "01ca8393b9d10a897f0d2daedbe2f9eb90076ef5",
+      "fix": "29bdcbb91f1318dc90ae8c0e52ab6f4e13c42744",
+      "date": "2026-07-30",
+      "title": "fix: honor quoted-string in `Content-Type` parameter values",
+      "text": "### Summary\r\n\r\n`lib/content-type.js` parses parameters with a single regex whose value alternative is `[^;]*`, which is not aware of quoted-strings. Three consequences follow, all reproducible on `main`:\r\n\r\n- A `;` inside a quoted parameter value terminates the value early. `name=\"foo;bar\"` is parsed as if `name` were unterminated.\r\n- Any `key=value;` text inside a quoted value surfaces as an extra parameter of its own. `name=\"a=b;charset=fake\"` produces a phantom `charset` entry that never appeared on the wire.\r\n- Backslash escapes inside a quoted-string are left untouched instead of being unescaped as required by RFC 9110 §5.6.4.\r\n\r\nThe second one has an observable effect on responses. `reply.send()` decides whether to append the default `charset=utf-8` via `contentType.parameters.has('charset')` (introduced in #6830). A leaked `charset` from inside a quoted parameter value passes that check and suppresses the correct charset on the response — the added integration test in this PR fails on `main` and passes with the fix.\r\n\r\n### Description\r\n\r\nThis aligns the parameter parser with the grammar defined in [RFC 9110 §5.6.6](https://httpwg.org/specs/rfc9110.html#parameter) (`parameter-value = ( token / quoted-string )`) and the quoted-pair rule in [§5.6.4](https://httpwg.org/specs/rfc9110.html#quoted.string). The behavior matches [`fast-content-type-parse`](https://github.com/fastify/fast-content-type-parse), which the ecosystem already treats as the reference implementation of this grammar.\r\n\r\nI kept the fix in-tree rather than introducing `fast-content-type-parse` as a dependency for two reasons: `lib/content-type.js` was only just added in #6830 and exposes a class-based API (`.mediaType`, `.parameters.has()`, `.toString()`, shared LRU cache) that the reference package does not provide, and the change here is a bug fix on a fresh piece of code rather than a rewrite.\r\n\r\nOne small behavior change worth calling out: previously, an unterminated quoted value (e.g. `foo=\" 42`) was stored under a synthetic `'invalid quoted string'` sentinel string. That sentinel was indistinguishable from a real value to `parameters.has()` / `parameters.get()`, which is what enabled the leaked-`charset` case in the first place. With this change an unterminated quoted parameter is dropped instead.\r\n\r\n### Changes\r\n\r\n- `lib/content-type.js` — extend the parameter regex so the value alternative matches either a token or a full quoted-string whose content follows the qdtext / quoted-pair character ranges; strip the enclosing DQUOTEs and unescape any quoted-pairs when the matched value is a quoted-string.\r\n- `test/content-type.test.js` — add three unit tests covering the three broken cases, and update `skips invalid quoted string parameters` to reflect that an unterminated quoted value is now dropped rather than kept under a sentinel string.\r\n- `test/internals/reply.test.js` — add an integration test asserting that `reply.send()` still appends `charset=utf-8` when a quoted parameter value happens to contain the substring `charset=`.",
+      "source": "pr",
+      "gold": [
+        "lib/content-type.js"
+      ],
+      "tests": [
+        "test/content-type.test.js",
+        "test/internals/reply.test.js"
+      ],
+      "names_gold": true
+    },
+    {
+      "id": "01ca8393b9",
+      "repo": "fastify/fastify",
+      "base": "b6cdc6a40598d15f38fe7d399eb17f4b84b7bf06",
+      "fix": "01ca8393b9d10a897f0d2daedbe2f9eb90076ef5",
+      "date": "2026-07-30",
+      "title": "fix: uncatchable throws in writeHead when using async hook",
+      "text": "Catch the errors throw by `writeHead` when using async `onSend` and `preSerialization` hooks.\r\n\r\nCredit @matiasinsaurralde - Thanks for the finding.",
+      "source": "pr",
+      "gold": [
+        "lib/hooks.js"
+      ],
+      "tests": [
+        "test/reply-error.test.js"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "325682c9e5",
+      "repo": "fastify/fastify",
+      "base": "ff7eff5eec8a820b2c6f79b477e1a784bbf42341",
+      "fix": "325682c9e5abb4dce494770c7cdf27139934347d",
+      "date": "2026-07-26",
+      "title": "Validation of optional, nullable number where property value is `0` will default to `null`",
+      "text": "### Prerequisites\n\n\n\n\n### Fastify version\n\n5.6.2\n\n### Plugin version\n\n_No response_\n\n### Node.js version\n\n24.11.0\n\n### Operating system\n\nWindows\n\n### Operating system version (i.e. 20.04, 11.3, 10)\n\n10\n\n### Description\n\nWhen using a schema that defines an optional, nullable number as a property if I send the value `0` then the property is evaluated to be `null` I have added `preValidation` and `preHandler` hooks to look at the incoming body shape and can confirm before the validation step the raw value is `0` and after validation is `null` my schema for validating the model is:\n\n```json\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"length\": {\n      \"anyOf\": [\n        {\n          \"type\": \"null\"\n        },\n        {\n          \"type\": \"number\"\n        }\n      ]\n    }\n  },\n  \"$id\": \"MyModel\"\n}\n```\n\nmy request body sent from client (and during `preValidation`) is:\n\n```json\n{\n  \"length\": 0\n}\n```\n\nmy resulting model in my handler (and during `preHandler`) is:\n\n```json\n{\n  \"length\": null\n}\n```\n\nI can't see any immediate ajv options (or issues in their repo) about this.\n\nIf I make the property \"required\" then I see no change.\n\nIf I make the property \"required and not nullable\" then it works but is now breaking my contract.\n\n### Link to code that reproduces the bug\n\nhttps://gist.github.com/cmcnicholas/cc83f261bb9cbd6847c901e7c1482b92\n\n### Expected Behavior\n\nI would expect that sending explicit `0` value to a validated model property should retain that value and not default to `null`",
+      "source": "issue",
+      "gold": [
+        "lib/validation.js"
+      ],
+      "tests": [
+        "test/fix-6411.test.js"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "6682c4f9a7",
+      "repo": "fastify/fastify",
+      "base": "ab9b96eb2f93373949c253933eddb46f6772bbf4",
+      "fix": "6682c4f9a76cbb60c372ba5cad9dd2fc6e2fdb51",
+      "date": "2026-07-11",
+      "title": "fix: normalize method in findRoute",
+      "text": "### Description\r\n\r\n`findRoute()` was passing the provided method directly to the router lookup. Because registered route methods are normalized, a lookup like `findRoute({ method: 'get', ... })` returned `null` even when the matching `GET` route existed.\r\n\r\nThis change normalizes the method in `findRoute()`, matching the existing behavior in `hasRoute()`.\r\n\r\n### Changes proposed:\r\n\r\n- Updated `lib/route.js` to normalize the method before calling `router.find()`\r\n- Added a regression test in `test/find-route.test.js` for lowercase method lookup\r\n\r\n### Verification\r\n\r\n1. Ran `node --test test/find-route.test.js`\r\n2. Ran `node --test test/has-route.test.js`\r\n3. Ran `npm test`",
+      "source": "pr",
+      "gold": [
+        "lib/route.js"
+      ],
+      "tests": [
+        "test/find-route.test.js"
+      ],
+      "names_gold": true
+    },
+    {
+      "id": "6ac2e95370",
+      "repo": "fastify/fastify",
+      "base": "5f4871f931d45d576bc3385cd1e95f0d668abf4f",
+      "fix": "6ac2e953705312d0ac8776166b96f509dd153613",
+      "date": "2026-07-05",
+      "title": "fix: derive request.port from request.host",
+      "text": "This restores `request.port` to use the same effective host source as `request.host`.\r\n\r\n`#6603` fixed port parsing, but it also changed `request.port` to read directly from `request.headers.host` / `:authority`. When `trustProxy` is enabled, `request.host` may come from `x-forwarded-host`, so `request.host`, `request.hostname`, and `request.port` could disagree.\r\n\r\nThis patch keeps the parsing logic from `#6603`, but parses from `request.host` so the three properties stay aligned again.\r\n\r\nIt also adds coverage for the trust-proxy cases discussed in `#6671`, including `:authority` fallback.\r\n\r\nRefs: #6671\r\nCloses https://github.com/fastify/fastify/pull/6781",
+      "source": "pr",
+      "gold": [
+        "lib/request.js"
+      ],
+      "tests": [
+        "test/internals/request.test.js",
+        "test/trust-proxy.test.js"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "7f6d319806",
+      "repo": "fastify/fastify",
+      "base": "0c28b57cef28d15b6873df77c0f76a80a0ad2269",
+      "fix": "7f6d31980632eaa9c751dda48da8d12ff76ab411",
+      "date": "2026-07-01",
+      "title": "fix: clear socket._meta on reply.hijack() when onTimeout is registered",
+      "text": "## Summary\r\nDuring review of #6799 (`socket._meta` cleanup), I found that `reply.hijack()` bypasses the normal response lifecycle and therefore skips `onResFinished`.\r\n\r\nWhen an `onTimeout` hook is registered, Fastify stores request metadata in `socket._meta`. Under the normal response lifecycle this metadata is cleared when the response finishes, but a hijacked reply never reaches that cleanup path. As a result, `socket._meta` can continue to retain references to the request and reply objects for the lifetime of the socket after a hijacked response.\r\n\r\nFix: clear `socket._meta` inside `reply.hijack()` when the current request owns the metadata.\r\n\r\n## Files changed\r\n\r\n| File | Change |\r\n| --- | --- |\r\n| `lib/reply.js` | Clear `socket._meta` in `reply.hijack()` when the current request owns it |\r\n| `lib/route.js` | Clear the socket timeout in `onResFinished` to prevent stale timeout events |\r\n| `test/hooks.test.js` | Add regression test covering `reply.hijack()` cleanup |\r\n\r\n## Test plan\r\r\n  - `socket._meta is cleared on reply.hijack() when onTimeout is registered`",
+      "source": "pr",
+      "gold": [
+        "lib/reply.js",
+        "lib/route.js"
+      ],
+      "tests": [
+        "test/hooks.test.js"
+      ],
+      "names_gold": true
+    },
+    {
+      "id": "cc8d9a3c96",
+      "repo": "fastify/fastify",
+      "base": "6e6be153127cbe6e025f73efba78d1db7dd5788b",
+      "fix": "cc8d9a3c961d65cb1a39c4142ce63285d2de1e3c",
+      "date": "2026-06-28",
+      "title": "fix: hasRequestDecorator/hasReplyDecorator misses constructor-assigned built-in properties",
+      "text": "## What\n\n`hasRequestDecorator` and `hasReplyDecorator` only check the constructor prototype and the decorator props list. But several core properties — `req.id`, `req.params`, `req.raw`, `req.query`, `req.log`, `req.body`, `reply.raw`, `reply.request`, `reply.log` — are assigned directly in the `Request` and `Reply` constructors, not on their prototypes.\n\nThis means:\n\n```js\nfastify.hasRequestDecorator('id')   // returns false (wrong)\nfastify.decorateRequest('id', null) // silently succeeds (wrong)\n// then at request time:\n// TypeError: Cannot set property id... or req.id is null\n```\n\n## Root cause\n\n`checkRequestExistence` and `decorateConstructor` in `lib/decorate.js` use `Object.hasOwn(prototype, name)` and `name in prototype`. Properties set in the constructor body are never on the prototype, so these checks miss them.\n\n## Fix\n\nAdd an `instanceProperties` set to `Request` and `Reply` listing their constructor-assigned string-keyed properties. `decorateConstructor` and the `checkRequest/ReplyExistence` helpers now also check this set (walking the parent chain for derived constructors).\n\nAfter the fix:\n\n```js\nfastify.hasRequestDecorator('id')     // true\nfastify.hasReplyDecorator('raw')      // true\nfastify.decorateRequest('id', null)   // throws FST_ERR_DEC_ALREADY_PRESENT\nfastify.decorateReply('raw', null)    // throws FST_ERR_DEC_ALREADY_PRESENT\nfastify.decorateRequest('myExtra', null) // still works fine\n```\n\nAll 52 existing decorator tests pass. Six new node:test tests cover the bug and the fix.",
+      "source": "pr",
+      "gold": [
+        "lib/decorate.js",
+        "lib/reply.js",
+        "lib/request.js"
+      ],
+      "tests": [
+        "test/decorator-instance-properties.test.js"
+      ],
+      "names_gold": true
+    },
+    {
+      "id": "2f597a9297",
+      "repo": "fastify/fastify",
+      "base": "8b9c07b645a8156c23a1d2619267fc84ea879250",
+      "fix": "2f597a9297a3020a9f30bf5548a8442c28ddb1c1",
+      "date": "2026-06-21",
+      "title": "fix: avoid double slash when joining nested prefixes",
+      "text": "## What\n\n`buildRoutePrefix` joins a parent register's prefix with a child register's\nprefix and is meant to keep exactly one `/` between them (per the existing\n`'/first//second'` comment). It misses the case where the parent prefix ends\nwith `/` and the child prefix has no leading `/`: it prepends a `/` anyway and\nproduces a double slash.\n\nFor example:\n\n```js\nfastify.register(function (instance, opts, done) {\n  instance.register(function (sub, opts, done) {\n    sub.get('/route', handler)\n    done()\n  }, { prefix: 'inner' })   // no leading slash\n  done()\n}, { prefix: '/v1/' })      // trailing slash\n```\n\nregisters the route at `/v1//inner/route` instead of `/v1/inner/route`. With the\ndefault `ignoreDuplicateSlashes: false`, `GET /v1/inner/route` then returns 404.\n\n## How\n\nOnly prepend the separating `/` when the parent prefix does not already end with\none. This matches the existing route-path handling in `lib/route.js` (\"Ensure\nthat '/prefix/' + '/route' gets registered as '/prefix/route'\").\n\n## Testing\n\nAdded a test in `test/route-prefix.test.js` for a trailing-slash parent prefix\ncombined with a no-leading-slash child prefix. It fails before the change and\npasses after. Lint, the full unit suite, type tests, and the 100% coverage check\npass locally.",
+      "source": "pr",
+      "gold": [
+        "lib/plugin-override.js"
+      ],
+      "tests": [
+        "test/route-prefix.test.js"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "8b9c07b645",
+      "repo": "fastify/fastify",
+      "base": "9d2914857906a98b6366266417d6527ab8e5e06f",
+      "fix": "8b9c07b645a8156c23a1d2619267fc84ea879250",
+      "date": "2026-06-19",
+      "title": "fix: clear socket._meta after response to prevent keep-alive leaks",
+      "text": "## Summary\r\n\r\n- **`socket._meta` held context/request/reply alive for the full lifetime of a keep-alive socket**; now cleared in `onResFinished` when the current request owns `_meta` (`socket._meta.request === request` check prevents a race where a concurrent request has already updated `_meta`)\r\n\r\n## Files changed\r\n\r\n| File | Change |\r\n|---|---|\r\n| `lib/reply.js` | In `onResFinished`: clears `socket._meta` when this request owns it |\r\n\r\n## Test plan",
+      "source": "pr",
+      "gold": [
+        "lib/reply.js"
+      ],
+      "tests": [
+        "test/hooks.test.js"
+      ],
+      "names_gold": true
+    },
+    {
+      "id": "c647de44cc",
+      "repo": "fastify/fastify",
+      "base": "27f4d6222dd945238e96c1fdaa632d5dc3c37b2c",
+      "fix": "c647de44cceaf8ec6ce81796374ff6ffd944d873",
+      "date": "2026-06-09",
+      "title": "fix: replace `AssertionError` with `FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED` in `checkDependencies`",
+      "text": "## Summary\r\n\r\n`checkDependencies` throws a generic `AssertionError` when a plugin dependency\r\nis not registered, making it impossible to identify the error via `error.code`.\r\nThis was missed during the #2842 improvement pass — `checkDecorators` was\r\nalready migrated to `FST_ERR_PLUGIN_NOT_PRESENT_IN_INSTANCE` but\r\n`checkDependencies` was left with a bare `assert()`.\r\n\r\n## Root cause\r\n\r\n```js\r\ndependencies.forEach(dependency => {\r\n  assert(                              // throws AssertionError ❌\r\n    this[kRegisteredPlugins].indexOf(dependency) > -1,\r\n    `The dependency '${dependency}' of plugin '${meta.name}' is not registered`\r\n  )\r\n})\r\n```\r\n\r\n## Fix\r\n\r\nAdd `FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED` and replace `assert()` with\r\na proper `throw`, matching the existing pattern in `checkDecorators`.\r\n\r\n## Test\r\n\r\n- `test/internals/errors.test.js`: unit test for the new error constructor,\r\n  including interpolated arguments\r\n- `test/internals/plugin.test.js`: updated the existing errored case to also\r\n  assert `error.code === 'FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED'` and\r\n  `error.name === 'FastifyError'`\r\n- `test/types/errors.test-d.ts`: type-level assertion via `expectAssignable<FastifyErrorConstructor>`",
+      "source": "pr",
+      "gold": [
+        "lib/errors.js",
+        "lib/plugin-utils.js",
+        "types/errors.d.ts"
+      ],
+      "tests": [
+        "test/internals/errors.test.js",
+        "test/internals/plugin.test.js",
+        "test/types/errors.test-d.ts"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "2bf4265b99",
+      "repo": "fastify/fastify",
+      "base": "fc9eafddae37dea167d2affc26a29a04f9412047",
+      "fix": "2bf4265b991aa4c9a2d3886882be6f062338c7bc",
+      "date": "2026-06-07",
+      "title": "fix: chunk large HTTP/2 buffer replies",
+      "text": "Chunk large non-stream HTTP/2 payload writes to avoid poisoning the session after cancellation.\n\nUser-provided streams remain unmodified; docs note apps should chunk large stream emissions.\n\nTests:\n- node --test test/http2/plain.test.js\n- node --test test/http2/*.test.js\n- npm run lint\n- npx markdownlint-cli2 docs/Reference/Reply.md --no-globs",
+      "source": "pr",
+      "gold": [
+        "lib/reply.js"
+      ],
+      "tests": [
+        "test/http2/plain.test.js"
+      ],
+      "names_gold": false
+    },
+    {
+      "id": "47670c1fce",
+      "repo": "fastify/fastify",
+      "base": "3e04cff927534744290f26cf15220f6824e9dc66",
+      "fix": "47670c1fced0dbdd630ef7719823cce74241cc63",
+      "date": "2026-05-30",
+      "title": "fix: include hint and docs URL in FSTWRN004 warning message",
+      "text": "## Summary\r\n\r\nThe `FSTWRN004` warning was created in `lib/warnings.js` with a static\r\nmessage that contained no `%s` format placeholder. As a result, the\r\nhint string passed at the call site in `fastify.js` was silently dropped\r\nby `process-warning`, and users who triggered the warning never saw the\r\nactionable information about `allowErrorHandlerOverride`.\r\n\r\n## Root Cause\r\n\r\n`process-warning`'s `createWarning` only interpolates arguments when the\r\nmessage contains `%s` placeholders. With no placeholder present, any\r\nargument passed to the emitter function is a no-op.\r\n\r\n## Changes\r\n\r\n- **`lib/warnings.js`**: Embed the hint and docs URL directly into the\r\n  static message of `FSTWRN004`.\r\n- **`fastify.js`**: Remove the now-unused string argument from the\r\n  `FSTWRN004()` call.\r\n- **`test/set-error-handler.test.js`**: Add a test that asserts the\r\n  warning is emitted with `name`, `code`, and the docs URL in the\r\n  message when `setErrorHandler` is called more than once in the same\r\n  scope.",
+      "source": "pr",
+      "gold": [
+        "fastify.js",
+        "lib/warnings.js"
+      ],
+      "tests": [],
+      "names_gold": true
+    },
+    {
+      "id": "9026164f5a",
+      "repo": "fastify/fastify",
+      "base": "6d202c6203f33ceb709dbcf6311b2d7152a8a057",
+      "fix": "9026164f5a2e78db59ff8f98933279161a85a6e3",
+      "date": "2026-05-07",
+      "title": "fix: ignore duplicate trailer completions",
+      "text": "Add a regression test and fix for trailer handlers that complete twice by mixing the callback and promise styles.\r\n\r\nThe fix adds a per-trailer called-once guard in `sendTrailer()` so the first completion wins and sibling async trailers are not dropped.",
+      "source": "pr",
+      "gold": [
+        "lib/reply.js"
+      ],
+      "tests": [
+        "test/reply-trailers.test.js"
+      ],
+      "names_gold": false
+    }
+  ]
+}

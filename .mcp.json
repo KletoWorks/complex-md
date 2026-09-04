@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "complex-md": {
+      "command": "node",
+      "args": [
+        "cli/bin/complex-md.js",
+        "mcp"
+      ]
+    }
+  }
+}
