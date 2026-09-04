@@ -41,6 +41,9 @@ h1, h2, h3 { font-family: var(--cx-sans); font-weight: 600; margin: 0; }
 .site-header { border-bottom: 1px solid var(--line); background: var(--ground); }
 .site-header nav { max-width: 1152px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 24px; }
 .brand-group { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
+.brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink); }
+.brand .mark { display: block; flex: none; }
+.brand:hover .brand-chip { border-color: var(--ink); }
 .brand-chip { font-family: var(--cx-mono); font-weight: 700; font-size: 13px; text-decoration: none; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 7px 11px; line-height: 1; }
 .brand-chip:hover { border-color: var(--ink); }
 .dl-sq, .gh-sq { display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--radius); text-decoration: none; }
@@ -69,7 +72,8 @@ main.doc + .site-footer, main.full + .site-footer { margin-top: 96px; }
 main.full { padding: 0; }
 .hero { background: var(--band); padding: 80px 0; }
 .hero .inner { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
-.hero h1.wordmark { font-size: 60px; font-weight: 700; line-height: 60px; letter-spacing: -1.5px; }
+.hero h1.wordmark { display: flex; align-items: center; gap: 14px; font-size: 60px; font-weight: 700; line-height: 60px; letter-spacing: -1.5px; }
+.hero h1.wordmark .hero-mark { flex: none; width: 52px; height: 52px; }
 .hero .pitch { font-size: 18px; line-height: 29.25px; color: var(--ink-2); margin: 8px 0 0; }
 .hero .pitch + .pitch { margin-top: 12px; }
 .hero .pitch a { color: inherit; }
@@ -199,7 +203,8 @@ main.doc .toc a:hover { text-decoration: underline; }
 }
 @media (max-width: 640px) {
   .hero { padding: 64px 0; }
-  .hero h1.wordmark { font-size: 48px; line-height: 48px; letter-spacing: -1.2px; }
+  .hero h1.wordmark { font-size: 48px; line-height: 48px; letter-spacing: -1.2px; gap: 8px; }
+  .hero h1.wordmark .hero-mark { width: 34px; height: 34px; }
   .section.first { padding-top: 64px; }
   .section h2 { font-size: 26px; line-height: 32px; }
   .examples-row { grid-template-columns: 1fr; }

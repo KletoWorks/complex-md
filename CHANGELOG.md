@@ -4,6 +4,14 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-04  Brand mark
+
+**Intent:** one mark identifies the project everywhere a visitor meets it.
+**Change:** the owner-supplied mark (monochrome, used exactly as supplied)
+sits beside the wordmark in the header and the hero, is the favicon (with a
+dark-mode variant), the PNG icons, the social card, and the 404 page.
+`site/mark.path` is the single source the build reads.
+
 ## 2026-09-04  Site: social card, icons, structured data, sitemap
 
 **Intent:** a shared link renders with an image and a title, the tab has an
