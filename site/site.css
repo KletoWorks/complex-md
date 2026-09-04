@@ -218,3 +218,7 @@ main.doc .toc a:hover { text-decoration: underline; }
   .ctas { flex-direction: column; }
   .ctas .btn { width: 100%; }
 }
+
+/* Copy button on file cards, added by site.js. */
+.file-card .copy { margin-left: auto; font: inherit; font-size: 12px; font-weight: 500; line-height: 20px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--radius); padding: 2px 10px; cursor: pointer; }
+.file-card .copy:hover { color: var(--ink); border-color: var(--line-2); }
