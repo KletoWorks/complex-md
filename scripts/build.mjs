@@ -97,7 +97,6 @@ function articleJsonLd(m, canonical) {
     datePublished: m.date,
     dateModified: m.updated || m.date,
     author: { '@type': 'Person', name: AUTHOR, url: AUTHOR_URL },
-    publisher: { '@type': 'Organization', name: 'Kleto LLC' },
     mainEntityOfPage: canonical,
   });
 }
@@ -126,7 +125,6 @@ const siteJsonLd = JSON.stringify({
   url: ORIGIN,
   description: 'COMPLEX.md is a computed markdown file that tells a coding agent where the structural risk in a codebase lives.',
   author: { '@type': 'Person', name: AUTHOR, url: AUTHOR_URL },
-  publisher: { '@type': 'Organization', name: 'Kleto LLC' },
   license: 'https://opensource.org/license/mit/',
 });
 
@@ -172,7 +170,7 @@ ${body}
 </main>
 <footer class="site-footer">
 <div class="inner">
-<small>&copy; <a href="${AUTHOR_URL}" rel="author">${AUTHOR}</a> &middot; Kleto LLC &middot; <a href="${REPO}">source</a>, MIT &middot; design after <a href="https://agents.md">agents.md</a> (MIT)</small>
+<small>&copy; <a href="${AUTHOR_URL}" rel="author">${AUTHOR}</a> &middot; <a href="${REPO}">source</a>, MIT &middot; design after <a href="https://agents.md">agents.md</a> (MIT)</small>
 <small class="vers">spec ${specVersion} &middot; prompt ${promptVersion}</small>
 </div>
 </footer>
