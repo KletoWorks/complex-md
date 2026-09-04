@@ -1,0 +1,27 @@
+# Publish to npm when a version tag is pushed. Uses npm trusted publishing
+# (OIDC): no token in secrets, no second factor prompt, provenance attached.
+# The tag must match cli/package.json, and the package must be configured on
+# npmjs.com with this repository and workflow as its trusted publisher.
+name: release
+on:
+  push:
+    tags: ['v*.*.*']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: tag matches package version
+        run: |
+          v=$(node -p "require('./cli/package.json').version")
+          [ "refs/tags/v$v" = "$GITHUB_REF" ] || { echo "tag $GITHUB_REF does not match cli/package.json $v"; exit 1; }
+      - run: cd cli && npm ci && npm test
+      - run: npm run build
+      - run: cd cli && npm publish --access public --provenance
