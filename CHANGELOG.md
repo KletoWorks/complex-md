@@ -124,7 +124,7 @@ skill's shell fallback is commit-indexed and labels itself.
 **Intent:** the site links to the source, so the repository is public; the
 CLI's default model IDs are verified current; the benchmark pilot ran for
 real.
-**Change:** `jameslcowan/complex-md` is public under MIT. Defaults are
+**Change:** `KletoWorks/complex-md` is public under MIT. Defaults are
 `claude-sonnet-5` and `gpt-5.6-terra`. Pilot: 8 fastify tasks, `none` vs
 `file`, Claude Code headless, stopped at first edit; median 2 tool calls to
 the first gold file in both arms, paired 1 win / 5 ties / 2 losses. Recorded

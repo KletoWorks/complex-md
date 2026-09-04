@@ -2,7 +2,7 @@
 title: COMPLEX.md spec 0.3
 description: The specification for COMPLEX.md, a computed markdown file that tells coding agents where the structural risk in a codebase lives.
 path: /spec
-kicker: Spec {{SPEC_VERSION}} &middot; prompt {{PROMPT_VERSION}} &middot; <a href="/spec.md">raw markdown</a> &middot; <a href="https://github.com/jameslcowan/complex-md/blob/main/content/spec.md">history</a>
+kicker: Spec {{SPEC_VERSION}} &middot; prompt {{PROMPT_VERSION}} &middot; <a href="/spec.md">raw markdown</a> &middot; <a href="https://github.com/KletoWorks/complex-md/blob/main/content/spec.md">history</a>
 -->
 
 # COMPLEX.md spec 0.3
@@ -21,7 +21,7 @@ and what to do about it before it does.
 The signals rest on the defect-prediction literature and on the 2026
 research into how coding agents actually consume context files; the
 evidence and every verdict are in
-[docs/RESEARCH-signals-and-wiring.md](https://github.com/jameslcowan/complex-md/blob/main/docs/RESEARCH-signals-and-wiring.md).
+[docs/RESEARCH-signals-and-wiring.md](https://github.com/KletoWorks/complex-md/blob/main/docs/RESEARCH-signals-and-wiring.md).
 The short version: change history carries the signal, descriptive overviews
 are ignored by agents while concrete instructions are followed, and a
 secondary file gets priority by being imported and path-scoped, not by
@@ -30,7 +30,7 @@ tree, so a quiet file that 46 files import can rank, and history indexed by
 commit rather than by calendar, so a six-week-old repository and a
 six-year-old one are read the same way. Every file has a kind, and the file
 says what the analysis could not see. What changed between versions is
-recorded in the [changelog](https://github.com/jameslcowan/complex-md/blob/main/CHANGELOG.md).
+recorded in the [changelog](https://github.com/KletoWorks/complex-md/blob/main/CHANGELOG.md).
 
 The efficiency case is specific. Measured on SWE-bench, coding agents spend
 about half their turns and over 300k tokens per issue locating the fault
@@ -708,5 +708,5 @@ and the file describes that repository as it stands.
 
 A file written to an earlier spec version remains valid input for any
 agent and for the hooks and MCP server; generators emit the current
-version, and the [changelog](https://github.com/jameslcowan/complex-md/blob/main/CHANGELOG.md)
+version, and the [changelog](https://github.com/KletoWorks/complex-md/blob/main/CHANGELOG.md)
 records what changed between versions.

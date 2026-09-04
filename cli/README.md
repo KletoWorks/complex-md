@@ -89,7 +89,7 @@ Run at an old commit and the window anchors to that commit's date, so a map
 regenerated for a past release describes the history that existed then.
 
 Whether any of this gets an agent to the right file faster is measured, not
-asserted: see the benchmark in the repository (`bench/`, https://github.com/jameslcowan/complex-md).
+asserted: see the benchmark in the repository (`bench/`, https://github.com/KletoWorks/complex-md).
 
 ## Limits, stated plainly
 

@@ -7,7 +7,7 @@
   "homepage": "https://complex.md",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jameslcowan/complex-md.git",
+    "url": "git+https://github.com/KletoWorks/complex-md.git",
     "directory": "cli"
   },
   "type": "module",

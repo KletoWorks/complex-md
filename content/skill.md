@@ -2,7 +2,7 @@
 title: The complex-md skill
 description: One markdown file you hand to any coding agent. The agent runs it inside your repository and writes a COMPLEX.md that follows the spec.
 path: /skill
-kicker: Skill for spec {{SPEC_VERSION}} &middot; prompt {{PROMPT_VERSION}} &middot; <a href="/complex-md.skill.md" download="complex-md.skill.md">download</a> &middot; <a href="https://github.com/jameslcowan/complex-md/tree/main/cli">CLI source</a>
+kicker: Skill for spec {{SPEC_VERSION}} &middot; prompt {{PROMPT_VERSION}} &middot; <a href="/complex-md.skill.md" download="complex-md.skill.md">download</a> &middot; <a href="https://github.com/KletoWorks/complex-md/tree/main/cli">CLI source</a>
 -->
 
 # The complex-md skill
