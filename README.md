@@ -18,6 +18,13 @@ Stop hooks, and the MCP server. The package lives in `cli/`. Without `npx`,
 the skill does the same by hand: download https://complex.md/complex-md.skill.md
 and run it with any coding agent inside the repo.
 
+If npm answers `No versions available for complex-md`, the repository's
+`.npmrc` (or your user config) sets `min-release-age`, npm's guard against
+packages published within the last few days. Run
+`npm_config_min_release_age=0 npx -y complex-md` once, or wait for the
+release to age past the threshold.
+
+
 ## Layout
 
 | Path | What |
