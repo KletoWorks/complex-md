@@ -4,6 +4,19 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-04  Landing page: agent marquee, accordion FAQ, shorter copy, short footer
+
+**Intent:** the page reads in one pass: short sentences, a clear mission,
+the agents shown by their marks, questions that open on demand, and the
+attribution kept to one footer line with the rest in metadata.
+**Change:** a marquee of 25 monochrome agent marks (site/logos, one
+currentColor rule for both themes, static and wrapping under reduced
+motion) replaces the text chips; the FAQ is a details/summary accordion
+with one- or two-sentence answers; About becomes "Why this exists"; the
+prose column narrows to about 75 characters; the hero pitch is two short
+lines; the footer is one line (author, MIT, GitHub, npm) plus versions,
+with no design credit.
+
 ## 2026-09-04  Brand mark
 
 **Intent:** one mark identifies the project everywhere a visitor meets it.

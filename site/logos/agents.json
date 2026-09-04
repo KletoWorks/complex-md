@@ -1,0 +1,102 @@
+[
+ {
+  "slug": "claude",
+  "name": "Claude Code"
+ },
+ {
+  "slug": "cursor",
+  "name": "Cursor"
+ },
+ {
+  "slug": "codex",
+  "name": "Codex"
+ },
+ {
+  "slug": "gemini",
+  "name": "Gemini CLI"
+ },
+ {
+  "slug": "copilot",
+  "name": "GitHub Copilot"
+ },
+ {
+  "slug": "openhands",
+  "name": "OpenHands"
+ },
+ {
+  "slug": "windsurf-light",
+  "name": "Windsurf"
+ },
+ {
+  "slug": "cline",
+  "name": "Cline"
+ },
+ {
+  "slug": "roocode",
+  "name": "Roo Code"
+ },
+ {
+  "slug": "openclaw",
+  "name": "OpenClaw"
+ },
+ {
+  "slug": "hermes",
+  "name": "Hermes"
+ },
+ {
+  "slug": "vscode-light",
+  "name": "VS Code"
+ },
+ {
+  "slug": "opencode",
+  "name": "opencode"
+ },
+ {
+  "slug": "goose",
+  "name": "goose"
+ },
+ {
+  "slug": "amp",
+  "name": "Amp"
+ },
+ {
+  "slug": "jules",
+  "name": "Jules"
+ },
+ {
+  "slug": "zed",
+  "name": "Zed"
+ },
+ {
+  "slug": "warp",
+  "name": "Warp"
+ },
+ {
+  "slug": "aider",
+  "name": "Aider"
+ },
+ {
+  "slug": "devin-light",
+  "name": "Devin"
+ },
+ {
+  "slug": "factory",
+  "name": "Factory"
+ },
+ {
+  "slug": "kilo-code",
+  "name": "Kilo Code"
+ },
+ {
+  "slug": "junie",
+  "name": "Junie"
+ },
+ {
+  "slug": "augment",
+  "name": "Augment"
+ },
+ {
+  "slug": "modelcontextprotocol",
+  "name": "MCP"
+ }
+]

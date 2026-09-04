@@ -35,7 +35,7 @@ body { margin: 0; font-family: var(--cx-sans); font-size: 16px; line-height: 24p
 a { color: var(--ink); text-underline-offset: 3px; }
 h1, h2, h3 { font-family: var(--cx-sans); font-weight: 600; margin: 0; }
 .inner { max-width: 1152px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
-.inner.narrow { max-width: 816px; }
+.inner.narrow { max-width: 744px; }
 
 /* Header: one thin row, brand chip as home, skill download square, nav. */
 .site-header { border-bottom: 1px solid var(--line); background: var(--ground); }
@@ -74,7 +74,8 @@ main.full { padding: 0; }
 .hero .inner { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
 .hero h1.wordmark { display: flex; align-items: center; gap: 14px; font-size: 60px; font-weight: 700; line-height: 60px; letter-spacing: -1.5px; }
 .hero h1.wordmark .hero-mark { flex: none; width: 52px; height: 52px; }
-.hero .pitch { font-size: 18px; line-height: 29.25px; color: var(--ink-2); margin: 8px 0 0; }
+.hero .pitch { font-size: 22px; line-height: 30px; font-weight: 500; color: var(--ink); margin: 12px 0 0; max-width: 30ch; }
+.hero .pitch.sub { font-size: 18px; line-height: 28px; font-weight: 400; color: var(--ink-2); max-width: 44ch; }
 .hero .pitch + .pitch { margin-top: 12px; }
 .hero .pitch a { color: inherit; }
 .install { display: inline-flex; align-items: center; gap: 10px; font-family: var(--cx-mono); font-size: 14px; line-height: 20px; background: var(--ground); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; margin: 24px 0 0; box-shadow: var(--shadow); }
@@ -86,7 +87,7 @@ main.full { padding: 0; }
 .file-card .bar { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .file-card .fname { font-family: var(--cx-mono); font-weight: 700; font-size: 12px; }
 .file-card .ftag { font-family: var(--cx-mono); font-size: 12px; color: var(--muted-2); }
-.file-card pre { margin: 0; padding: 16px; border: 0; border-radius: 0; background: var(--ground); font-family: var(--cx-mono); font-size: 12px; line-height: 24px; overflow-x: auto; color: var(--ink); }
+.file-card pre { margin: 0; padding: 16px; border: 0; border-radius: 0; background: var(--ground); font-family: var(--cx-mono); font-size: 12px; line-height: 24px; overflow-x: auto; white-space: pre; color: var(--ink); }
 .file-card .fm { color: var(--muted); }
 .file-card .fm .k { color: var(--ink); }
 .file-card .fm .hot { color: var(--heat-3); font-weight: 700; }
@@ -108,12 +109,19 @@ main.full { padding: 0; }
 .points li { display: flex; gap: 12px; align-items: flex-start; font-weight: 600; }
 .points li svg { flex: none; width: 20px; height: 20px; margin-top: 2px; }
 
-/* Compatibility: one row of names, wrapping, centered. */
-.agents { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 40px; font-size: 16px; font-weight: 500; }
-.agents li { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); }
-.agents li::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--ink); opacity: .55; }
-.agents .more { font-weight: 400; color: var(--muted-2); }
-.agents .more::before { display: none; }
+/* Compatibility: a marquee of monochrome marks, doubled for a seamless
+   loop, paused on hover, static and wrapping when motion is reduced. */
+.marquee { margin-top: 32px; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); display: flex; width: 100%; }
+.marquee .track { list-style: none; margin: 0; padding: 0 48px 0 0; display: flex; flex: none; align-items: center; gap: 48px; animation: marquee 60s linear infinite; }
+.marquee:hover .track { animation-play-state: paused; }
+.marquee .track li { display: inline-flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 500; color: var(--ink); white-space: nowrap; }
+.marquee .track svg { width: 26px; height: 26px; display: block; flex: none; }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .marquee { -webkit-mask-image: none; mask-image: none; }
+  .marquee .track { animation: none; flex-wrap: wrap; justify-content: center; gap: 16px 32px; padding: 0; }
+  .marquee .track[aria-hidden] { display: none; }
+}
 
 /* Examples: the full width card, then a row of repository cards. */
 .section.examples .inner { display: flex; flex-direction: column; gap: 24px; }
@@ -135,10 +143,15 @@ main.full { padding: 0; }
 .steps li { margin: 4px 0; }
 .steps code, .section p code, .faq-item p code { font-family: var(--cx-mono); font-size: 0.9em; background: var(--band); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; }
 
-/* FAQ: 20px questions, 16px on 26px muted answers. */
-.faq-item h3 { font-size: 20px; font-weight: 600; line-height: 28px; margin-bottom: 8px; }
-.faq-item p { font-size: 16px; line-height: 26px; color: var(--muted); margin-bottom: 8px; }
-.faq-item pre { margin: 8px 0 0; padding: 16px; background: var(--ground); border: 1px solid var(--line); border-radius: var(--card-radius); box-shadow: var(--shadow); font-family: var(--cx-mono); font-size: 12px; line-height: 24px; overflow-x: auto; }
+/* FAQ: an accordion of hairline rows; the summary is the question. */
+.faq-list { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.faq-item { border-bottom: 1px solid var(--line); }
+.faq-item summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; font-size: 18px; font-weight: 600; line-height: 26px; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: ""; flex: none; width: 9px; height: 9px; border-right: 2px solid var(--muted-2); border-bottom: 2px solid var(--muted-2); transform: translateY(-3px) rotate(45deg); transition: transform .2s; margin-right: 6px; }
+.faq-item[open] summary::after { transform: translateY(3px) rotate(-135deg); }
+.faq-item p { margin: 0 0 20px; font-size: 16px; line-height: 26px; color: var(--muted); max-width: 62ch; }
+.faq-item p a { color: inherit; }
 
 /* Doc pages: spec, skill, articles. platform.css zeroes every block margin
    and strips underlines as its floor; a document restores its rhythm here. */

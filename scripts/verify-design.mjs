@@ -30,11 +30,11 @@ const port = server.address().port;
 const EXPECT = {
   desktop: {
     'h1.wordmark': { fontSize: '60px', fontWeight: '700', lineHeight: '60px', letterSpacing: '-1.5px' },
-    '.hero .pitch': { fontSize: '18px' },
+    '.hero .pitch': { fontSize: '22px' },
     '.section h2': { fontSize: '30px', fontWeight: '600', lineHeight: '36px', letterSpacing: '-0.75px', textAlign: 'center' },
     '.btn.solid': { fontSize: '14px', fontWeight: '500', paddingTop: '12px', paddingLeft: '20px', borderRadius: '4px' },
     '.file-card pre': { fontSize: '12px', lineHeight: '24px' },
-    '.faq-item h3': { fontSize: '20px', lineHeight: '28px' },
+    '.faq-item summary': { fontSize: '18px', lineHeight: '26px' },
     '.site-footer': { textAlign: 'center', fontSize: '14px' },
     body: { fontSize: '16px', lineHeight: '24px' },
   },
@@ -43,7 +43,7 @@ const EXPECT = {
   },
 };
 const WIDTHS = {
-  '.hero .inner': 1152, '#why .inner.narrow': 816, '#examples .inner': 1152,
+  '.hero .inner': 1152, '#why .inner.narrow': 744, '#examples .inner': 1152,
 };
 
 const browser = await chromium.launch();
@@ -83,7 +83,7 @@ for (const [name, width, dark] of [['desktop-light', 1280, false], ['desktop-dar
   if (got._hero === got._why) problems.push(`${name}: hero band must differ from the first section (${got._hero})`);
   if (got._why !== got._bg && got._why !== 'rgba(0, 0, 0, 0)') problems.push(`${name}: sections below the hero must sit on the page ground, not a band`);
   if (got._overflow) problems.push(`${name}: horizontal overflow`);
-  const order = ['Why COMPLEX.md?', 'One COMPLEX.md works across many agents', 'Examples', 'How to use COMPLEX.md?', 'About', 'FAQ'];
+  const order = ['Why COMPLEX.md?', 'Works with the agents you already use.', 'Examples', 'How to use it', 'Why this exists', 'FAQ'];
   if (JSON.stringify(got._order) !== JSON.stringify(order)) problems.push(`${name}: section order ${JSON.stringify(got._order)}`);
   await ctx.close();
 }

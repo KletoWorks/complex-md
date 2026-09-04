@@ -9,12 +9,9 @@ layout: full
 <div class="inner">
 <div>
 <h1 class="wordmark"><svg class="mark hero-mark" viewBox="0 0 512 512" width="52" height="52" aria-hidden="true"><path fill="currentColor" d="M423.65 88.346c47.55 47.55 47.643 124.649.254 172.036s-124.277 47.087-171.827-.464s-47.851-124.44-.462-171.827s124.484-47.296 172.036.255zm48.457 75.976c36.55 85.672 20.095 188.403-49.603 258.1c-2.305 2.306-4.711 4.485-7.087 6.674l.316.727c-2.3 1.833-4.633 3.579-6.982 5.317c-92.205 78.677-231.182 74.228-318.65-13.24S-1.816 195.456 76.86 103.25c1.74-2.347 3.484-4.682 5.318-6.982l.727.313c2.188-2.375 4.367-4.781 6.673-7.086c69.697-69.698 172.428-86.154 258.1-49.604c-44.279-6.46-91.003 7.355-125.004 41.356c-57.266 57.266-57.136 150.294.325 207.756s150.49 57.592 207.756.326c34.002-34.001 47.817-80.725 41.355-125.005zm-62.842-61.591c-26.153-26.153-68.564-26.113-94.766.089s-26.346 68.717-.193 94.87s68.668 26.008 94.87-.193s26.241-68.614.09-94.766zM452.81 310.55l-.416.417c-19.188 19.188-41.842 32.938-65.959 41.404l17.141 45.493c24.427-25.42 40.567-55.495 49.235-87.314zM201.445 59.188c-31.82 8.667-61.895 24.807-87.314 49.235l45.389 17.036c8.481-24.096 22.33-46.676 41.508-65.855l.415-.416zm136.45 302.81c-13.946.832-27.975.064-41.758-2.357L273.55 459.844c31.412-2.587 62.37-12.41 90.107-29.556zM149.999 174.1l-68.291-25.762c-17.146 27.737-26.968 58.695-29.555 90.107l100.201-22.587c-2.419-13.783-3.188-27.813-2.355-41.758m99.5 170.59c-10.15-4.906-20.008-10.846-29.246-17.78l-89.851 89.85c28.022 22.062 60.212 35.856 93.58 41.256zm-82.192-82.193l-113.43 25.62c5.449 33.294 19.331 65.514 41.358 93.477l89.852-89.85c-6.935-9.24-12.875-19.097-17.78-29.247"/></svg>COMPLEX.md</h1>
-<p class="pitch">A simple, open file that shows coding agents which parts of
-your codebase are most likely to break.</p>
-<p class="pitch">Think of COMPLEX.md as a <strong>risk map for agents</strong>.
-It is computed from your repository's own history, so it knows which files
-break most often, which files everything else depends on, and which files
-change together.</p>
+<p class="pitch">Know where your code breaks before your agent does.</p>
+<p class="pitch sub">One file at the root of your repository. Computed from its
+history. Read by every coding agent you use.</p>
 <div class="install"><span class="p">$</span> npx complex-md</div>
 <div class="ctas">
 <a class="btn solid" href="#how-to-use">How to use it</a>
@@ -53,42 +50,26 @@ and fastify.d.ts alongside it and run the type tests.</pre>
 <section class="section first" id="why">
 <div class="inner narrow">
 <h2>Why COMPLEX.md?</h2>
-<p>AGENTS.md tells a coding agent how to work in your project: how to build
-it, how to test it, what the rules are. A person writes it from memory.</p>
-<p>COMPLEX.md answers a different question: where is the danger? Every
-codebase has a few files that break again and again, a few files that
-everything else depends on, and pairs of files that have to change
-together. People who have worked on the project for years know these
-files by heart. A coding agent starting fresh does not, so it edits them
-like any other file and the same bugs come back.</p>
-<p>COMPLEX.md is measured, not remembered. It reads the repository's own
-history and dependency graph and writes down what it finds, with the
-numbers to prove it and one clear instruction per risky file.</p>
+<p>Every codebase has a few files that break again and again. The people who
+built it know which ones. Your agent does not.</p>
+<p>COMPLEX.md is measured, not remembered. It reads your repository's own
+history and writes down where the risk lives, with one clear instruction for
+each risky file.</p>
 <ul class="points">
-<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>Points agents at the files that break most often, before they start looking.</li>
-<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Warns them before they touch a file that dozens of other files depend on.</li>
-<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>Shows which files change together, so a fix is never left half done.</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>Finds the files that break most often.</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Warns before a change reaches everything that depends on it.</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>Keeps files that change together, together.</li>
 </ul>
-<p>Every number in the example above comes from a real run on the fastify
-web framework. Nothing is made up, the analysis runs on your own machine
-in about a second, and nothing is uploaded.</p>
+<p>Every number on this page comes from a real run. Nothing is uploaded; the
+analysis takes about a second on your machine.</p>
 </div>
 </section>
 
 <section class="section" id="compatibility">
-<div class="inner">
 <div class="inner narrow">
-<h2>One COMPLEX.md works across many agents</h2>
-<p class="lede">One run writes the file and wires it into the coding agents
-your repository already uses.</p>
+<h2>Works with the agents you already use.</h2>
 </div>
-<ul class="agents">
-<li>Claude Code</li><li>Cursor</li><li>Codex</li><li>Gemini CLI</li>
-<li>GitHub Copilot</li><li>OpenHands</li><li>Windsurf</li><li>Cline</li>
-<li>Roo Code</li><li>OpenClaw</li><li>Hermes</li>
-<li class="more">and any agent that reads AGENTS.md or can connect to a tool server (MCP)</li>
-</ul>
-</div>
+{{AGENT_MARQUEE}}
 </section>
 
 <section class="section examples" id="examples">
@@ -137,109 +118,53 @@ commits. Before editing this file, open lib/route.js and fastify.d.ts alongside 
 2. lib/route.js, because it moves with fastify.js in nearly half of its commits.</pre>
 </div>
 <div class="examples-row">
-<a class="example" href="https://github.com/KletoWorks/complex-md/blob/main/examples/fastify-COMPLEX.md"><h3>fastify/fastify</h3><p>Fast and low overhead web framework for Node.js. 62 files in scope, 1,871 commits analyzed.</p><div class="meta">JavaScript</div></a>
-<a class="example" href="https://github.com/KletoWorks/complex-md/blob/main/COMPLEX.md"><h3>KletoWorks/complex-md</h3><p>This project, mapping itself. The CLI, the site build and the benchmark coding agent.</p><div class="meta">JavaScript</div></a>
+<a class="example" href="https://github.com/KletoWorks/complex-md/blob/main/examples/fastify-COMPLEX.md"><h3>fastify/fastify</h3><p>A web framework for Node.js. 62 files, 1,871 commits analyzed.</p><div class="meta">JavaScript</div></a>
+<a class="example" href="https://github.com/KletoWorks/complex-md/blob/main/COMPLEX.md"><h3>KletoWorks/complex-md</h3><p>This project, mapping itself.</p><div class="meta">JavaScript</div></a>
 </div>
-<p class="centered"><a href="https://github.com/KletoWorks/complex-md/tree/main/examples">See the full example files on GitHub</a></p>
+<p class="centered"><a href="https://github.com/KletoWorks/complex-md/tree/main/examples">More examples on GitHub</a></p>
 </div>
 </section>
 
 <section class="section" id="how-to-use">
 <div class="inner narrow steps">
-<h2>How to use COMPLEX.md?</h2>
-<h3>1. Run it once in your repository</h3>
-<p>Open a terminal in any git repository and run <code>npx complex-md</code>.
-It reads the history and the dependency graph, writes COMPLEX.md at the
-root of the repository, and connects it to the agents you already use.
-If you have an API key for a model provider, it uses that to write the
-prose. If not, it hands the job to the coding agent you are already
-talking to.</p>
-<h3>2. Or run the skill with any agent</h3>
-<p>No Node.js? Download <a href="/complex-md.skill.md">one markdown file</a>
-and ask your coding agent to run it. The agent does the same analysis with
-git and writes the file itself.</p>
-<h3>3. Let the wiring do its job</h3>
-<p>The file is only useful if the agent reads it, so the tool sets that up
-for you:</p>
-<ul>
-<li>A short block in AGENTS.md or CLAUDE.md that tells the agent when to look at the map.</li>
-<li>Rules that switch on only when the agent opens one of the risky files.</li>
-<li>For agents that support it, a hook that pauses the first edit to a risky file until the agent has read why it is risky.</li>
-<li>A small server the agent can ask questions like "which files does this one affect?" while it works.</li>
-</ul>
+<h2>How to use it</h2>
+<h3>1. Run it once</h3>
+<p>In any git repository: <code>npx complex-md</code>. It reads the history,
+writes COMPLEX.md at the root, and connects it to your agents.</p>
+<h3>2. Or ask your agent</h3>
+<p>No Node.js? Download the <a href="/complex-md.skill.md">skill</a> and
+hand it to any coding agent. It does the same analysis with git alone.</p>
+<h3>3. It wires itself in</h3>
+<p>A note in your agent files. Rules that wake up when a risky file is
+opened. Where your agent supports it, a pause before the first risky edit.</p>
 <h3>4. Run it again after big changes</h3>
-<p>The map is cheap to rebuild. After a refactor of a listed file, run the
-command again and commit the new COMPLEX.md with your change.</p>
+<p>The map rebuilds in a second. Commit it with your change.</p>
 </div>
 </section>
 
 <section class="section" id="about">
 <div class="inner narrow">
-<h2>About</h2>
-<p>COMPLEX.md is built by
-<a href="https://jameslcowan.com" rel="author">James L. Cowan Jr.</a> and
-released as open source under the MIT license: the <a href="/spec/">spec</a>,
-the <a href="https://github.com/KletoWorks/complex-md">command line tool
-and benchmark</a>, and the <a href="/complex-md.skill.md">skill</a>.</p>
-<p>The spec changes by evidence. Every signal in the file is backed by
-published research on where bugs come from, and every claim about what the
-file does for an agent is measured in the repository's benchmark rather
-than asserted.</p>
-<p>This site's design follows <a href="https://agents.md">agents.md</a>
-(MIT), because a file for agents should look like the file agents already
-know.</p>
+<h2>Why this exists</h2>
+<p>Agents were given instructions, never evidence. AGENTS.md tells them how
+to work. Nothing tells them where the danger is.</p>
+<p>That gap costs every team the same bugs, twice. COMPLEX.md closes it: an
+open format any repository can adopt in a minute, and a standard we believe
+every codebase should carry.</p>
+<p>If your agent reads it, your code gets safer. Help make that normal.</p>
 </div>
 </section>
 
 <section class="section faq" id="faq">
 <div class="inner narrow">
 <h2>FAQ</h2>
-<div class="faq-item">
-<h3>How is this different from AGENTS.md?</h3>
-<p>They work together. AGENTS.md is written by a person and says how to work
-in the project. COMPLEX.md is computed from the project and says where the
-risk is. The wiring step links the two, so an agent that reads one finds
-the other.</p>
-</div>
-<div class="faq-item">
-<h3>Do I need an API key?</h3>
-<p>No. With a key from any of eleven providers, the tool makes one model
-call to write the explanations. Without a key, it writes a prompt file and
-the coding agent you are already using writes COMPLEX.md itself. Either
-way, the analysis of your code never leaves your machine.</p>
-</div>
-<div class="faq-item">
-<h3>What does the score mean?</h3>
-<p>It is a ranking, not a prediction. A higher score means an edit to that
-file has more ways to go wrong: the file changes often, it has needed
-fixes before, and many other files depend on it. The <a href="/spec/">spec</a>
-shows the exact formula and states plainly what the analysis can and
-cannot see.</p>
-</div>
-<div class="faq-item">
-<h3>What if my project uses a language it cannot read?</h3>
-<p>The file says so. Files the analysis could not follow are listed under
-<code>blind_spots</code> with counts, and when they make up most of the
-project, the file says its ranking rests on history and size alone.</p>
-</div>
-<div class="faq-item">
-<h3>Can I write one by hand?</h3>
-<p>Yes. The format is plain markdown with a YAML header, and the spec
-describes every field. There is an <a href="/articles/write-complex-md-by-hand/">article</a>
-that walks through it with seven git commands.</p>
-</div>
-<div class="faq-item">
-<h3>npx says "No versions available for complex-md". Why?</h3>
-<p>Your repository, or your npm config, sets <code>min-release-age</code>,
-a guard that refuses packages published in the last few days. This release
-is new. Run <code>npm_config_min_release_age=0 npx -y complex-md</code>
-once, or wait a week and it resolves on its own.</p>
-</div>
-<div class="faq-item">
-<h3>How do I keep it out of my agent's way?</h3>
-<p>Run <code>npx complex-md --no-hooks</code> to skip the edit gate, or
-<code>--no-wire</code> to only write the file. Everything the tool adds to
-your agent files is marked and safe to remove.</p>
+<div class="faq-list">
+<details class="faq-item"><summary>How is this different from AGENTS.md?</summary><p>AGENTS.md says how to work in the project. COMPLEX.md says where the risk is. They link to each other.</p></details>
+<details class="faq-item"><summary>Do I need an API key?</summary><p>No. With one, the tool writes the explanations itself. Without one, your agent does. Your code never leaves your machine.</p></details>
+<details class="faq-item"><summary>What does the score mean?</summary><p>A ranking, not a prediction. Higher means an edit has more ways to go wrong. The <a href="/spec/">spec</a> shows the formula.</p></details>
+<details class="faq-item"><summary>What about languages it cannot read?</summary><p>They are listed under <code>blind_spots</code>, and the file says so when they dominate.</p></details>
+<details class="faq-item"><summary>Can I write one by hand?</summary><p>Yes. Plain markdown with a YAML header. The <a href="/articles/write-complex-md-by-hand/">walkthrough</a> takes seven git commands.</p></details>
+<details class="faq-item"><summary>npx says "No versions available". Why?</summary><p>Your npm config sets <code>min-release-age</code>, which refuses packages published this week. Run <code>npm_config_min_release_age=0 npx -y complex-md</code> once.</p></details>
+<details class="faq-item"><summary>How do I keep it out of my agent's way?</summary><p><code>--no-hooks</code> skips the edit pause. <code>--no-wire</code> only writes the file. Everything added is marked and safe to remove.</p></details>
 </div>
 </div>
 </section>

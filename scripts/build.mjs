@@ -131,6 +131,14 @@ const siteJsonLd = JSON.stringify({
 });
 
 const cliVersion = JSON.parse(readFileSync(join(ROOT, 'cli/package.json'), 'utf8')).version;
+// The compatibility marquee: monochrome marks in site/logos, listed in
+// site/logos/agents.json, inlined so currentColor follows the theme. The
+// track is doubled so the loop is seamless.
+function agentMarquee() {
+  const list = JSON.parse(readFileSync(join(ROOT, 'site/logos/agents.json'), 'utf8'));
+  const items = list.map((a) => `<li>${readFileSync(join(ROOT, 'site/logos', a.slug + '.svg'), 'utf8').trim()}<span>${a.name}</span></li>`).join('');
+  return `<div class="marquee" aria-label="Agents that read COMPLEX.md"><ul class="track">${items}</ul><ul class="track" aria-hidden="true">${items}</ul></div>`;
+}
 const softwareJsonLd = JSON.stringify({
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
@@ -147,7 +155,7 @@ const softwareJsonLd = JSON.stringify({
 });
 /** FAQPage schema from the rendered FAQ items, so the answers on the page and the answers search engines quote are the same text. */
 function faqJsonLd(html) {
-  const items = [...html.matchAll(/<div class="faq-item">\s*<h3>([\s\S]*?)<\/h3>\s*<p>([\s\S]*?)<\/p>/g)].map(([, q, a]) => ({
+  const items = [...html.matchAll(/<details class="faq-item"><summary>([\s\S]*?)<\/summary><p>([\s\S]*?)<\/p>/g)].map(([, q, a]) => ({
     '@type': 'Question', name: q.replace(/<[^>]+>/g, '').trim(),
     acceptedAnswer: { '@type': 'Answer', text: a.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() },
   }));
@@ -213,8 +221,8 @@ ${body}
 </main>
 <footer class="site-footer">
 <div class="inner">
-<small>&copy; <a href="${AUTHOR_URL}" rel="author">${AUTHOR}</a> &middot; <a href="${REPO}">source</a>, MIT &middot; design after <a href="https://agents.md">agents.md</a> (MIT)</small>
-<small class="vers">spec ${specVersion} &middot; prompt ${promptVersion}</small>
+<small>&copy; 2026 <a href="${AUTHOR_URL}" rel="author">${AUTHOR}</a> &middot; MIT &middot; <a href="${REPO}">GitHub</a> &middot; <a href="https://www.npmjs.com/package/complex-md">npm</a></small>
+<small class="vers">spec ${specVersion} &middot; prompt ${promptVersion} &middot; cli ${cliVersion}</small>
 </div>
 </footer>
 </body>
@@ -248,7 +256,7 @@ for (const file of readdirSync(join(ROOT, 'content'))) {
   const { meta: m, body } = meta(readFileSync(join(ROOT, 'content', file), 'utf8').replaceAll('{{INTEGRATION_BLOCK}}', integrationBlock));
   const path = m.path ?? '/' + file.replace(/\.(md|html)$/, '');
   const kicker = m.kicker?.replaceAll('{{SPEC_VERSION}}', specVersion).replaceAll('{{PROMPT_VERSION}}', promptVersion);
-  const doc = file.endsWith('.md') ? docify(markdown(body), { kicker }) : { body, toc: false };
+  const doc = file.endsWith('.md') ? docify(markdown(body), { kicker }) : { body: body.replace('{{AGENT_MARQUEE}}', agentMarquee()), toc: false };
   emit(path, shell({ title: m.title, description: m.description, path, layout: m.layout, ...doc }));
   if (file === 'spec.md') writeFileSync(join(DIST, 'spec.md'), body);
 }
