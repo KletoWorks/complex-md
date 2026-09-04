@@ -297,7 +297,7 @@ cpSync(join(ROOT, 'prompts/integration.md'), join(ROOT, 'cli/prompts/integration
 for (const f of ['site.css', 'site.js', '404.html', 'favicon.svg', 'og.png', 'sw.js', 'robots.txt']) cpSync(join(ROOT, 'site', f), join(DIST, f));
 for (const d of ['fonts', 'icons']) cpSync(join(ROOT, 'site', d), join(DIST, d), { recursive: true });
 
-// Sitemap: every rendered page, articles included; the offline shell is excluded.
+// Sitemap: every rendered page, articles included.
 const pages = ['/', '/spec/', '/skill/', '/articles/', ...articles.map((a) => `/articles/${a.slug}/`)];
 writeFileSync(join(DIST, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map((p) => `  <url><loc>${ORIGIN}${p}</loc></url>`).join('\n')}\n</urlset>\n`);
 
