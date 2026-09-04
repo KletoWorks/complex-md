@@ -219,6 +219,10 @@ main.doc .toc a:hover { text-decoration: underline; }
   .ctas .btn { width: 100%; }
 }
 
-/* Copy button on file cards, added by site.js. */
-.file-card .copy { margin-left: auto; font: inherit; font-size: 12px; font-weight: 500; line-height: 20px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--radius); padding: 2px 10px; cursor: pointer; }
-.file-card .copy:hover { color: var(--ink); border-color: var(--line-2); }
+/* Copy button on file cards, added by site.js: an icon in the header's
+   upper right corner, as on the reference site's examples. */
+.file-card .bar { position: relative; padding-right: 44px; }
+.file-card .copy { position: absolute; top: 6px; right: 8px; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; color: var(--muted-2); background: transparent; border: 1px solid transparent; border-radius: var(--radius); padding: 0; cursor: pointer; }
+.file-card .copy:hover { color: var(--ink); border-color: var(--line); background: var(--band); }
+.file-card .copy.done { color: var(--ink); }
+.file-card .copy svg { display: block; }
