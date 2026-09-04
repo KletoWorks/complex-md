@@ -4,6 +4,15 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-04  0.4.1: releases publish from a tag
+
+**Intent:** a release is a tag push, verified and published by the workflow,
+never a browser step.
+**Change:** `release.yml` publishes to npm with provenance through trusted
+publishing when a `vX.Y.Z` tag matching `cli/package.json` is pushed; a test
+keeps the spec version in agreement across the engine, the prompt and the
+spec page. No change to the analysis or the file format.
+
 ## 2026-09-04  Public repository sanitized; catalog deferred
 
 **Intent:** the repository carries the project and nothing of the operating

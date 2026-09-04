@@ -1,6 +1,6 @@
 {
   "name": "complex-md",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "COMPLEX.md: a computed map of where edits are risky and where bugs get fixed, for coding agents. Signals from git, hooks that gate hotspot edits, an MCP server agents query mid-task.",
   "license": "MIT",
   "author": "James L. Cowan Jr.",
