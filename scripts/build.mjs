@@ -207,7 +207,7 @@ ${jsonLd}
 <header class="site-header">
 <nav>
 <div class="brand-group">
-<a class="brand" href="/" aria-label="complex.md home">${mark('mark', 22)}<span class="brand-chip">complex.md</span></a>
+<a class="brand-chip" href="/">complex.md</a>
 <a class="dl-sq" href="/complex-md.skill.md" download="complex-md.skill.md" title="Download the complex-md skill" aria-label="Download the complex-md skill"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m6 9 6 6 6-6"/><path d="M19 21H5"/></svg></a>
 </div>
 <a class="nav" href="/spec/">Spec</a>
@@ -221,6 +221,7 @@ ${body}
 </main>
 <footer class="site-footer">
 <div class="inner">
+${mark('mark foot-mark', 18)}
 <small>&copy; 2026 <a href="${AUTHOR_URL}" rel="author">${AUTHOR}</a> &middot; MIT &middot; <a href="${REPO}">GitHub</a> &middot; <a href="https://www.npmjs.com/package/complex-md">npm</a></small>
 <small class="vers">spec ${specVersion} &middot; prompt ${promptVersion} &middot; cli ${cliVersion}</small>
 </div>
