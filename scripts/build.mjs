@@ -186,13 +186,12 @@ function shell({ title, description, path, body, article, layout, toc }) {
 <meta name="twitter:image" content="${ORIGIN}/og.png">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-<link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#ffffff">
 <link rel="stylesheet" href="/platform.css">
 <link rel="stylesheet" href="/site.css">
 <script src="/analytics.js" defer></script>
 <script src="/site.js" defer></script>
-<script src="/pwa-register.js" defer></script>${jsonLd}
+${jsonLd}
 </head>
 <body>
 <header class="site-header">
@@ -295,16 +294,8 @@ mkdirSync(join(ROOT, 'cli/prompts'), { recursive: true });
 cpSync(join(ROOT, 'prompts/generate.md'), join(ROOT, 'cli/prompts/generate.md'));
 cpSync(join(ROOT, 'prompts/integration.md'), join(ROOT, 'cli/prompts/integration.md'));
 
-for (const f of ['site.css', 'site.js', '404.html', 'favicon.svg', 'og.png', 'site.webmanifest', 'pwa-register.js', 'robots.txt']) cpSync(join(ROOT, 'site', f), join(DIST, f));
-for (const d of ['fonts', 'icons', 'offline']) cpSync(join(ROOT, 'site', d), join(DIST, d), { recursive: true });
-// The service worker's cache name keys on a hash of what it precaches, so a
-// changed stylesheet or page is a new cache; deploy stamps it again.
-{
-  const { createHash } = await import('node:crypto');
-  const h = createHash('sha256');
-  for (const f of ['index.html', 'site.css', 'site.js', 'site.webmanifest', 'offline/index.html']) h.update(readFileSync(join(DIST, f)));
-  writeFileSync(join(DIST, 'sw.js'), readFileSync(join(ROOT, 'site/sw.js'), 'utf8').replace('__BUILD_ID__', h.digest('hex').slice(0, 12)));
-}
+for (const f of ['site.css', 'site.js', '404.html', 'favicon.svg', 'og.png', 'sw.js', 'robots.txt']) cpSync(join(ROOT, 'site', f), join(DIST, f));
+for (const d of ['fonts', 'icons']) cpSync(join(ROOT, 'site', d), join(DIST, d), { recursive: true });
 
 // Sitemap: every rendered page, articles included; the offline shell is excluded.
 const pages = ['/', '/spec/', '/skill/', '/articles/', ...articles.map((a) => `/articles/${a.slug}/`)];

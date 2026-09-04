@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /offline/
 
 Sitemap: https://complex.md/sitemap.xml

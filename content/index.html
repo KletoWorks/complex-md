@@ -229,6 +229,13 @@ describes every field. There is an <a href="/articles/write-complex-md-by-hand/"
 that walks through it with seven git commands.</p>
 </div>
 <div class="faq-item">
+<h3>npx says "No versions available for complex-md". Why?</h3>
+<p>Your repository, or your npm config, sets <code>min-release-age</code>,
+a guard that refuses packages published in the last few days. This release
+is new. Run <code>npm_config_min_release_age=0 npx -y complex-md</code>
+once, or wait a week and it resolves on its own.</p>
+</div>
+<div class="faq-item">
 <h3>How do I keep it out of my agent's way?</h3>
 <p>Run <code>npx complex-md --no-hooks</code> to skip the edit gate, or
 <code>--no-wire</code> to only write the file. Everything the tool adds to
