@@ -254,6 +254,13 @@ export function computeSignals(cwd, opts = {}) {
   if (kindCounts.vendored) blind.push(`${kindCounts.vendored} vendored files excluded`);
   if (kindCounts.generated) blind.push(`${kindCounts.generated} generated or lock files excluded`);
   if (graph.skippedLarge) blind.push(`${graph.skippedLarge} files over 1 MB not read for dependencies`);
+  // The sharpest blind spot there is: the file is in the map and cannot be
+  // found by searching for it. Name the files, not just the count.
+  if (graph.grepBlind?.length) {
+    const n = graph.grepBlind.length;
+    const many = n > 1;
+    blind.push(`${n} source file${many ? 's' : ''} ${many ? 'contain' : 'contains'} a NUL byte, so grep treats ${many ? 'them' : 'it'} as binary and skips ${many ? 'them' : 'it'} in silence: ${graph.grepBlind.join(', ')}. Search with git grep -I --text, and fix the byte: it is almost always a separator that should have been written as an escape.`);
+  }
   if (git(['rev-parse', '--is-shallow-repository'], { cwd, allowFail: true }).trim() === 'true') blind.push('shallow clone: history is truncated');
   if (thin) blind.push(`${counted} commits of usable history: ranking rests on structure and size; churn, fixes and ownership carry little weight yet`);
   if (allAuthors.size <= 1) blind.push('one committer identity: authors and owner_share carry no information on this repository');

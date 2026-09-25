@@ -260,3 +260,38 @@ test('check and hook advice on the synthetic repo', () => {
   assert.equal(warn.kind, 'context');
   assert.equal(adviseEdit(dir, 'src/a.js', { acknowledged: [] }, 'off').kind, 'none');
 });
+
+/* A NUL byte anywhere in a source file makes grep classify it as binary, and
+   grep skips a binary file in SILENCE when its output is piped: no match, no
+   warning, exit 0. Both positions matter and they fail differently.
+
+     early (inside the 8k sniff)  the file is classified as an asset and drops
+                                  out of the map entirely
+     late  (past the 8k sniff)    the file is ranked and described as source,
+                                  so the map implies it is findable when no
+                                  text search can reach it
+
+   The second is the worse of the two, because the map then vouches for a file
+   nothing can grep. Note that the NULs below are written as \0 escapes: a
+   literal one in this source would make THIS file invisible to grep too. */
+test('blind spots name source files that a NUL byte hides from grep', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-nul-'));
+  const g = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' } });
+  g('init', '-q');
+  mkdirSync(join(dir, 'src'));
+  writeFileSync(join(dir, 'src/clean.js'), 'export const a = 1;\n');
+  writeFileSync(join(dir, 'src/early.js'), 'export const k = `x\0y`;\n');
+  writeFileSync(join(dir, 'src/late.js'), `// ${'x'.repeat(9000)}\nconst k = \`a\0b\`;\n`);
+  writeFileSync(join(dir, 'README.md'), '# r\n');
+  g('add', '.');
+  g('commit', '-q', '-m', 'init');
+
+  const s = computeSignals(dir);
+  const note = s.blind_spots.find((b) => /NUL byte/.test(b));
+  assert.ok(note, 'a NUL carrying source file is reported as a blind spot');
+  assert.match(note, /src\/early\.js/);
+  assert.match(note, /src\/late\.js/);
+  assert.doesNotMatch(note, /clean\.js/);
+  assert.match(note, /git grep -I --text/);
+  assert.match(note, /2 source files contain/);
+});

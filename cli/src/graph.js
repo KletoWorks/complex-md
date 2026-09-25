@@ -190,6 +190,11 @@ export function buildGraph(root, tracked) {
   const heads = new Map();
   const texts = new Map();
   let skippedLarge = 0;
+  // Text files carrying a NUL past the sniff window below. They read as
+  // source here and are invisible to grep, which is a blind spot the map
+  // has to declare rather than paper over. See grepBlind at the return.
+  const grepBlind = [];
+  const TEXT_KINDS = new Set(['source', 'style', 'markup', 'config', 'docs', 'data', 'manifest', 'test']);
   for (const f of tracked) {
     if (BINARY_RE.test(f)) { kinds.set(f, 'asset'); continue; }
     let buf;
@@ -201,11 +206,31 @@ export function buildGraph(root, tracked) {
     } catch { kinds.set(f, 'other'); continue; }
     // Binary sniff: a NUL in the first 8k means not text.
     const sniff = buf.subarray(0, 8192);
-    if (sniff.includes(0)) { kinds.set(f, 'asset'); continue; }
+    if (sniff.includes(0)) {
+      /* A file whose EXTENSION says source and whose bytes say binary is
+         almost never an asset that was misnamed; it is a source file with a
+         stray control byte in it. Dropping it from the map without a word
+         hides a file that grep is also skipping without a word, so the
+         repository ends up with a module nothing can find. Classify it as an
+         asset as before, and say so. */
+      if (TEXT_KINDS.has(classify(f))) grepBlind.push(f);
+      kinds.set(f, 'asset');
+      continue;
+    }
     const head = sniff.toString('utf8', 0, Math.min(sniff.length, 600));
     heads.set(f, head);
     const kind = classify(f, head);
     kinds.set(f, kind);
+    /* A NUL ANYWHERE in a file makes grep classify it as binary, and grep
+       skips a binary file in SILENCE when its output is piped: no match, no
+       warning, exit 0. The sniff above only reads the first 8k, so a file can
+       pass as text here, be ranked and described in the map, and still be
+       unreachable by every text search in the repository. That is the worst
+       case, because the map then implies the file is findable. Scanning the
+       whole buffer is one pass over bytes already in memory. */
+    if (TEXT_KINDS.has(kind) && buf.includes(0)) {
+      grepBlind.push(f);
+    }
     loc.set(f, countLines(buf));
     if (kind !== 'asset' && kind !== 'vendored' && kind !== 'generated') texts.set(f, buf.toString('utf8'));
   }
@@ -354,7 +379,7 @@ export function buildGraph(root, tracked) {
       }
     }
   }
-  return { kinds, loc, edges, fanIn, tests, skippedLarge };
+  return { kinds, loc, edges, fanIn, tests, skippedLarge, grepBlind };
 }
 
 function topDir(p) {
