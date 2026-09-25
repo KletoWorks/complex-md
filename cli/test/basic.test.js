@@ -295,3 +295,38 @@ test('blind spots name source files that a NUL byte hides from grep', () => {
   assert.match(note, /git grep -I --text/);
   assert.match(note, /2 source files contain/);
 });
+
+/* Wiring must never look like it owns the repository's conventions. Two
+   cases, and they are opposite: appending to a contract that already exists
+   leaves every line of it alone, and creating one from nothing says in the
+   file that it holds one section and not the whole contract. The second is
+   what stops a reader taking a file called AGENTS.md at its name. */
+test('wire appends to an existing contract, and says what it is when it writes one', async () => {
+  const { wire } = await import('../src/wire.js');
+  const { readFileSync } = await import('node:fs');
+
+  const kept = makeRepo();
+  const sk = computeSignals(kept);
+  writeFileSync(join(kept, 'COMPLEX.md'), frontMatter(sk, 'test') + '\n## Where the risk lives\n\nx\n\n## Why these files are hot\n\nsrc/a.js is hot. Before editing this file, run test/a.test.js.\n\n## Change coupling\n\nx\n\n## What to read first\n\n1. src/a.js\n');
+  writeFileSync(join(kept, 'AGENTS.md'), '# AGENTS.md\n\nHouse rule: never rebase a shared branch.\n');
+  const r = wire(kept, { agents: ['claude'] });
+  const contract = readFileSync(join(kept, 'AGENTS.md'), 'utf8');
+  assert.deepEqual(r.primary, ['AGENTS.md'], 'appended, not created');
+  assert.match(contract, /never rebase a shared branch/, 'the existing contract survives');
+  assert.match(contract, /## COMPLEX\.md: the structural risk map/);
+  assert.ok(
+    contract.indexOf('never rebase') < contract.indexOf('## COMPLEX.md'),
+    'the block goes after what was already there',
+  );
+  assert.doesNotMatch(contract, /created by complex-md/, 'no preamble when appending');
+
+  const fresh = makeRepo();
+  const sf = computeSignals(fresh);
+  writeFileSync(join(fresh, 'COMPLEX.md'), frontMatter(sf, 'test') + '\n## Where the risk lives\n\nx\n\n## Why these files are hot\n\nsrc/a.js is hot. Before editing this file, run test/a.test.js.\n\n## Change coupling\n\nx\n\n## What to read first\n\n1. src/a.js\n');
+  const r2 = wire(fresh, { agents: ['claude'] });
+  const written = readFileSync(join(fresh, 'AGENTS.md'), 'utf8');
+  assert.ok(r2.created.includes('AGENTS.md'));
+  assert.match(written, /created by complex-md/);
+  assert.match(written, /not a full agent contract/);
+  assert.match(written, /## COMPLEX\.md: the structural risk map/);
+});

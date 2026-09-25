@@ -4,6 +4,32 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-25  Blind spots name files a NUL byte hides from grep; a created AGENTS.md says what it is
+
+**Intent:** the map's job is to say where you cannot see. A source file that
+carries a NUL byte is the sharpest blind spot a repository can have, because
+grep classifies it as binary and skips it in silence: no match, no warning,
+exit 0. The tool said nothing about it, in either of the two ways it can go
+wrong, and a map that stays quiet there is worse than no map, because it is
+trusted.
+
+**Change:** `blind_spots` now names those files by path. Two positions, two
+different failures, both covered. A NUL inside the first 8 kB used to classify
+the file as an asset, so it dropped out of the map without a word. A NUL past
+8 kB was never seen at all: the file was read, ranked and described as source,
+so the map vouched for a file that no text search in the repository could
+reach. The note gives `git grep -I --text` as the way to read it, and says the
+byte is almost always a separator that should have been written as an escape.
+Detection is one pass over bytes already in memory.
+
+**Change:** when `wire` creates `AGENTS.md` because no primary file exists, the
+file now opens by saying it holds one section and is not a full agent
+contract, and that repository conventions belong above it. Wiring a repository
+that already has a contract appends to it and is unchanged; the preamble never
+appears there. complex-md owns the map and its integration block, not a
+project's conventions, and a file named `AGENTS.md` that holds only the block
+reads as though it owns both.
+
 ## 2026-09-04  Sticky blurred header, install copy button, two-row carousel, phone fixes
 
 **Change:** the header is sticky with a frosted backdrop; the install line

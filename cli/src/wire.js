@@ -33,6 +33,20 @@ function invocation(root) {
   return { shell: 'npx -y complex-md', command: 'npx', args: ['-y', 'complex-md'], absShell: 'npx -y complex-md', absCommand: 'npx', absArgs: ['-y', 'complex-md'] };
 }
 
+/* Prepended only when wire CREATES AGENTS.md, never when it appends to one
+   that already exists. complex-md owns the map and its integration block; it
+   does not own this repository's conventions and should not look as though it
+   does. */
+const CREATED_PREAMBLE = `# AGENTS.md
+
+This file was created by complex-md and carries one section: how to read
+COMPLEX.md, the structural risk map, before editing a file the map calls hot.
+It is not a full agent contract. Anything else this repository expects of an
+agent, and any contract it inherits from a parent repository, belongs above
+the section below; complex-md appends to this file rather than rewriting it.
+
+`;
+
 /** `agents`: explicit target names (see targets.js); null detects repo-local targets from existing config. */
 export function wire(root, { hooks = true, mcp = true, rules = true, agents = null, log = () => {} } = {}) {
   const map = loadComplexMd(root);
@@ -66,7 +80,13 @@ export function wire(root, { hooks = true, mcp = true, rules = true, agents = nu
     }
   }
   if (!any) {
-    writeFileSync(join(root, 'AGENTS.md'), block);
+    /* No primary file existed, so this one is ours to create. It is named
+       AGENTS.md, which reads as the whole contract for the repository, and it
+       holds one section. Say which, so a reader who arrives at it does not
+       take the absence of house rules for their absence in the project, and
+       so the next person knows where to put them. Wiring a repository that
+       already has a contract appends to it instead and this never runs. */
+    writeFileSync(join(root, 'AGENTS.md'), CREATED_PREAMBLE + block);
     report.created.push('AGENTS.md');
   }
 
