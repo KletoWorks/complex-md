@@ -238,7 +238,7 @@ paths:
    compliance near half when an agent edits existing code late in a session.
    Hooks make the two rules that matter deterministic.
    `npx -y complex-md wire`: it performs steps 1 to 5 idempotently and adds
-   the hooks and MCP registration below. Otherwise write them by hand,
+   the hooks below. Otherwise write them by hand,
    merging into any existing file rather than replacing it:
 
    `.claude/settings.json` (when `.claude/` or `CLAUDE.md` exists):
@@ -250,11 +250,6 @@ paths:
   "Stop": [{ "hooks": [{ "type": "command", "command": "npx -y complex-md hook stop", "timeout": 60 }] }] } }
 ```
 
-   `.mcp.json` at the root (same condition), and `.cursor/mcp.json` when
-   `.cursor/` exists:
-
-```json
-{ "mcpServers": { "complex-md": { "command": "npx", "args": ["-y", "complex-md", "mcp"] } } }
 ```
 
    `.cursor/hooks.json` when `.cursor/` exists:
@@ -271,7 +266,7 @@ paths:
    unchanged. Both are once per session and can be set to `--mode warn`.
 
 7. Report what you wrote: the path of `COMPLEX.md`, each primary file the
-   block was appended to, each rule file, and whether hooks and MCP were
+   block was appended to, each rule file, and whether hooks were
    installed.
 
 Do not paraphrase, trim, or restyle the block; identical wording across

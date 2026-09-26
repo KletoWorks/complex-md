@@ -165,11 +165,13 @@ export function computeSignals(cwd, opts = {}) {
   const ext = new Map();
   const secretPaths = [];
   for (const [path, kind] of kinds) {
-    if (!(kind in RANKED_KINDS)) continue;
     /* A committed map must never name a credential file: a hotspot row for
        .env.production tells a reader where the secrets are and tells an agent
-       to open them. Dropped from every list and counted below. */
+       to open them. Checked before the kind filter, because such a file is
+       usually config or data rather than source and would otherwise pass
+       through uncounted. Dropped from every list and counted below. */
     if (isSecretPath(path)) { secretPaths.push(path); continue; }
+    if (!(kind in RANKED_KINDS)) continue;
     const l = loc.get(path);
     if (l === null || l === undefined) continue;
     filesInScope++;
