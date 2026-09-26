@@ -22,6 +22,15 @@ anchored there, so the fix being tested never leaks into its own `fixes` count.
 One map per calendar month of base dates, which is how often a map gets
 regenerated in practice.
 
+The agent runs on whatever account the `claude` CLI is signed in to. On a
+subscription, the benchmark and any interactive session on the same account
+share one usage limit, and a run that hits it is recorded with the limit
+message as its `error` and zero steps. Such rows are excluded from every
+paired comparison by the report and should be removed from `runs.jsonl` and
+re-run once the limit resets; the harness skips rows already present, so a
+re-run only repeats the removed ones. Run the benchmark when nothing else is
+using the account.
+
 `cost_usd` is the API-equivalent price the `claude` CLI reports in its JSON
 output for a run. When the agent runs on a subscription the run is not billed
 and the figure is a unit of tokens consumed, comparable across arms because
