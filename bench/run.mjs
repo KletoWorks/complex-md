@@ -7,13 +7,16 @@
 //        --agent claude --tasks 0-7 --budget 0.60 --timeout 420 --stop-at edit --out bench/results/pilot
 //
 // Arms:  none   the repository as it is
+//        front  COMPLEX.md front matter only: computed numbers, no generated prose
 //        file   COMPLEX.md at the task's base commit, wired (CLAUDE.md, path-scoped rule)
 //        hooks  file + the PreToolUse/Stop hooks
 //        mcp    hooks + the MCP server
 // --stop-at edit kills the run at the agent's first edit: localization only, cheapest.
+// --stop-at none runs to completion, which is what wall clock, diff size and
+// success rate need, and the only way the hooks arm can be evaluated at all.
 // Runs are appended to <out>/runs.jsonl and skipped when already present, so it resumes.
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync, symlinkSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { computeSignals } from '../cli/src/signals.js';
@@ -78,12 +81,29 @@ function prepareWorktree(task, arm) {
   sh('git', ['worktree', 'add', '--detach', '--quiet', wt, task.base], dataset.path);
   // No arm gets a pre-existing map or wiring from the repository itself.
   for (const f of ['COMPLEX.md', '.complex-md']) rmSync(join(wt, f), { recursive: true, force: true });
+  /* A worktree has no node_modules of its own. Without this, every test the
+     agent ran failed with a missing module in every arm, and the success
+     metric could never be true. The link is the dataset checkout's install,
+     made once; a repository without one records success as null. */
+  const nm = join(dataset.path, 'node_modules');
+  if (existsSync(nm) && !existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
   return wt;
+}
+
+/* The front matter alone, with the generated prose cut off. arXiv 2602.11988
+   finds LLM generated context files reduce success and raise cost, and only
+   human written ones help; this arm asks whether the computed half of a map
+   behaves like the former or the latter. `front` against `file` is the
+   decisive comparison for this project. */
+function frontMatterOnly(text) {
+  const m = /^(---\n[\s\S]*?\n---\n)/.exec(text);
+  return m ? m[1] : text;
 }
 
 async function armSetup(task, arm, wt) {
   if (arm === 'none') return;
-  writeFileSync(join(wt, 'COMPLEX.md'), await mapFor(task, wt));
+  const full = await mapFor(task, wt);
+  writeFileSync(join(wt, 'COMPLEX.md'), arm === 'front' ? frontMatterOnly(full) : full);
   wire(wt, { agents: ['claude'], hooks: arm === 'hooks' || arm === 'mcp', mcp: arm === 'mcp' });
   // The package is not on npm yet: hooks and MCP call this checkout's binary.
   for (const f of ['.claude/settings.json', '.mcp.json']) {
@@ -184,6 +204,41 @@ function runAgent(task, arm, wt) {
   });
 }
 
+/* Success rate, the 2602.11988 metric: does the agent's patch pass the tests
+   the real fix was verified by. The dataset records those test files. A fix
+   often ADDS its test, so the file may not exist at the base commit; it is
+   taken from the fix commit into the worktree first, then run against the
+   agent's change. Each file is run on its own with the runner the repository
+   uses, detected from package.json rather than assumed. No test files, or no
+   detectable runner, records null rather than a pass. */
+function runGoldTests(task, wt) {
+  const files = task.tests || [];
+  if (!files.length) return { tests_run: 0, tests_passed: null, success: null };
+  /* Every script value joined, not only `test`: a `test` script that runs
+     `npm run unit` names no runner itself. Detected, never assumed; if no
+     known runner appears the answer is null rather than a guess. */
+  let scripts = '';
+  try { scripts = Object.values(JSON.parse(readFileSync(join(wt, 'package.json'), 'utf8')).scripts || {}).join(' '); } catch {}
+  const runner = /\btap\b/.test(scripts) ? ['npx', ['tap', '--no-coverage', '--reporter=terse']]
+    /* borp is a thin node:test wrapper (fastify uses it); node --test runs
+       the same files without needing the wrapper on the path. */
+    : /node --test|node:test|\bborp\b/.test(scripts) ? ['node', ['--test']]
+    : /\bmocha\b/.test(scripts) ? ['npx', ['mocha']]
+    : /\bvitest\b/.test(scripts) ? ['npx', ['vitest', 'run']]
+    : /\bjest\b/.test(scripts) ? ['npx', ['jest']]
+    : null;
+  if (!runner) return { tests_run: 0, tests_passed: null, success: null };
+  let passed = 0, run = 0;
+  for (const f of files) {
+    spawnSync('git', ['checkout', task.fix, '--', f], { cwd: wt, stdio: 'ignore' });
+    if (!existsSync(join(wt, f))) continue;
+    run++;
+    const r = spawnSync(runner[0], [...runner[1], f], { cwd: wt, encoding: 'utf8', timeout: 120000, env: { ...process.env, CI: '1' } });
+    if (r.status === 0) passed++;
+  }
+  return { tests_run: run, tests_passed: passed, success: run ? passed === run : null };
+}
+
 for (const task of tasks) {
   for (const arm of arms) {
     if (done.has(`${task.id}/${arm}`)) continue;
@@ -193,7 +248,16 @@ for (const task of tasks) {
       await armSetup(task, arm, wt);
       const m = await runAgent(task, arm, wt);
       const edited = sh('git', ['diff', '--name-only', 'HEAD'], wt).split('\n').filter(Boolean);
-      const rec = { task: task.id, arm, agent, model, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), ...m, at: new Date().toISOString() };
+      /* Diff size, the AAIF metric: lines added plus removed in the final
+         patch, and files touched. Both zero when the agent edited nothing. */
+      let diff_lines = 0;
+      for (const line of sh('git', ['diff', '--numstat', 'HEAD'], wt).split('\n')) {
+        const [a, d] = line.split('\t');
+        if (/^\d+$/.test(a)) diff_lines += Number(a);
+        if (/^\d+$/.test(d)) diff_lines += Number(d);
+      }
+      const success = stopAt === 'none' ? runGoldTests(task, wt) : null;
+      const rec = { task: task.id, arm, agent, model, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...m, at: new Date().toISOString() };
       appendFileSync(runsPath, JSON.stringify(rec) + '\n');
       log(`  steps ${m.steps}, first gold read at ${m.first_gold_read ?? '-'}, wasted reads ${m.wasted_reads}, gold edited ${rec.gold_edited}, $${m.cost_usd?.toFixed(3) ?? '?'}${m.gate_fired ? `, gate x${m.gate_fired}` : ''}${m.error ? `, error: ${m.error}` : ''}`);
     } finally {

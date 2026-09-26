@@ -18,14 +18,16 @@ const f1 = (x) => (Number.isNaN(x) ? '-' : x.toFixed(1));
 const pct = (x) => (Number.isNaN(x) ? '-' : `${Math.round(x * 100)}%`);
 
 console.log(`## Per arm (n = runs)\n`);
-console.log('| arm | n | found gold | steps to first gold read (median / mean) | wasted reads before it (mean) | gold edited | gate fired | MCP calls | cost/run |');
-console.log('|---|---|---|---|---|---|---|---|---|');
+console.log('| arm | n | found gold | steps to first gold read (median / mean) | wasted reads before it (mean) | gold edited | success | gate fired | MCP calls | cost/run |');
+console.log('|---|---|---|---|---|---|---|---|---|---|');
 for (const arm of arms) {
   const rs = runs.filter((r) => r.arm === arm && !r.error);
   const found = rs.filter((r) => r.first_gold_read !== null);
   const steps = found.map((r) => r.first_gold_read);
   const cost = rs.map((r) => r.cost_usd).filter((c) => c != null);
-  console.log(`| ${arm} | ${rs.length} | ${pct(found.length / rs.length)} | ${f1(median(steps))} / ${f1(mean(steps))} | ${f1(mean(rs.map((r) => r.wasted_reads)))} | ${pct(rs.filter((r) => r.gold_edited).length / rs.length)} | ${rs.filter((r) => r.gate_fired).length} | ${rs.reduce((a, r) => a + (r.mcp_calls || 0), 0)} | ${cost.length ? '$' + f1(mean(cost) * 100) + 'c' : '-'} |`);
+  const judged = rs.filter((r) => r.success === true || r.success === false);
+  const succ = judged.length ? pct(judged.filter((r) => r.success).length / judged.length) + ` (n=${judged.length})` : '-';
+  console.log(`| ${arm} | ${rs.length} | ${pct(found.length / rs.length)} | ${f1(median(steps))} / ${f1(mean(steps))} | ${f1(mean(rs.map((r) => r.wasted_reads)))} | ${pct(rs.filter((r) => r.gold_edited).length / rs.length)} | ${succ} | ${rs.filter((r) => r.gate_fired).length} | ${rs.reduce((a, r) => a + (r.mcp_calls || 0), 0)} | ${cost.length ? '$' + f1(mean(cost) * 100) + 'c' : '-'} |`);
 }
 
 // Paired: the same task under each arm versus `none`. Sign test on steps to first gold read.
@@ -66,6 +68,7 @@ if (arms.includes('none')) {
     ['output tokens', (r) => r.tokens_out],
     ['wall clock ms', (r) => r.duration_ms],
     ['cost usd', (r) => r.cost_usd],
+    ['diff lines', (r) => r.diff_lines],
     ['cache read tokens', (r) => r.tokens_cache_read],
   ];
   console.log('\n## Paired tests against none\n');
