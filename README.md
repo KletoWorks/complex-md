@@ -25,6 +25,42 @@ packages published within the last few days. Run
 release to age past the threshold.
 
 
+## Why not just let the agent search?
+
+Because a search that finds nothing and a thing that does not exist look the
+same from the outside.
+
+A worked example, and the reason for 0.5.0. An agent was asked whether an HTTP
+route existed in a package. It grepped for the route, for the handler, and for
+the feature's name, across every file in the package. Nothing matched, twice
+over, so it reported the endpoint as unimplemented and proposed building it.
+The endpoint existed. It was implemented, routed and mounted.
+
+One module in that package, about 60 kB, carried a single NUL byte at offset
+53248: a map key separator written as a literal byte where an escape was
+meant. grep classifies a file containing a NUL as binary and skips it in
+silence when its output is piped. No match, no warning, exit 0. Every search
+across that package had been stepping over the one file that answered the
+question.
+
+COMPLEX.md had ranked that module and written a paragraph about it, because
+the signals come from the dependency graph and the commit history rather than
+from a text search. The file was in the map the whole time. What the map did
+not do was say that the file could not be read by the tools the agent was
+using, so the agent had no reason to distrust its own empty result. Since
+0.5.0 it says so: such files are named under `blind_spots`, with
+`git grep -I --text` as the way to read them.
+
+An agent's picture of a repository is assembled from tools that fail quietly.
+Searches skip files, globs miss directories, context windows truncate. A map
+computed from structure and history is a second source that does not fail in
+the same places, and the most valuable part of it is the part that says where
+you cannot see.
+
+What it is not: the map does not read code, it ranks and locates. It will not
+tell you what a function does, and `blind_spots` lists the gaps it can detect,
+not every gap there is.
+
 ## Layout
 
 | Path | What |
