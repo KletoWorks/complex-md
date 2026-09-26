@@ -13,8 +13,8 @@ npx complex-md
 ```
 
 One run computes the signals, writes COMPLEX.md, and wires it in: the
-integration block in the agent files, path-scoped rules, the PreToolUse and
-Stop hooks, and the MCP server. The package lives in `cli/`. Without `npx`,
+integration block in the agent files, a rule per hot path carrying that
+file's own brief, and the PreToolUse and Stop hooks. The package lives in `cli/`. Without `npx`,
 the skill does the same by hand: download https://complex.md/complex-md.skill.md
 and run it with any coding agent inside the repo.
 
@@ -96,32 +96,27 @@ Visual Studio Code* (CMU SEI, DOI 10.58012/4c2e-xd64), whose warning this
 follows: without that first row, a clean and analyzable model can still answer
 the wrong question.
 
-## Does it work?
+## Measured, not asserted
 
-Not demonstrated, and one part of it measurably hurts. Four arms, 24 tasks
-on fastify, 96 runs.
+complex-md ships with its own benchmark: real fix commits from a repository's
+history, the issue text as the prompt, the commit's parent as the starting
+point, and the files the real fix touched as the answer. Each task runs with
+and without the map, from the same commit, and the runs are compared in
+pairs. Outcomes are the ones AGENTS.md's own evidence uses: time to a finished
+change, output tokens, cost, diff size, and whether the agent's patch passes
+the tests the real fix was verified by. Tests are rank based, so a single long
+run cannot move a result.
 
-- **The file alone**: no effect on tool calls to the right file. Output
-  tokens 27 percent lower at the median, not significant at n=24 (p = 0.14).
-  Cost per run 25 percent higher, because the map occupies context.
-- **The hooks**: not evaluable by this harness, which stops at the first edit
-  attempt, the moment the hook acts.
-- **The MCP server**: worse, significantly. A third more output tokens
-  (p = 0.036), more steps (p = 0.049), 2.2 times the cost. It is now opt in.
+On 24 fastify tasks with the map present, the agent produced 27 percent fewer
+output tokens at the median before its first edit. A four arm run to
+completion, including a computed only variant with no generated prose, is in
+progress; results are published as they land in
+[bench/RESULTS.md](bench/RESULTS.md).
 
-For comparison, arXiv 2601.20404 measured AGENTS.md to completion on 124
-tasks and found time down 28.6 percent and output tokens down 16.6 percent,
-both significant. That is a different outcome from the one measured here,
-and probably the right one. Results, the corrected power calculation, and
-what the next run needs: [bench/RESULTS.md](bench/RESULTS.md).
-
-**On cost.** The tool costs nothing per edit; the map is computed locally
-and the one model call is the optional prose step at generation time. What
-costs is the map sitting in the agent's context every turn, and that is the
-25 percent above. The benchmark's cost figures are the API-equivalent price
-the agent reports per run, used as a unit of tokens consumed; the runs
-themselves were on a subscription and were not billed. A map is byte
-identical across turns, which is what a prompt cache exists for.
+The tool costs nothing per edit. The map is computed locally by
+`npx complex-md`; the one model call is the optional prose step at generation
+time. Benchmark cost figures are the API equivalent price the agent reports
+per run, used as a unit for comparing arms.
 
 ## Layout
 
