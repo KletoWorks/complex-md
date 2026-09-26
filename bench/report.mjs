@@ -2,7 +2,7 @@
 // Summarize runs.jsonl: per arm, then paired per task against the `none` arm.
 //   node bench/report.mjs bench/results/pilot/runs.jsonl
 import { readFileSync } from 'node:fs';
-import { summarise, pairsNeeded } from './stats.mjs';
+import { summarise, pairsNeeded, mcnemar } from './stats.mjs';
 
 const path = process.argv[2] || 'bench/results/run/runs.jsonl';
 const runs = readFileSync(path, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
@@ -91,6 +91,21 @@ if (arms.includes('none')) {
     }
   }
   console.log('\nNegative favours the arm. Wilcoxon is the primary test; the mean is not, because a few long runs carry the variance.');
+
+  /* Success rate is pass/fail per task, so the paired test is McNemar on the
+     discordant pairs, not a rank test on a 0/1 column. */
+  const judged = (arm) => [...byTask.values()].filter((t) => t.none && t[arm] && !t.none.error && !t[arm].error && typeof t.none.success === 'boolean' && typeof t[arm].success === 'boolean');
+  const rows = arms.filter((a) => a !== 'none').map((arm) => ({ arm, j: judged(arm) })).filter((x) => x.j.length);
+  if (rows.length) {
+    console.log('\n## Success rate against none (McNemar, paired)\n');
+    console.log('| arm | judged pairs | none pass | arm pass | arm-only pass | none-only pass | p |');
+    console.log('|---|---|---|---|---|---|---|');
+    for (const { arm, j } of rows) {
+      const m = mcnemar(j.map((t) => [t.none.success, t[arm].success]));
+      const np = j.filter((t) => t.none.success).length, ap = j.filter((t) => t[arm].success).length;
+      console.log(`| ${arm} | ${m.n} | ${np} | ${ap} | ${m.c} | ${m.b} | ${Number.isNaN(m.p) ? '-' : m.p.toFixed(3)} |`);
+    }
+  }
 
 const errs = runs.filter((r) => r.error);
 if (errs.length) console.log(`\n${errs.length} runs with errors: ${errs.map((r) => `${r.task}/${r.arm}`).join(', ')}`);

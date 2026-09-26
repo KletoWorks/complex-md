@@ -125,3 +125,27 @@ export function summarise(pairs, { trim = 0.1 } = {}) {
     min_detectable: minDetectable(pairs.length, s),
   };
 }
+
+/* McNemar's test on paired pass/fail outcomes: the right test for success
+   rate between two arms on the same tasks. Only the discordant pairs carry
+   information (one arm passed, the other failed); the concordant ones say
+   nothing about the difference and are not counted. Exact binomial, two
+   sided, because the discordant count is small at this n. */
+export function mcnemar(pairs) {
+  /* pairs: [[aPassed, bPassed], ...] as booleans; nulls are skipped. */
+  let b = 0, c = 0, n = 0;
+  for (const [pa, pb] of pairs) {
+    if (typeof pa !== 'boolean' || typeof pb !== 'boolean') continue;
+    n += 1;
+    if (pa && !pb) b += 1;
+    if (!pa && pb) c += 1;
+  }
+  const disc = b + c;
+  if (!disc) return { n, discordant: 0, b, c, p: NaN };
+  const C = (nn, k) => { let r = 1; for (let q = 0; q < k; q += 1) r = (r * (nn - q)) / (q + 1); return r; };
+  const at = (k) => C(disc, k) * 0.5 ** disc;
+  const obs = at(Math.min(b, c));
+  let p = 0;
+  for (let k = 0; k <= disc; k += 1) if (at(k) <= obs + 1e-12) p += at(k);
+  return { n, discordant: disc, b, c, p: Math.min(1, p) };
+}
