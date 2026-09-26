@@ -55,7 +55,15 @@ export function wire(root, { hooks = true, mcp = true, rules = true, agents = nu
   for (const name of agents || []) if (!TARGETS[name]) throw new Error(`unknown wiring target "${name}"; one of: ${TARGET_NAMES.join(', ')}`);
   const inv = invocation(root);
   const block = integrationBlock();
-  const paths = [...new Set([...map.hotspots.map((h) => h.path), ...map.load_bearing.map((h) => h.path), ...map.co_change.flatMap((c) => c.files)])];
+  /* Coerced rather than trusted. A hand written map can put anything in these
+     keys, and wiring crashing on a malformed map helps nobody: the worst
+     acceptable outcome is fewer paths, never a stack trace. */
+  const list = (v) => (Array.isArray(v) ? v : []);
+  const paths = [...new Set([
+    ...list(map.hotspots).map((h) => h?.path),
+    ...list(map.load_bearing).map((h) => h?.path),
+    ...list(map.co_change).flatMap((c) => list(c?.files)),
+  ].filter((p) => typeof p === 'string' && p))];
   /* One brief per path, carrying that file's own numbers, paragraph, partners
      and directive, so a scoped rule delivers the answer rather than a pointer
      to the document holding it. */

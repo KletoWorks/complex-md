@@ -96,6 +96,16 @@ export function parseFrontMatter(src) {
     v = v.trim();
     if (/^".*"$/.test(v) || /^'.*'$/.test(v)) return v.slice(1, -1);
     if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);
+    /* An inline flow sequence. A generated map never writes one: every list
+       it emits is a block. A HAND WRITTEN map does, and writing one by hand
+       is a documented way to use this format, so `co_change: []` arriving as
+       the two character string "[]" is a real defect and not a theoretical
+       one. It crashed `wire` on the first end to end run of 0.7.0. */
+    if (/^\[.*\]$/.test(v)) {
+      const inner = v.slice(1, -1).trim();
+      if (!inner) return [];
+      return inner.split(',').map((x) => scalar(x));
+    }
     return v;
   };
   while (i < lines.length) {

@@ -117,3 +117,36 @@ test('wiring clears briefs for paths the map no longer lists', async () => {
     'each brief is scoped to its own path',
   );
 });
+
+/* Regression, found by running the published 0.7.0 against a hand written map
+   on a clean repository: `co_change: []` written inline parsed to the string
+   "[]" and wiring died on map.co_change.flatMap. Writing a map by hand is a
+   documented way to use this format, so both halves are fixed: the parser
+   reads inline sequences, and wiring coerces rather than trusts. */
+test('a hand written map with inline lists wires without crashing', async () => {
+  const { wire } = await import('../src/wire.js');
+  const { parseComplexMd } = await import('../src/complexmd.js');
+  const { mkdtempSync: mk, writeFileSync: w, mkdirSync: md } = await import('node:fs');
+  const { tmpdir: td } = await import('node:os');
+  const { execFileSync } = await import('node:child_process');
+
+  const text = [
+    '---', 'complex_md: "0.3"', 'co_change: []',
+    'hotspots:', '  - path: src/core.js', '    churn: 9', '    fan_in: 5',
+    '---', '', '## Where the risk lives', '', 'x', '',
+    '## Why these files are hot', '',
+    'src/core.js is the hub. Before editing this file, run test/core.test.js.', '',
+    '## Change coupling', '', 'x', '', '## What to read first', '', '1. src/core.js', '',
+  ].join('\n');
+
+  assert.ok(Array.isArray(parseComplexMd(text).co_change), 'inline [] is an array, not a string');
+
+  const dir = mk(join(td(), 'cx-inline-'));
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  md(join(dir, 'src'));
+  w(join(dir, 'src/core.js'), 'export const a = 1;\n');
+  md(join(dir, '.claude'), { recursive: true });
+  w(join(dir, 'COMPLEX.md'), text);
+  const r = wire(dir, { agents: ['claude'] });
+  assert.ok(r.rules.some((x) => x.includes('complex-md/')), 'briefs were written');
+});

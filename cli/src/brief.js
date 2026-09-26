@@ -47,7 +47,7 @@ function stats(row) {
 export function briefFor(map, path) {
   const row = map.row(path);
   const para = map.paragraphFor(path);
-  const partners = (map.co_change || [])
+  const partners = (Array.isArray(map.co_change) ? map.co_change : [])
     .filter((c) => c.files.includes(path))
     .map((c) => ({ partner: c.files.find((f) => f !== path), coupling: c.coupling, count: c.count }))
     .filter((p) => p.partner)
@@ -91,7 +91,8 @@ export function briefFor(map, path) {
 export function pathBriefs(map) {
   const seen = new Set();
   const paths = [];
-  for (const row of [...(map.hotspots || []), ...(map.load_bearing || [])]) {
+  const list = (v) => (Array.isArray(v) ? v : []);
+  for (const row of [...list(map.hotspots), ...list(map.load_bearing)]) {
     if (row?.path && !seen.has(row.path)) {
       seen.add(row.path);
       paths.push(row.path);
@@ -99,8 +100,8 @@ export function pathBriefs(map) {
   }
   /* A co-change partner is worth a brief even when it is not itself hot: it
      is the file the agent is most likely to forget. */
-  for (const c of map.co_change || []) {
-    for (const f of c.files || []) {
+  for (const c of list(map.co_change)) {
+    for (const f of list(c?.files)) {
       if (f && !seen.has(f)) {
         seen.add(f);
         paths.push(f);
