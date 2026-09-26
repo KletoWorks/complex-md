@@ -1,0 +1,17 @@
+{
+  "windowCommitsMax": 2000,
+  "bulkCommitFiles": 30,
+  "minCommits": 3,
+  "fanInFloor": 5,
+  "minCoupling": 34,
+  "conventionShare": 0.25,
+  "tableRows": 30,
+  "hotspotRows": 15,
+  "hotspotFloor": 5,
+  "hotspotCut": 0.1,
+  "hotspotShare": 0.2,
+  "pairRows": 10,
+  "seamRows": 6,
+  "loadBearingRows": 5,
+  "thinHistory": 50
+}
