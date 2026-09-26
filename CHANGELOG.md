@@ -4,6 +4,32 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-26  The MCP server is opt in; the benchmark ran all four arms
+
+**Intent:** measure the two arms that had never run, and follow the result.
+
+**Change:** `wire` no longer installs the MCP server unless asked
+(`--mcp`). On 24 tasks the MCP arm produced a third more output tokens
+(Wilcoxon p 0.036), took more steps to reach the right file (sign test
+p 0.049), and cost 2.2 times the baseline, with 27 server calls across 24
+runs. On a task set where the baseline needs two tool calls, a tool that
+offers more calls is overhead, and the agent takes the offer. The server
+stays available for anyone who measures it earning its calls on their own
+repository. `--no-mcp` is accepted and does nothing.
+
+**Change:** the benchmark records fresh, cache read and cache write tokens
+separately. `tokens_in` summed cached reads at full weight and overstated
+what a map costs; `cost_usd`, priced by the agent, is the figure to quote.
+`bench/stats.mjs` adds Wilcoxon signed rank, a trimmed mean, the sign test
+and a power calculation that states the variance it assumes, after the
+first one was out by a factor of twenty five for assuming the wrong one.
+
+**Finding, not a change:** the harness stops at the first edit attempt, and
+the PreToolUse hook acts at the first edit attempt, so the `hooks` arm
+cannot be evaluated by this harness at all. `gold_edited` collapses in that
+arm because the gate refused the edit and the harness recorded the refusal
+as the end, not because the agent failed. The next run must go to completion.
+
 ## 2026-09-25  Fix: a hand written map with an inline list crashed wiring
 
 **Intent:** `npx complex-md wire` died with

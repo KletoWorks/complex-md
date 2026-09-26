@@ -231,7 +231,9 @@ test('codex MCP entry uses the computed invocation, not a hardcoded npx', async 
   writeFileSync(join(dir, 'COMPLEX.md'), `---\ncomplex_md: "0.3"\nhotspots:\n  - path: src/a.js\n    kind: source\n    loc: 1\n    churn: 1\n    churn_w: 1.00\n    fixes: 0\n    authors: 1\n    owner_share: 1.00\n    fan_in: 0\n    tests: 0\n    score: 10\nco_change:\nblind_spots:\n---\n\n## Where the risk lives\n\nx\n`);
   mkdirSync(join(dir, '.codex'));
   const { wire } = await import(pathToFileURL(join(dir, 'cli/src/wire.js')));
-  wire(dir, { agents: ['claude', 'codex'] });
+  /* MCP is opt in since 0.8.0 (bench/RESULTS.md); this test is about the
+     MCP entry itself, so it asks for it. */
+  wire(dir, { agents: ['claude', 'codex'], mcp: true });
   const toml = readFileSync(join(dir, '.codex/config.toml'), 'utf8');
   const mcp = JSON.parse(readFileSync(join(dir, '.mcp.json'), 'utf8')).mcpServers['complex-md'];
   assert.equal(mcp.command, 'node', 'local checkout wires its own bin');

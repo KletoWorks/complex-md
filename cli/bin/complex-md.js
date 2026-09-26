@@ -15,7 +15,7 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
 
   npx complex-md                 generate COMPLEX.md, then wire it in (hooks, rules, MCP)
   npx complex-md generate        same; --agent writes the prompt bundle for your agent instead of calling a model
-                                 --model <id>  --provider <name>  --no-wire  --no-hooks  --no-mcp
+                                 --model <id>  --provider <name>  --no-wire  --no-hooks  --mcp (opt in)
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
                                  --for claude,cursor,openhands,codex,windsurf,cline,roo,openclaw,hermes
                                  (default: detect repo-local targets; openclaw/hermes are global registries,
@@ -110,7 +110,7 @@ async function main() {
 
   if (cmd === 'wire') {
     const { wire } = await import('../src/wire.js');
-    wire(root, { hooks: !flag('--no-hooks'), mcp: !flag('--no-mcp'), agents: opt('--for')?.split(','), log });
+    wire(root, { hooks: !flag('--no-hooks'), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
     return;
   }
 
@@ -119,7 +119,7 @@ async function main() {
     const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), log });
     if (r.written && !flag('--no-wire')) {
       const { wire } = await import('../src/wire.js');
-      wire(root, { hooks: !flag('--no-hooks'), mcp: !flag('--no-mcp'), agents: opt('--for')?.split(','), log });
+      wire(root, { hooks: !flag('--no-hooks'), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
     }
     return;
   }

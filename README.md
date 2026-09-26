@@ -98,19 +98,28 @@ the wrong question.
 
 ## Does it work?
 
-Not demonstrated. The localization benchmark asks whether the map gets an
-agent to the right file in fewer tool calls, measured on a repository's own
-fix history with paired arms.
+Not demonstrated, and one part of it measurably hurts. Four arms, 24 tasks
+on fastify, 96 runs.
 
-Twenty four tasks on fastify, 48 runs: 8 tasks better, 10 unchanged, 6 worse.
-Mean 0.73 fewer tool calls with the map, 95 percent CI [-2.16, +0.70], p =
-0.32. The direction is favourable in every cut of the data and no cut is
-distinguishable from zero. The map arm costs 25 percent more per run, which is
-the only clearly non zero number so far.
+- **The file alone**: no effect on tool calls to the right file. Output
+  tokens 27 percent lower at the median, not significant at n=24 (p = 0.14).
+  Cost per run 25 percent higher, because the map occupies context.
+- **The hooks**: not evaluable by this harness, which stops at the first edit
+  attempt, the moment the hook acts.
+- **The MCP server**: worse, significantly. A third more output tokens
+  (p = 0.036), more steps (p = 0.049), 2.2 times the cost. It is now opt in.
 
-Resolving a one step effect at the measured variance needs 93 pairs, roughly
-56 USD at two arms. Results, the power calculation, and why the first one was
-wrong by a factor of twenty five: [bench/RESULTS.md](bench/RESULTS.md).
+For comparison, arXiv 2601.20404 measured AGENTS.md to completion on 124
+tasks and found time down 28.6 percent and output tokens down 16.6 percent,
+both significant. That is a different outcome from the one measured here,
+and probably the right one. Results, the corrected power calculation, and
+what the next run needs: [bench/RESULTS.md](bench/RESULTS.md).
+
+**On cost.** The tool costs nothing per edit; the map is computed locally
+and the one model call is the optional prose step at generation time. What
+costs is the map sitting in the agent's context every turn, and that is the
+25 percent above. A map is byte identical across turns, which is what a
+prompt cache exists for.
 
 ## Layout
 

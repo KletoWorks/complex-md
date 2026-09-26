@@ -116,7 +116,13 @@ function runAgent(task, arm, wt) {
     const child = spawn(cmd, a, { cwd: wt, env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
     child.stdin.end(agent === 'mock' ? '' : PROMPT(task));
     const transcript = [];
-    const m = { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, cost_usd: null, tokens_in: 0, tokens_out: 0, stopped: null, error: null };
+    /* Tokens are split by kind because they are not priced alike. tokens_in
+     used to sum fresh input, cache reads and cache creation together, which
+     counts a cached read at full weight and overstates what the map costs by
+     a wide margin: a map is byte identical across runs and is exactly the
+     kind of prefix a cache is for. cost_usd, which the agent prices itself,
+     stays the only figure to quote as money. */
+  const m = { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: null };
     const goldSet = new Set(task.gold);
     const isGold = (p) => p && (goldSet.has(p) || task.gold.some((g) => p.endsWith('/' + g)));
     let buf = '';
@@ -134,7 +140,15 @@ function runAgent(task, arm, wt) {
         let ev; try { ev = JSON.parse(line); } catch { continue; }
         if (ev.type === 'assistant') {
           m.turns++;
-          const u = ev.message?.usage; if (u) { m.tokens_in += (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0); m.tokens_out += u.output_tokens || 0; }
+          const u = ev.message?.usage;
+          if (u) {
+            m.tokens_fresh += u.input_tokens || 0;
+            m.tokens_cache_read += u.cache_read_input_tokens || 0;
+            m.tokens_cache_write += u.cache_creation_input_tokens || 0;
+            /* Kept for continuity with runs recorded before the split. */
+            m.tokens_in += (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+            m.tokens_out += u.output_tokens || 0;
+          }
           for (const c of ev.message?.content || []) {
             if (c.type !== 'tool_use') continue;
             m.steps++;

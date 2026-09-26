@@ -49,7 +49,15 @@ the section below; complex-md appends to this file rather than rewriting it.
 `;
 
 /** `agents`: explicit target names (see targets.js); null detects repo-local targets from existing config. */
-export function wire(root, { hooks = true, mcp = true, rules = true, agents = null, log = () => {} } = {}) {
+/* mcp defaults to FALSE. On the 2026-09-26 benchmark (bench/RESULTS.md) the
+   MCP arm was the one clear result and it was negative: 27 server calls over
+   24 runs, a third more output tokens (Wilcoxon p 0.036), more steps to the
+   right file (sign test p 0.049), and 2.2 times the cost. On a task set where
+   the baseline needs two tool calls, a tool that offers more calls is overhead
+   by construction and the agent takes the offer. The server stays available
+   for anyone who measures it earning its calls on their own repository; it is
+   no longer installed on the strength of an assumption. */
+export function wire(root, { hooks = true, mcp = false, rules = true, agents = null, log = () => {} } = {}) {
   const map = loadComplexMd(root);
   if (!map) throw new Error('No COMPLEX.md at the repository root; generate it first.');
   for (const name of agents || []) if (!TARGETS[name]) throw new Error(`unknown wiring target "${name}"; one of: ${TARGET_NAMES.join(', ')}`);

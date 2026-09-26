@@ -2,6 +2,7 @@
 // Summarize runs.jsonl: per arm, then paired per task against the `none` arm.
 //   node bench/report.mjs bench/results/pilot/runs.jsonl
 import { readFileSync } from 'node:fs';
+import { summarise, pairsNeeded } from './stats.mjs';
 
 const path = process.argv[2] || 'bench/results/run/runs.jsonl';
 const runs = readFileSync(path, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
@@ -53,5 +54,40 @@ if (arms.includes('none')) {
   split('Issue text names a gold file', (r) => r.names_gold);
   split('Issue text does not name a gold file', (r) => !r.names_gold);
 }
+  /* The tests that survive this distribution. Steps to first gold read is
+     discrete, skewed and floored at 1, and a few long runs carry most of the
+     variance, so a mean and a t-test overstate what the data supports. The
+     Wilcoxon signed rank is the primary test, matching arXiv 2601.20404 on
+     the same shape of data; the trimmed mean and the sign test sit beside it.
+     Output tokens and wall clock are reported because they are what that
+     paper measured and what a user actually feels. */
+  const METRICS = [
+    ['steps to first gold read', (r) => r.first_gold_read ?? (r.steps + 1)],
+    ['output tokens', (r) => r.tokens_out],
+    ['wall clock ms', (r) => r.duration_ms],
+    ['cost usd', (r) => r.cost_usd],
+    ['cache read tokens', (r) => r.tokens_cache_read],
+  ];
+  console.log('\n## Paired tests against none\n');
+  console.log('| arm | metric | pairs | median none | median arm | median % | trimmed Δ | Wilcoxon p | sign p | min detectable |');
+  console.log('|---|---|---|---|---|---|---|---|---|---|');
+  for (const arm of arms.filter((a) => a !== 'none')) {
+    for (const [label, get] of METRICS) {
+      const pairs = [];
+      for (const [, t] of byTask) {
+        const a = t.none, b = t[arm];
+        if (!a || !b || a.error || b.error) continue;
+        const va = get(a), vb = get(b);
+        if (va == null || vb == null || Number.isNaN(va) || Number.isNaN(vb)) continue;
+        pairs.push([va, vb]);
+      }
+      if (pairs.length < 4) continue;
+      const q = summarise(pairs);
+      const pv = (x) => (Number.isNaN(x) ? '-' : x.toFixed(3));
+      console.log(`| ${arm} | ${label} | ${q.pairs} | ${f1(q.median_a)} | ${f1(q.median_b)} | ${Number.isNaN(q.median_pct) ? '-' : q.median_pct.toFixed(1) + '%'} | ${f1(q.trimmed_delta)} | ${pv(q.wilcoxon.p)} | ${pv(q.sign.p)} | ${f1(q.min_detectable)} |`);
+    }
+  }
+  console.log('\nNegative favours the arm. Wilcoxon is the primary test; the mean is not, because a few long runs carry the variance.');
+
 const errs = runs.filter((r) => r.error);
 if (errs.length) console.log(`\n${errs.length} runs with errors: ${errs.map((r) => `${r.task}/${r.arm}`).join(', ')}`);
