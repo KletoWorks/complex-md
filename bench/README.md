@@ -22,6 +22,12 @@ anchored there, so the fix being tested never leaks into its own `fixes` count.
 One map per calendar month of base dates, which is how often a map gets
 regenerated in practice.
 
+`cost_usd` is the API-equivalent price the `claude` CLI reports in its JSON
+output for a run. When the agent runs on a subscription the run is not billed
+and the figure is a unit of tokens consumed, comparable across arms because
+the same pricing model is applied to each. It is never a statement of money
+spent.
+
 Primary metric: tool calls before the agent first reads a file the real fix
 touched. Secondary: distinct files read before that (wasted reads), whether the
 final diff touches a gold file, gate firings, MCP calls, cost. Tasks whose issue

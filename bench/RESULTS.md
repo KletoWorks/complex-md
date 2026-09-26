@@ -6,7 +6,10 @@ nothing and when it measured the wrong thing. Method is in
 
 ## Status as of 2026-09-26
 
-Four arms, 24 tasks, 96 runs, one repository, 6.51 USD in total.
+Four arms, 24 tasks, 96 runs, one repository. The agent ran on a Claude Max
+subscription; the API-equivalent price the CLI reports for all 96 runs is
+6.51 USD, and that figure is the unit used for cost throughout, not money
+spent.
 
 - **`file`**: no effect on localization. Output tokens 27 percent lower at
   the median, not significant (p = 0.14). Cost 25 percent higher per run.
@@ -21,7 +24,7 @@ and should not enable the MCP server on the strength of them.
 
 ## Per arm
 
-| arm | n | found gold | steps to first gold read (median / mean) | gate fired | MCP calls | cost/run |
+| arm | n | found gold | steps to first gold read (median / mean) | gate fired | MCP calls | API-equivalent cost/run |
 |---|---|---|---|---|---|---|
 | none | 24 | 96% | 2.0 / 3.3 | 0 | 0 | 27.0c |
 | file | 24 | 96% | 2.0 / 2.7 | 0 | 0 | 33.8c |
@@ -81,8 +84,14 @@ not be installed by `npx complex-md` until a run shows it earning its calls.
 
 Three different things were being called cost and they are not alike.
 
-1. **Running this benchmark** cost 6.51 USD for 96 runs. That is the price of
-   measuring, paid once, by this project.
+1. **Running this benchmark.** The agent ran on a Claude Max subscription,
+   so the runs consumed plan usage rather than being billed. `cost_usd` is
+   the API-equivalent price the CLI computes for each run, and 6.51 USD is
+   that figure summed over 96 runs. It is kept as the unit because it is
+   the same pricing model applied to every arm, so ratios between arms
+   (2.2 times for `mcp`, 1.25 for `file`) are meaningful even though the
+   absolute number was never charged. An earlier version of this page
+   presented it as money spent; it was not.
 2. **Using the tool** costs nothing per edit. The map is computed locally by
    `npx complex-md`; the one model call is the optional prose step at
    generation time, and the tool works without it.
@@ -133,7 +142,7 @@ what they measured, to completion, and keep localization as a secondary.
 
 1. **Run to completion, not to the first edit.** The `hooks` arm cannot be
    evaluated any other way, and time and tokens to a finished change are the
-   outcomes that justify adoption. Roughly three times the cost per run.
+   outcomes that justify adoption. Roughly three times the tokens per run.
 2. **Wall clock and output tokens as primary outcomes**, localization as
    secondary, Wilcoxon throughout.
 3. **Disable the MCP server by default** before anyone else measures it.

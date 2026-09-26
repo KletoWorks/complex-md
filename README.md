@@ -118,8 +118,10 @@ what the next run needs: [bench/RESULTS.md](bench/RESULTS.md).
 **On cost.** The tool costs nothing per edit; the map is computed locally
 and the one model call is the optional prose step at generation time. What
 costs is the map sitting in the agent's context every turn, and that is the
-25 percent above. A map is byte identical across turns, which is what a
-prompt cache exists for.
+25 percent above. The benchmark's cost figures are the API-equivalent price
+the agent reports per run, used as a unit of tokens consumed; the runs
+themselves were on a subscription and were not billed. A map is byte
+identical across turns, which is what a prompt cache exists for.
 
 ## Layout
 
