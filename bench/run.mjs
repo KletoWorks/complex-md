@@ -245,8 +245,16 @@ for (const task of tasks) {
     log(`${task.id} ${arm}: ${task.title.slice(0, 60)}`);
     const wt = prepareWorktree(task, arm);
     try {
-      await armSetup(task, arm, wt);
-      const m = await runAgent(task, arm, wt);
+      /* A failure setting up or driving one run is that run's error, recorded
+         as a row, and the pass continues. Before this, a transient exception
+         here ended the whole pass. */
+      let m;
+      try {
+        await armSetup(task, arm, wt);
+        m = await runAgent(task, arm, wt);
+      } catch (e) {
+        m = { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: `harness: ${String(e.message || e).slice(0, 200)}` };
+      }
       const edited = sh('git', ['diff', '--name-only', 'HEAD'], wt).split('\n').filter(Boolean);
       /* Diff size, the AAIF metric: lines added plus removed in the final
          patch, and files touched. Both zero when the agent edited nothing. */
