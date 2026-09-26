@@ -98,18 +98,19 @@ the wrong question.
 
 ## Does it work?
 
-Not demonstrated yet. The localization benchmark asks whether the map gets an
+Not demonstrated. The localization benchmark asks whether the map gets an
 agent to the right file in fewer tool calls, measured on a repository's own
-fix history with paired arms. One pilot has run: eight tasks on fastify, one
-task improved, five unchanged, two worse, and the map arm cost 20 percent more
-per run.
+fix history with paired arms.
 
-That is inconclusive rather than negative, and it is inconclusive for a
-reason worth stating: the baseline already found the right file in a median of
-two tool calls with no wasted reads, so there was almost nothing to remove.
+Twenty four tasks on fastify, 48 runs: 8 tasks better, 10 unchanged, 6 worse.
+Mean 0.73 fewer tool calls with the map, 95 percent CI [-2.16, +0.70], p =
+0.32. The direction is favourable in every cut of the data and no cut is
+distinguishable from zero. The map arm costs 25 percent more per run, which is
+the only clearly non zero number so far.
 
-Results, limits and what would make the next run conclusive:
-[bench/RESULTS.md](bench/RESULTS.md).
+Resolving a one step effect at the measured variance needs 93 pairs, roughly
+56 USD at two arms. Results, the power calculation, and why the first one was
+wrong by a factor of twenty five: [bench/RESULTS.md](bench/RESULTS.md).
 
 ## Layout
 
