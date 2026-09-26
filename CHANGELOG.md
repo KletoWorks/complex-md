@@ -12,20 +12,11 @@ outcome. Token accounting distinguishes fresh, cache read and cache write.
 The MCP server is now opt in (`--mcp`): benchmarking showed it adds tool
 calls without improving any outcome on the reference dataset.
 
-## 2026-09-25  Fix: a hand written map with an inline list crashed wiring
+## 2026-09-25  0.7.1: inline lists in hand written maps
 
-**Intent:** `npx complex-md wire` died with
-`map.co_change.flatMap is not a function` on a repository whose COMPLEX.md was
-written by hand. Writing one by hand is a documented way to use this format,
-so this was a crash on a supported path. Found by running the published 0.7.0
-end to end on a clean repository rather than by a test.
-
-**Change:** the front matter parser reads inline flow sequences, so
-`co_change: []` and `files: [a.js, b.js]` become arrays instead of the strings
-`"[]"` and `"[a.js, b.js]"`. A generated map never writes one, which is why
-this survived: every list the generator emits is a block. Wiring and the brief
-builder also coerce rather than trust, because the worst acceptable outcome
-for a malformed map is fewer paths, never a stack trace.
+**Change:** the front matter parser reads inline flow sequences, so a hand
+written map may use `co_change: []` or `files: [a.js, b.js]`. Wiring and the
+brief builder accept a malformed map by skipping what they cannot read.
 
 ## 2026-09-25  Consequence analysis, against bounds the repository declares
 
