@@ -234,10 +234,9 @@ paths:
    Windsurf (`.windsurf/`), Cline (`.clinerules/`) and Roo (`.roo/`) rule
    files are written by the CLI only: run `npx -y complex-md wire`.
 
-6. Hooks and the MCP server. Rules are advisory; the research puts
+6. Hooks. Rules are advisory; the research puts
    compliance near half when an agent edits existing code late in a session.
-   Hooks make the two rules that matter deterministic, and the MCP server
-   lets the agent query the map mid-task. If `npx` is available, run
+   Hooks make the two rules that matter deterministic.
    `npx -y complex-md wire`: it performs steps 1 to 5 idempotently and adds
    the hooks and MCP registration below. Otherwise write them by hand,
    merging into any existing file rather than replacing it:

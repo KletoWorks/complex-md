@@ -464,7 +464,7 @@ Three ways to produce a conforming COMPLEX.md:
    passes through a model, and makes one model call for the prose (or hands
    the prompt bundle to the agent you are already using when no API key is
    set). Nothing but the top hotspot files and the signals table leaves the
-   machine. The same package provides the hooks and the MCP server described
+   machine. The same package provides the hooks described
    under "Enforcement and runtime".
 2. **The skill.** Download the [complex-md skill](/skill) and run it with any
    coding agent inside the repo. Where Node is available the skill runs the
@@ -532,7 +532,7 @@ Stage 3 of generation, in full:
    with the front matter `name: complex-md` and a `paths:` YAML list of the
    same paths, quoted, followed by the block. OpenHands injects it once, the
    first time a matching file is touched, at zero baseline cost.
-6. Install the hooks and register the MCP server (next section) where the
+6. Install the hooks (next section) where the
    tool directories exist. `npx complex-md wire` does steps 1 to 7
    idempotently; the skill writes the same files by hand when `npx` is
    unavailable.
@@ -570,27 +570,6 @@ in `.claude/settings.json`. Cursor: `preToolUse` and `stop` in
 `.cursor/hooks.json`. Both hooks are once per session per file, keyed by the
 tool's session id, and take `--mode gate | warn | off`. `warn` lets the edit
 through with the paragraph attached, for teams that find the gate too firm.
-
-### MCP server
-
-`npx complex-md mcp` exposes the map and live signals as
-tools, so an agent can pull exactly the paragraph, partner list or importer
-list it needs mid-task instead of reading the whole file once at launch. The
-one intervention shown to lift agent success across frameworks on SWE-bench
-is repository structure the agent queries during localization; this is that
-shape, at the file level, from the dependency graph and history together.
-
-| Tool | Answers |
-| --- | --- |
-| `complex_lookup(path)` | Row, paragraph, directive, partners, covering tests for one file. |
-| `complex_where_to_look(keywords?)` | Hotspots ranked by recent activity times size (the backtested best predictor of the next fix), re-ranked by words from a bug report. |
-| `complex_impact(path)` | Files that depend on it, partners, covering tests, test command. |
-| `complex_refs(symbol)` | Where a symbol is defined and every file that references it, hotspots first, before a rename or signature change. |
-| `complex_check(files?, base?)` | Hotspots touched and partners missed by a change; tests to run. |
-| `complex_refresh()` | The table recomputed live from git; flags a stale `commit`. |
-
-Registered in `.mcp.json` (Claude Code), `.cursor/mcp.json` (Cursor) and
-`.codex/config.toml` (Codex) where those tools are present.
 
 ### Diff check
 
@@ -707,6 +686,6 @@ and the file describes that repository as it stands.
 ## Older files
 
 A file written to an earlier spec version remains valid input for any
-agent and for the hooks and MCP server; generators emit the current
+agent and for the hooks; generators emit the current
 version, and the [changelog](https://github.com/KletoWorks/complex-md/blob/main/CHANGELOG.md)
 records what changed between versions.
