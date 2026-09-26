@@ -25,6 +25,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { submodulePaths } from './graph.js';
 
 /* Transitive importers, breadth first, with the depth each was reached at.
    Depth matters: a direct importer is a different kind of consequence from
@@ -159,4 +160,30 @@ export function formatImpact(a) {
     out.push(`  no bounds declared; add ${BOUNDS_PATH} to say what is acceptable here`);
   }
   return out.join('\n');
+}
+
+/* Boundaries, the tractable half of the federated question.
+ *
+ * The concurrent engineering literature's problem is several teams working
+ * simultaneously against one authoritative model. The codebase version starts
+ * smaller and is already visible here: a repository that contains submodules,
+ * or workspace packages, has internal boundaries that a single dependency
+ * graph walks straight through without remark. Reaching twelve files inside
+ * one package and reaching twelve files across four packages are different
+ * consequences and were reported as the same number.
+ *
+ * What this does NOT do, and should not be read as doing: it does not analyse
+ * ACROSS repositories. Pairing commits between a superproject and a submodule
+ * needs a decision about what counts as one change (the submodule pointer
+ * move is the likely answer) and that decision is not made here.
+ */
+export function boundariesFor(cwd, { workspaces = [] } = {}) {
+  const subs = submodulePaths(cwd);
+  const units = [...subs, ...workspaces]
+    .map((p) => p.replace(/\/+$/, ''))
+    .filter(Boolean)
+    /* Longest first: sites/a/b must win over sites/a for a path inside it. */
+    .sort((a, b) => b.length - a.length);
+  if (!units.length) return null;
+  return (path) => units.find((u) => path === u || path.startsWith(`${u}/`)) || '';
 }

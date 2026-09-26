@@ -105,3 +105,27 @@ test('an absent bounds file is null, distinct from an empty one', () => {
   const dir = mkdtempSync(join(tmpdir(), 'cx-bounds3-'));
   assert.equal(loadBounds(dir), null);
 });
+
+test('boundariesFor maps a path to its submodule, longest prefix winning', async () => {
+  const { boundariesFor } = await import('../src/impact.js');
+  const { mkdtempSync: mk, writeFileSync: w } = await import('node:fs');
+  const { tmpdir: td } = await import('node:os');
+  const dir = mk(join(td(), 'cx-bound-'));
+  w(join(dir, '.gitmodules'), [
+    '[submodule "sites/a"]', '\tpath = sites/a', '\turl = x',
+    '[submodule "sites/a/inner"]', '\tpath = sites/a/inner', '\turl = y',
+  ].join('\n'));
+  const of = boundariesFor(dir);
+  assert.equal(of('sites/a/src/x.js'), 'sites/a');
+  assert.equal(of('sites/a/inner/x.js'), 'sites/a/inner', 'the longer prefix wins');
+  assert.equal(of('platform/x.js'), '', 'outside every submodule is its own boundary');
+});
+
+test('a repository with no boundaries gets no boundary contribution', async () => {
+  const { boundariesFor } = await import('../src/impact.js');
+  const { mkdtempSync: mk } = await import('node:fs');
+  const { tmpdir: td } = await import('node:os');
+  assert.equal(boundariesFor(mk(join(td(), 'cx-nobound-'))), null);
+  const a = analyse('a.js', { graph: GRAPH, boundaryOf: null });
+  assert.ok(!a.contributions.some((c) => c.name === 'cross_boundary'));
+});

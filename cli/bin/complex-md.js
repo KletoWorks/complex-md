@@ -87,13 +87,21 @@ async function main() {
     if (!target) { console.error('usage: complex-md impact <path>'); process.exit(2); }
     const { graphFor } = await import('../src/signals.js');
     const { loadComplexMd } = await import('../src/complexmd.js');
-    const { analyse, loadBounds, formatImpact, BOUNDS_PATH } = await import('../src/impact.js');
+    const { analyse, loadBounds, formatImpact, boundariesFor, BOUNDS_PATH } = await import('../src/impact.js');
     const bounds = loadBounds(root);
     if (bounds?.__invalid) {
       console.error(`${BOUNDS_PATH} is not readable JSON; refusing to report as if no bounds were declared.`);
       process.exit(2);
     }
-    const a = analyse(target, { graph: graphFor(root), map: loadComplexMd(root), bounds });
+    const a = analyse(target, {
+      graph: graphFor(root),
+      map: loadComplexMd(root),
+      bounds,
+      /* Submodule and workspace boundaries, when the repository has any.
+         Reaching twelve files in one package and twelve across four is a
+         different consequence and was previously the same number. */
+      boundaryOf: boundariesFor(root),
+    });
     if (flag('--json')) console.log(JSON.stringify(a, null, 2));
     else console.log(formatImpact(a));
     if (flag('--strict') && a.status === 'over') process.exit(1);

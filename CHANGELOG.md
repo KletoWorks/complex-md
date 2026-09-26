@@ -25,6 +25,13 @@ malformed bounds file is refused rather than read as an absence of bounds.
 `--strict` exits 1 when a declared bound is exceeded. Depth is recorded per
 reached file and cycles terminate.
 
+**Change:** where a repository has submodules or workspace packages, crossing
+one of those boundaries is its own contribution. Reaching twelve files inside
+a package and reaching twelve across four packages are different consequences
+and were the same number. This is not cross repository analysis: pairing
+commits between a superproject and a submodule needs a decision about what
+counts as one change, and that decision is not made here.
+
 ## 2026-09-25  Per path briefs, and a recorded answer for a fixed repository
 
 **Intent:** two gaps. Wiring delivered a pointer where it should have
