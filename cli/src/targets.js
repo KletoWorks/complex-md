@@ -21,15 +21,20 @@ import { execFileSync } from 'node:child_process';
  * is advice that nothing recomputes.
  */
 export function writeBriefs(dir, briefs, header, report, label) {
+  /* `label.prefix` scopes the clear to this tool's own files. A directory
+     that is ours alone (.claude/rules/complex-md/) is cleared wholesale; a
+     directory shared with the user's own rules (.agents/skills/) is cleared
+     only of files carrying the prefix, so nothing of theirs is ever removed. */
+  const prefix = label.prefix || '';
   if (existsSync(dir)) {
     for (const f of readdirSync(dir)) {
-      if (f.endsWith('.md') || f.endsWith('.mdc')) rmSync(join(dir, f));
+      if ((f.endsWith('.md') || f.endsWith('.mdc')) && f.startsWith(prefix)) rmSync(join(dir, f));
     }
   }
   if (!briefs.length) return;
   mkdirSync(dir, { recursive: true });
   for (const b of briefs) {
-    write(join(dir, `${b.slug}${label.ext}`), header(b) + b.text);
+    write(join(dir, `${prefix}${b.slug}${label.ext}`), header(b) + b.text);
   }
   report.rules.push(`${label.name} (${briefs.length} paths)`);
 }
@@ -156,11 +161,25 @@ export const TARGETS = {
     },
   },
 
+  /* OpenHands path triggered rules (docs.openhands.dev, Agent Skills spec;
+     OpenHands is MIT). A rule at .agents/skills/<name>.md with a `paths:`
+     list is injected when the agent reads, edits or creates a matching file,
+     once per conversation, and is not advertised to the model. That is the
+     per path brief, arrived at independently, so each brief becomes one rule.
+     The files are prefixed complex-md- because .agents/skills/ is the user's
+     directory too and only ours may be cleared. */
   openhands: {
     detect: (root) => existsSync(join(root, '.openhands')) || existsSync(join(root, '.agents')),
-    rules({ root, block, paths, report }) {
+    rules({ root, block, paths, briefs, report }) {
       write(join(root, '.agents/skills/complex-md.md'), `---\nname: complex-md\npaths:\n${paths.map((p) => `  - "${p}"`).join('\n')}\n---\n${block}`);
       report.rules.push('.agents/skills/complex-md.md');
+      writeBriefs(
+        join(root, '.agents/skills'),
+        briefs,
+        (b) => `---\nname: complex-md-${b.slug}\ndescription: COMPLEX.md brief for ${b.path}\npaths:\n  - "${b.path}"\n---\n`,
+        report,
+        { name: '.agents/skills/complex-md-*', ext: '.md', prefix: 'complex-md-' },
+      );
     },
   },
 

@@ -150,3 +150,32 @@ test('a hand written map with inline lists wires without crashing', async () => 
   const r = wire(dir, { agents: ['claude'] });
   assert.ok(r.rules.some((x) => x.includes('complex-md/')), 'briefs were written');
 });
+
+
+/* .agents/skills/ belongs to the user as much as to us. A rule of theirs
+   sitting next to our briefs must survive a rewire; only complex-md- files
+   are ours to clear. */
+test('openhands briefs are path triggered rules, and a rewire leaves the user\'s own skills alone', async () => {
+  const { wire } = await import('../src/wire.js');
+  const { mkdtempSync: mk, writeFileSync: w, mkdirSync: md, readdirSync: rd, readFileSync: rf, existsSync: ex } = await import('node:fs');
+  const { tmpdir: td } = await import('node:os');
+  const { execFileSync } = await import('node:child_process');
+  const dir = mk(join(td(), 'cx-oh-'));
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  md(join(dir, 'src'));
+  w(join(dir, 'src/core.js'), 'export const a = 1;\n');
+  md(join(dir, '.agents/skills'), { recursive: true });
+  w(join(dir, '.agents/skills/deploy.md'), '---\nname: deploy\npaths:\n  - "infra/**"\n---\nthe user\'s own rule\n');
+  w(join(dir, '.agents/skills/complex-md-stale-x.md'), '---\nname: complex-md-stale-x\n---\nours, stale\n');
+  w(join(dir, 'COMPLEX.md'), rf(join(import.meta.dirname, 'fixtures', 'brief-map.md'), 'utf8'));
+  wire(dir, { agents: ['openhands'] });
+  const files = rd(join(dir, '.agents/skills'));
+  assert.ok(files.includes('deploy.md'), 'the user\'s rule survives');
+  assert.ok(!files.includes('complex-md-stale-x.md'), 'our stale brief is removed');
+  const brief = files.find((f) => /^complex-md-src-core/.test(f));
+  assert.ok(brief, 'a brief per hot path');
+  const txt = rf(join(dir, '.agents/skills', brief), 'utf8');
+  assert.match(txt, /^name: complex-md-src-core/m);
+  assert.match(txt, /^paths:\n  - "src\/core\.js"/m, 'path triggered, one path');
+  assert.match(txt, /is the hub every module imports/);
+});
