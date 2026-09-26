@@ -13,6 +13,7 @@ import { join, posix } from 'node:path';
 import { git, trackedFiles, shortSha } from './git.js';
 import { buildGraph, submodulePaths, RANKED_KINDS, TEST_FILE_RE, BINARY_RE } from './graph.js';
 import { rankScaled } from './rank.js';
+import { isSecretPath } from './secrets.js';
 
 export const SPEC_VERSION = '0.3';
 export { TEST_FILE_RE, BINARY_RE };
@@ -162,8 +163,13 @@ export function computeSignals(cwd, opts = {}) {
   let locInScope = 0;
   let filesInScope = 0;
   const ext = new Map();
+  const secretPaths = [];
   for (const [path, kind] of kinds) {
     if (!(kind in RANKED_KINDS)) continue;
+    /* A committed map must never name a credential file: a hotspot row for
+       .env.production tells a reader where the secrets are and tells an agent
+       to open them. Dropped from every list and counted below. */
+    if (isSecretPath(path)) { secretPaths.push(path); continue; }
     const l = loc.get(path);
     if (l === null || l === undefined) continue;
     filesInScope++;
@@ -265,6 +271,7 @@ export function computeSignals(cwd, opts = {}) {
   if (kindCounts.vendored) blind.push(`${kindCounts.vendored} vendored files excluded`);
   if (kindCounts.generated) blind.push(`${kindCounts.generated} generated or lock files excluded`);
   if (graph.skippedLarge) blind.push(`${graph.skippedLarge} files over 1 MB not read for dependencies`);
+  if (secretPaths.length) blind.push(`${secretPaths.length} credential shaped path${secretPaths.length > 1 ? 's' : ''} left out of every list so a committed map never names them`);
   // The sharpest blind spot there is: the file is in the map and cannot be
   // found by searching for it. Name the files, not just the count.
   if (graph.grepBlind?.length) {
