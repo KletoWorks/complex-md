@@ -4,9 +4,35 @@
 // (openclaw, hermes) keep their MCP registry per machine, so they are
 // opt-in only via --for and configured through their own CLI, never by
 // editing another tool's global file behind the user's back.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
+
+/* One rule file per briefed path, in a directory of their own.
+ *
+ * The alternative, a single rule listing every hot path, is what this
+ * replaces: it delivered a pointer rather than an answer, and putting the
+ * briefs themselves in one file would push every paragraph into context the
+ * moment any one path is touched. Scoped files cost nothing to the paths that
+ * are not being edited.
+ *
+ * The directory is cleared first. Hot paths move between runs, and a brief
+ * left behind for a file that is no longer listed is worse than no brief: it
+ * is advice that nothing recomputes.
+ */
+export function writeBriefs(dir, briefs, header, report, label) {
+  if (existsSync(dir)) {
+    for (const f of readdirSync(dir)) {
+      if (f.endsWith('.md') || f.endsWith('.mdc')) rmSync(join(dir, f));
+    }
+  }
+  if (!briefs.length) return;
+  mkdirSync(dir, { recursive: true });
+  for (const b of briefs) {
+    write(join(dir, `${b.slug}${label.ext}`), header(b) + b.text);
+  }
+  report.rules.push(`${label.name} (${briefs.length} paths)`);
+}
 
 export function write(p, content) {
   mkdirSync(dirname(p), { recursive: true });
@@ -67,9 +93,16 @@ function cliAvailable(bin) {
 export const TARGETS = {
   claude: {
     detect: (root) => existsSync(join(root, '.claude')) || existsSync(join(root, 'CLAUDE.md')),
-    rules({ root, block, paths, report }) {
+    rules({ root, block, paths, briefs, report }) {
       write(join(root, '.claude/rules/complex-md.md'), `---\nalwaysApply: false\npaths: ${paths.join(', ')}\n---\n${block}`);
       report.rules.push('.claude/rules/complex-md.md');
+      writeBriefs(
+        join(root, '.claude/rules/complex-md'),
+        briefs,
+        (b) => `---\nalwaysApply: false\npaths: ${b.path}\n---\n`,
+        report,
+        { name: '.claude/rules/complex-md/', ext: '.md' },
+      );
     },
     hooks({ root, inv, report }) {
       const p = join(root, '.claude/settings.json');
@@ -92,9 +125,16 @@ export const TARGETS = {
 
   cursor: {
     detect: (root) => existsSync(join(root, '.cursor')),
-    rules({ root, block, paths, report }) {
+    rules({ root, block, paths, briefs, report }) {
       write(join(root, '.cursor/rules/complex-md.mdc'), `---\ndescription: COMPLEX.md structural risk map\nglobs: ${paths.join(', ')}\nalwaysApply: false\n---\n${block}`);
       report.rules.push('.cursor/rules/complex-md.mdc');
+      writeBriefs(
+        join(root, '.cursor/rules/complex-md'),
+        briefs,
+        (b) => `---\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${b.path}\nalwaysApply: false\n---\n`,
+        report,
+        { name: '.cursor/rules/complex-md/', ext: '.mdc' },
+      );
     },
     hooks({ root, inv, report }) {
       const p = join(root, '.cursor/hooks.json');

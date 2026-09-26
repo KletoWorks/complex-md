@@ -4,6 +4,35 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-25  Per path briefs, and a recorded answer for a fixed repository
+
+**Intent:** two gaps. Wiring delivered a pointer where it should have
+delivered an answer, and nothing in the test suite asserted the engine's whole
+output, so a scoring change could reorder every user's hotspots and pass.
+
+**Change:** wiring writes one rule per briefed path, in `.claude/rules/complex-md/`
+and `.cursor/rules/complex-md/`, each scoped to that path and carrying that
+file's own numbers, its paragraph from "Why these files are hot", its
+co-change partners with their coupling, and its directive. Previously a single
+rule listed every hot path and its body said to go and read COMPLEX.md at the
+root, so the trigger was local and the payload was not. Putting the briefs
+into one file instead would push every paragraph into context the moment any
+one path is touched, which is why they are separate files. The directory is
+cleared on each run: a brief for a path the map no longer lists is advice
+nothing recomputes. A path that appears only as a co-change partner is
+described as one and is not called risky.
+
+**Change:** `cli/test/regression.test.js` records the engine's answer on a
+fixture repository built byte for byte identically, including its commit SHA.
+Three goldens: the ranked regime, the thin history regime, and the tuning
+defaults. The second and third exist because the first was not sufficient. The
+regimes produce different files and the fixture pins `thinHistory` to reach
+the first, leaving the second uncovered; and a threshold is only caught when a
+file sits on it, which no fixture can arrange for all of them, so moving
+`thinHistory` from 50 to 9999 passed both regime goldens. Verified by breaking
+the engine five ways and confirming each is caught. `UPDATE_GOLDEN=1`
+rerecords.
+
 ## 2026-09-25  Blind spots name files a NUL byte hides from grep; a created AGENTS.md says what it is
 
 **Intent:** the map's job is to say where you cannot see. A source file that

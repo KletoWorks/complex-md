@@ -8,6 +8,7 @@ import { join, dirname, relative, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { integrationBlock, BLOCK_HEADING } from './prompts.js';
 import { loadComplexMd } from './complexmd.js';
+import { pathBriefs } from './brief.js';
 import { TARGETS, TARGET_NAMES } from './targets.js';
 
 const PRIMARY = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.github/copilot-instructions.md'];
@@ -55,6 +56,10 @@ export function wire(root, { hooks = true, mcp = true, rules = true, agents = nu
   const inv = invocation(root);
   const block = integrationBlock();
   const paths = [...new Set([...map.hotspots.map((h) => h.path), ...map.load_bearing.map((h) => h.path), ...map.co_change.flatMap((c) => c.files)])];
+  /* One brief per path, carrying that file's own numbers, paragraph, partners
+     and directive, so a scoped rule delivers the answer rather than a pointer
+     to the document holding it. */
+  const briefs = pathBriefs(map);
   const report = { primary: [], created: [], rules: [], hooks: [], mcp: [], skipped: [] };
 
   // 1. Primary files. A CLAUDE.md that imports AGENTS.md already carries
@@ -104,7 +109,7 @@ export function wire(root, { hooks = true, mcp = true, rules = true, agents = nu
   for (const name of active) {
     const t = TARGETS[name];
     const tinv = t.global ? { shell: inv.absShell, command: inv.absCommand, args: inv.absArgs } : inv;
-    const ctx = { root, inv: tinv, block, paths, report, log };
+    const ctx = { root, inv: tinv, block, paths, briefs, report, log };
     if (rules && t.rules) t.rules(ctx);
     if (hooks && t.hooks) t.hooks(ctx);
     if (mcp && t.mcp) t.mcp(ctx);
