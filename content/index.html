@@ -65,6 +65,27 @@ analysis takes about a second on your machine.</p>
 </div>
 </section>
 
+<section class="section" id="blind-spots">
+<div class="inner narrow">
+<h2>A search that finds nothing looks like nothing to find.</h2>
+<p>An agent was asked whether an HTTP route existed. It grepped the package for
+the route, for the handler, and for the feature's name. Nothing matched. It
+reported the endpoint as unimplemented and offered to build it.</p>
+<p>The endpoint existed. It was implemented, routed and mounted. One module in
+that package carried a single NUL byte at offset 53248, and grep skips a file
+containing a NUL in silence: no match, no warning, exit 0. Every search had
+stepped over the one file that held the answer.</p>
+<p>COMPLEX.md had that module ranked, with a paragraph written about it,
+because the signals come from the dependency graph and the commit history
+rather than from a text search. The file was in the map the whole time.</p>
+<p>What the map did not do was say the file could not be read by the agent's
+own tools. Now it does, under <a href="/spec/"><code>blind_spots</code></a>.
+Searches skip files, globs miss directories, context windows truncate. A map
+built from structure and history fails in different places, and the part of it
+worth the most is the part that tells you where you cannot see.</p>
+</div>
+</section>
+
 <section class="section" id="compatibility">
 <div class="inner narrow">
 <h2>Works with the agents you already use.</h2>
@@ -162,6 +183,7 @@ every codebase should carry.</p>
 <details class="faq-item"><summary>Do I need an API key?</summary><p>No. With one, the tool writes the explanations itself. Without one, your agent does. Your code never leaves your machine.</p></details>
 <details class="faq-item"><summary>What does the score mean?</summary><p>A ranking, not a prediction. Higher means an edit has more ways to go wrong. The <a href="/spec/">spec</a> shows the formula.</p></details>
 <details class="faq-item"><summary>What about languages it cannot read?</summary><p>They are listed under <code>blind_spots</code>, and the file says so when they dominate.</p></details>
+<details class="faq-item"><summary>What if a file is unreadable by grep?</summary><p>A single NUL byte makes grep treat a source file as binary and skip it in silence. Those files are named under <code>blind_spots</code>, with <code>git grep -I --text</code> as the way to read them.</p></details>
 <details class="faq-item"><summary>Can I write one by hand?</summary><p>Yes. Plain markdown with a YAML header. The <a href="/articles/write-complex-md-by-hand/">walkthrough</a> takes seven git commands.</p></details>
 <details class="faq-item"><summary>npx says "No versions available". Why?</summary><p>Your npm config sets <code>min-release-age</code>, which refuses packages published this week. Run <code>npm_config_min_release_age=0 npx -y complex-md</code> once.</p></details>
 <details class="faq-item"><summary>How do I keep it out of my agent's way?</summary><p><code>--no-hooks</code> skips the edit pause. <code>--no-wire</code> only writes the file. Everything added is marked and safe to remove.</p></details>
