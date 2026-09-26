@@ -4,6 +4,16 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-27  0.9.1: the CLI reads its prompts from the repository when the packaged copy is absent
+
+**Change:** `cli/prompts/` is a copy synced at prepack; inside the repository
+the site build rewrites it while the test suite runs files in parallel, and a
+test could read it in the moment between removal and rewrite. The CLI now
+falls back to the repository's `prompts/`, which is byte identical and always
+present, so the 0.9.0 release run's single failure cannot recur. The
+published package is unaffected: only the copy exists there and nothing
+rewrites it. 0.9.0 did not publish; this release carries its changes.
+
 ## 2026-09-27  Credential shaped paths are never named in a map
 
 **Change:** a path whose name has the shape of a credential file (`.env`,
