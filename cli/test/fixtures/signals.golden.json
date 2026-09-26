@@ -18,6 +18,7 @@
       "fan_in": 5,
       "fan_out": 0,
       "tests": 1,
+      "rank": 100,
       "score": 403
     },
     {
@@ -32,6 +33,7 @@
       "fan_in": 0,
       "fan_out": 2,
       "tests": 0,
+      "rank": 6,
       "score": 41
     },
     {
@@ -46,6 +48,7 @@
       "fan_in": 0,
       "fan_out": 0,
       "tests": 0,
+      "rank": 0,
       "score": 10
     }
   ],
@@ -62,6 +65,7 @@
       "fan_in": 5,
       "fan_out": 0,
       "tests": 1,
+      "rank": 100,
       "score": 403
     },
     {
@@ -76,6 +80,7 @@
       "fan_in": 0,
       "fan_out": 2,
       "tests": 0,
+      "rank": 6,
       "score": 41
     },
     {
@@ -90,6 +95,7 @@
       "fan_in": 0,
       "fan_out": 0,
       "tests": 0,
+      "rank": 0,
       "score": 10
     }
   ],

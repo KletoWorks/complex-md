@@ -12,6 +12,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { git, trackedFiles, shortSha } from './git.js';
 import { buildGraph, submodulePaths, RANKED_KINDS, TEST_FILE_RE, BINARY_RE } from './graph.js';
+import { rankScaled } from './rank.js';
 
 export const SPEC_VERSION = '0.3';
 export { TEST_FILE_RE, BINARY_RE };
@@ -88,6 +89,12 @@ export function computeSignals(cwd, opts = {}) {
   const graph = buildGraph(cwd, tracked);
   graphCache.set(cwd, graph);
   const { kinds, loc, fanIn, tests: testEdges, edges } = graph;
+  /* Structural rank by PageRank over the import graph (src/rank.js): 100 for
+     the file the most importance flows to, 0 for a leaf nothing depends on.
+     A column beside fan_in for now. It does not enter the score, and it is
+     not in the front matter: that is a file format change and takes a spec
+     version, so it is a deliberate separate step. */
+  const rank = rankScaled(fanIn);
 
   // 1. History window, by commit count.
   const commitsTotal = Number(git(['rev-list', '--count', '--no-merges', 'HEAD'], { cwd }).trim()) || 0;
@@ -194,6 +201,7 @@ export function computeSignals(cwd, opts = {}) {
       fan_in: fi,
       fan_out: [...(edges.get(path) || [])].filter((t) => kinds.get(t) in RANKED_KINDS).length,
       tests: testEdges.get(path)?.size || 0,
+      rank: rank.get(path) || 0,
       score: Math.round(size * activity * structure * RANKED_KINDS[kind] * 10),
     });
   }
@@ -366,10 +374,10 @@ export function detectTestCommand(cwd) {
   return null;
 }
 
-export const TABLE_HEAD = ['score', 'path', 'kind', 'loc', 'churn', 'churn_w', 'fixes', 'authors', 'owner_share', 'fan_in', 'tests'];
+export const TABLE_HEAD = ['score', 'path', 'kind', 'loc', 'churn', 'churn_w', 'fixes', 'authors', 'owner_share', 'fan_in', 'rank', 'tests'];
 
 export function rowToArray(r) {
-  return [r.score, r.path, r.kind, r.loc, r.churn, r.churn_w.toFixed(2), r.fixes, r.authors, r.owner_share.toFixed(2), r.fan_in, r.tests];
+  return [r.score, r.path, r.kind, r.loc, r.churn, r.churn_w.toFixed(2), r.fixes, r.authors, r.owner_share.toFixed(2), r.fan_in, r.rank ?? 0, r.tests];
 }
 
 export function toTsv(sig) {

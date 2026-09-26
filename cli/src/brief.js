@@ -36,7 +36,7 @@ export function slugFor(path) {
 function stats(row) {
   if (!row) return '';
   const parts = [];
-  for (const k of ['churn', 'fixes', 'fan_in', 'tests', 'loc', 'score']) {
+  for (const k of ['churn', 'fixes', 'fan_in', 'rank', 'tests', 'loc', 'score']) {
     if (row[k] !== undefined && row[k] !== null) parts.push(`${k} ${row[k]}`);
   }
   return parts.join('  ');
