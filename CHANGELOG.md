@@ -4,6 +4,16 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-27  Credential shaped paths are never named in a map
+
+**Change:** a path whose name has the shape of a credential file (`.env`,
+`*.pem`, `id_rsa`, `credentials.json` and kin, templates like `.env.example`
+excepted) is left out of every list the map carries and counted under
+`blind_spots`. A committed map naming `.env.production` would tell a reader
+where the secrets are and an agent to open them. The practice follows
+repomix (MIT), which checks contents; this checks names. The spec and the
+skill no longer describe the MCP server.
+
 ## 2026-09-27  0.9.0: structural rank, and briefs for OpenHands
 
 **Change:** every file in the signals table carries `rank`, its structural
