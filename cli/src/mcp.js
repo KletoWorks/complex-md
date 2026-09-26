@@ -186,7 +186,7 @@ export function buildServer(cwd) {
       }
       if (s.blind_spots.length) lines.push('', 'blind spots:', ...s.blind_spots.map((b) => `- ${b}`));
       const m = map();
-      if (m && m.front.commit && m.front.commit !== s.commit) lines.push('', `COMPLEX.md was generated at ${m.front.commit}; regenerate with \`npx complex-md\` to refresh the prose.`);
+      if (m && m.front.commit && String(m.front.commit) !== String(s.commit)) lines.push('', `COMPLEX.md was generated at ${m.front.commit}; regenerate with \`npx complex-md\` to refresh the prose.`);
       return text(lines.join('\n'));
     },
   );

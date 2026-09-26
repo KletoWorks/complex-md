@@ -4,6 +4,13 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-27  0.9.2: a commit sha is always a string
+
+**Change:** the front matter reader kept a commit sha as a string even when
+every character is a digit. Previously such a sha was read as a number and
+the map compared unequal to its own HEAD, reporting itself stale. 0.9.1 did
+not publish; this release carries its changes.
+
 ## 2026-09-27  0.9.1: the CLI reads its prompts from the repository when the packaged copy is absent
 
 **Change:** `cli/prompts/` is a copy synced at prepack; inside the repository

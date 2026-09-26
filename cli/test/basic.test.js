@@ -332,3 +332,15 @@ test('wire appends to an existing contract, and says what it is when it writes o
   assert.match(written, /not a full agent contract/);
   assert.match(written, /## COMPLEX\.md: the structural risk map/);
 });
+
+
+/* An all digit sha must stay a string. This is the deterministic form of a
+   flake that failed the 0.9.1 release run: makeRepo does not pin commit
+   dates, so a few percent of runs produce an all digit short sha, the front
+   matter reader coerced it to a Number, and the map compared unequal to its
+   own HEAD. */
+test('an all digit commit sha in the front matter stays a string', () => {
+  const m = parseComplexMd('---\ncomplex_md: "0.3"\ncommit: 1234567\nhotspots: []\n---\n\n## Where the risk lives\n\nx\n');
+  assert.equal(typeof m.front.commit, 'string');
+  assert.equal(m.front.commit, '1234567');
+});

@@ -14,6 +14,13 @@ export function parseComplexMd(text) {
   const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text);
   if (!m) return null;
   const fm = parseFrontMatter(m[1]);
+  /* A commit sha is a string even when every character is a digit. The
+     scalar reader turns an all digit value into a Number, and a map whose
+     sha happened to be 1234567 then failed every string comparison against
+     HEAD and reported itself stale. A few percent of shas are all digits,
+     which is exactly the rate at which a test with unpinned commit dates
+     fails in CI and passes on the machine that wrote it. */
+  if (fm.commit !== undefined && fm.commit !== null) fm.commit = String(fm.commit);
   const prose = m[2];
   const sections = splitSections(prose);
   const hotspotParas = paragraphs(sections['Why these files are hot'] || '');
