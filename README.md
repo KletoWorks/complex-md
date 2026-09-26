@@ -133,6 +133,14 @@ per run, used as a unit for comparing arms.
 | `scripts/build.mjs` | Zero dependency static build to `dist/`. |
 | `site/` | Stylesheet, the one script, 404. |
 
+## Influences
+
+File ranking by PageRank over the dependency graph follows aider's repo map
+(Aider-AI/aider, Apache 2.0). Per path briefs for OpenHands use its path
+triggered rule format (All-Hands-AI/OpenHands, MIT). The hotspot, churn and
+coupling signals descend from the software evolution literature cited in the
+[spec](https://complex.md/spec).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: the spec changes

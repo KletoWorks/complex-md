@@ -4,6 +4,22 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-27  0.9.0: structural rank, and briefs for OpenHands
+
+**Change:** every file in the signals table carries `rank`, its structural
+importance by PageRank over the import graph, scaled so the file the most
+importance flows to is 100. Where `fan_in` counts direct importers, `rank`
+weights each importer by its own importance, so a hub that the important
+modules depend on outranks a file that merely has many leaves importing it.
+It appears beside `fan_in` in the table, the TSV and each per path brief.
+
+**Change:** OpenHands receives a brief per hot path as a path triggered rule
+in `.agents/skills/`, injected when the agent touches that file. Only files
+prefixed `complex-md-` are ever cleared on a rewire.
+
+Influences: the ranking follows aider's repo map (Apache 2.0); the path
+triggered rule format is OpenHands' (MIT).
+
 ## 2026-09-26  0.8.0: per outcome statistics in the benchmark; MCP server opt in
 
 **Change:** `bench/stats.mjs` adds the Wilcoxon signed rank test, a trimmed
