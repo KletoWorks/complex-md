@@ -61,6 +61,41 @@ What it is not: the map does not read code, it ranks and locates. It will not
 tell you what a function does, and `blind_spots` lists the gaps it can detect,
 not every gap there is.
 
+## Consequence analysis
+
+`complex-md impact <path>` reports what changing a file costs, decomposed, and
+measured against bounds the repository declares.
+
+```
+$ complex-md impact src/lib/types.ts
+src/lib/types.ts  NOT covered by a test
+  reach             31   within bound 40, margin 9
+  direct            18   (no bound declared)
+  untested_reach    31   OVER bound 5 by 26
+  hot_reach          3   within bound 3, margin 0
+```
+
+The bounds are yours, in `.complex-md/bounds.json`, and the tool never
+supplies them:
+
+```json
+{ "reach": 40, "untested_reach": 5, "hot_reach": 3 }
+```
+
+With no such file every contribution reports `(no bound declared)` and the
+result is `unbounded`, which is a different answer from passing and is not
+rendered as one. `--strict` exits 1 when a declared bound is exceeded, so the
+same command works in CI.
+
+Two properties are deliberate. A consequence is reported as contributions
+rather than a single number, because "reaches 31 modules" is trivia and
+"reaches 31, none of them covered by a test" is a decision. And the tool ranks
+but does not judge: deciding what is acceptable is the engineer's, which is
+the division of labour set out in Dempsey and Wrage, *AI-Augmented AADL in
+Visual Studio Code* (CMU SEI, DOI 10.58012/4c2e-xd64), whose warning this
+follows: without that first row, a clean and analyzable model can still answer
+the wrong question.
+
 ## Layout
 
 | Path | What |

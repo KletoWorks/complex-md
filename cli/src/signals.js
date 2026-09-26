@@ -73,7 +73,10 @@ function readCommits(cwd, n) {
 }
 
 const graphCache = new Map();
-function graphFor(cwd) {
+/* Exported so the impact analysis reuses the same cached graph rather than
+   rebuilding it: a second build of a large repository is the difference
+   between a hook that fires in milliseconds and one nobody keeps enabled. */
+export function graphFor(cwd) {
   let g = graphCache.get(cwd);
   if (!g) graphCache.set(cwd, (g = buildGraph(cwd, trackedFiles(cwd))));
   return g;

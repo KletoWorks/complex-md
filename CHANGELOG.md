@@ -4,6 +4,27 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-09-25  Consequence analysis, against bounds the repository declares
+
+**Intent:** the map ranked files and never said what changing one costs, and
+it never asked what the engineer considers acceptable. Dempsey and Wrage
+(DOI 10.58012/4c2e-xd64) divide the work four ways and this engine had two of
+the four: nothing calculated consequences, and nothing carried the engineer's
+review criteria. Their warning is about the second gap, not the first:
+without it, a clean and analyzable model can still answer the wrong question.
+
+**Change:** `complex-md impact <path>` computes transitive reach through the
+dependency graph and decomposes it into contributions: total reach, direct
+importers, how much of the reach no test covers, how much of it the map
+itself ranks, and, where a boundary function is supplied, how much crosses
+one. Each is reported against a bound declared in `.complex-md/bounds.json`,
+with margin. That file is the engineer's and is never generated; with none
+present every contribution reports no bound declared and the result is
+`unbounded`, which is distinct from passing and is not rendered as passing. A
+malformed bounds file is refused rather than read as an absence of bounds.
+`--strict` exits 1 when a declared bound is exceeded. Depth is recorded per
+reached file and cycles terminate.
+
 ## 2026-09-25  Per path briefs, and a recorded answer for a fixed repository
 
 **Intent:** two gaps. Wiring delivered a pointer where it should have

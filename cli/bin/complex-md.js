@@ -82,6 +82,24 @@ async function main() {
     return;
   }
 
+  if (cmd === 'impact') {
+    const target = args.find((a) => !a.startsWith('-') && a !== 'impact');
+    if (!target) { console.error('usage: complex-md impact <path>'); process.exit(2); }
+    const { graphFor } = await import('../src/signals.js');
+    const { loadComplexMd } = await import('../src/complexmd.js');
+    const { analyse, loadBounds, formatImpact, BOUNDS_PATH } = await import('../src/impact.js');
+    const bounds = loadBounds(root);
+    if (bounds?.__invalid) {
+      console.error(`${BOUNDS_PATH} is not readable JSON; refusing to report as if no bounds were declared.`);
+      process.exit(2);
+    }
+    const a = analyse(target, { graph: graphFor(root), map: loadComplexMd(root), bounds });
+    if (flag('--json')) console.log(JSON.stringify(a, null, 2));
+    else console.log(formatImpact(a));
+    if (flag('--strict') && a.status === 'over') process.exit(1);
+    return;
+  }
+
   if (cmd === 'wire') {
     const { wire } = await import('../src/wire.js');
     wire(root, { hooks: !flag('--no-hooks'), mcp: !flag('--no-mcp'), agents: opt('--for')?.split(','), log });
