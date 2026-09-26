@@ -13,9 +13,9 @@ const log = (s) => process.stderr.write(s + '\n');
 
 const HELP = `complex-md ${pkg.version}  https://complex.md
 
-  npx complex-md                 generate COMPLEX.md, then wire it in (hooks, rules, MCP)
+  npx complex-md                 generate COMPLEX.md, then wire it in (rules per hot path, hooks)
   npx complex-md generate        same; --agent writes the prompt bundle for your agent instead of calling a model
-                                 --model <id>  --provider <name>  --no-wire  --no-hooks  --mcp (opt in)
+                                 --model <id>  --provider <name>  --no-wire  --no-hooks
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
                                  --for claude,cursor,openhands,codex,windsurf,cline,roo,openclaw,hermes
                                  (default: detect repo-local targets; openclaw/hermes are global registries,
@@ -23,7 +23,6 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
   npx complex-md check           report hotspots and untouched co-change partners in the current change
                                  --staged | --base <ref> | --json | --strict (exit 1 on findings)
   npx complex-md signals         print the signals table  (--json | --tsv)
-  npx complex-md mcp             run the MCP server on stdio (lookup, where_to_look, impact, refs, check, refresh)
   npx complex-md hook <kind>     hook handler: pre | stop | cursor-pre | cursor-stop   [--mode gate|warn|off]
 
 Model call: the first configured provider wins, or pick one with --provider / --model provider/id.
