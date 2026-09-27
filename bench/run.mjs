@@ -293,7 +293,10 @@ function behaviour(edited, m, risky) {
   const editedRisky = edited.filter((f) => riskySet.has(f));
   const touched = new Set([...edited, ...m.reads]);
   const missed = [];
-  for (const [a, b] of risky.co_change) {
+  /* Source partners only: a docs page that co-changes with a module is a
+     real pairing, but not opening it while fixing a bug is not a risk. */
+  const source = (f) => !/\.(md|mdx|txt|rst)$/i.test(f);
+  for (const [a, b] of risky.co_change.filter((pair) => pair.every(source))) {
     if (edited.includes(a) && !touched.has(b)) missed.push(b);
     if (edited.includes(b) && !touched.has(a)) missed.push(a);
   }
