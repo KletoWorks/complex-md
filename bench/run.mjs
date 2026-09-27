@@ -1,7 +1,11 @@
 #!/usr/bin/env node
-// Run the localization benchmark: the same real issue, the same starting
-// commit, with and without COMPLEX.md, and count how many tool calls the agent
-// needs before it first opens a file the actual fix touched.
+// Run the benchmark: the same real issue, the same starting commit, with and
+// without COMPLEX.md. The outcome the map exists for is collateral damage:
+// after the agent's patch, the whole test suite runs and every test that
+// passed at the base commit and fails now is a regression the task did not
+// ask for. Localization (tool calls before the agent first opens a file the
+// real fix touched), success on the fix's own tests, tokens, time and cost
+// are recorded alongside.
 //
 //   node bench/run.mjs --dataset bench/data/fastify.json --arms none,file,hooks \
 //        --agent claude --tasks 0-7 --budget 0.60 --timeout 420 --stop-at edit --out bench/results/pilot
@@ -12,8 +16,9 @@
 //        hooks  file + the PreToolUse/Stop hooks
 //        mcp    hooks + the MCP server
 // --stop-at edit kills the run at the agent's first edit: localization only, cheapest.
-// --stop-at none runs to completion, which is what wall clock, diff size and
-// success rate need, and the only way the hooks arm can be evaluated at all.
+// --stop-at none runs to completion, which is what regressions, wall clock,
+// diff size and success rate need, and the only way the hooks arm can be
+// evaluated at all. --no-suite skips the regression suite.
 // Runs are appended to <out>/runs.jsonl and skipped when already present, so it resumes.
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync, symlinkSync } from 'node:fs';
@@ -22,6 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { computeSignals } from '../cli/src/signals.js';
 import { buildBundle, normalizeOutput } from '../cli/src/generate.js';
 import { wire } from '../cli/src/wire.js';
+import { detectRunner, listTestFiles, runSuite, confirm } from './suite.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '../cli/bin/complex-md.js');
@@ -40,8 +46,8 @@ const model = opt('--model', null);
 const range = opt('--tasks', `0-${dataset.tasks.length - 1}`).split('-').map(Number);
 const tasks = dataset.tasks.slice(range[0], (range[1] ?? range[0]) + 1);
 const workRoot = opt('--work', '/tmp/cxbench');
-mkdirSync(join(outDir, 'maps'), { recursive: true });
-mkdirSync(join(outDir, 'transcripts'), { recursive: true });
+const suiteOn = stopAt === 'none' && !flag('--no-suite') && agent !== 'mock';
+for (const d of ['maps', 'transcripts', 'patches', 'baseline']) mkdirSync(join(outDir, d), { recursive: true });
 const runsPath = join(outDir, 'runs.jsonl');
 const done = new Set(existsSync(runsPath) ? readFileSync(runsPath, 'utf8').split('\n').filter(Boolean).map((l) => { const r = JSON.parse(l); return `${r.task}/${r.arm}`; }) : []);
 
@@ -90,6 +96,35 @@ function prepareWorktree(task, arm) {
   return wt;
 }
 
+/* What the suite looks like before any agent touches the base commit, and
+   which files the map would call risky there. Cached per base commit: every
+   arm of a task is judged against the same baseline. The risky set comes
+   from the computed signals, not the generated prose, so it is identical
+   for the `none` arm and costs no model call. */
+async function baselineFor(task, wt) {
+  const cached = join(outDir, 'baseline', `${task.base.slice(0, 12)}.json`);
+  if (existsSync(cached)) return JSON.parse(readFileSync(cached, 'utf8'));
+  const sig = computeSignals(wt);
+  const risky = {
+    hotspots: sig.hotspots.map((h) => h.path),
+    load_bearing: sig.load_bearing.map((h) => h.path),
+    co_change: sig.co_change.map((c) => c.files),
+  };
+  const runner = suiteOn ? detectRunner(wt) : null;
+  const files = runner ? listTestFiles(wt) : [];
+  let results = null;
+  if (runner && files.length) {
+    log(`baseline suite at ${task.base.slice(0, 10)}: ${files.length} files`);
+    const t0 = Date.now();
+    results = await runSuite(wt, runner, files);
+    const failing = Object.values(results).filter((r) => !r.ok).length;
+    log(`  ${Math.round((Date.now() - t0) / 1000)}s, ${failing} failing at base (excluded)`);
+  }
+  const b = { base: task.base, runner: runner?.name || null, files, results, risky };
+  writeFileSync(cached, JSON.stringify(b));
+  return b;
+}
+
 /* The front matter alone, with the generated prose cut off. arXiv 2602.11988
    finds LLM generated context files reduce success and raise cost, and only
    human written ones help; this arm asks whether the computed half of a map
@@ -115,7 +150,11 @@ async function armSetup(task, arm, wt) {
   sh('git', ['-c', 'user.email=bench@complex.md', '-c', 'user.name=bench', 'commit', '-q', '-m', 'bench: COMPLEX.md and wiring'], wt);
 }
 
-const PROMPT = (t) => `Fix this issue in the repository. Find the code responsible and change it. Do not commit. Do not run the whole test suite; one test file at most.\n\n# ${t.title}\n\n${t.text}`;
+/* No instruction about tests: whether the agent checks what its change
+   reaches is part of what is measured. */
+const PROMPT = (t) => `Fix this issue in the repository. Find the code responsible and change it. Do not commit.\n\n# ${t.title}\n\n${t.text}`;
+
+const TEST_CMD = /\b(node\s+--test|npm\s+(run\s+)?(test|unit)\b|npx\s+(tap|borp|jest|vitest|mocha)\b|\b(tap|borp|jest|vitest|mocha)\s+\S)/;
 
 function agentCommand(task, arm, wt) {
   if (agent === 'mock') return ['node', [join(here, 'mock-agent.mjs')], { CX_GOLD: task.gold.join(',') }];
@@ -142,7 +181,7 @@ function runAgent(task, arm, wt) {
      a wide margin: a map is byte identical across runs and is exactly the
      kind of prefix a cache is for. cost_usd, which the agent prices itself,
      stays the only figure to quote as money. */
-  const m = { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: null };
+  const m = { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, agent_test_runs: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: null };
     const goldSet = new Set(task.gold);
     const isGold = (p) => p && (goldSet.has(p) || task.gold.some((g) => p.endsWith('/' + g)));
     let buf = '';
@@ -173,6 +212,7 @@ function runAgent(task, arm, wt) {
             if (c.type !== 'tool_use') continue;
             m.steps++;
             if (c.name?.startsWith('mcp__complex-md')) m.mcp_calls++;
+            if (c.name === 'Bash' && TEST_CMD.test(c.input?.command || '')) m.agent_test_runs++;
             const p = rel(pathOf(c.input), wt);
             if (c.name === 'Read' || EDIT_TOOLS.has(c.name)) {
               if (isGold(p)) { m.first_gold_read ??= m.steps; if (EDIT_TOOLS.has(c.name)) m.first_gold_edit ??= m.steps; }
@@ -214,29 +254,54 @@ function runAgent(task, arm, wt) {
 function runGoldTests(task, wt) {
   const files = task.tests || [];
   if (!files.length) return { tests_run: 0, tests_passed: null, success: null };
-  /* Every script value joined, not only `test`: a `test` script that runs
-     `npm run unit` names no runner itself. Detected, never assumed; if no
-     known runner appears the answer is null rather than a guess. */
-  let scripts = '';
-  try { scripts = Object.values(JSON.parse(readFileSync(join(wt, 'package.json'), 'utf8')).scripts || {}).join(' '); } catch {}
-  const runner = /\btap\b/.test(scripts) ? ['npx', ['tap', '--no-coverage', '--reporter=terse']]
-    /* borp is a thin node:test wrapper (fastify uses it); node --test runs
-       the same files without needing the wrapper on the path. */
-    : /node --test|node:test|\bborp\b/.test(scripts) ? ['node', ['--test']]
-    : /\bmocha\b/.test(scripts) ? ['npx', ['mocha']]
-    : /\bvitest\b/.test(scripts) ? ['npx', ['vitest', 'run']]
-    : /\bjest\b/.test(scripts) ? ['npx', ['jest']]
-    : null;
+  const runner = detectRunner(wt);
   if (!runner) return { tests_run: 0, tests_passed: null, success: null };
   let passed = 0, run = 0;
   for (const f of files) {
     spawnSync('git', ['checkout', task.fix, '--', f], { cwd: wt, stdio: 'ignore' });
     if (!existsSync(join(wt, f))) continue;
     run++;
-    const r = spawnSync(runner[0], [...runner[1], f], { cwd: wt, encoding: 'utf8', timeout: 120000, env: { ...process.env, CI: '1' } });
+    const r = spawnSync(runner.cmd, [...runner.args, f], { cwd: wt, encoding: 'utf8', timeout: 120000, env: { ...process.env, CI: '1' }, maxBuffer: 64 * 1024 * 1024 });
     if (r.status === 0) passed++;
   }
   return { tests_run: run, tests_passed: passed, success: run ? passed === run : null };
+}
+
+/* Collateral damage. The suite as it stood at the base commit, run again on
+   the agent's patch, with the files the real fix changed judged by the gold
+   tests instead. Must run BEFORE runGoldTests, which checks those files out
+   from the fix commit. Every regression is confirmed on a second run. */
+async function runDamage(task, wt, baseline) {
+  if (!baseline.results) return { suite_files: null, regressions: null, regressed_tests: null, regressed_files: null };
+  const runner = detectRunner(wt);
+  const after = await runSuite(wt, runner, baseline.files);
+  const keys = await confirm(wt, runner, baseline.results, after, new Set(task.tests || []));
+  return {
+    suite_files: baseline.files.length,
+    regressions: keys,
+    regressed_tests: keys.length,
+    regressed_files: new Set(keys.map((k) => k.split(' :: ')[0])).size,
+  };
+}
+
+/* Did the agent behave the way the map asks: when it edits a file the map
+   calls risky, did it run any test, and when it edits one side of a
+   co-change pair, did it open the other. Judged against the computed risky
+   set from the baseline, the same for every arm. */
+function behaviour(edited, m, risky) {
+  const riskySet = new Set([...risky.hotspots, ...risky.load_bearing]);
+  const editedRisky = edited.filter((f) => riskySet.has(f));
+  const touched = new Set([...edited, ...m.reads]);
+  const missed = [];
+  for (const [a, b] of risky.co_change) {
+    if (edited.includes(a) && !touched.has(b)) missed.push(b);
+    if (edited.includes(b) && !touched.has(a)) missed.push(a);
+  }
+  return {
+    edited_risky: editedRisky,
+    risky_edit_untested: editedRisky.length > 0 && m.agent_test_runs === 0,
+    partners_missed: [...new Set(missed)],
+  };
 }
 
 for (const task of tasks) {
@@ -248,14 +313,18 @@ for (const task of tasks) {
       /* A failure setting up or driving one run is that run's error, recorded
          as a row, and the pass continues. Before this, a transient exception
          here ended the whole pass. */
-      let m;
+      let m, baseline;
       try {
+        baseline = await baselineFor(task, wt);
         await armSetup(task, arm, wt);
         m = await runAgent(task, arm, wt);
       } catch (e) {
-        m = { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: `harness: ${String(e.message || e).slice(0, 200)}` };
+        m = { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, agent_test_runs: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: `harness: ${String(e.message || e).slice(0, 200)}` };
       }
       const edited = sh('git', ['diff', '--name-only', 'HEAD'], wt).split('\n').filter(Boolean);
+      /* The patch itself is kept: a regression count is checkable only with
+         the diff that produced it. */
+      writeFileSync(join(outDir, 'patches', `${task.id}-${arm}.diff`), sh('git', ['diff', 'HEAD'], wt));
       /* Diff size, the AAIF metric: lines added plus removed in the final
          patch, and files touched. Both zero when the agent edited nothing. */
       let diff_lines = 0;
@@ -264,10 +333,12 @@ for (const task of tasks) {
         if (/^\d+$/.test(a)) diff_lines += Number(a);
         if (/^\d+$/.test(d)) diff_lines += Number(d);
       }
+      const damage = suiteOn && baseline && !m.error ? await runDamage(task, wt, baseline) : null;
       const success = stopAt === 'none' ? runGoldTests(task, wt) : null;
-      const rec = { task: task.id, arm, agent, model, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...m, at: new Date().toISOString() };
+      const conduct = baseline ? behaviour(edited, m, baseline.risky) : null;
+      const rec = { task: task.id, arm, agent, model, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
       appendFileSync(runsPath, JSON.stringify(rec) + '\n');
-      log(`  steps ${m.steps}, first gold read at ${m.first_gold_read ?? '-'}, wasted reads ${m.wasted_reads}, gold edited ${rec.gold_edited}, $${m.cost_usd?.toFixed(3) ?? '?'}${m.gate_fired ? `, gate x${m.gate_fired}` : ''}${m.error ? `, error: ${m.error}` : ''}`);
+      log(`  steps ${m.steps}, first gold read at ${m.first_gold_read ?? '-'}, gold edited ${rec.gold_edited}, success ${rec.success ?? '-'}, regressions ${rec.regressed_tests ?? '-'}, tests run by agent ${m.agent_test_runs}, $${m.cost_usd?.toFixed(3) ?? '?'}${m.gate_fired ? `, gate x${m.gate_fired}` : ''}${m.error ? `, error: ${m.error}` : ''}`);
     } finally {
       if (!flag('--keep')) { spawnSync('git', ['worktree', 'remove', '--force', wt], { cwd: dataset.path }); rmSync(wt, { recursive: true, force: true }); }
     }
