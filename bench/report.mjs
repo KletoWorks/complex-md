@@ -107,5 +107,38 @@ if (arms.includes('none')) {
     }
   }
 
+/* Collateral damage: the outcome the map exists for. A regression is a test
+   that passed at the base commit and fails after the agent's patch, confirmed
+   on a second run, in a file the real fix did not change. "Any regression"
+   is paired by McNemar like success; the count by Wilcoxon. Conduct is
+   whether the agent did what the map asks: a test run before finishing an
+   edit to a risky file, and the other side of a co-change pair opened. */
+const damaged = runs.filter((r) => !r.error && typeof r.regressed_tests === 'number');
+if (damaged.length) {
+  console.log('\n## Collateral damage (tests broken that the task did not touch)\n');
+  console.log('| arm | judged | runs with any regression | regressed tests (mean) | regressed files (mean) | risky file edited | risky edit, no test run | co-change partner missed | agent test runs (mean) |');
+  console.log('|---|---|---|---|---|---|---|---|---|');
+  for (const arm of arms) {
+    const rs = damaged.filter((r) => r.arm === arm);
+    if (!rs.length) continue;
+    const risky = rs.filter((r) => r.edited_risky?.length);
+    console.log(`| ${arm} | ${rs.length} | ${rs.filter((r) => r.regressed_tests > 0).length} (${pct(rs.filter((r) => r.regressed_tests > 0).length / rs.length)}) | ${f1(mean(rs.map((r) => r.regressed_tests)))} | ${f1(mean(rs.map((r) => r.regressed_files)))} | ${risky.length} | ${risky.filter((r) => r.risky_edit_untested).length} | ${rs.filter((r) => r.partners_missed?.length).length} | ${f1(mean(rs.map((r) => r.agent_test_runs || 0)))} |`);
+  }
+  if (arms.includes('none')) {
+    console.log('\n| arm | pairs | none regressed | arm regressed | arm-only clean | none-only clean | McNemar p | Δ regressed tests (Wilcoxon p) | risky edit untested: none / arm | McNemar p |');
+    console.log('|---|---|---|---|---|---|---|---|---|---|');
+    for (const arm of arms.filter((a) => a !== 'none')) {
+      const pairs = [...byTask.values()].filter((t) => t.none && t[arm] && !t.none.error && !t[arm].error && typeof t.none.regressed_tests === 'number' && typeof t[arm].regressed_tests === 'number');
+      if (!pairs.length) continue;
+      /* "clean" is the pass: McNemar on no-regression, so arm-only clean is the map's win column. */
+      const m = mcnemar(pairs.map((t) => [t.none.regressed_tests === 0, t[arm].regressed_tests === 0]));
+      const q = summarise(pairs.map((t) => [t.none.regressed_tests, t[arm].regressed_tests]));
+      const u = mcnemar(pairs.map((t) => [!t.none.risky_edit_untested, !t[arm].risky_edit_untested]));
+      const pv = (x) => (Number.isNaN(x) ? '-' : x.toFixed(3));
+      console.log(`| ${arm} | ${m.n} | ${pairs.filter((t) => t.none.regressed_tests > 0).length} | ${pairs.filter((t) => t[arm].regressed_tests > 0).length} | ${m.c} | ${m.b} | ${pv(m.p)} | ${f1(q.trimmed_delta)} (${pv(q.wilcoxon.p)}) | ${pairs.filter((t) => t.none.risky_edit_untested).length} / ${pairs.filter((t) => t[arm].risky_edit_untested).length} | ${pv(u.p)} |`);
+    }
+  }
+}
+
 const errs = runs.filter((r) => r.error);
 if (errs.length) console.log(`\n${errs.length} runs with errors: ${errs.map((r) => `${r.task}/${r.arm}`).join(', ')}`);

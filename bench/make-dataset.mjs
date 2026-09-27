@@ -7,10 +7,16 @@
 //
 // Issue text comes from GitHub (PR body, then the issue it closes) through the
 // unauthenticated API (60 requests/hour), falling back to the commit message.
+//
+// --danger keeps only fixes that touched a file the map calls risky (a
+// hotspot, a load-bearing file, or one side of a co-change pair, computed at
+// the checkout's HEAD) and puts first the ones a later fix had to touch again
+// within 90 days. Those are the edits where collateral damage is plausible,
+// which is what the map exists to prevent.
 import { spawnSync } from 'node:child_process';
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { FIX_RE, EXCLUDE_RE, TEST_FILE_RE as TEST_RE, BINARY_RE } from '../cli/src/signals.js';
+import { FIX_RE, EXCLUDE_RE, TEST_FILE_RE as TEST_RE, BINARY_RE, computeSignals } from '../cli/src/signals.js';
 
 const args = process.argv.slice(2);
 const repoPath = args.find((a) => !a.startsWith('--')) || process.cwd();
@@ -48,6 +54,22 @@ for (const rec of log.split('\x1e').slice(1)) {
   candidates.push({ sha, base: parents, date, subject, body, gold, tests });
 }
 console.error(`${candidates.length} candidate fix commits in ${months} months; keeping up to ${max}`);
+
+if (args.includes('--danger')) {
+  const sig = computeSignals(repoPath);
+  const risky = new Set([...sig.hotspots.map((h) => h.path), ...sig.load_bearing.map((h) => h.path), ...sig.co_change.flatMap((c) => c.files)]);
+  const day = (d) => Date.parse(d) / 86400000;
+  for (const c of candidates) {
+    c.risky_gold = c.gold.filter((g) => risky.has(g));
+    /* Candidates are newest first, so an earlier index is a later commit. */
+    c.refixed = candidates.some((o) => o !== c && day(o.date) > day(c.date) && day(o.date) - day(c.date) <= 90 && o.gold.some((g) => c.gold.includes(g)));
+  }
+  const kept = candidates.filter((c) => c.risky_gold.length);
+  kept.sort((a, b) => (b.refixed - a.refixed) || (b.risky_gold.length - a.risky_gold.length) || (day(b.date) - day(a.date)));
+  console.error(`--danger: ${kept.length} touched a risky file (${risky.size} risky paths at HEAD), ${kept.filter((c) => c.refixed).length} were fixed again within 90 days`);
+  candidates.length = 0;
+  candidates.push(...kept);
+}
 
 // Responses are cached on disk: the unauthenticated limit is 60 an hour, and
 // a dataset rebuild should not spend it again. GITHUB_TOKEN lifts the limit.
@@ -97,8 +119,8 @@ for (const c of candidates) {
   if (NOT_A_FIX.test(title)) continue;
   if (text.length < 40) continue; // a bare title is too thin to stand in for an issue
   const namesGold = c.gold.some((g) => text.includes(g) || title.includes(g) || text.includes(g.split('/').pop()));
-  tasks.push({ id: c.sha.slice(0, 10), repo: slug, base: c.base, fix: c.sha, date: c.date, title, text, source, gold: c.gold, tests: c.tests, names_gold: namesGold });
-  console.error(`${tasks.length}. ${c.sha.slice(0, 10)} [${source}${namesGold ? ', names gold' : ''}] ${title.slice(0, 70)} -> ${c.gold.join(', ')}`);
+  tasks.push({ id: c.sha.slice(0, 10), repo: slug, base: c.base, fix: c.sha, date: c.date, title, text, source, gold: c.gold, tests: c.tests, names_gold: namesGold, ...(c.risky_gold ? { risky_gold: c.risky_gold, refixed: c.refixed } : {}) });
+  console.error(`${tasks.length}. ${c.sha.slice(0, 10)} [${source}${namesGold ? ', names gold' : ''}${c.refixed ? ', refixed' : ''}] ${title.slice(0, 70)} -> ${c.gold.join(', ')}`);
 }
 
 mkdirSync(dirname(out), { recursive: true });
