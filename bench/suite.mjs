@@ -4,7 +4,7 @@
 // only a file. A test counts as a regression when it passed at the base commit
 // and fails after the patch, on two runs; a test that fails at the base is
 // out of scope for every arm.
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -54,10 +54,19 @@ function parseTap(stdout) {
 }
 
 /* One file: { ok, tests: { name: passed } }. A timeout or a crash is a
-   failed file with whatever tests were reported before it. */
+   failed file with whatever tests were reported before it. Asynchronous so
+   a pool of these actually overlaps; spawnSync would serialise the pool. */
 export function runTestFile(wt, runner, file, { timeout = 120000 } = {}) {
-  const r = spawnSync(runner.cmd, [...runner.args, file], { cwd: wt, encoding: 'utf8', timeout, env: { ...process.env, CI: '1' }, maxBuffer: 64 * 1024 * 1024 });
-  return { ok: r.status === 0, tests: runner.tap ? parseTap(r.stdout || '') : {} };
+  return new Promise((res) => {
+    const child = spawn(runner.cmd, [...runner.args, file], { cwd: wt, env: { ...process.env, CI: '1' }, stdio: ['ignore', 'pipe', 'ignore'] });
+    let out = '';
+    child.stdout.on('data', (d) => { out += d; });
+    const timer = setTimeout(() => child.kill('SIGKILL'), timeout);
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      res({ ok: code === 0, tests: runner.tap ? parseTap(out) : {} });
+    });
+  });
 }
 
 /* The whole list, a few files at a time. Returns { file: { ok, tests } }. */
@@ -67,7 +76,7 @@ export async function runSuite(wt, runner, files, { concurrency = 4, timeout = 1
   const worker = async () => {
     while (i < files.length) {
       const f = files[i++];
-      results[f] = await new Promise((res) => setImmediate(() => res(runTestFile(wt, runner, f, { timeout }))));
+      results[f] = await runTestFile(wt, runner, f, { timeout });
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
