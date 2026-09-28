@@ -90,6 +90,11 @@ bill the API directly instead. `--setting-sources project` keeps the user's
 own CLAUDE.md and hooks out of every arm. The hooks arm points at this
 checkout's `cli/bin/complex-md.js`.
 
+## Training the integration block
+
+`skillopt/` makes the text the agent reads about COMPLEX.md a trainable
+parameter, scored by this benchmark: [skillopt/README.md](skillopt/README.md).
+
 ## Backtest (no model): does the list point at the next fix?
 
 `node bench/backtest.mjs <repo> [N=40]` rebuilds the map at the parent of

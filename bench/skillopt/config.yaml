@@ -1,0 +1,43 @@
+# SkillOpt config for complex-md. Copy to configs/complexmd/default.yaml in a
+# SkillOpt checkout, or point scripts/train.py at it directly.
+_base_: ../_base_/default.yaml
+
+env:
+  name: complexmd
+  skill_init: skillopt/envs/complexmd/skills/initial.md
+  data_path: bench/data/fastify-danger.json   # relative to the complex-md checkout
+  split_mode: ratio
+  split_ratio: "10:4:1"           # 20 train, 8 validation, 2 test; every share must be positive
+  workers: 2                      # episodes in flight; each is a full Claude Code run
+  max_completion_tokens: 4096
+  limit: 0
+  budget_usd: 5                   # per-episode cap passed to bench/run.mjs
+  timeout_s: 900
+  # cache_dir: bench/results/skillopt-cache   # maps and suite baselines, shared across steps
+  # agent: mock                    # exercises the plumbing with no model
+
+train:
+  num_epochs: 2
+  batch_size: 20                  # the whole training split every step
+  accumulation: 1
+  seed: 42
+
+gradient:
+  analyst_workers: 4
+  minibatch_size: 5
+  merge_batch_size: 5
+
+optimizer:
+  learning_rate: 2                # at most two edits to the block per step
+  lr_scheduler: constant
+  use_slow_update: true
+  use_meta_skill: true
+
+evaluation:
+  use_gate: true                  # an edit lands only if validation improves
+  eval_test: false
+
+model:
+  optimizer_backend: claude_chat  # claude -p on the local login; no API key
+  target_backend: claude_code_exec
+  reasoning_effort: medium

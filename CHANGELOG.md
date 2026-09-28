@@ -4,6 +4,17 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## Unreleased
+
+- `wire()` accepts a replacement integration block for one call, keeping the
+  heading that marks it. The benchmark uses it (`--skill <file>`) to try
+  candidate wordings against the same map and tasks, and `bench/skillopt/`
+  trains that block with SkillOpt against the collateral damage score.
+- The benchmark measures collateral damage: the suite as it stood at the base
+  commit runs again after the agent's patch, and a test that passed before and
+  fails after, on two runs, in a file the real fix did not change, is a
+  regression. Tasks can be selected for it (`make-dataset --danger`).
+
 ## 2026-09-27  0.9.2: a commit sha is always a string
 
 **Change:** the front matter reader kept a commit sha as a string even when

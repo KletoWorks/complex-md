@@ -137,9 +137,11 @@ per run, used as a unit for comparing arms.
 
 File ranking by PageRank over the dependency graph follows aider's repo map
 (Aider-AI/aider, Apache 2.0). Per path briefs for OpenHands use its path
-triggered rule format (All-Hands-AI/OpenHands, MIT). The hotspot, churn and
-coupling signals descend from the software evolution literature cited in the
-[spec](https://complex.md/spec).
+triggered rule format (All-Hands-AI/OpenHands, MIT). The integration block
+can be trained against the benchmark with SkillOpt (microsoft/SkillOpt,
+MIT), whose validation gate is the answer to context files that only sound
+helpful. The hotspot, churn and coupling signals descend from the software
+evolution literature cited in the [spec](https://complex.md/spec).
 
 ## Contributing
 
