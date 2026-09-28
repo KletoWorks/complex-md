@@ -1,0 +1,162 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 66f5c8d2..8550991d 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -328,6 +328,12 @@ Reply.prototype.hasTrailer = function (key) {
+ Reply.prototype.removeTrailer = function (key) {
+   if (this[kReplyTrailers] === null) return this
+   this[kReplyTrailers][key.toLowerCase()] = undefined
++  // when no active trailer is left, we clear the state, otherwise the
++  // send path still enters trailer mode and emits an empty Trailer header
++  for (const trailerName in this[kReplyTrailers]) {
++    if (typeof this[kReplyTrailers][trailerName] === 'function') return this
++  }
++  this[kReplyTrailers] = null
+   return this
+ }
+ 
+@@ -874,12 +880,15 @@ function sendStream (payload, res, reply) {
+ }
+ 
+ function sendTrailer (payload, res, reply) {
+-  if (reply[kReplyTrailers] === null) {
++  // a trailer callback may remove trailers while we are iterating, which
++  // clears the reply state, so we keep our own reference to it
++  const replyTrailers = reply[kReplyTrailers]
++  if (replyTrailers === null) {
+     // when no trailer, we close the stream
+     res.end(null, null, null) // avoid ArgumentsAdaptorTrampoline from V8
+     return
+   }
+-  const trailerHeaders = Object.keys(reply[kReplyTrailers])
++  const trailerHeaders = Object.keys(replyTrailers)
+   const trailers = {}
+   let handled = 0
+   let skipped = true
+@@ -897,7 +906,7 @@ function sendTrailer (payload, res, reply) {
+   }
+ 
+   for (const trailerName of trailerHeaders) {
+-    if (typeof reply[kReplyTrailers][trailerName] !== 'function') continue
++    if (typeof replyTrailers[trailerName] !== 'function') continue
+     skipped = false
+     handled--
+ 
+@@ -919,7 +928,7 @@ function sendTrailer (payload, res, reply) {
+       process.nextTick(send)
+     }
+ 
+-    const result = reply[kReplyTrailers][trailerName](reply, payload, cb)
++    const result = replyTrailers[trailerName](reply, payload, cb)
+     if (typeof result === 'object' && typeof result.then === 'function') {
+       result.then((v) => cb(null, v), cb)
+     }
+diff --git a/test/reply-trailers.test.js b/test/reply-trailers.test.js
+index efeb062c..9e5cd286 100644
+--- a/test/reply-trailers.test.js
++++ b/test/reply-trailers.test.js
+@@ -371,7 +371,7 @@ test('removeTrailer', (t, testDone) => {
+ })
+ 
+ test('remove all trailers', (t, testDone) => {
+-  t.plan(6)
++  t.plan(7)
+ 
+   const fastify = Fastify()
+ 
+@@ -398,6 +398,95 @@ test('remove all trailers', (t, testDone) => {
+     t.assert.ok(!res.headers.trailer)
+     t.assert.ok(!res.trailers.etag)
+     t.assert.ok(!res.trailers['should-not-call'])
++    // removing every trailer must behave as if none was registered
++    t.assert.ok(!res.headers['transfer-encoding'])
++    t.assert.strictEqual(res.headers['content-length'], '0')
++    testDone()
++  })
++})
++
++test('remove all trailers does not enter trailer mode', (t, testDone) => {
++  t.plan(6)
++
++  const fastify = Fastify()
++
++  fastify.get('/', function (request, reply) {
++    reply.trailer('ETag', function (reply, payload, done) {
++      t.assert.fail('it should not called as this trailer is removed')
++      done(null, 'custom-etag')
++    })
++    reply.removeTrailer('ETag')
++    reply.send({ hello: 'world' })
++  })
++
++  fastify.inject({
++    method: 'GET',
++    url: '/'
++  }, (error, res) => {
++    t.assert.ifError(error)
++    t.assert.strictEqual(res.statusCode, 200)
++    t.assert.ok(!res.headers.trailer)
++    t.assert.ok(!res.headers['transfer-encoding'])
++    t.assert.strictEqual(res.headers['content-length'], '17')
++    t.assert.strictEqual(res.payload, '{"hello":"world"}')
++    testDone()
++  })
++})
++
++test('removing a trailer inside a trailer callback', (t, testDone) => {
++  t.plan(6)
++
++  const fastify = Fastify()
++
++  fastify.get('/', function (request, reply) {
++    reply.trailer('ETag', function (reply, payload, done) {
++      // removes every other trailer while the callbacks are running
++      reply.removeTrailer('Should-Not-Call')
++      done(null, 'custom-etag')
++    })
++    reply.trailer('Should-Not-Call', function (reply, payload, done) {
++      t.assert.fail('it should not called as this trailer is removed')
++      done(null, 'should-not-call')
++    })
++    reply.send('')
++  })
++
++  fastify.inject({
++    method: 'GET',
++    url: '/'
++  }, (error, res) => {
++    t.assert.ifError(error)
++    t.assert.strictEqual(res.statusCode, 200)
++    t.assert.strictEqual(res.headers.trailer, 'etag should-not-call')
++    t.assert.strictEqual(res.trailers.etag, 'custom-etag')
++    t.assert.ok(!res.trailers['should-not-call'])
++    t.assert.ok(!res.headers['content-length'])
++    testDone()
++  })
++})
++
++test('removing the last trailer inside a trailer callback', (t, testDone) => {
++  t.plan(5)
++
++  const fastify = Fastify()
++
++  fastify.get('/', function (request, reply) {
++    reply.trailer('ETag', function (reply, payload, done) {
++      // clears the trailer state while the callbacks are running
++      reply.removeTrailer('ETag')
++      done(null, 'custom-etag')
++    })
++    reply.send('')
++  })
++
++  fastify.inject({
++    method: 'GET',
++    url: '/'
++  }, (error, res) => {
++    t.assert.ifError(error)
++    t.assert.strictEqual(res.statusCode, 200)
++    t.assert.strictEqual(res.headers.trailer, 'etag')
++    t.assert.strictEqual(res.trailers.etag, 'custom-etag')
+     t.assert.ok(!res.headers['content-length'])
+     testDone()
+   })

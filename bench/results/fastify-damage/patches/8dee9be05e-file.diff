@@ -1,0 +1,76 @@
+diff --git a/lib/request.js b/lib/request.js
+index 3b099054..530ba87c 100644
+--- a/lib/request.js
++++ b/lib/request.js
+@@ -46,8 +46,11 @@ function getTrustProxyFn (tp) {
+     return function () { return true }
+   }
+   if (typeof tp === 'number') {
+-    // Support trusting hop count
+-    return function (a, i) { return a != null && i < tp }
++    // Support trusting hop count.
++    // The address is intentionally not inspected: hop count trusts by
++    // position, and the socket of a connection served over a named pipe or
++    // a unix socket (e.g. iisnode) has no `remoteAddress` at all.
++    return function (a, i) { return i < tp }
+   }
+   if (typeof tp === 'string') {
+     // Support comma-separated tps
+diff --git a/test/trust-proxy.test.js b/test/trust-proxy.test.js
+index 75b012a9..3dc6d73a 100644
+--- a/test/trust-proxy.test.js
++++ b/test/trust-proxy.test.js
+@@ -1,6 +1,9 @@
+ 'use strict'
+ 
+ const { test, before } = require('node:test')
++const http = require('node:http')
++const os = require('node:os')
++const path = require('node:path')
+ const fastify = require('..')
+ const helper = require('./helper')
+ 
+@@ -118,6 +121,43 @@ test('trust proxy number', async t => {
+   await fetchForwardedRequest(fastifyServer, '2.2.2.2, 1.1.1.1', '/trustproxynumber', undefined)
+ })
+ 
++// A connection served over a pipe (e.g. iisnode, or a unix socket behind
++// nginx) has no `remoteAddress` on its socket. Hop count trusts by position,
++// so the forwarded address must still be resolved.
++test('trust proxy number over a socket without a remote address', { skip: process.platform === 'win32' ? 'unix sockets are not available' : false }, async t => {
++  t.plan(3)
++  const app = fastify({
++    trustProxy: 1
++  })
++  const socketPath = path.join(os.tmpdir(), `fastify-trust-proxy-${process.pid}.sock`)
++  t.after(() => app.close())
++
++  app.get('/trustproxynumber', function (req, reply) {
++    t.assert.strictEqual(req.socket.remoteAddress, undefined, 'the socket has no remote address')
++    t.assert.strictEqual(req.ip, '1.1.1.1', 'gets ip from x-forwarded-for')
++    t.assert.strictEqual(req.host, 'fastify.test', 'gets host from x-forwarded-host')
++    reply.code(200).send({ ip: req.ip, host: req.host })
++  })
++
++  await app.listen({ path: socketPath })
++
++  await new Promise((resolve, reject) => {
++    const req = http.request({
++      socketPath,
++      path: '/trustproxynumber',
++      headers: {
++        'X-Forwarded-For': '2.2.2.2, 1.1.1.1',
++        'X-Forwarded-Host': 'fastify.test'
++      }
++    }, res => {
++      res.resume()
++      res.on('end', resolve)
++    })
++    req.on('error', reject)
++    req.end()
++  })
++})
++
+ test('trust proxy IP addresses', async t => {
+   t.plan(9)
+   const app = fastify({

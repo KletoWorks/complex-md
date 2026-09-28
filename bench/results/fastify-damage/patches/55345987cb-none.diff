@@ -1,0 +1,123 @@
+diff --git a/lib/server.js b/lib/server.js
+index a632e52d..00c92650 100644
+--- a/lib/server.js
++++ b/lib/server.js
+@@ -231,6 +231,13 @@ function listenCallback (server, listenOptions) {
+ }
+ 
+ function listenPromise (server, listenOptions) {
++  const signal = listenOptions.signal
++
++  // the server will never start, so the promise must not be left pending
++  if (signal?.aborted) {
++    return Promise.reject(signal.reason)
++  }
++
+   if (this[kState].listening && this[kState].closing) {
+     return Promise.reject(new FST_ERR_REOPENED_CLOSE_SERVER())
+   }
+@@ -239,11 +246,21 @@ function listenPromise (server, listenOptions) {
+   }
+ 
+   return this.ready().then(() => {
++    // the signal may have been aborted while the instance was getting ready
++    if (signal?.aborted) {
++      this[kState].listening = false
++      return Promise.reject(signal.reason)
++    }
++
+     let errEventHandler
+     let listeningEventHandler
++    let abortEventHandler
+     function cleanup () {
+       server.removeListener('error', errEventHandler)
+       server.removeListener('listening', listeningEventHandler)
++      if (abortEventHandler !== undefined) {
++        signal.removeEventListener('abort', abortEventHandler)
++      }
+     }
+     const errEvent = new Promise((resolve, reject) => {
+       errEventHandler = (err) => {
+@@ -262,12 +279,27 @@ function listenPromise (server, listenOptions) {
+       server.once('listening', listeningEventHandler)
+     })
+ 
+-    server.listen(listenOptions)
+-
+-    return Promise.race([
++    const events = [
+       errEvent, // e.g invalid port range error is always emitted before the server listening
+       listeningEvent
+-    ])
++    ]
++
++    if (signal !== undefined) {
++      // the server is closed by the abort listener registered in `listen`,
++      // neither `error` nor `listening` will be emitted in that case
++      events.push(new Promise((resolve, reject) => {
++        abortEventHandler = () => {
++          cleanup()
++          this[kState].listening = false
++          reject(signal.reason)
++        }
++        signal.addEventListener('abort', abortEventHandler, { once: true })
++      }))
++    }
++
++    server.listen(listenOptions)
++
++    return Promise.race(events)
+   })
+ }
+ 
+diff --git a/test/server.test.js b/test/server.test.js
+index 1247c77a..a4bfd79a 100644
+--- a/test/server.test.js
++++ b/test/server.test.js
+@@ -118,6 +118,46 @@ test('abort signal', async t => {
+     t.assert.strictEqual(fastify.server.listening, false)
+   })
+ 
++  await t.test('listen should reject the promise if already aborted', async (t) => {
++    t.plan(3)
++
++    const controller = new AbortController()
++    const reason = new Error('aborting before actual start')
++    controller.abort(reason)
++    const fastify = Fastify()
++
++    await t.assert.rejects(
++      fastify.listen({ port: 1234, signal: controller.signal }),
++      (err) => {
++        t.assert.strictEqual(err, reason)
++        return true
++      }
++    )
++
++    t.assert.strictEqual(fastify.server.listening, false)
++  })
++
++  await t.test('listen should reject the promise if aborted before listening', async (t) => {
++    t.plan(3)
++
++    const controller = new AbortController()
++    const reason = new Error('aborting while getting ready')
++    const fastify = Fastify()
++    fastify.register(async () => {
++      await new Promise(resolve => setTimeout(resolve, 50))
++    })
++
++    const listening = fastify.listen({ port: 1234, signal: controller.signal })
++    controller.abort(reason)
++
++    await t.assert.rejects(listening, (err) => {
++      t.assert.strictEqual(err, reason)
++      return true
++    })
++
++    t.assert.strictEqual(fastify.server.listening, false)
++  })
++
+   await t.test('listen should throw if received invalid signal', t => {
+     t.plan(2)
+     const fastify = Fastify()

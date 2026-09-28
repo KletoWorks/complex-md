@@ -1,0 +1,63 @@
+diff --git a/fastify.js b/fastify.js
+index d23e03f0..7970f316 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -681,7 +681,12 @@ function fastify (options) {
+       this[kHooks].add(name, fn)
+     } else {
+       this.after((err, done) => {
+-        _addHook.call(this, name, fn)
++        try {
++          _addHook.call(this, name, fn)
++        } catch (error) {
++          done(error)
++          return
++        }
+         done(err)
+       })
+     }
+diff --git a/test/hooks.test.js b/test/hooks.test.js
+index c753cff4..f6442fe3 100644
+--- a/test/hooks.test.js
++++ b/test/hooks.test.js
+@@ -3395,6 +3395,40 @@ test('registering invalid hooks should throw an error', async t => {
+   }, new Error('onSend hook should be a function, instead got [object Undefined]'))
+ })
+ 
++test('registering an unsupported hook should reject the ready promise', async t => {
++  t.plan(2)
++
++  const fastify = Fastify()
++  t.teardown(() => fastify.close())
++
++  fastify.addHook('invalidHook', () => {})
++
++  try {
++    await fastify.ready()
++    t.fail('ready should not resolve')
++  } catch (err) {
++    t.equal(err.code, 'FST_ERR_HOOK_NOT_SUPPORTED')
++    t.equal(err.message, 'invalidHook hook not supported!')
++  }
++})
++
++test('registering a hook with an invalid handler should reject the ready promise', async t => {
++  t.plan(2)
++
++  const fastify = Fastify()
++  t.teardown(() => fastify.close())
++
++  fastify.addHook('onRequest', 'not a function')
++
++  try {
++    await fastify.ready()
++    t.fail('ready should not resolve')
++  } catch (err) {
++    t.equal(err.code, 'FST_ERR_HOOK_INVALID_HANDLER')
++    t.equal(err.message, 'onRequest hook should be a function, instead got [object String]')
++  }
++})
++
+ test('onRequestAbort should be triggered', t => {
+   const fastify = Fastify()
+   let order = 0

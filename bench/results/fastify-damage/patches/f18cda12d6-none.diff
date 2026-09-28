@@ -1,0 +1,105 @@
+diff --git a/fastify.d.ts b/fastify.d.ts
+index 65891df1..e543fe22 100644
+--- a/fastify.d.ts
++++ b/fastify.d.ts
+@@ -96,11 +96,21 @@ declare namespace fastify {
+     constraints?: {
+       [name: string]: ConstraintStrategy<FindMyWayVersion<RawServer>, unknown>,
+     },
+-    defaultRoute?: (req: FastifyRequest, res: FastifyReply) => void,
++    // `defaultRoute` and `onBadUrl` are invoked by the router with the raw
++    // Node.js request and response objects, not with Fastify's own
++    // Request/Reply wrappers.
++    defaultRoute?: (
++      req: RawRequestDefaultExpression<RawServer>,
++      res: RawReplyDefaultExpression<RawServer>
++    ) => void,
+     ignoreDuplicateSlashes?: boolean,
+     ignoreTrailingSlash?: boolean,
+     maxParamLength?: number,
+-    onBadUrl?: (path: string, req: FastifyRequest, res: FastifyReply) => void,
++    onBadUrl?: (
++      path: string,
++      req: RawRequestDefaultExpression<RawServer>,
++      res: RawReplyDefaultExpression<RawServer>
++    ) => void,
+     querystringParser?: (str: string) => { [key: string]: unknown },
+     useSemicolonDelimiter?: boolean,
+   }
+diff --git a/test/types/fastify.test-d.ts b/test/types/fastify.test-d.ts
+index 17740b5b..b59db227 100644
+--- a/test/types/fastify.test-d.ts
++++ b/test/types/fastify.test-d.ts
+@@ -17,6 +17,7 @@ import fastify, {
+   LightMyRequestCallback,
+   LightMyRequestChain,
+   LightMyRequestResponse,
++  RawReplyDefaultExpression,
+   RawRequestDefaultExpression,
+   RouteGenericInterface,
+   SafePromiseLike
+@@ -184,6 +185,39 @@ expectAssignable<FastifyInstance>(fastify({
+   }
+ }))
+ expectAssignable<FastifyInstance>(fastify({ trustProxy: true }))
++expectAssignable<FastifyInstance>(fastify({
++  routerOptions: {
++    defaultRoute: (req, res) => {
++      expectType<RawRequestDefaultExpression>(req)
++      expectType<RawReplyDefaultExpression>(res)
++      res.statusCode = 404
++      res.end()
++    },
++    onBadUrl: (path, req, res) => {
++      expectType<string>(path)
++      expectType<RawRequestDefaultExpression>(req)
++      expectType<RawReplyDefaultExpression>(res)
++      res.statusCode = 400
++      res.end()
++    }
++  }
++}))
++// `defaultRoute` and `onBadUrl` receive the raw Node.js objects, so the
++// Fastify Reply decorators are not available on them
++expectError(fastify({
++  routerOptions: {
++    defaultRoute: (req, res) => {
++      res.send({ hello: 'world' })
++    }
++  }
++}))
++expectError(fastify({
++  routerOptions: {
++    onBadUrl: (path, req, res) => {
++      res.send({ hello: 'world' })
++    }
++  }
++}))
+ expectAssignable<FastifyInstance>(fastify({ querystringParser: () => ({ foo: 'bar' }) }))
+ expectAssignable<FastifyInstance>(fastify({ querystringParser: () => ({ foo: { bar: 'fuzz' } }) }))
+ expectAssignable<FastifyInstance>(fastify({ querystringParser: () => ({ foo: ['bar', 'fuzz'] }) }))
+diff --git a/test/types/instance.test-d.ts b/test/types/instance.test-d.ts
+index b975249f..74d2674d 100644
+--- a/test/types/instance.test-d.ts
++++ b/test/types/instance.test-d.ts
+@@ -339,11 +339,18 @@ type InitialConfig = Readonly<{
+     constraints?: {
+       [name: string]: ConstraintStrategy<FindMyWayVersion<RawServerDefault>, unknown>
+     }
+-    defaultRoute?: (req: FastifyRequest, res: FastifyReply) => void,
++    defaultRoute?: (
++      req: RawRequestDefaultExpression<RawServerDefault>,
++      res: RawReplyDefaultExpression<RawServerDefault>
++    ) => void,
+     ignoreDuplicateSlashes?: boolean,
+     ignoreTrailingSlash?: boolean,
+     maxParamLength?: number,
+-    onBadUrl?: (path: string, req: FastifyRequest, res: FastifyReply) => void,
++    onBadUrl?: (
++      path: string,
++      req: RawRequestDefaultExpression<RawServerDefault>,
++      res: RawReplyDefaultExpression<RawServerDefault>
++    ) => void,
+     querystringParser?: (str: string) => { [key: string]: unknown },
+     useSemicolonDelimiter?: boolean,
+   }

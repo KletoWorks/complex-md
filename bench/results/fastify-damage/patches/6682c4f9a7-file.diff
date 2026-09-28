@@ -1,0 +1,41 @@
+diff --git a/lib/route.js b/lib/route.js
+index 1cb07fa9..067c40c6 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -178,8 +178,9 @@ function buildRouting (options) {
+   }
+ 
+   function findRoute (options) {
++    const normalizedMethod = options.method?.toUpperCase() ?? ''
+     const route = router.find(
+-      options.method,
++      normalizedMethod,
+       options.url || '',
+       options.constraints
+     )
+diff --git a/test/find-route.test.js b/test/find-route.test.js
+index 9e39ef49..f94b5ed6 100644
+--- a/test/find-route.test.js
++++ b/test/find-route.test.js
+@@ -150,3 +150,21 @@ test('findRoute should not expose store', t => {
+   })
+   t.assert.strictEqual(route.store, undefined)
+ })
++
++test('findRoute should normalize the method', t => {
++  t.plan(1)
++  const fastify = Fastify()
++
++  fastify.get('/artists/:artistId', {
++    schema: {
++      params: { artistId: { type: 'integer' } }
++    },
++    handler: (req, reply) => reply.send(typeof req.params.artistId)
++  })
++
++  const route = fastify.findRoute({
++    method: 'get',
++    url: '/artists/:artistId'
++  })
++  t.assert.strictEqual(route.params.artistId, ':artistId')
++})

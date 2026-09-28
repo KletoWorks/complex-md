@@ -1,0 +1,59 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 93b0b285..09744bf2 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -961,6 +961,18 @@ function setupResponseListeners (reply) {
+       }
+     }
+ 
++    // Release the context/request/reply the socket references for the onTimeout
++    // hook, otherwise they are kept alive for the whole lifetime of a keep-alive
++    // connection. `reply.raw.socket` is already detached at this point, so the
++    // reference is taken from the request. The ownership check leaves the meta
++    // alone when a following request on the same socket already replaced it.
++    if (ctx != null && ctx.onTimeout !== null) {
++      const socket = reply.request.raw.socket
++      if (socket != null && socket._meta != null && socket._meta.request === reply.request) {
++        socket._meta = null
++      }
++    }
++
+     if (ctx && ctx.onResponse !== null) {
+       onResponseHookRunner(
+         ctx.onResponse,
+diff --git a/lib/route.js b/lib/route.js
+index 4c8ee129..5984ef4b 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -59,6 +59,8 @@ const { createChildLogger } = require('./logger-factory.js')
+ const { getGenReqId } = require('./req-id-gen-factory.js')
+ const { FSTDEP022 } = require('./warnings')
+ 
++const kSocketTimeoutListener = Symbol('fastify.socketTimeoutListener')
++
+ const routerKeys = [
+   'allowUnsafeRegex',
+   'buildPrettyMeta',
+@@ -583,7 +585,10 @@ function buildRouting (options) {
+     }
+ 
+     if (context.onTimeout !== null) {
+-      if (!request.raw.socket._meta) {
++      // `_meta` is cleared once the response is done, so the flag is what
++      // tells us the listener is already attached to this socket
++      if (request.raw.socket[kSocketTimeoutListener] === undefined) {
++        request.raw.socket[kSocketTimeoutListener] = true
+         request.raw.socket.on('timeout', handleTimeout)
+       }
+       request.raw.socket._meta = { context, request, reply }
+@@ -598,6 +603,10 @@ function handleOnRequestAbortHooksErrors (reply, err) {
+ }
+ 
+ function handleTimeout () {
++  // the socket can time out while idle between two keep-alive requests,
++  // in that case there is no request to run the hooks for
++  if (this._meta == null) return
++
+   const { context, request, reply } = this._meta
+   onTimeoutHookRunner(
+     context.onTimeout,

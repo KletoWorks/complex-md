@@ -1,0 +1,60 @@
+diff --git a/fastify.js b/fastify.js
+index d23e03f0..66129f92 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -681,7 +681,13 @@ function fastify (options) {
+       this[kHooks].add(name, fn)
+     } else {
+       this.after((err, done) => {
+-        _addHook.call(this, name, fn)
++        try {
++          _addHook.call(this, name, fn)
++        } catch (error) {
++          // the hook validation failure must reach the `ready` rejection
++          // instead of being thrown inside avvio's `after` callback
++          err = err ?? error
++        }
+         done(err)
+       })
+     }
+diff --git a/test/hooks.test.js b/test/hooks.test.js
+index c753cff4..6f6f7f28 100644
+--- a/test/hooks.test.js
++++ b/test/hooks.test.js
+@@ -180,6 +180,36 @@ test('hooks', t => {
+   })
+ })
+ 
++test('addHook with an unsupported hook name should reject the ready promise', async t => {
++  t.plan(2)
++  const fastify = Fastify()
++
++  fastify.addHook('invalidHook', () => {})
++
++  await fastify.ready().then(
++    () => t.fail('should not be ready'),
++    err => {
++      t.equal(err.code, 'FST_ERR_HOOK_NOT_SUPPORTED')
++      t.equal(err.message, 'invalidHook hook not supported!')
++    }
++  )
++})
++
++test('addHook with an invalid handler should reject the ready promise', async t => {
++  t.plan(2)
++  const fastify = Fastify()
++
++  fastify.addHook('onRequest', 'not a function')
++
++  await fastify.ready().then(
++    () => t.fail('should not be ready'),
++    err => {
++      t.equal(err.code, 'FST_ERR_HOOK_INVALID_HANDLER')
++      t.equal(err.message, 'onRequest hook should be a function, instead got [object String]')
++    }
++  )
++})
++
+ test('onRequest hook should support encapsulation / 1', t => {
+   t.plan(5)
+   const fastify = Fastify()

@@ -1,0 +1,205 @@
+diff --git a/docs/Reference/Errors.md b/docs/Reference/Errors.md
+index 2f8fb3a7..c48f4d13 100644
+--- a/docs/Reference/Errors.md
++++ b/docs/Reference/Errors.md
+@@ -29,6 +29,7 @@
+     - [FST_ERR_CTP_INVALID_MEDIA_TYPE](#fst_err_ctp_invalid_media_type)
+     - [FST_ERR_CTP_INVALID_CONTENT_LENGTH](#fst_err_ctp_invalid_content_length)
+     - [FST_ERR_CTP_EMPTY_JSON_BODY](#fst_err_ctp_empty_json_body)
++    - [FST_ERR_CTP_INVALID_JSON_BODY](#fst_err_ctp_invalid_json_body)
+     - [FST_ERR_CTP_INSTANCE_ALREADY_STARTED](#fst_err_ctp_instance_already_started)
+     - [FST_ERR_INSTANCE_ALREADY_LISTENING](#fst_err_instance_already_listening)
+     - [FST_ERR_DEC_ALREADY_PRESENT](#fst_err_dec_already_present)
+@@ -300,6 +301,7 @@ Below is a table with all the error codes used by Fastify.
+ | <a id="fst_err_ctp_invalid_media_type">FST_ERR_CTP_INVALID_MEDIA_TYPE</a> | The received media type is not supported (i.e. there is no suitable `Content-Type` parser for it). | Use a different content type. | [#1168](https://github.com/fastify/fastify/pull/1168) |
+ | <a id="fst_err_ctp_invalid_content_length">FST_ERR_CTP_INVALID_CONTENT_LENGTH</a> | Request body size did not match <code>Content-Length</code>. | Check the request body size and the <code>Content-Length</code> header. | [#1168](https://github.com/fastify/fastify/pull/1168) |
+ | <a id="fst_err_ctp_empty_json_body">FST_ERR_CTP_EMPTY_JSON_BODY</a> | Body cannot be empty when content-type is set to <code>application/json</code>. | Check the request body. | [#1253](https://github.com/fastify/fastify/pull/1253) |
++| <a id="fst_err_ctp_invalid_json_body">FST_ERR_CTP_INVALID_JSON_BODY</a> | Body is not valid JSON but content-type is set to <code>application/json</code>. The original parsing error is available as the <code>cause</code> of this error, it is not sent to the client. | Check the request body. | [#](https://github.com/fastify/fastify/pull/) |
+ | <a id="fst_err_ctp_instance_already_started">FST_ERR_CTP_INSTANCE_ALREADY_STARTED</a> | Fastify is already started. | - | [#4554](https://github.com/fastify/fastify/pull/4554) |
+ | <a id="fst_err_instance_already_listening">FST_ERR_INSTANCE_ALREADY_LISTENING</a> | Fastify instance is already listening. | - | [#4554](https://github.com/fastify/fastify/pull/4554) |
+ | <a id="fst_err_dec_already_present">FST_ERR_DEC_ALREADY_PRESENT</a> | A decorator with the same name is already registered. | Use a different decorator name. | [#1168](https://github.com/fastify/fastify/pull/1168) |
+diff --git a/lib/contentTypeParser.js b/lib/contentTypeParser.js
+index 57c29844..a0db6573 100644
+--- a/lib/contentTypeParser.js
++++ b/lib/contentTypeParser.js
+@@ -24,7 +24,9 @@ const {
+   FST_ERR_CTP_INVALID_MEDIA_TYPE,
+   FST_ERR_CTP_INVALID_CONTENT_LENGTH,
+   FST_ERR_CTP_EMPTY_JSON_BODY,
+-  FST_ERR_CTP_INSTANCE_ALREADY_STARTED
++  FST_ERR_CTP_INVALID_JSON_BODY,
++  FST_ERR_CTP_INSTANCE_ALREADY_STARTED,
++  appendStackTrace
+ } = require('./errors')
+ const { FSTSEC001 } = require('./warnings')
+ 
+@@ -308,12 +310,16 @@ function getDefaultJsonParser (onProtoPoisoning, onConstructorPoisoning) {
+       done(new FST_ERR_CTP_EMPTY_JSON_BODY(), undefined)
+       return
+     }
++    let json
+     try {
+-      done(null, secureJsonParse(body, { protoAction: onProtoPoisoning, constructorAction: onConstructorPoisoning }))
++      json = secureJsonParse(body, { protoAction: onProtoPoisoning, constructorAction: onConstructorPoisoning })
+     } catch (err) {
+-      err.statusCode = 400
+-      done(err, undefined)
++      // the parse error message can quote the request body, so it is kept as
++      // the cause instead of being sent back to the client
++      done(appendStackTrace(err, new FST_ERR_CTP_INVALID_JSON_BODY()), undefined)
++      return
+     }
++    done(null, json)
+   }
+ }
+ 
+diff --git a/lib/errors.js b/lib/errors.js
+index 52d17a11..53c14abf 100644
+--- a/lib/errors.js
++++ b/lib/errors.js
+@@ -124,6 +124,11 @@ const codes = {
+     "Body cannot be empty when content-type is set to 'application/json'",
+     400
+   ),
++  FST_ERR_CTP_INVALID_JSON_BODY: createError(
++    'FST_ERR_CTP_INVALID_JSON_BODY',
++    "Body is not valid JSON but content-type is set to 'application/json'",
++    400
++  ),
+   FST_ERR_CTP_INSTANCE_ALREADY_STARTED: createError(
+     'FST_ERR_CTP_INSTANCE_ALREADY_STARTED',
+     'Cannot call "%s" when fastify instance is already started!',
+diff --git a/test/content-parser.test.js b/test/content-parser.test.js
+index 83a75776..b774fa86 100644
+--- a/test/content-parser.test.js
++++ b/test/content-parser.test.js
+@@ -730,3 +730,75 @@ test('edge case content-type - ;', async t => {
+ 
+   t.assert.ok('end')
+ })
++
++test('default json parser fails with FST_ERR_CTP_INVALID_JSON_BODY', async t => {
++  t.plan(3)
++
++  const fastify = Fastify()
++
++  fastify.post('/', async () => {
++    t.assert.fail('handler should not be called')
++  })
++
++  const response = await fastify.inject({
++    method: 'POST',
++    path: '/',
++    headers: { 'content-type': 'application/json' },
++    body: 'hello world'
++  })
++
++  t.assert.strictEqual(response.statusCode, 400)
++  t.assert.deepStrictEqual(response.json(), {
++    error: 'Bad Request',
++    code: 'FST_ERR_CTP_INVALID_JSON_BODY',
++    message: "Body is not valid JSON but content-type is set to 'application/json'",
++    statusCode: 400
++  })
++  // the body must not be reflected back to the client
++  t.assert.ok(!response.payload.includes('hello world'))
++})
++
++test('default json parser keeps the original error as cause', async t => {
++  t.plan(3)
++
++  const fastify = Fastify()
++
++  fastify.setErrorHandler(function (err, request, reply) {
++    t.assert.strictEqual(err.code, 'FST_ERR_CTP_INVALID_JSON_BODY')
++    t.assert.ok(err.cause instanceof SyntaxError)
++    reply.send(err)
++  })
++
++  fastify.post('/', async () => {
++    t.assert.fail('handler should not be called')
++  })
++
++  const response = await fastify.inject({
++    method: 'POST',
++    path: '/',
++    headers: { 'content-type': 'application/json' },
++    body: '{"a":'
++  })
++
++  t.assert.strictEqual(response.statusCode, 400)
++})
++
++test('default json parser reports poisoning as FST_ERR_CTP_INVALID_JSON_BODY', async t => {
++  t.plan(2)
++
++  const fastify = Fastify()
++
++  fastify.post('/', async () => {
++    t.assert.fail('handler should not be called')
++  })
++
++  const response = await fastify.inject({
++    method: 'POST',
++    path: '/',
++    headers: { 'content-type': 'application/json' },
++    body: '{ "__proto__": { "a": 42 } }'
++  })
++
++  t.assert.strictEqual(response.statusCode, 400)
++  t.assert.strictEqual(response.json().code, 'FST_ERR_CTP_INVALID_JSON_BODY')
++})
+diff --git a/test/internals/errors.test.js b/test/internals/errors.test.js
+index 3f779413..2499b380 100644
+--- a/test/internals/errors.test.js
++++ b/test/internals/errors.test.js
+@@ -5,7 +5,7 @@ const errors = require('../../lib/errors')
+ const { readFileSync } = require('node:fs')
+ const { resolve } = require('node:path')
+ 
+-const expectedErrors = 85
++const expectedErrors = 86
+ 
+ test(`should expose ${expectedErrors} errors`, t => {
+   t.plan(1)
+@@ -190,6 +190,16 @@ test('FST_ERR_CTP_EMPTY_JSON_BODY', t => {
+   t.assert.ok(error instanceof Error)
+ })
+ 
++test('FST_ERR_CTP_INVALID_JSON_BODY', t => {
++  t.plan(5)
++  const error = new errors.FST_ERR_CTP_INVALID_JSON_BODY()
++  t.assert.strictEqual(error.name, 'FastifyError')
++  t.assert.strictEqual(error.code, 'FST_ERR_CTP_INVALID_JSON_BODY')
++  t.assert.strictEqual(error.message, "Body is not valid JSON but content-type is set to 'application/json'")
++  t.assert.strictEqual(error.statusCode, 400)
++  t.assert.ok(error instanceof Error)
++})
++
+ test('FST_ERR_CTP_INSTANCE_ALREADY_STARTED', t => {
+   t.plan(5)
+   const error = new errors.FST_ERR_CTP_INSTANCE_ALREADY_STARTED()
+diff --git a/test/types/errors.test-d.ts b/test/types/errors.test-d.ts
+index a81ffe4a..c14dbdb6 100644
+--- a/test/types/errors.test-d.ts
++++ b/test/types/errors.test-d.ts
+@@ -22,6 +22,7 @@ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_CTP_BODY_TOO_LARGE)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_CTP_INVALID_MEDIA_TYPE)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_CTP_INVALID_CONTENT_LENGTH)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_CTP_EMPTY_JSON_BODY)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_CTP_INVALID_JSON_BODY)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_CTP_INSTANCE_ALREADY_STARTED)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_DEC_ALREADY_PRESENT)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_DEC_DEPENDENCY_INVALID_TYPE)
+diff --git a/types/errors.d.ts b/types/errors.d.ts
+index 3b831e30..777f97b0 100644
+--- a/types/errors.d.ts
++++ b/types/errors.d.ts
+@@ -21,6 +21,7 @@ export type FastifyErrorCodes = Record<
+   'FST_ERR_CTP_INVALID_MEDIA_TYPE' |
+   'FST_ERR_CTP_INVALID_CONTENT_LENGTH' |
+   'FST_ERR_CTP_EMPTY_JSON_BODY' |
++  'FST_ERR_CTP_INVALID_JSON_BODY' |
+   'FST_ERR_CTP_INSTANCE_ALREADY_STARTED' |
+   'FST_ERR_DEC_ALREADY_PRESENT' |
+   'FST_ERR_DEC_DEPENDENCY_INVALID_TYPE' |

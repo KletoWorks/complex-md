@@ -1,0 +1,291 @@
+diff --git a/docs/Reference/Errors.md b/docs/Reference/Errors.md
+index 04528ec4..1358d86b 100644
+--- a/docs/Reference/Errors.md
++++ b/docs/Reference/Errors.md
+@@ -48,6 +48,7 @@
+     - [FST_ERR_LOG_INVALID_LOGGER](#fst_err_log_invalid_logger)
+     - [FST_ERR_LOG_INVALID_LOGGER_INSTANCE](#fst_err_log_invalid_logger_instance)
+     - [FST_ERR_LOG_INVALID_LOGGER_CONFIG](#fst_err_log_invalid_logger_config)
++    - [FST_ERR_LOG_INVALID_LOG_LEVEL](#fst_err_log_invalid_log_level)
+     - [FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED](#fst_err_log_logger_and_logger_instance_provided)
+     - [FST_ERR_REP_INVALID_PAYLOAD_TYPE](#fst_err_rep_invalid_payload_type)
+     - [FST_ERR_REP_RESPONSE_BODY_CONSUMED](#fst_err_rep_response_body_consumed)
+@@ -323,6 +324,7 @@ Below is a table with all the error codes used by Fastify.
+ | <a id="fst_err_log_invalid_logger">FST_ERR_LOG_INVALID_LOGGER</a> | The logger should have all these methods: `'info'`, `'error'`, `'debug'`, `'fatal'`, `'warn'`, `'trace'`, `'child'`. | Use a logger with all the required methods. | [#4520](https://github.com/fastify/fastify/pull/4520) |
+ | <a id="fst_err_log_invalid_logger_instance">FST_ERR_LOG_INVALID_LOGGER_INSTANCE</a> | The `loggerInstance` only accepts a logger instance, not a configuration object. | To pass a configuration object, use `'logger'` instead. | [#5020](https://github.com/fastify/fastify/pull/5020) |
+ | <a id="fst_err_log_invalid_logger_config">FST_ERR_LOG_INVALID_LOGGER_CONFIG</a> | The logger option only accepts a configuration object, not a logger instance. | To pass an instance, use `'loggerInstance'` instead.  | [#5020](https://github.com/fastify/fastify/pull/5020) |
++| <a id="fst_err_log_invalid_log_level">FST_ERR_LOG_INVALID_LOG_LEVEL</a> | The `logLevel` provided to a route or to a plugin registration is not a level the logger knows. | Use one of the levels listed in the error message. | [#6684](https://github.com/fastify/fastify/pull/6684) |
+ | <a id="fst_err_log_logger_and_logger_instance_provided">FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED</a> | You cannot provide both `'logger'` and `'loggerInstance'`. | Please provide only one option.  | [#5020](https://github.com/fastify/fastify/pull/5020) |
+ | <a id="fst_err_rep_invalid_payload_type">FST_ERR_REP_INVALID_PAYLOAD_TYPE</a> | Reply payload can be either a `string` or a `Buffer`. | Use a `string` or a `Buffer` for the payload. | [#1168](https://github.com/fastify/fastify/pull/1168) |
+ | <a id="fst_err_rep_response_body_consumed">FST_ERR_REP_RESPONSE_BODY_CONSUMED</a> | Using `Response` as reply payload, but the body is being consumed. | Make sure you don't consume the `Response.body` | [#5286](https://github.com/fastify/fastify/pull/5286) |
+diff --git a/docs/Reference/Routes.md b/docs/Reference/Routes.md
+index 3cb21531..84e18697 100644
+--- a/docs/Reference/Routes.md
++++ b/docs/Reference/Routes.md
+@@ -518,6 +518,11 @@ Be aware that setting `logLevel` at the plugin level also affects
+ [`setNotFoundHandler`](./Server.md#setnotfoundhandler) and
+ [`setErrorHandler`](./Server.md#seterrorhandler).
+ 
++A level the logger does not know, including a level that is not in
++`customLevels`, is rejected with
++[`FST_ERR_LOG_INVALID_LOG_LEVEL`](./Errors.md#fst_err_log_invalid_log_level)
++when the route or the plugin is registered.
++
+ ```js
+ // server.js
+ const fastify = require('fastify')({ logger: true })
+diff --git a/lib/errors.js b/lib/errors.js
+index a5ce70dd..afb0815f 100644
+--- a/lib/errors.js
++++ b/lib/errors.js
+@@ -236,6 +236,13 @@ const codes = {
+     TypeError
+   ),
+ 
++  FST_ERR_LOG_INVALID_LOG_LEVEL: createError(
++    'FST_ERR_LOG_INVALID_LOG_LEVEL',
++    "Invalid logLevel '%s'. Valid levels are: %s.",
++    500,
++    TypeError
++  ),
++
+   FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED: createError(
+     'FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED',
+     'You cannot provide both logger and loggerInstance. Please provide only one.',
+diff --git a/lib/logger-factory.js b/lib/logger-factory.js
+index 69592d7a..560b52bd 100644
+--- a/lib/logger-factory.js
++++ b/lib/logger-factory.js
+@@ -4,7 +4,8 @@ const {
+   FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED,
+   FST_ERR_LOG_INVALID_LOGGER_CONFIG,
+   FST_ERR_LOG_INVALID_LOGGER_INSTANCE,
+-  FST_ERR_LOG_INVALID_LOGGER
++  FST_ERR_LOG_INVALID_LOGGER,
++  FST_ERR_LOG_INVALID_LOG_LEVEL
+ } = require('./errors')
+ 
+ /**
+@@ -72,6 +73,38 @@ function validateLogger (logger, strict) {
+   }
+ }
+ 
++/**
++ * Determines if a log level is known by the given logger, so that an invalid
++ * `logLevel` fails at registration time instead of crashing the first request
++ * that tries to build a child logger with it.
++ *
++ * Loggers that do not expose the `levels.values` map (the null logger or a
++ * custom one) cannot be checked, so their levels are left alone.
++ *
++ * @param {object} logger The logger the child logger will be created from.
++ * @param {string?} logLevel The level to validate.
++ *
++ * @throws {FST_ERR_LOG_INVALID_LOG_LEVEL} When the level is not supported.
++ */
++function validateLogLevel (logger, logLevel) {
++  // an empty level means "inherit from the parent logger"
++  if (!logLevel) {
++    return
++  }
++
++  const levels = logger?.levels?.values
++  if (levels === undefined) {
++    return
++  }
++
++  // 'silent' is not part of the levels map, but every pino logger accepts it
++  if (logLevel === 'silent' || (typeof logLevel === 'string' && Object.hasOwn(levels, logLevel))) {
++    return
++  }
++
++  throw new FST_ERR_LOG_INVALID_LOG_LEVEL(logLevel, Object.keys(levels).concat('silent').join(', '))
++}
++
+ function createLogger (options) {
+   if (options.logger && options.loggerInstance) {
+     throw new FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED()
+@@ -132,5 +165,6 @@ module.exports = {
+   defaultChildLoggerFactory,
+   createLogger,
+   validateLogger,
++  validateLogLevel,
+   now
+ }
+diff --git a/lib/plugin-override.js b/lib/plugin-override.js
+index 4eef3257..60ea2279 100644
+--- a/lib/plugin-override.js
++++ b/lib/plugin-override.js
+@@ -22,6 +22,7 @@ const SchemaController = require('./schema-controller')
+ const ContentTypeParser = require('./content-type-parser.js')
+ const { buildHooks } = require('./hooks')
+ const pluginUtils = require('./plugin-utils.js')
++const { validateLogLevel } = require('./logger-factory.js')
+ 
+ // Function that runs the encapsulation magic.
+ // Everything that need to be encapsulated must be handled in this function.
+@@ -46,6 +47,7 @@ module.exports = function override (old, fn, opts) {
+   instance[kContentTypeParser] = ContentTypeParser.helpers.buildContentTypeParser(instance[kContentTypeParser])
+   instance[kHooks] = buildHooks(instance[kHooks])
+   instance[kRoutePrefix] = buildRoutePrefix(instance[kRoutePrefix], opts.prefix)
++  validateLogLevel(instance.log, opts.logLevel)
+   instance[kLogLevel] = opts.logLevel || instance[kLogLevel]
+   instance[kSchemaController] = SchemaController.buildSchemaController(old[kSchemaController])
+   instance.getSchema = instance[kSchemaController].getSchema.bind(instance[kSchemaController])
+diff --git a/lib/route.js b/lib/route.js
+index 290598cc..ea4e3e09 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -54,7 +54,7 @@ const {
+   kOnAbort
+ } = require('./symbols.js')
+ const { buildErrorHandler } = require('./error-handler')
+-const { createChildLogger } = require('./logger-factory.js')
++const { createChildLogger, validateLogLevel } = require('./logger-factory.js')
+ const { getGenReqId } = require('./req-id-gen-factory.js')
+ const { FSTDEP022 } = require('./warnings')
+ 
+@@ -284,6 +284,8 @@ function buildRouting (options) {
+       opts.routePath = path
+       opts.prefix = prefix
+       opts.logLevel = opts.logLevel || this[kLogLevel]
++      // fail here instead of when the first request builds its child logger
++      validateLogLevel(logger, opts.logLevel)
+ 
+       if (this[kLogSerializers] || opts.logSerializers) {
+         opts.logSerializers = Object.assign(Object.create(this[kLogSerializers]), opts.logSerializers)
+diff --git a/test/internals/errors.test.js b/test/internals/errors.test.js
+index e132f385..4060e130 100644
+--- a/test/internals/errors.test.js
++++ b/test/internals/errors.test.js
+@@ -5,7 +5,7 @@ const errors = require('../../lib/errors')
+ const { readFileSync } = require('node:fs')
+ const { resolve } = require('node:path')
+ 
+-const expectedErrors = 88
++const expectedErrors = 89
+ 
+ test(`should expose ${expectedErrors} errors`, t => {
+   t.plan(1)
+@@ -370,6 +370,16 @@ test('FST_ERR_LOG_INVALID_LOGGER_CONFIG', t => {
+   t.assert.ok(error instanceof TypeError)
+ })
+ 
++test('FST_ERR_LOG_INVALID_LOG_LEVEL', t => {
++  t.plan(5)
++  const error = new errors.FST_ERR_LOG_INVALID_LOG_LEVEL('invalid', 'trace, info, silent')
++  t.assert.strictEqual(error.name, 'FastifyError')
++  t.assert.strictEqual(error.code, 'FST_ERR_LOG_INVALID_LOG_LEVEL')
++  t.assert.strictEqual(error.message, "Invalid logLevel 'invalid'. Valid levels are: trace, info, silent.")
++  t.assert.strictEqual(error.statusCode, 500)
++  t.assert.ok(error instanceof TypeError)
++})
++
+ test('FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED', t => {
+   t.plan(5)
+   const error = new errors.FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED()
+diff --git a/test/logger/options.test.js b/test/logger/options.test.js
+index 46b1338e..123bd045 100644
+--- a/test/logger/options.test.js
++++ b/test/logger/options.test.js
+@@ -10,7 +10,7 @@ const Fastify = require('../../fastify')
+ const { on } = stream
+ 
+ t.test('logger options', { timeout: 60000 }, async (t) => {
+-  t.plan(16)
++  t.plan(20)
+ 
+   await t.test('logger can be silenced', (t) => {
+     t.plan(17)
+@@ -539,6 +539,79 @@ t.test('logger options', { timeout: 60000 }, async (t) => {
+     }
+   })
+ 
++  await t.test('Should throw when a route has an unknown logLevel', (t) => {
++    t.plan(3)
++
++    const fastify = Fastify({ logger: { stream: split(JSON.parse) } })
++    t.after(() => fastify.close())
++
++    try {
++      fastify.get('/', { logLevel: 'invalid' }, () => 'hello world')
++      t.assert.fail('should have thrown')
++    } catch (err) {
++      t.assert.strictEqual(err.code, 'FST_ERR_LOG_INVALID_LOG_LEVEL')
++      t.assert.strictEqual(err.message, "Invalid logLevel 'invalid'. Valid levels are: trace, debug, info, warn, error, fatal, silent.")
++      t.assert.ok(err instanceof TypeError)
++    }
++  })
++
++  await t.test('Should throw when a plugin has an unknown logLevel', async (t) => {
++    t.plan(1)
++
++    const fastify = Fastify({ logger: { stream: split(JSON.parse) } })
++    t.after(() => fastify.close())
++
++    fastify.register(function (instance, opts, done) {
++      done()
++    }, { logLevel: 'invalid' })
++
++    await t.assert.rejects(fastify.ready(), { code: 'FST_ERR_LOG_INVALID_LOG_LEVEL' })
++  })
++
++  await t.test('Should accept custom levels and `silent` as a route logLevel', async (t) => {
++    t.plan(3)
++
++    const loggerStream = split(JSON.parse)
++    const fastify = Fastify({
++      logger: {
++        stream: loggerStream,
++        level: 'error',
++        customLevels: { answer: 35 }
++      }
++    })
++    t.after(() => fastify.close())
++
++    fastify.get('/custom', { logLevel: 'answer' }, (req, reply) => {
++      req.log.answer('42')
++      reply.send()
++    })
++
++    fastify.get('/silent', { logLevel: 'silent' }, (req, reply) => reply.send())
++
++    await fastify.ready()
++
++    t.assert.strictEqual((await fastify.inject({ method: 'GET', url: '/silent' })).statusCode, 200)
++    t.assert.strictEqual((await fastify.inject({ method: 'GET', url: '/custom' })).statusCode, 200)
++
++    for await (const [line] of on(loggerStream, 'data')) {
++      if (line.msg === '42') {
++        t.assert.strictEqual(line.level, 35)
++        break
++      }
++    }
++  })
++
++  await t.test('Should not validate the logLevel when the logger is disabled', async (t) => {
++    t.plan(1)
++
++    const fastify = Fastify({ logger: false })
++    t.after(() => fastify.close())
++
++    fastify.get('/', { logLevel: 'invalid' }, (req, reply) => reply.send({ hello: 'world' }))
++
++    t.assert.strictEqual((await fastify.inject({ method: 'GET', url: '/' })).statusCode, 200)
++  })
++
+   await t.test('`logger` should take pino configuration and create a pino logger', async (t) => {
+     const lines = ['hello', 'world']
+     t.plan(2 * lines.length + 2)
+diff --git a/types/errors.d.ts b/types/errors.d.ts
+index 13c5cf40..4c82b52a 100644
+--- a/types/errors.d.ts
++++ b/types/errors.d.ts
+@@ -39,6 +39,7 @@ export type FastifyErrorCodes = Record<
+   'FST_ERR_LOG_INVALID_LOGGER' |
+   'FST_ERR_LOG_INVALID_LOGGER_INSTANCE' |
+   'FST_ERR_LOG_INVALID_LOGGER_CONFIG' |
++  'FST_ERR_LOG_INVALID_LOG_LEVEL' |
+   'FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED' |
+   'FST_ERR_REP_INVALID_PAYLOAD_TYPE' |
+   'FST_ERR_REP_RESPONSE_BODY_CONSUMED' |

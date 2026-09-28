@@ -1,0 +1,55 @@
+diff --git a/lib/route.js b/lib/route.js
+index 9eb46f0b..7f653af3 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -614,7 +614,11 @@ function runPreParsing (err, request, reply) {
+ }
+ 
+ function buildRouterOptions (options, defaultOptions) {
+-  const routerOptions = options.routerOptions || Object.create(null)
++  // A copy is made because the same server options object may be used to build
++  // more than one instance. Filling in the user's own `routerOptions` object
++  // would leak instance-specific values, such as `defaultRoute` and `onBadUrl`,
++  // into every instance built afterwards.
++  const routerOptions = Object.assign(Object.create(null), options.routerOptions)
+ 
+   const usedDeprecatedOptions = routerKeys.filter(key => Object.hasOwn(options, key))
+ 
+diff --git a/test/router-options.test.js b/test/router-options.test.js
+index cdb9d389..4f629cba 100644
+--- a/test/router-options.test.js
++++ b/test/router-options.test.js
+@@ -1064,3 +1064,33 @@ test('Should support extra find-my-way options', async t => {
+   // Ensure the option is preserved after validation
+   t.assert.strictEqual(typeof fastify.initialConfig.routerOptions.buildPrettyMeta, 'function')
+ })
++
++test('Should not mutate the provided routerOptions object', async t => {
++  t.plan(2)
++  const options = { routerOptions: { maxParamLength: 2048 } }
++
++  Fastify(options)
++
++  t.assert.deepStrictEqual(Object.keys(options.routerOptions), ['maxParamLength'])
++  t.assert.deepStrictEqual(options.routerOptions, { maxParamLength: 2048 })
++})
++
++test('Should support reusing the same options object across instances', async t => {
++  t.plan(3)
++  const options = { routerOptions: { maxParamLength: 2048 } }
++
++  // The first instance is intentionally not readied: its 404 context is still
++  // null, so a leaked defaultRoute would throw instead of replying.
++  Fastify(options)
++
++  const fastify = Fastify(options)
++  fastify.get('/', async () => ({ hello: 'world' }))
++
++  let res = await fastify.inject({ method: 'GET', url: '/' })
++  t.assert.strictEqual(res.statusCode, 200)
++  t.assert.deepStrictEqual(res.json(), { hello: 'world' })
++
++  // The unmatched path must reach this instance's own 404 router
++  res = await fastify.inject({ method: 'GET', url: '/not-here' })
++  t.assert.strictEqual(res.statusCode, 404)
++})

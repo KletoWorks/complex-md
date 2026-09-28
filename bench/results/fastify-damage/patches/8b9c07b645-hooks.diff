@@ -1,0 +1,131 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 93b0b285..8b3a3830 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -961,6 +961,17 @@ function setupResponseListeners (reply) {
+       }
+     }
+ 
++    // Release the context/request/reply that the onTimeout hook setup parked on
++    // the socket, otherwise they stay reachable for the whole lifetime of a
++    // keep-alive socket. Only clear it if this request still owns `_meta`: a
++    // pipelined request on the same socket may already have replaced it.
++    // `_meta` is set to null rather than deleted because it doubles as the
++    // "'timeout' listener already attached" sentinel in lib/route.js.
++    const socket = reply.request.raw.socket
++    if (socket != null && socket._meta != null && socket._meta.request === reply.request) {
++      socket._meta = null
++    }
++
+     if (ctx && ctx.onResponse !== null) {
+       onResponseHookRunner(
+         ctx.onResponse,
+diff --git a/lib/route.js b/lib/route.js
+index 4c8ee129..c75b6347 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -554,7 +554,10 @@ function buildRouting (options) {
+       request[kOnAbort] = onAbort
+     }
+ 
+-    if (hasLogger === true || context.onResponse !== null || handlerTimeout > 0) {
++    // `context.onTimeout` is included because the onTimeout setup below parks
++    // context/request/reply on the socket, and onResFinished is what releases
++    // them again — without it they would outlive every keep-alive response.
++    if (hasLogger === true || context.onResponse !== null || handlerTimeout > 0 || context.onTimeout !== null) {
+       setupResponseListeners(reply)
+     }
+ 
+@@ -583,10 +586,15 @@ function buildRouting (options) {
+     }
+ 
+     if (context.onTimeout !== null) {
+-      if (!request.raw.socket._meta) {
+-        request.raw.socket.on('timeout', handleTimeout)
++      const socket = request.raw.socket
++      // `_meta` doubles as the sentinel for "the 'timeout' listener is already
++      // attached to this socket". The listener is never removed, so `_meta` is
++      // only ever nulled out (never deleted) once a response finishes — that
++      // keeps the listener attached exactly once per keep-alive socket.
++      if (socket._meta === undefined) {
++        socket.on('timeout', handleTimeout)
+       }
+-      request.raw.socket._meta = { context, request, reply }
++      socket._meta = { context, request, reply }
+     }
+   }
+ }
+@@ -598,6 +606,11 @@ function handleOnRequestAbortHooksErrors (reply, err) {
+ }
+ 
+ function handleTimeout () {
++  // An idle keep-alive socket can emit 'timeout' with no request in flight,
++  // after the last response released `_meta`. Nothing to report in that case.
++  if (this._meta === null) {
++    return
++  }
+   const { context, request, reply } = this._meta
+   onTimeoutHookRunner(
+     context.onTimeout,
+diff --git a/test/hooks.test.js b/test/hooks.test.js
+index 56d483dc..2f0723d9 100644
+--- a/test/hooks.test.js
++++ b/test/hooks.test.js
+@@ -10,6 +10,7 @@ const symbols = require('../lib/symbols.js')
+ const payload = { hello: 'world' }
+ const proxyquire = require('proxyquire')
+ const { connect } = require('node:net')
++const http = require('node:http')
+ const { sleep } = require('./helper')
+ const { waitForCb } = require('./toolkit.js')
+ const { fetch } = require('undici')
+@@ -3245,6 +3246,49 @@ test('onTimeout should be triggered', async t => {
+   await t.assert.rejects(() => fetch(fastifyServer + '/timeout'))
+ })
+ 
++test('socket _meta is released after the response, without leaking timeout listeners', async t => {
++  t.plan(5)
++  const fastify = Fastify({ connectionTimeout: 500 })
++  t.after(() => { fastify.close() })
++
++  fastify.addHook('onTimeout', function (req, res, done) {
++    done()
++  })
++
++  const sockets = []
++  fastify.get('/', async (req, reply) => {
++    sockets.push(req.raw.socket)
++    return reply.send({ hello: 'world' })
++  })
++
++  const fastifyServer = await fastify.listen({ port: 0 })
++  const agent = new http.Agent({ keepAlive: true, maxSockets: 1 })
++  t.after(() => { agent.destroy() })
++
++  const get = () => new Promise((resolve, reject) => {
++    http.get(fastifyServer, { agent }, res => {
++      res.resume()
++      res.on('end', resolve)
++    }).on('error', reject)
++  })
++
++  await get()
++  await get()
++
++  // both requests rode the same keep-alive socket
++  t.assert.strictEqual(sockets.length, 2)
++  t.assert.strictEqual(sockets[0], sockets[1])
++
++  const socket = sockets[0]
++  // the context/request/reply are no longer reachable from the live socket
++  t.assert.strictEqual(socket._meta, null)
++  // ...but the sentinel is preserved, so the listener was attached only once
++  t.assert.strictEqual(socket.listeners('timeout').filter(fn => fn.name === 'handleTimeout').length, 1)
++
++  // an idle 'timeout' with no request in flight must not throw
++  t.assert.doesNotThrow(() => socket.emit('timeout'))
++})
++
+ test('onTimeout should be triggered and socket _meta is set', async t => {
+   t.plan(4)
+   const fastify = Fastify({ connectionTimeout: 500 })

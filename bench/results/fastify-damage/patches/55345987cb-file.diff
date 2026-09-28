@@ -1,0 +1,118 @@
+diff --git a/lib/server.js b/lib/server.js
+index a632e52d..b7cf0ab9 100644
+--- a/lib/server.js
++++ b/lib/server.js
+@@ -238,12 +238,28 @@ function listenPromise (server, listenOptions) {
+     return Promise.reject(new FST_ERR_REOPENED_SERVER())
+   }
+ 
++  const signal = listenOptions.signal
++  // the signal has been aborted before listening started, so the instance is
++  // already closing and the server will never emit 'listening' nor 'error'
++  if (signal?.aborted) {
++    return Promise.reject(abortError(signal))
++  }
++
+   return this.ready().then(() => {
++    // the signal may have been aborted while the instance was booting
++    if (signal?.aborted) {
++      throw abortError(signal)
++    }
++
+     let errEventHandler
+     let listeningEventHandler
++    let abortEventHandler
+     function cleanup () {
+       server.removeListener('error', errEventHandler)
+       server.removeListener('listening', listeningEventHandler)
++      if (abortEventHandler !== undefined) {
++        signal.removeEventListener('abort', abortEventHandler)
++      }
+     }
+     const errEvent = new Promise((resolve, reject) => {
+       errEventHandler = (err) => {
+@@ -262,15 +278,42 @@ function listenPromise (server, listenOptions) {
+       server.once('listening', listeningEventHandler)
+     })
+ 
+-    server.listen(listenOptions)
+-
+-    return Promise.race([
++    const events = [
+       errEvent, // e.g invalid port range error is always emitted before the server listening
+       listeningEvent
+-    ])
++    ]
++
++    if (signal) {
++      // an abort while the server is binding closes it without emitting
++      // 'listening' nor 'error', so the race needs to settle on the signal too
++      events.push(new Promise((resolve, reject) => {
++        abortEventHandler = () => {
++          cleanup()
++          this[kState].listening = false
++          reject(abortError(signal))
++        }
++        signal.addEventListener('abort', abortEventHandler, { once: true })
++      }))
++    }
++
++    server.listen(listenOptions)
++
++    return Promise.race(events)
+   })
+ }
+ 
++function abortError (signal) {
++  if (signal.reason !== undefined) {
++    return signal.reason
++  }
++
++  // an AbortSignal always carries a reason, custom implementations may not
++  const err = new Error('The operation was aborted')
++  err.name = 'AbortError'
++  err.code = 'ABORT_ERR'
++  return err
++}
++
+ function getServerInstance (options, httpHandler) {
+   if (options.serverFactory) {
+     // User provided server instance
+diff --git a/test/server.test.js b/test/server.test.js
+index 1247c77a..2e49a439 100644
+--- a/test/server.test.js
++++ b/test/server.test.js
+@@ -118,6 +118,33 @@ test('abort signal', async t => {
+     t.assert.strictEqual(fastify.server.listening, false)
+   })
+ 
++  await t.test('listen should reject if already aborted', async (t) => {
++    t.plan(2)
++
++    const controller = new AbortController()
++    controller.abort(new Error('aborting before actual start'))
++    const fastify = Fastify()
++
++    await t.assert.rejects(
++      fastify.listen({ port: 1234, signal: controller.signal }),
++      { message: 'aborting before actual start' }
++    )
++    t.assert.strictEqual(fastify.server.listening, false)
++  })
++
++  await t.test('listen should reject if aborted while starting', async (t) => {
++    t.plan(2)
++
++    const controller = new AbortController()
++    const fastify = Fastify()
++
++    const listening = fastify.listen({ port: 1234, signal: controller.signal })
++    controller.abort()
++
++    await t.assert.rejects(listening, { name: 'AbortError' })
++    t.assert.strictEqual(fastify.server.listening, false)
++  })
++
+   await t.test('listen should throw if received invalid signal', t => {
+     t.plan(2)
+     const fastify = Fastify()

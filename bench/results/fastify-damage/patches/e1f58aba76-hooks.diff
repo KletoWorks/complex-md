@@ -1,0 +1,33 @@
+diff --git a/fastify.js b/fastify.js
+index ee87fdec..0a205690 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -157,7 +157,7 @@ function fastify (serverOptions) {
+     [kSchemaErrorFormatter]: null,
+     [kErrorHandler]: buildErrorHandler(),
+     [kErrorHandlerAlreadySet]: false,
+-    [kChildLoggerFactory]: defaultChildLoggerFactory,
++    [kChildLoggerFactory]: options.childLoggerFactory ?? defaultChildLoggerFactory,
+     [kReplySerializerDefault]: null,
+     [kContentTypeParser]: new ContentTypeParser(
+       options.bodyLimit,
+diff --git a/test/child-logger-factory.test.js b/test/child-logger-factory.test.js
+index 3dd5f4f4..f458757b 100644
+--- a/test/child-logger-factory.test.js
++++ b/test/child-logger-factory.test.js
+@@ -34,12 +34,12 @@ test('Should accept a custom childLoggerFactory function', (t, done) => {
+ })
+ 
+ test('Should accept a custom childLoggerFactory function as option', (t, done) => {
+-  t.plan(2)
++  t.plan(4)
+ 
+   const fastify = Fastify({
+     childLoggerFactory: function (logger, bindings, opts) {
+-      t.ok(bindings.reqId)
+-      t.ok(opts)
++      t.assert.ok(bindings.reqId)
++      t.assert.ok(opts)
+       this.log.debug(bindings, 'created child logger')
+       return logger.child(bindings, opts)
+     }

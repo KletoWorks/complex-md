@@ -1,0 +1,42 @@
+diff --git a/fastify.d.ts b/fastify.d.ts
+index be86332a..4458da38 100644
+--- a/fastify.d.ts
++++ b/fastify.d.ts
+@@ -69,6 +69,7 @@ declare namespace fastify {
+     Logger extends FastifyBaseLogger = FastifyBaseLogger
+   > = FastifyServerOptions<Server, Logger> & {
+     https: https.ServerOptions | null
++    http2?: false
+   }
+ 
+   export type FastifyHttpOptions<
+@@ -76,6 +77,7 @@ declare namespace fastify {
+     Logger extends FastifyBaseLogger = FastifyBaseLogger
+   > = FastifyServerOptions<Server, Logger> & {
+     http?: http.ServerOptions | null
++    http2?: false
+   }
+ 
+   type FindMyWayVersion<RawServer extends RawServerBase> = RawServer extends http.Server
+diff --git a/test/types/fastify.tst.ts b/test/types/fastify.tst.ts
+index dbb4d827..dc042cb0 100644
+--- a/test/types/fastify.tst.ts
++++ b/test/types/fastify.tst.ts
+@@ -68,6 +68,17 @@ expect(fastify({ schemaController: {} })).type.toBe<
+   FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse> &
+   SafePromiseLike<FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse>>
+ >()
++
++expect(fastify({ http2: false })).type.toBe<
++  FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse> &
++  SafePromiseLike<FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse>>
++>()
++
++expect(fastify({ https: {}, http2: false })).type.toBe<
++  FastifyInstance<https.Server, http.IncomingMessage, http.ServerResponse> &
++  SafePromiseLike<FastifyInstance<https.Server, http.IncomingMessage, http.ServerResponse>>
++>()
++
+ expect(
+   fastify({
+     schemaController: {

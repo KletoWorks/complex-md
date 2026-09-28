@@ -1,0 +1,173 @@
+diff --git a/docs/Reference/Reply.md b/docs/Reference/Reply.md
+index 5c60a134..c6a7b4f4 100644
+--- a/docs/Reference/Reply.md
++++ b/docs/Reference/Reply.md
+@@ -708,6 +708,14 @@ sent unmodified without response validation.
+ See special note about error handling for streams in
+ [`setErrorHandler`](./Server.md#seterrorhandler).
+ 
++Over HTTP/2, a single very large write cannot be cancelled: if the client
++resets the stream while that write is in flight, the remaining data stays
++queued on the session and the streams that follow on it are affected. Fastify
++writes large buffer and string payloads in chunks for this reason, but the
++chunks a stream emits are sent unmodified. When serving large payloads from a
++stream over HTTP/2, keep the emitted chunks small, for example with the
++`highWaterMark` option of `fs.createReadStream`.
++
+ ```js
+ const fs = require('node:fs')
+ 
+diff --git a/lib/reply.js b/lib/reply.js
+index 38d2ca97..80ffdc12 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -44,6 +44,13 @@ const CONTENT_TYPE = {
+   PLAIN: 'text/plain; charset=utf-8',
+   OCTET: 'application/octet-stream'
+ }
++// A single large write on an HTTP/2 stream cannot be cancelled: if the client
++// resets the stream while the write is in flight, the data stays queued on the
++// session and the streams that follow on it stall. Payloads bigger than this
++// are written one chunk at a time so that at most one chunk is in flight and
++// we can stop as soon as the stream goes away. The size matches the default
++// HTTP/2 stream window, so well-behaved responses still take a single write.
++const HTTP2_CHUNK_SIZE = 65536
+ const {
+   FST_ERR_REP_INVALID_PAYLOAD_TYPE,
+   FST_ERR_REP_RESPONSE_BODY_CONSUMED,
+@@ -676,12 +683,56 @@ function onSendEnd (reply, payload) {
+   }
+ 
+   safeWriteHead(reply, statusCode)
++
++  // only an Http2ServerResponse wraps an HTTP/2 stream, an HTTP/1 response
++  // served by an `allowHTTP1` server does not
++  const http2Stream = res.stream
++  if (http2Stream !== undefined && Buffer.byteLength(payload) > HTTP2_CHUNK_SIZE) {
++    // trailers are sent once the whole payload has been written
++    sendChunked(payload, http2Stream, res, reply)
++    return
++  }
++
+   // write payload first
+   res.write(payload)
+   // then send trailers
+   sendTrailer(payload, res, reply)
+ }
+ 
++/**
++ * Writes the payload in HTTP2_CHUNK_SIZE chunks, waiting for the socket to
++ * drain in between, then sends the trailers. Bails out without ending the
++ * response when the stream has already been destroyed by the client.
++ */
++function sendChunked (payload, http2Stream, res, reply) {
++  // a string is converted upfront: slicing it could split a surrogate pair
++  // across two chunks and each chunk is encoded on its own
++  const buffer = Buffer.isBuffer(payload) ? payload : Buffer.from(payload)
++  let offset = 0
++
++  function writeChunks () {
++    while (offset < buffer.length) {
++      // the client may have cancelled the stream, stop feeding the session.
++      // Http2ServerResponse does not expose `destroyed`, only the stream it
++      // wraps reports that the client has reset it
++      if (http2Stream.destroyed || res.writableEnded) return
++
++      const end = offset + HTTP2_CHUNK_SIZE
++      const flushed = res.write(buffer.subarray(offset, end))
++      offset = end
++
++      if (flushed === false && offset < buffer.length) {
++        res.once('drain', writeChunks)
++        return
++      }
++    }
++
++    sendTrailer(payload, res, reply)
++  }
++
++  writeChunks()
++}
++
+ function logStreamError (logger, err, res) {
+   if (err.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+     if (!logger[kDisableRequestLogging]) {
+diff --git a/test/http2/plain.test.js b/test/http2/plain.test.js
+index 3e1d5b4c..3c60c1a1 100644
+--- a/test/http2/plain.test.js
++++ b/test/http2/plain.test.js
+@@ -1,6 +1,7 @@
+ 'use strict'
+ 
+ const { test } = require('node:test')
++const http2 = require('node:http2')
+ const Fastify = require('../..')
+ const h2url = require('h2url')
+ const msg = { hello: 'world' }
+@@ -66,3 +67,66 @@ test('http2 plain test', async t => {
+     t.assert.strictEqual(JSON.parse(res.body).port, parseInt(host.split(':')[1]))
+   })
+ })
++
++test('http2 sends a large buffer payload in full', async t => {
++  t.plan(3)
++
++  // larger than the chunk size the reply is split into
++  const payload = Buffer.alloc(5 * 1024 * 1024, 'a')
++
++  const fastify = Fastify({ http2: true })
++  fastify.get('/', function (req, reply) {
++    reply.type('application/octet-stream').send(payload)
++  })
++
++  t.after(() => fastify.close())
++  await fastify.listen({ port: 0 })
++
++  const url = `http://localhost:${fastify.server.address().port}`
++  const res = await h2url.concat({ url })
++
++  t.assert.strictEqual(res.headers[':status'], 200)
++  t.assert.strictEqual(res.headers['content-length'], '' + payload.length)
++  t.assert.strictEqual(Buffer.byteLength(res.body), payload.length)
++})
++
++test('http2 keeps the session usable when a large payload is cancelled', async t => {
++  t.plan(2)
++
++  const payload = Buffer.alloc(20 * 1024 * 1024, 'a')
++
++  const fastify = Fastify({ http2: true })
++  fastify.get('/big', function (req, reply) {
++    reply.type('application/octet-stream').send(payload)
++  })
++  fastify.get('/small', function (req, reply) {
++    reply.send(msg)
++  })
++
++  t.after(() => fastify.close())
++  await fastify.listen({ port: 0 })
++
++  const session = http2.connect(`http://localhost:${fastify.server.address().port}`)
++  t.after(() => session.close())
++
++  // cancel the big reply as soon as the first bytes arrive
++  await new Promise((resolve, reject) => {
++    const req = session.request({ ':path': '/big' })
++    req.on('data', () => req.close(http2.constants.NGHTTP2_CANCEL))
++    req.on('error', reject)
++    req.on('close', resolve)
++  })
++
++  // the session must still be able to serve the requests that follow
++  const body = await new Promise((resolve, reject) => {
++    const req = session.request({ ':path': '/small' })
++    let data = ''
++    req.setEncoding('utf8')
++    req.on('data', chunk => { data += chunk })
++    req.on('error', reject)
++    req.on('end', () => resolve(data))
++  })
++
++  t.assert.ok(!session.destroyed, 'the session is still open')
++  t.assert.deepStrictEqual(JSON.parse(body), msg)
++})

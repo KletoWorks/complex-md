@@ -1,0 +1,66 @@
+diff --git a/lib/route.js b/lib/route.js
+index 9eb46f0b..b04bcaca 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -614,7 +614,11 @@ function runPreParsing (err, request, reply) {
+ }
+ 
+ function buildRouterOptions (options, defaultOptions) {
+-  const routerOptions = options.routerOptions || Object.create(null)
++  // Shallow copy the user provided router options to prevent mutating them:
++  // the same options object may be reused to build several instances, and some
++  // of the values filled in below (such as `defaultRoute` and `onBadUrl`) are
++  // bound to a single instance.
++  const routerOptions = Object.assign(Object.create(null), options.routerOptions)
+ 
+   const usedDeprecatedOptions = routerKeys.filter(key => Object.hasOwn(options, key))
+ 
+diff --git a/test/router-options.test.js b/test/router-options.test.js
+index cdb9d389..b80e7403 100644
+--- a/test/router-options.test.js
++++ b/test/router-options.test.js
+@@ -1064,3 +1064,44 @@ test('Should support extra find-my-way options', async t => {
+   // Ensure the option is preserved after validation
+   t.assert.strictEqual(typeof fastify.initialConfig.routerOptions.buildPrettyMeta, 'function')
+ })
++
++test('Should not mutate the user provided routerOptions', async t => {
++  t.plan(1)
++  const routerOptions = { maxParamLength: 2048 }
++
++  Fastify({ routerOptions })
++
++  t.assert.deepStrictEqual(routerOptions, { maxParamLength: 2048 })
++})
++
++test('Should support reusing the same options object across instances', async t => {
++  t.plan(7)
++  const options = { routerOptions: { maxParamLength: 2048 } }
++
++  const app1 = Fastify(options)
++  app1.get('/one', (req, reply) => reply.send('one'))
++  app1.setNotFoundHandler((req, reply) => reply.code(404).send('app1-not-found'))
++
++  const app2 = Fastify(options)
++  app2.get('/two', (req, reply) => reply.send('two'))
++  app2.setNotFoundHandler((req, reply) => reply.code(404).send('app2-not-found'))
++
++  // Each instance handles its own routes
++  let res = await app1.inject({ method: 'GET', url: '/one' })
++  t.assert.strictEqual(res.statusCode, 200)
++  t.assert.strictEqual(res.body, 'one')
++
++  res = await app2.inject({ method: 'GET', url: '/two' })
++  t.assert.strictEqual(res.statusCode, 200)
++  t.assert.strictEqual(res.body, 'two')
++
++  // And its own not found handler, instead of the first instance's one
++  res = await app1.inject({ method: 'GET', url: '/two' })
++  t.assert.strictEqual(res.body, 'app1-not-found')
++
++  res = await app2.inject({ method: 'GET', url: '/one' })
++  t.assert.strictEqual(res.body, 'app2-not-found')
++
++  // The shared option is still applied to every instance
++  t.assert.strictEqual(app2.initialConfig.routerOptions.maxParamLength, 2048)
++})

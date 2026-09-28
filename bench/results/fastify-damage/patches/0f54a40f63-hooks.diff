@@ -1,0 +1,47 @@
+diff --git a/fastify.d.ts b/fastify.d.ts
+index be86332a..4e4159ac 100644
+--- a/fastify.d.ts
++++ b/fastify.d.ts
+@@ -68,14 +68,16 @@ declare namespace fastify {
+     Server extends https.Server,
+     Logger extends FastifyBaseLogger = FastifyBaseLogger
+   > = FastifyServerOptions<Server, Logger> & {
+-    https: https.ServerOptions | null
++    https: https.ServerOptions | null,
++    http2?: false
+   }
+ 
+   export type FastifyHttpOptions<
+     Server extends http.Server,
+     Logger extends FastifyBaseLogger = FastifyBaseLogger
+   > = FastifyServerOptions<Server, Logger> & {
+-    http?: http.ServerOptions | null
++    http?: http.ServerOptions | null,
++    http2?: false
+   }
+ 
+   type FindMyWayVersion<RawServer extends RawServerBase> = RawServer extends http.Server
+diff --git a/test/types/fastify.tst.ts b/test/types/fastify.tst.ts
+index dbb4d827..03c85649 100644
+--- a/test/types/fastify.tst.ts
++++ b/test/types/fastify.tst.ts
+@@ -64,6 +64,19 @@ expect(fastify({ http2: true, https: {}, http2SessionTimeout: 1000 })).type.toBe
+   SafePromiseLike<FastifyInstance<http2.Http2SecureServer, http2.Http2ServerRequest, http2.Http2ServerResponse>>
+ >()
+ expect(fastify({ http2: true, https: {} }).inject()).type.toBe<LightMyRequestChain>()
++// http2 explicitly disabled falls back to the http and https servers
++expect(fastify({ http2: false })).type.toBe<
++  FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse> &
++  SafePromiseLike<FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse>>
++>()
++expect(fastify({ http2: undefined })).type.toBe<
++  FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse> &
++  SafePromiseLike<FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse>>
++>()
++expect(fastify({ http2: false, https: {} })).type.toBe<
++  FastifyInstance<https.Server, http.IncomingMessage, http.ServerResponse> &
++  SafePromiseLike<FastifyInstance<https.Server, http.IncomingMessage, http.ServerResponse>>
++>()
+ expect(fastify({ schemaController: {} })).type.toBe<
+   FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse> &
+   SafePromiseLike<FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse>>

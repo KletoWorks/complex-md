@@ -1,0 +1,177 @@
+diff --git a/lib/content-type.js b/lib/content-type.js
+index f970439c..a1148b7c 100644
+--- a/lib/content-type.js
++++ b/lib/content-type.js
+@@ -8,10 +8,36 @@ const { LruMap: Lru } = require('toad-cache')
+  * only attempts matches at parameter boundaries, preventing quadratic
+  * backtracking on malformed input.
+  *
++ * A `parameter-value` is either a token or a quoted-string. Matching the
++ * quoted-string form in full is what keeps a `;` inside a quoted value from
++ * terminating the value, and keeps `key=value` text inside a quoted value
++ * from leaking out as a parameter of its own. A value that is neither form
++ * (e.g. an unterminated quoted-string) does not match, so the parameter is
++ * skipped.
++ *
+  * @see https://httpwg.org/specs/rfc9110.html#parameter
++ * @see https://httpwg.org/specs/rfc9110.html#rule.quoted-string
++ * @type {RegExp}
++ */
++const keyValuePairsReg = /(?:^|;)\s*([\w!#$%&'*+.^`|~-]+)=("(?:[\t \x21\x23-\x5B\x5D-\x7E\x80-\xFF]|\\[\t \x21-\x7E\x80-\xFF])*"|[\w!#$%&'*+.^`|~-]+)/gm
++
++/**
++ * quotedPairReg matches the `quoted-pair` rule, used to unescape the content
++ * of a quoted-string.
++ *
++ * @see https://httpwg.org/specs/rfc9110.html#rule.quoted-string
++ * @type {RegExp}
++ */
++const quotedPairReg = /\\([\t \x21-\x7E\x80-\xFF])/g
++
++/**
++ * quotedStringEscapeReg matches the characters that must be escaped as a
++ * `quoted-pair` when serializing a value back into a quoted-string.
++ *
++ * @see https://httpwg.org/specs/rfc9110.html#rule.quoted-string
+  * @type {RegExp}
+  */
+-const keyValuePairsReg = /(?:^|;)\s*([\w!#$%&'*+.^`|~-]+)=([^;]*)/gm
++const quotedStringEscapeReg = /["\\]/g
+ 
+ /**
+  * typeNameReg is used to validate that the first part of the media-type
+@@ -140,21 +166,16 @@ class ContentType {
+       const key = matches[1].toLowerCase()
+       // Parameter values might or might not be case-sensitive,
+       // depending on the semantics of the parameter name.
+-      const value = matches[2]
++      let value = matches[2]
+       if (value[0] === '"') {
+-        if (value.at(-1) !== '"') {
+-          this.#parameters.set(key, 'invalid quoted string')
+-          matches = keyValuePairsReg.exec(paramsList)
+-          continue
++        // The regex only matches a complete quoted-string, so the enclosing
++        // DQUOTEs can be stripped and any quoted-pair unescaped.
++        value = value.slice(1, value.length - 1)
++        if (value.indexOf('\\') !== -1) {
++          value = value.replace(quotedPairReg, '$1')
+         }
+-        // We should probably verify the value matches a quoted string
+-        // (https://httpwg.org/specs/rfc9110.html#rule.quoted-string) value.
+-        // But we are not really doing much with the parameter values, so we
+-        // are omitting that at this time.
+-        this.#parameters.set(key, value.slice(1, value.length - 1))
+-      } else {
+-        this.#parameters.set(key, value)
+       }
++      this.#parameters.set(key, value)
+       matches = keyValuePairsReg.exec(paramsList)
+     }
+   }
+@@ -178,7 +199,9 @@ class ContentType {
+     if (this.#string) return this.#string
+     const parameters = []
+     for (const [key, value] of this.#parameters.entries()) {
+-      parameters.push(`${key}="${value}"`)
++      // Values are stored unescaped, so any DQUOTE or backslash they contain
++      // has to be re-escaped as a quoted-pair to stay a valid quoted-string.
++      parameters.push(`${key}="${value.replace(quotedStringEscapeReg, '\\$&')}"`)
+     }
+     const result = [this.#type, '/', this.#subtype]
+     if (parameters.length > 0) {
+diff --git a/test/content-type.test.js b/test/content-type.test.js
+index 1c6b91fe..c8ba210f 100644
+--- a/test/content-type.test.js
++++ b/test/content-type.test.js
+@@ -161,12 +161,11 @@ describe('ContentType class', () => {
+     t.assert.equal(found.mediaType, 'application/json')
+     t.assert.equal(found.type, 'application')
+     t.assert.equal(found.subtype, 'json')
+-    t.assert.equal(found.parameters.size, 3)
++    t.assert.equal(found.parameters.size, 2)
+ 
+     const expected = [
+       ['charset', 'utf-8'],
+-      ['foo', 'BaR'],
+-      ['baz', 'invalid quoted string']
++      ['foo', 'BaR']
+     ]
+     t.assert.deepStrictEqual(
+       Array.from(found.parameters.entries()),
+@@ -175,7 +174,42 @@ describe('ContentType class', () => {
+ 
+     t.assert.equal(
+       found.toString(),
+-      'application/json; charset="utf-8"; foo="BaR"; baz="invalid quoted string"'
++      'application/json; charset="utf-8"; foo="BaR"'
++    )
++  })
++
++  test('a semicolon inside a quoted string does not terminate the value', (t) => {
++    const found = new ContentType('application/json; name="foo;bar"; charset=utf-8')
++    t.assert.equal(found.isValid, true)
++    t.assert.equal(found.parameters.size, 2)
++
++    t.assert.deepStrictEqual(
++      Array.from(found.parameters.entries()),
++      [
++        ['name', 'foo;bar'],
++        ['charset', 'utf-8']
++      ]
++    )
++  })
++
++  test('a key=value pair inside a quoted string is not a parameter', (t) => {
++    const found = new ContentType('application/json; name="a=b;charset=fake"')
++    t.assert.equal(found.isValid, true)
++    t.assert.equal(found.parameters.size, 1)
++    t.assert.equal(found.parameters.has('charset'), false)
++    t.assert.equal(found.parameters.get('name'), 'a=b;charset=fake')
++  })
++
++  test('unescapes quoted pairs inside a quoted string', (t) => {
++    const found = new ContentType('application/json; name="a \\"quoted\\" \\\\ value"')
++    t.assert.equal(found.isValid, true)
++    t.assert.equal(found.parameters.size, 1)
++    t.assert.equal(found.parameters.get('name'), 'a "quoted" \\ value')
++
++    // Re-serializing escapes the quoted pairs again.
++    t.assert.equal(
++      found.toString(),
++      'application/json; name="a \\"quoted\\" \\\\ value"'
+     )
+   })
+ })
+diff --git a/test/internals/reply.test.js b/test/internals/reply.test.js
+index 4aa24a2d..3ae9b7dc 100644
+--- a/test/internals/reply.test.js
++++ b/test/internals/reply.test.js
+@@ -777,6 +777,27 @@ test('non-string with custom json\'s content-type SHOULD be serialized as json',
+   t.assert.deepStrictEqual(await result.text(), JSON.stringify({ key: 'hello world!' }))
+ })
+ 
++test('charset is appended when a quoted parameter value contains "charset="', async t => {
++  t.plan(3)
++
++  const fastify = Fastify()
++
++  fastify.get('/', function (req, reply) {
++    reply.type('application/json; name="a=b;charset=fake"').send({ key: 'hello world!' })
++  })
++
++  const fastifyServer = await fastify.listen({ port: 0 })
++  t.after(() => fastify.close())
++
++  const result = await fetch(fastifyServer)
++  t.assert.ok(result.ok)
++  t.assert.strictEqual(
++    result.headers.get('content-type'),
++    'application/json; name="a=b;charset=fake"; charset=utf-8'
++  )
++  t.assert.deepStrictEqual(await result.text(), JSON.stringify({ key: 'hello world!' }))
++})
++
+ test('non-string with custom json content type SHOULD be serialized as json', async t => {
+   t.plan(15)
+ 

@@ -1,0 +1,240 @@
+diff --git a/docs/Guides/Migration-Guide-V5.md b/docs/Guides/Migration-Guide-V5.md
+index db77d031..0d7f7172 100644
+--- a/docs/Guides/Migration-Guide-V5.md
++++ b/docs/Guides/Migration-Guide-V5.md
+@@ -441,7 +441,7 @@ const fastify = Fastify()
+ fastify.addHttpMethod('REBIND')
+ 
+ // add a new HTTP method that accepts a body:
+-fastify.addHttpMethod('REBIND', { hasBody: true })
++fastify.addHttpMethod('SEARCH', { hasBody: true })
+ 
+ // reads the HTTP methods list:
+ fastify.supportedMethods // returns a string array
+diff --git a/docs/Reference/Errors.md b/docs/Reference/Errors.md
+index b099ba03..41681e8a 100644
+--- a/docs/Reference/Errors.md
++++ b/docs/Reference/Errors.md
+@@ -84,6 +84,7 @@
+     - [FST_ERR_ROUTE_MISSING_HANDLER](#fst_err_route_missing_handler)
+     - [FST_ERR_ROUTE_METHOD_INVALID](#fst_err_route_method_invalid)
+     - [FST_ERR_ROUTE_METHOD_NOT_SUPPORTED](#fst_err_route_method_not_supported)
++    - [FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED](#fst_err_route_method_already_supported)
+     - [FST_ERR_ROUTE_LOG_LEVEL_INVALID](#fst_err_route_log_level_invalid)
+     - [FST_ERR_ROUTE_BODY_VALIDATION_SCHEMA_NOT_SUPPORTED](#fst_err_route_body_validation_schema_not_supported)
+     - [FST_ERR_ROUTE_BODY_LIMIT_OPTION_NOT_INT](#fst_err_route_body_limit_option_not_int)
+@@ -365,6 +366,7 @@ Below is a table with all the error codes used by Fastify.
+ | <a id="fst_err_route_missing_handler">FST_ERR_ROUTE_MISSING_HANDLER</a> | Missing handler function for the route. | Add a handler function. | [#4554](https://github.com/fastify/fastify/pull/4554) |
+ | <a id="fst_err_route_method_invalid">FST_ERR_ROUTE_METHOD_INVALID</a> | Method is not a valid value. | Use a valid value for the method. | [#4750](https://github.com/fastify/fastify/pull/4750) |
+ | <a id="fst_err_route_method_not_supported">FST_ERR_ROUTE_METHOD_NOT_SUPPORTED</a> | Method is not supported for the route. | Use a supported method. | [#4554](https://github.com/fastify/fastify/pull/4554) |
++| <a id="fst_err_route_method_already_supported">FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED</a> | `addHttpMethod` was called for a method that is already supported with a different body support. | Set the `override` option to `true` to change the body support of a supported method. | [#6875](https://github.com/fastify/fastify/pull/6875) |
+ | <a id="fst_err_route_log_level_invalid">FST_ERR_ROUTE_LOG_LEVEL_INVALID</a> | `logLevel` must match a configured logger level. | Use one of the configured logger levels for the route. | [#6523](https://github.com/fastify/fastify/pull/6523) |
+ | <a id="fst_err_route_body_validation_schema_not_supported">FST_ERR_ROUTE_BODY_VALIDATION_SCHEMA_NOT_SUPPORTED</a> | Body validation schema route is not supported. | Use a different different method for the route. | [#4554](https://github.com/fastify/fastify/pull/4554) |
+ | <a id="fst_err_route_body_limit_option_not_int">FST_ERR_ROUTE_BODY_LIMIT_OPTION_NOT_INT</a> | `bodyLimit` option must be an integer. | Use an integer for the `bodyLimit` option. | [#4554](https://github.com/fastify/fastify/pull/4554) |
+diff --git a/docs/Reference/Server.md b/docs/Reference/Server.md
+index 4d04d5d6..e1d2279a 100644
+--- a/docs/Reference/Server.md
++++ b/docs/Reference/Server.md
+@@ -1725,8 +1725,22 @@ fastify.mkcol('/', (req, reply) => {
+ })
+ ```
+ 
++Adding a method that is already supported with the same body support is a no-op.
++Changing the body support of an already supported method - a standard one such as
++`GET`, or one added by a previous `addHttpMethod` call - is rejected with
++`FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED` unless the `override` option is set:
++
++```js
++// Throws: TRACE is supported without a body
++fastify.addHttpMethod('TRACE', { hasBody: true })
++
++// Allowed: the override is explicit
++fastify.addHttpMethod('TRACE', { hasBody: true, override: true })
++```
++
+ > ⚠ Warning:
+-> `addHttpMethod` overrides existing methods.
++> Overriding the body support of a standard HTTP method changes the semantics of
++> every route registered for that method, including the routes added by plugins.
+ 
+ #### addSchema
+ <a id="add-schema"></a>
+diff --git a/fastify.js b/fastify.js
+index 2005da39..c8485e27 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -76,7 +76,8 @@ const {
+   FST_ERR_SCHEMA_ERROR_FORMATTER_NOT_FN,
+   FST_ERR_ERROR_HANDLER_NOT_FN,
+   FST_ERR_ERROR_HANDLER_ALREADY_SET,
+-  FST_ERR_ROUTE_METHOD_INVALID
++  FST_ERR_ROUTE_METHOD_INVALID,
++  FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED
+ } = errorCodes
+ 
+ const { buildErrorHandler } = require('./lib/error-handler.js')
+@@ -823,11 +824,22 @@ function fastify (serverOptions) {
+     return this
+   }
+ 
+-  function addHttpMethod (method, { hasBody = false } = {}) {
++  function addHttpMethod (method, { hasBody = false, override = false } = {}) {
+     if (typeof method !== 'string' || http.METHODS.indexOf(method) === -1) {
+       throw new FST_ERR_ROUTE_METHOD_INVALID()
+     }
+ 
++    // Changing the body support of an already supported method - a standard one
++    // such as GET, or one added by a previous call - is opt-in: silently
++    // flipping it would change the semantics of routes already registered.
++    const isOverriding = hasBody === true
++      ? this[kSupportedHTTPMethods].bodyless.has(method)
++      : this[kSupportedHTTPMethods].bodywith.has(method)
++
++    if (isOverriding && override !== true) {
++      throw new FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED(method)
++    }
++
+     if (hasBody === true) {
+       this[kSupportedHTTPMethods].bodywith.add(method)
+       this[kSupportedHTTPMethods].bodyless.delete(method)
+diff --git a/lib/errors.js b/lib/errors.js
+index 11214eaa..d041e012 100644
+--- a/lib/errors.js
++++ b/lib/errors.js
+@@ -421,6 +421,11 @@ const codes = {
+     '%s method is not supported.',
+     500
+   ),
++  FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED: createError(
++    'FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED',
++    '%s method is already supported. Set the "override" option to true to change its body support.',
++    500
++  ),
+   FST_ERR_ROUTE_LOG_LEVEL_INVALID: createError(
+     'FST_ERR_ROUTE_LOG_LEVEL_INVALID',
+     "Log level for '%s:%s' route must be a valid logger level. Received: '%s'",
+diff --git a/test/http-methods/custom-http-methods.test.js b/test/http-methods/custom-http-methods.test.js
+index 61feed4e..5d30e7ce 100644
+--- a/test/http-methods/custom-http-methods.test.js
++++ b/test/http-methods/custom-http-methods.test.js
+@@ -112,3 +112,65 @@ test('addHttpMethod rejects fake http method', t => {
+   const fastify = Fastify()
+   t.assert.throws(() => { fastify.addHttpMethod('FOOO') }, /Provided method is invalid!/)
+ })
++
++test('addHttpMethod does not override a standard http method', t => {
++  t.plan(3)
++  const app = Fastify()
++
++  t.assert.throws(() => { app.addHttpMethod('GET', { hasBody: true }) }, {
++    code: 'FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED',
++    message: 'GET method is already supported. Set the "override" option to true to change its body support.'
++  })
++  t.assert.throws(() => { app.addHttpMethod('POST') }, {
++    code: 'FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED'
++  })
++
++  t.assert.deepStrictEqual(app.supportedMethods, [
++    'GET', 'HEAD', 'TRACE', 'DELETE', 'OPTIONS', 'PATCH', 'PUT', 'POST', 'QUERY'
++  ])
++})
++
++test('addHttpMethod does not override a custom http method', t => {
++  t.plan(2)
++  const app = Fastify()
++
++  app.addHttpMethod('REBIND', { hasBody: true })
++  t.assert.throws(() => { app.addHttpMethod('REBIND') }, {
++    code: 'FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED'
++  })
++
++  t.assert.doesNotThrow(() => {
++    app.route({
++      url: '/',
++      method: 'REBIND',
++      schema: { body: { type: 'object' } },
++      handler: function (req, reply) { reply.send(req.body) }
++    })
++  })
++})
++
++test('addHttpMethod re-adding a method with the same body support is a no-op', t => {
++  t.plan(2)
++  const app = Fastify()
++
++  t.assert.doesNotThrow(() => { app.addHttpMethod('GET') })
++  t.assert.doesNotThrow(() => { app.addHttpMethod('POST', { hasBody: true }) })
++})
++
++test('addHttpMethod overrides an existing method when override is set', (t, done) => {
++  t.plan(3)
++  const app = Fastify()
++
++  app.addHttpMethod('TRACE', { hasBody: true, override: true })
++  t.assert.doesNotThrow(() => { addEcho(app, 'TRACE') })
++
++  app.inject({
++    method: 'TRACE',
++    url: '/',
++    payload: { hello: 'world' }
++  }, (err, response) => {
++    t.assert.ifError(err)
++    t.assert.deepStrictEqual(response.json(), { hello: 'world' })
++    done()
++  })
++})
+diff --git a/test/internals/errors.test.js b/test/internals/errors.test.js
+index 4df9d693..22e770a8 100644
+--- a/test/internals/errors.test.js
++++ b/test/internals/errors.test.js
+@@ -5,7 +5,7 @@ const errors = require('../../lib/errors')
+ const { readFileSync } = require('node:fs')
+ const { resolve } = require('node:path')
+ 
+-const expectedErrors = 94
++const expectedErrors = 95
+ 
+ test(`should expose ${expectedErrors} errors`, t => {
+   t.plan(1)
+@@ -720,6 +720,16 @@ test('FST_ERR_ROUTE_METHOD_NOT_SUPPORTED', t => {
+   t.assert.ok(error instanceof Error)
+ })
+ 
++test('FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED', t => {
++  t.plan(5)
++  const error = new errors.FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED()
++  t.assert.strictEqual(error.name, 'FastifyError')
++  t.assert.strictEqual(error.code, 'FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED')
++  t.assert.strictEqual(error.message, '%s method is already supported. Set the "override" option to true to change its body support.')
++  t.assert.strictEqual(error.statusCode, 500)
++  t.assert.ok(error instanceof Error)
++})
++
+ test('FST_ERR_ROUTE_LOG_LEVEL_INVALID', t => {
+   t.plan(5)
+   const error = new errors.FST_ERR_ROUTE_LOG_LEVEL_INVALID()
+diff --git a/types/errors.d.ts b/types/errors.d.ts
+index acd39313..dec99696 100644
+--- a/types/errors.d.ts
++++ b/types/errors.d.ts
+@@ -75,6 +75,7 @@ export type FastifyErrorCodes = Record<
+   'FST_ERR_ROUTE_MISSING_HANDLER' |
+   'FST_ERR_ROUTE_METHOD_INVALID' |
+   'FST_ERR_ROUTE_METHOD_NOT_SUPPORTED' |
++  'FST_ERR_ROUTE_METHOD_ALREADY_SUPPORTED' |
+   'FST_ERR_ROUTE_LOG_LEVEL_INVALID' |
+   'FST_ERR_ROUTE_BODY_VALIDATION_SCHEMA_NOT_SUPPORTED' |
+   'FST_ERR_ROUTE_BODY_LIMIT_OPTION_NOT_INT' |
+diff --git a/types/instance.d.ts b/types/instance.d.ts
+index f126a5b7..7576ccef 100644
+--- a/types/instance.d.ts
++++ b/types/instance.d.ts
+@@ -663,7 +663,7 @@ export interface FastifyInstance<
+    * Methods defined by default include `GET`, `HEAD`, `TRACE`, `DELETE`,
+    * `OPTIONS`, `PATCH`, `PUT` and `POST`
+    */
+-  addHttpMethod(method: string, methodOptions?: { hasBody: boolean }): FastifyInstance<RawServer, RawRequest, RawReply,
++  addHttpMethod(method: string, methodOptions?: { hasBody?: boolean; override?: boolean }): FastifyInstance<RawServer, RawRequest, RawReply,
+     Logger, TypeProvider>;
+   /**
+    * Fastify default JSON parser

@@ -1,0 +1,55 @@
+diff --git a/lib/request.js b/lib/request.js
+index 3b099054..6c361827 100644
+--- a/lib/request.js
++++ b/lib/request.js
+@@ -46,8 +46,12 @@ function getTrustProxyFn (tp) {
+     return function () { return true }
+   }
+   if (typeof tp === 'number') {
+-    // Support trusting hop count
+-    return function (a, i) { return a != null && i < tp }
++    // Support trusting hop count.
++    // The address is deliberately not checked here: hop count trust is
++    // address agnostic, and the socket may have no remoteAddress at all
++    // when the server is reached through a pipe or a unix socket
++    // (e.g. iisnode).
++    return function (a, i) { return i < tp }
+   }
+   if (typeof tp === 'string') {
+     // Support comma-separated tps
+diff --git a/test/internals/request.test.js b/test/internals/request.test.js
+index 7ca08eb6..04dc52ce 100644
+--- a/test/internals/request.test.js
++++ b/test/internals/request.test.js
+@@ -287,6 +287,31 @@ test('Request with trust proxy, encrypted', t => {
+   t.assert.strictEqual(request.protocol, 'https')
+ })
+ 
++test('Request with trust proxy hop count and a socket without remoteAddress', t => {
++  t.plan(4)
++  // Servers reached through a pipe or a unix socket (e.g. iisnode) have no
++  // remoteAddress on the socket, the hop count must still be trusted
++  const headers = {
++    'x-forwarded-for': '2.2.2.2, 1.1.1.1',
++    'x-forwarded-host': 'fastify.test',
++    'x-forwarded-proto': 'https',
++    host: 'hostname'
++  }
++  const req = {
++    method: 'GET',
++    url: '/',
++    socket: {},
++    headers
++  }
++
++  const TpRequest = Request.buildRequest(Request, 1)
++  const request = new TpRequest('id', 'params', req, 'query', 'log')
++  t.assert.strictEqual(request.ip, '1.1.1.1')
++  t.assert.deepStrictEqual(request.ips, [undefined, '1.1.1.1'])
++  t.assert.strictEqual(request.host, 'fastify.test')
++  t.assert.strictEqual(request.protocol, 'https')
++})
++
+ test('Request with trust proxy - no x-forwarded-host header', t => {
+   t.plan(2)
+   const headers = {

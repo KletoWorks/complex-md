@@ -1,0 +1,67 @@
+diff --git a/lib/request.js b/lib/request.js
+index 3f4475db..a0953bad 100644
+--- a/lib/request.js
++++ b/lib/request.js
+@@ -119,8 +119,14 @@ function buildRequestWithTrustProxy (R, trustProxy) {
+     },
+     host: {
+       get () {
++        // `socketAddr` is `undefined` when there is no socket, and may also be
++        // `undefined` or `null` on a socket without a remote address (IISNode,
++        // already closed sockets). Whether the forwarded header can be trusted
++        // in that case is up to the trust function: compiled IP lists reject a
++        // non-IP address, while `true`, hop counts and user supplied functions
++        // may still trust it.
+         const socketAddr = this.raw.socket?.remoteAddress
+-        if (this.headers['x-forwarded-host'] && socketAddr !== null && proxyFn(socketAddr, 0)) {
++        if (this.headers['x-forwarded-host'] && proxyFn(socketAddr, 0)) {
+           return getLastEntryInMultiHeaderValue(this.headers['x-forwarded-host'])
+         }
+         /**
+@@ -134,8 +140,9 @@ function buildRequestWithTrustProxy (R, trustProxy) {
+     },
+     protocol: {
+       get () {
++        // See the note in the `host` getter above about `socketAddr`.
+         const socketAddr = this.raw.socket?.remoteAddress
+-        if (this.headers['x-forwarded-proto'] && socketAddr !== null && proxyFn(socketAddr, 0)) {
++        if (this.headers['x-forwarded-proto'] && proxyFn(socketAddr, 0)) {
+           return getLastEntryInMultiHeaderValue(this.headers['x-forwarded-proto'])
+         }
+         if (this.socket) {
+diff --git a/test/trust-proxy.test.js b/test/trust-proxy.test.js
+index 84f5def6..50a35a94 100644
+--- a/test/trust-proxy.test.js
++++ b/test/trust-proxy.test.js
+@@ -272,3 +272,31 @@ test('trust proxy with number and null socket remoteAddress', t => {
+   t.assert.ok(request.ip, 'ip is defined')
+   t.assert.strictEqual(request.ip, '1.1.1.1', 'gets ip from x-forwarded-for')
+ })
++
++test('a null socket remoteAddress behaves like an undefined one', t => {
++  // `this.raw.socket?.remoteAddress` yields `undefined` for a missing socket,
++  // so null and undefined remote addresses must reach the trust function alike.
++  const headers = {
++    'x-forwarded-for': '2.2.2.2, 1.1.1.1',
++    'x-forwarded-host': 'fastify.test',
++    'x-forwarded-proto': 'https',
++    host: 'localhost'
++  }
++  const buildReq = (socket) => ({ method: 'GET', url: '/', socket, headers })
++
++  for (const socket of [{ remoteAddress: null }, { remoteAddress: undefined }, null]) {
++    const label = `socket ${JSON.stringify(socket)}`
++
++    // a hop count trusts the first hop regardless of the socket address
++    const TpRequest = buildRequest(Request, 1)
++    const request = new TpRequest('id', 'params', buildReq(socket), 'query', 'log')
++    t.assert.strictEqual(request.host, 'fastify.test', `${label}: gets host from x-forwarded-host`)
++    t.assert.strictEqual(request.protocol, 'https', `${label}: gets protocol from x-forwarded-proto`)
++
++    // an IP list cannot match an unknown address, so the headers stay untrusted
++    const IpRequest = buildRequest(Request, '10.0.0.1')
++    const ipRequest = new IpRequest('id', 'params', buildReq(socket), 'query', 'log')
++    t.assert.strictEqual(ipRequest.host, 'localhost', `${label}: ignores x-forwarded-host`)
++    t.assert.strictEqual(ipRequest.protocol, socket ? 'http' : undefined, `${label}: ignores x-forwarded-proto`)
++  }
++})

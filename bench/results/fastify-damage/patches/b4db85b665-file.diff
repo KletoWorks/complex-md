@@ -1,0 +1,65 @@
+diff --git a/lib/route.js b/lib/route.js
+index 9eb46f0b..da5d94b3 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -614,7 +614,10 @@ function runPreParsing (err, request, reply) {
+ }
+ 
+ function buildRouterOptions (options, defaultOptions) {
+-  const routerOptions = options.routerOptions || Object.create(null)
++  // Shallow copy the user provided router options: the same object may be
++  // reused to build multiple Fastify instances and the values filled in below
++  // (`defaultRoute` and `onBadUrl` above all) are bound to a single instance.
++  const routerOptions = Object.assign(Object.create(null), options.routerOptions)
+ 
+   const usedDeprecatedOptions = routerKeys.filter(key => Object.hasOwn(options, key))
+ 
+diff --git a/test/router-options.test.js b/test/router-options.test.js
+index cdb9d389..78eb2239 100644
+--- a/test/router-options.test.js
++++ b/test/router-options.test.js
+@@ -1047,6 +1047,44 @@ test('Should honor routerOptions.useSemicolonDelimiter over useSemicolonDelimite
+   t.assert.strictEqual(res.statusCode, 200)
+ })
+ 
++test('Should not mutate the user provided routerOptions object', async t => {
++  t.plan(2)
++  const routerOptions = { maxParamLength: 2048 }
++  const options = { routerOptions }
++
++  const fastify = Fastify(options)
++  t.after(() => fastify.close())
++
++  await fastify.ready()
++
++  t.assert.deepStrictEqual(Object.keys(routerOptions), ['maxParamLength'])
++  t.assert.strictEqual(options.routerOptions, routerOptions)
++})
++
++test('Should allow reusing the same options object on multiple instances', async t => {
++  t.plan(4)
++  const options = { routerOptions: { maxParamLength: 2048 } }
++
++  const first = Fastify(options)
++  t.after(() => first.close())
++
++  const second = Fastify(options)
++  t.after(() => second.close())
++
++  second.get('/test', (req, reply) => {
++    reply.send('test')
++  })
++
++  let res = await second.inject('/test')
++  t.assert.strictEqual(res.statusCode, 200)
++  t.assert.strictEqual(res.payload.toString(), 'test')
++
++  // the 404 must be handled by the second instance, not by the first one
++  res = await second.inject('/not-here')
++  t.assert.strictEqual(res.statusCode, 404)
++  t.assert.strictEqual(res.json().message, 'Route GET:/not-here not found')
++})
++
+ test('Should support extra find-my-way options', async t => {
+   t.plan(1)
+   // Use a real upstream option from find-my-way

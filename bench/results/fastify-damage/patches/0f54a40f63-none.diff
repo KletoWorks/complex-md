@@ -1,0 +1,76 @@
+diff --git a/docs/Reference/TypeScript.md b/docs/Reference/TypeScript.md
+index 41f5c299..983f899b 100644
+--- a/docs/Reference/TypeScript.md
++++ b/docs/Reference/TypeScript.md
+@@ -1043,6 +1043,24 @@ const secureServer = fastify({
+ })
+ ```
+ 
++Passing `http2: false` (or `undefined`) is also accepted, and yields the same
++`http` or `https` server types as if the property were omitted:
++
++```typescript
++const httpServer = fastify({ http2: false })
++const httpsServer = fastify({ http2: false, https: {} })
++```
++
++Because the server type is derived from the `http2` value, it must be statically
++known to be `true` or `false`. A value of type `boolean` is rejected, since
++Fastify cannot tell which server type to infer. Branch on the value instead:
++
++```typescript
++const server = useHttp2
++  ? fastify({ http2: true })
++  : fastify({ http2: false })
++```
++
+ For more details on using HTTP2 check out the Fastify [HTTP2](./HTTP2.md)
+ documentation page.
+ 
+diff --git a/fastify.d.ts b/fastify.d.ts
+index be86332a..4e4159ac 100644
+--- a/fastify.d.ts
++++ b/fastify.d.ts
+@@ -68,14 +68,16 @@ declare namespace fastify {
+     Server extends https.Server,
+     Logger extends FastifyBaseLogger = FastifyBaseLogger
+   > = FastifyServerOptions<Server, Logger> & {
+-    https: https.ServerOptions | null
++    https: https.ServerOptions | null,
++    http2?: false
+   }
+ 
+   export type FastifyHttpOptions<
+     Server extends http.Server,
+     Logger extends FastifyBaseLogger = FastifyBaseLogger
+   > = FastifyServerOptions<Server, Logger> & {
+-    http?: http.ServerOptions | null
++    http?: http.ServerOptions | null,
++    http2?: false
+   }
+ 
+   type FindMyWayVersion<RawServer extends RawServerBase> = RawServer extends http.Server
+diff --git a/test/types/fastify.tst.ts b/test/types/fastify.tst.ts
+index dbb4d827..20a92950 100644
+--- a/test/types/fastify.tst.ts
++++ b/test/types/fastify.tst.ts
+@@ -64,6 +64,19 @@ expect(fastify({ http2: true, https: {}, http2SessionTimeout: 1000 })).type.toBe
+   SafePromiseLike<FastifyInstance<http2.Http2SecureServer, http2.Http2ServerRequest, http2.Http2ServerResponse>>
+ >()
+ expect(fastify({ http2: true, https: {} }).inject()).type.toBe<LightMyRequestChain>()
++// `http2: false` and `http2: undefined` fall back to the http/https servers
++expect(fastify({ http2: false })).type.toBe<
++  FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse> &
++  SafePromiseLike<FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse>>
++>()
++expect(fastify({ http2: undefined })).type.toBe<
++  FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse> &
++  SafePromiseLike<FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse>>
++>()
++expect(fastify({ http2: false, https: {} })).type.toBe<
++  FastifyInstance<https.Server, http.IncomingMessage, http.ServerResponse> &
++  SafePromiseLike<FastifyInstance<https.Server, http.IncomingMessage, http.ServerResponse>>
++>()
+ expect(fastify({ schemaController: {} })).type.toBe<
+   FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse> &
+   SafePromiseLike<FastifyInstance<http.Server, http.IncomingMessage, http.ServerResponse>>

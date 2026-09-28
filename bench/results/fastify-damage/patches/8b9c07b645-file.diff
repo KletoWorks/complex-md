@@ -1,0 +1,49 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 93b0b285..2b856789 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -961,6 +961,17 @@ function setupResponseListeners (reply) {
+       }
+     }
+ 
++    // Release the references the socket holds to this request: on a keep-alive
++    // connection `_meta` would otherwise keep the context, request and reply
++    // alive for the whole lifetime of the socket. The ownership check leaves
++    // alone a `_meta` that a later request already replaced. It is reset to
++    // `null` rather than removed so that `lib/route.js` can tell that the
++    // socket already has its `timeout` listener attached.
++    const socket = reply.request.raw.socket
++    if (socket?._meta?.request === reply.request) {
++      socket._meta = null
++    }
++
+     if (ctx && ctx.onResponse !== null) {
+       onResponseHookRunner(
+         ctx.onResponse,
+diff --git a/lib/route.js b/lib/route.js
+index 4c8ee129..81d09c61 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -583,7 +583,10 @@ function buildRouting (options) {
+     }
+ 
+     if (context.onTimeout !== null) {
+-      if (!request.raw.socket._meta) {
++      // `undefined` means this socket has no listener yet. Once a response
++      // completes, `onResFinished` resets `_meta` to `null` instead of removing
++      // it, so a keep-alive socket keeps a single listener across requests.
++      if (request.raw.socket._meta === undefined) {
+         request.raw.socket.on('timeout', handleTimeout)
+       }
+       request.raw.socket._meta = { context, request, reply }
+@@ -598,6 +601,10 @@ function handleOnRequestAbortHooksErrors (reply, err) {
+ }
+ 
+ function handleTimeout () {
++  // a keep-alive socket can time out while idle between requests, once the
++  // meta of the request it last served has been cleared
++  if (this._meta === null) return
++
+   const { context, request, reply } = this._meta
+   onTimeoutHookRunner(
+     context.onTimeout,

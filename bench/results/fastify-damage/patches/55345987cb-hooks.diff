@@ -1,0 +1,153 @@
+diff --git a/lib/server.js b/lib/server.js
+index a632e52d..c5ada53e 100644
+--- a/lib/server.js
++++ b/lib/server.js
+@@ -238,12 +238,26 @@ function listenPromise (server, listenOptions) {
+     return Promise.reject(new FST_ERR_REOPENED_SERVER())
+   }
+ 
++  const signal = listenOptions.signal
++
+   return this.ready().then(() => {
++    // The signal may have been aborted before the server started listening: the
++    // abort listener registered in `listen` already closed the instance, so the
++    // server will emit neither 'listening' nor 'error' and the race below would
++    // never settle.
++    if (signal?.aborted) {
++      throw abortError(signal)
++    }
++
+     let errEventHandler
+     let listeningEventHandler
++    let abortEventHandler
+     function cleanup () {
+       server.removeListener('error', errEventHandler)
+       server.removeListener('listening', listeningEventHandler)
++      if (abortEventHandler !== undefined) {
++        signal.removeEventListener('abort', abortEventHandler)
++      }
+     }
+     const errEvent = new Promise((resolve, reject) => {
+       errEventHandler = (err) => {
+@@ -262,15 +276,39 @@ function listenPromise (server, listenOptions) {
+       server.once('listening', listeningEventHandler)
+     })
+ 
+-    server.listen(listenOptions)
+-
+-    return Promise.race([
++    const events = [
+       errEvent, // e.g invalid port range error is always emitted before the server listening
+       listeningEvent
+-    ])
++    ]
++
++    if (signal) {
++      // an abort while the server is binding closes it without emitting any event
++      events.push(new Promise((resolve, reject) => {
++        abortEventHandler = () => {
++          cleanup()
++          this[kState].listening = false
++          reject(abortError(signal))
++        }
++        signal.addEventListener('abort', abortEventHandler, { once: true })
++      }))
++    }
++
++    server.listen(listenOptions)
++
++    return Promise.race(events)
+   })
+ }
+ 
++// `AbortController#abort()` always sets a reason, but a custom signal may not
++function abortError (signal) {
++  if (signal.reason !== undefined && signal.reason !== null) {
++    return signal.reason
++  }
++  const err = new Error('The operation was aborted')
++  err.name = 'AbortError'
++  return err
++}
++
+ function getServerInstance (options, httpHandler) {
+   if (options.serverFactory) {
+     // User provided server instance
+diff --git a/test/server.test.js b/test/server.test.js
+index 1247c77a..e9088114 100644
+--- a/test/server.test.js
++++ b/test/server.test.js
+@@ -1,6 +1,7 @@
+ 'use strict'
+ 
+ const { test } = require('node:test')
++const { once } = require('node:events')
+ const Fastify = require('..')
+ const sget = require('simple-get').concat
+ const undici = require('undici')
+@@ -118,6 +119,65 @@ test('abort signal', async t => {
+     t.assert.strictEqual(fastify.server.listening, false)
+   })
+ 
++  await t.test('listen should reject if already aborted', async (t) => {
++    t.plan(2)
++
++    const controller = new AbortController()
++    controller.abort(new Error('aborting before actual start'))
++    const fastify = Fastify()
++
++    await t.assert.rejects(
++      fastify.listen({ port: 1234, signal: controller.signal }),
++      { message: 'aborting before actual start' }
++    )
++    t.assert.strictEqual(fastify.server.listening, false)
++  })
++
++  await t.test('listen should reject with an AbortError if already aborted without a reason', async (t) => {
++    t.plan(2)
++
++    const controller = new AbortController()
++    controller.abort()
++    const fastify = Fastify()
++
++    await t.assert.rejects(
++      fastify.listen({ port: 1234, signal: controller.signal }),
++      { name: 'AbortError' }
++    )
++    t.assert.strictEqual(fastify.server.listening, false)
++  })
++
++  await t.test('listen should reject if aborted while booting', async (t) => {
++    t.plan(2)
++
++    const controller = new AbortController()
++    const fastify = Fastify()
++    fastify.register(async () => {
++      await new Promise(resolve => setTimeout(resolve, 50))
++    })
++
++    const listening = fastify.listen({ port: 1234, signal: controller.signal })
++    controller.abort(new Error('aborting while booting'))
++
++    await t.assert.rejects(listening, { message: 'aborting while booting' })
++    t.assert.strictEqual(fastify.server.listening, false)
++  })
++
++  await t.test('listen should close the server when aborted after listening', async (t) => {
++    t.plan(2)
++
++    const controller = new AbortController()
++    const fastify = Fastify()
++
++    await fastify.listen({ port: 0, signal: controller.signal })
++    t.assert.strictEqual(fastify.server.listening, true)
++
++    const closed = once(fastify.server, 'close')
++    controller.abort()
++    await closed
++    t.assert.strictEqual(fastify.server.listening, false)
++  })
++
+   await t.test('listen should throw if received invalid signal', t => {
+     t.plan(2)
+     const fastify = Fastify()

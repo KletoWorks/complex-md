@@ -1,0 +1,66 @@
+diff --git a/fastify.js b/fastify.js
+index 18166bb1..a59fb3ea 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -647,10 +647,10 @@ function fastify (serverOptions) {
+ 
+       return options.frameworkErrors(new FST_ERR_BAD_URL(path), request, reply)
+     }
+-    const body = `{"error":"Bad Request","code":"FST_ERR_BAD_URL","message":"'${path}' is not a valid url component","statusCode":400}`
++    const body = `{"error":"Bad Request","code":"FST_ERR_BAD_URL","message":${JSON.stringify(`'${path}' is not a valid url component`)},"statusCode":400}`
+     res.writeHead(400, {
+       'Content-Type': 'application/json',
+-      'Content-Length': body.length
++      'Content-Length': Buffer.byteLength(body)
+     })
+     res.end(body)
+   }
+diff --git a/test/404s.test.js b/test/404s.test.js
+index 02a68762..123726e4 100644
+--- a/test/404s.test.js
++++ b/test/404s.test.js
+@@ -1,6 +1,7 @@
+ 'use strict'
+ 
+ const { test } = require('node:test')
++const { connect } = require('node:net')
+ const fp = require('fastify-plugin')
+ const errors = require('http-errors')
+ const split = require('split2')
+@@ -1792,6 +1793,36 @@ test('400 in case of bad url (pre find-my-way v2.2.0 was a 404)', async t => {
+     })
+   })
+ 
++  await t.test('The path is escaped in the JSON body', (t, done) => {
++    t.plan(3)
++    let data = Buffer.alloc(0)
++    const fastify = Fastify()
++
++    t.after(() => fastify.close())
++
++    fastify.get('/hello/:id', () => t.assert.fail('we should not be here'))
++    fastify.listen({ port: 0 }, err => {
++      t.assert.ifError(err)
++
++      // the double quote and the backslash would produce an invalid JSON
++      // body if they were interpolated as-is
++      const socket = connect(fastify.server.address().port)
++      socket.write('GET /hello/%world"\\back HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n')
++      socket.on('data', c => (data = Buffer.concat([data, c])))
++      socket.on('end', () => {
++        const response = data.toString('utf-8')
++        t.assert.match(response, /^HTTP\/1.1 400 Bad Request/)
++        t.assert.deepStrictEqual(JSON.parse(response.slice(response.indexOf('\r\n\r\n') + 4)), {
++          error: 'Bad Request',
++          message: '\'/hello/%world"\\back\' is not a valid url component',
++          statusCode: 400,
++          code: 'FST_ERR_BAD_URL'
++        })
++        done()
++      })
++    })
++  })
++
+   await t.test('No route registered', (t, done) => {
+     t.plan(3)
+     const fastify = Fastify()

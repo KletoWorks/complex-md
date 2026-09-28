@@ -1,0 +1,167 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 6b15b67f..5702c35e 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -24,7 +24,8 @@ const {
+   kRouteContext,
+   kTimeoutTimer,
+   kOnAbort,
+-  kRequestSignal
++  kRequestSignal,
++  kSocketOnTimeout
+ } = require('./symbols.js')
+ const {
+   onSendHookRunner,
+@@ -135,6 +136,9 @@ Reply.prototype.hijack = function () {
+       this.request[kOnAbort] = null
+     }
+   }
++  // A hijacked reply never reaches `onResFinished`, so release the socket
++  // metadata here to avoid retaining the request/reply for the socket lifetime.
++  clearSocketMeta(this.request)
+   return this
+ }
+ 
+@@ -942,6 +946,30 @@ function onErrorHook (reply, error, cb) {
+   }
+ }
+ 
++/**
++ * Releases the metadata that `onTimeout` hooks need (see lib/route.js), so the
++ * request, reply and route context are not retained for the whole socket
++ * lifetime. The socket 'timeout' listener is removed along with it: once the
++ * metadata is gone the listener has nothing to work with, and leaving it
++ * attached would also pile up a listener per request on keep-alive sockets.
++ */
++function clearSocketMeta (request) {
++  const socket = request.raw.socket
++  // Only the request that owns the metadata is allowed to clear it: on a
++  // keep-alive socket the next request may have already replaced it.
++  if (socket == null || socket._meta == null || socket._meta.request !== request) {
++    return
++  }
++
++  socket._meta = null
++
++  const onTimeoutListener = socket[kSocketOnTimeout]
++  if (onTimeoutListener !== undefined) {
++    socket[kSocketOnTimeout] = undefined
++    socket.removeListener('timeout', onTimeoutListener)
++  }
++}
++
+ function setupResponseListeners (reply) {
+   reply[kReplyStartTime] = now()
+ 
+@@ -962,12 +990,9 @@ function setupResponseListeners (reply) {
+       }
+     }
+ 
+-    // Fix: release socket._meta so request/reply objects are not retained
++    // Release socket._meta so request/reply objects are not retained
+     // past the response on keep-alive connections.
+-    const socket = reply.request.raw.socket
+-    if (socket && socket._meta && socket._meta.request === reply.request) {
+-      socket._meta = null
+-    }
++    clearSocketMeta(reply.request)
+ 
+     if (ctx && ctx.onResponse !== null) {
+       onResponseHookRunner(
+diff --git a/lib/route.js b/lib/route.js
+index 4c8ee129..c84d9e09 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -52,7 +52,8 @@ const {
+   kRouteContext,
+   kRequestSignal,
+   kTimeoutTimer,
+-  kOnAbort
++  kOnAbort,
++  kSocketOnTimeout
+ } = require('./symbols.js')
+ const { buildErrorHandler } = require('./error-handler')
+ const { createChildLogger } = require('./logger-factory.js')
+@@ -582,11 +583,16 @@ function buildRouting (options) {
+       })
+     }
+ 
+-    if (context.onTimeout !== null) {
+-      if (!request.raw.socket._meta) {
+-        request.raw.socket.on('timeout', handleTimeout)
++    // The lifecycle above may already have completed synchronously: attaching
++    // the metadata now would outlive the request, since a hijacked or finished
++    // reply has nothing left to clean it up.
++    if (context.onTimeout !== null && reply.sent === false) {
++      const socket = request.raw.socket
++      if (socket[kSocketOnTimeout] === undefined) {
++        socket[kSocketOnTimeout] = handleTimeout
++        socket.on('timeout', handleTimeout)
+       }
+-      request.raw.socket._meta = { context, request, reply }
++      socket._meta = { context, request, reply }
+     }
+   }
+ }
+@@ -598,6 +604,10 @@ function handleOnRequestAbortHooksErrors (reply, err) {
+ }
+ 
+ function handleTimeout () {
++  // The socket can emit 'timeout' once the metadata has been released, e.g.
++  // while an already answered keep-alive connection sits idle.
++  if (this._meta == null) return
++
+   const { context, request, reply } = this._meta
+   onTimeoutHookRunner(
+     context.onTimeout,
+diff --git a/lib/symbols.js b/lib/symbols.js
+index 7d2d13bd..fd3c817e 100644
+--- a/lib/symbols.js
++++ b/lib/symbols.js
+@@ -67,6 +67,7 @@ const keys = {
+   kHasBeenDecorated: Symbol('fastify.hasBeenDecorated'),
+   kKeepAliveConnections: Symbol('fastify.keepAliveConnections'),
+   kRouteByFastify: Symbol('fastify.routeByFastify'),
++  kSocketOnTimeout: Symbol('fastify.socket.onTimeout'),
+   kDiagnosticsStore: Symbol('fastify.diagnosticsStore')
+ }
+ 
+diff --git a/test/hooks.test.js b/test/hooks.test.js
+index 5be37637..3fbfe6af 100644
+--- a/test/hooks.test.js
++++ b/test/hooks.test.js
+@@ -3300,6 +3300,34 @@ test('socket._meta is cleared after response to prevent keep-alive leaks', async
+   t.assert.strictEqual(result.status, 200)
+ })
+ 
++test('socket._meta is cleared on reply.hijack() when onTimeout is registered', async t => {
++  t.plan(4)
++  const fastify = Fastify({ connectionTimeout: 500 })
++  t.after(() => { fastify.close() })
++
++  fastify.addHook('onTimeout', function (req, reply, done) { done() })
++
++  fastify.get('/', async function (req, reply) {
++    // yield once, so the route has attached socket._meta before we hijack
++    await Promise.resolve()
++    const metaWhileInFlight = req.raw.socket._meta
++    reply.hijack()
++    const metaAfterHijack = req.raw.socket._meta
++
++    // answer before asserting, so a failure does not hang the client
++    reply.raw.writeHead(200, { 'content-type': 'application/json' })
++    reply.raw.end(JSON.stringify({ hello: 'world' }))
++
++    t.assert.ok(metaWhileInFlight, 'socket._meta is set while the request is in flight')
++    t.assert.strictEqual(metaAfterHijack, null, 'socket._meta must be null after hijack')
++  })
++
++  const address = await fastify.listen({ port: 0 })
++  const result = await fetch(address)
++  t.assert.ok(result.ok)
++  t.assert.deepStrictEqual(await result.json(), { hello: 'world' })
++})
++
+ test('registering invalid hooks should throw an error', async t => {
+   t.plan(3)
+ 

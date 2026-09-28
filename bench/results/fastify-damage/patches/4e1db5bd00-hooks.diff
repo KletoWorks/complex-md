@@ -1,0 +1,151 @@
+diff --git a/docs/Reference/Request.md b/docs/Reference/Request.md
+index dbc1ca13..a8bf77d8 100644
+--- a/docs/Reference/Request.md
++++ b/docs/Reference/Request.md
+@@ -22,9 +22,10 @@ Request is a core Fastify object containing the following fields:
+   [`trustProxy`](./Server.md#factory-trust-proxy) option is enabled).
+ - `host` - The host of the incoming request (derived from `X-Forwarded-Host`
+   header when the [`trustProxy`](./Server.md#factory-trust-proxy) option is
+-  enabled). For HTTP/2 compatibility, it returns `:authority` if no host header
+-  exists. The host header may return an empty string if `requireHostHeader` is
+-  `false`, not provided with HTTP/1.0, or removed by schema validation.
++  enabled and the request was received from a trusted proxy). For HTTP/2
++  compatibility, it returns `:authority` if no host header exists. The host
++  header may return an empty string if `requireHostHeader` is `false`, not
++  provided with HTTP/1.0, or removed by schema validation.
+   ⚠ Security: this value comes from client-controlled headers; only trust it
+   when you control proxy behavior and have validated or allow-listed hosts.
+   No additional validation is performed beyond RFC parsing (see
+@@ -33,7 +34,10 @@ Request is a core Fastify object containing the following fields:
+ - `hostname` - The hostname derived from the `host` property of the incoming request.
+ - `port` - The port from the `host` property, which may refer to the port the
+   server is listening on.
+-- `protocol` - The protocol of the incoming request (`https` or `http`).
++- `protocol` - The protocol of the incoming request (`https` or `http`, derived
++  from the `X-Forwarded-Proto` header when the
++  [`trustProxy`](./Server.md#factory-trust-proxy) option is enabled and the
++  request was received from a trusted proxy).
+ - `method` - The method of the incoming request.
+ - `url` - The URL of the incoming request.
+ - `originalUrl` - Similar to `url`, allows access to the original `url` in
+diff --git a/docs/Reference/Server.md b/docs/Reference/Server.md
+index d3a0ef6d..c35f50de 100644
+--- a/docs/Reference/Server.md
++++ b/docs/Reference/Server.md
+@@ -574,6 +574,14 @@ fastify.get('/', (request, reply) => {
+ > headers, it is only the last one that is used to derive `request.hostname`
+ > and `request.protocol`.
+ 
++> ℹ️ Note:
++> The `x-forwarded-host` and `x-forwarded-proto` headers are only honoured when
++> the address the request was received from is itself trusted by `trustProxy`.
++> For a request that does not come through a trusted proxy, `request.host`,
++> `request.hostname`, `request.port` and `request.protocol` are derived from the
++> `host` header and the socket, exactly as they are when `trustProxy` is
++> disabled.
++
+ ### `pluginTimeout`
+ <a id="plugin-timeout"></a>
+ 
+diff --git a/lib/request.js b/lib/request.js
+index f1f4a5e1..ccaaa74c 100644
+--- a/lib/request.js
++++ b/lib/request.js
+@@ -96,6 +96,19 @@ function getLastEntryInMultiHeaderValue (headerValue) {
+   return lastIndex === -1 ? headerValue.trim() : headerValue.slice(lastIndex + 1).trim()
+ }
+ 
++// The `x-forwarded-*` headers may only be honoured when the peer that sent them
++// is itself a trusted proxy, otherwise any client can spoof `host`/`protocol`.
++// `ip` and `ips` do not need this gate: `proxyAddr.all` already walks the
++// forwarded chain with the trust function and stops at the first untrusted hop.
++function isTrustedProxy (req, proxyFn) {
++  // `trustProxy: true` compiles to a null function, meaning trust every hop
++  if (proxyFn === null) {
++    return true
++  }
++  const remoteAddress = req.socket?.remoteAddress
++  return remoteAddress !== undefined && proxyFn(remoteAddress, 0) === true
++}
++
+ function buildRequestWithTrustProxy (R, trustProxy) {
+   const _Request = buildRegularRequest(R)
+   const proxyFn = getTrustProxyFn(trustProxy)
+@@ -117,7 +130,7 @@ function buildRequestWithTrustProxy (R, trustProxy) {
+     },
+     host: {
+       get () {
+-        if (this.ip !== undefined && this.headers['x-forwarded-host']) {
++        if (isTrustedProxy(this.raw, proxyFn) && this.headers['x-forwarded-host']) {
+           return getLastEntryInMultiHeaderValue(this.headers['x-forwarded-host'])
+         }
+         /**
+@@ -131,7 +144,7 @@ function buildRequestWithTrustProxy (R, trustProxy) {
+     },
+     protocol: {
+       get () {
+-        if (this.headers['x-forwarded-proto']) {
++        if (isTrustedProxy(this.raw, proxyFn) && this.headers['x-forwarded-proto']) {
+           return getLastEntryInMultiHeaderValue(this.headers['x-forwarded-proto'])
+         }
+         if (this.socket) {
+diff --git a/test/internals/request.test.js b/test/internals/request.test.js
+index 7ca08eb6..a6108883 100644
+--- a/test/internals/request.test.js
++++ b/test/internals/request.test.js
+@@ -413,6 +413,55 @@ test('Request with trust proxy - handles multiple entries in x-forwarded-host/pr
+   t.assert.strictEqual(request.protocol, 'https')
+ })
+ 
++test('Request with trust proxy - untrusted peer cannot spoof host/protocol', t => {
++  t.plan(6)
++  const headers = {
++    'x-forwarded-for': '2.2.2.2, 1.1.1.1',
++    'x-forwarded-host': 'fastify.test',
++    'x-forwarded-proto': 'https',
++    host: 'hostname:8080'
++  }
++  const req = {
++    method: 'GET',
++    url: '/',
++    // the request does not come from one of the trusted proxies
++    socket: { remoteAddress: '9.9.9.9' },
++    headers
++  }
++
++  const TpRequest = Request.buildRequest(Request, '127.0.0.1, 192.168.1.1')
++  const request = new TpRequest('id', 'params', req, 'query', 'log')
++  t.assert.strictEqual(request.host, 'hostname:8080')
++  t.assert.strictEqual(request.hostname, 'hostname')
++  t.assert.strictEqual(request.port, 8080)
++  t.assert.strictEqual(request.protocol, 'http')
++  t.assert.strictEqual(request.ip, '9.9.9.9')
++  t.assert.deepStrictEqual(request.ips, ['9.9.9.9'])
++})
++
++test('Request with trust proxy - trusted peer can set host/protocol', t => {
++  t.plan(4)
++  const headers = {
++    'x-forwarded-for': '1.1.1.1',
++    'x-forwarded-host': 'fastify.test',
++    'x-forwarded-proto': 'https',
++    host: 'hostname:8080'
++  }
++  const req = {
++    method: 'GET',
++    url: '/',
++    socket: { remoteAddress: '127.0.0.1' },
++    headers
++  }
++
++  const TpRequest = Request.buildRequest(Request, '127.0.0.1, 192.168.1.1')
++  const request = new TpRequest('id', 'params', req, 'query', 'log')
++  t.assert.strictEqual(request.host, 'fastify.test')
++  t.assert.strictEqual(request.protocol, 'https')
++  t.assert.strictEqual(request.ip, '1.1.1.1')
++  t.assert.deepStrictEqual(request.ips, ['127.0.0.1', '1.1.1.1'])
++})
++
+ test('Request with trust proxy - plain', t => {
+   t.plan(1)
+   const headers = {

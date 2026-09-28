@@ -1,0 +1,283 @@
+05:06:40 2ae3e1d734 none: Server crashes when using an invalid `logLevel` in route opt
+05:06:40 baseline suite at d76dbcd58b: 190 files
+05:09:05   144s, 4 failing at base (excluded)
+05:10:28 2ae3e1d734 none: Server crashes when using an invalid `logLevel` in route opt
+05:16:02   steps 43, first gold read at 22, gold edited true, success false, regressions -, tests run by agent 5, $2.006, error: error_max_budget_usd
+05:16:02 2ae3e1d734 file: Server crashes when using an invalid `logLevel` in route opt
+05:16:02 generating map for 2026-04 at d76dbcd58b
+05:16:53 map: 178 lines, $0.507
+05:20:24   steps 43, first gold read at 3, gold edited true, success false, regressions -, tests run by agent 5, $2.026, error: error_max_budget_usd
+05:20:24 2ae3e1d734 hooks: Server crashes when using an invalid `logLevel` in route opt
+05:24:37   steps 43, first gold read at 3, gold edited true, success false, regressions -, tests run by agent 5, $2.027, gate x1, error: error_max_budget_usd
+05:24:37 36498f85a9 none: fix: close http2 sessions on close server
+05:24:38 baseline suite at 4e5a3631ec: 185 files
+05:25:29   51s, 4 failing at base (excluded)
+05:35:06   steps 49, first gold read at 5, gold edited true, success false, regressions -, tests run by agent 8, $2.062, error: error_max_budget_usd
+05:35:06 36498f85a9 file: fix: close http2 sessions on close server
+05:35:06 generating map for 2025-09 at 4e5a3631ec
+05:35:59 map: 189 lines, $0.490
+05:46:30   steps 37, first gold read at 8, gold edited true, success false, regressions 0, tests run by agent 7, $1.772
+05:46:30 36498f85a9 hooks: fix: close http2 sessions on close server
+05:52:17   steps 38, first gold read at 3, gold edited true, success false, regressions -, tests run by agent 6, $2.027, gate x2, error: error_max_budget_usd
+05:52:17 0e9a3b35d8 none: `addHttpMethod` override existing http standard methods
+05:52:17 baseline suite at b93d611c7c: 194 files
+05:53:08   51s, 2 failing at base (excluded)
+05:57:16   steps 35, first gold read at 12, gold edited true, success false, regressions 0, tests run by agent 3, $1.687
+05:57:16 0e9a3b35d8 file: `addHttpMethod` override existing http standard methods
+05:57:16 generating map for 2026-07 at b93d611c7c
+05:58:09 map: 180 lines, $0.487
+06:02:41   steps 49, first gold read at 25, gold edited true, success false, regressions 0, tests run by agent 6, $1.949
+06:02:41 0e9a3b35d8 hooks: `addHttpMethod` override existing http standard methods
+06:06:58   steps 48, first gold read at 5, gold edited true, success false, regressions -, tests run by agent 5, $2.034, gate x2, error: error_max_budget_usd
+06:06:58 7f6d319806 none: fix: clear socket._meta on reply.hijack() when onTimeout is 
+06:06:58 baseline suite at 0c28b57cef: 192 files
+06:07:48   50s, 2 failing at base (excluded)
+06:08:34 2ae3e1d734 none: Server crashes when using an invalid `logLevel` in route opt
+06:14:27   steps 58, first gold read at 24, gold edited true, success true, regressions 0, tests run by agent 8, $2.599
+06:14:27 2ae3e1d734 file: Server crashes when using an invalid `logLevel` in route opt
+06:21:44   steps 75, first gold read at 25, gold edited true, success false, regressions 0, tests run by agent 9, $3.800
+06:21:44 2ae3e1d734 hooks: Server crashes when using an invalid `logLevel` in route opt
+06:29:26   steps 72, first gold read at 17, gold edited true, success false, regressions 0, tests run by agent 18, $3.895, gate x1
+06:29:26 36498f85a9 none: fix: close http2 sessions on close server
+06:36:16   steps 45, first gold read at 8, gold edited true, success false, regressions 0, tests run by agent 7, $2.258
+06:36:16 36498f85a9 hooks: fix: close http2 sessions on close server
+06:51:28   steps 62, first gold read at 2, gold edited true, success false, regressions 0, tests run by agent 12, $3.656, gate x2
+06:51:28 0e9a3b35d8 hooks: `addHttpMethod` override existing http standard methods
+06:57:15   steps 49, first gold read at 9, gold edited true, success false, regressions 0, tests run by agent 7, $2.682, gate x2
+06:57:15 7f6d319806 none: fix: clear socket._meta on reply.hijack() when onTimeout is 
+07:06:14   steps 57, first gold read at 17, gold edited true, success true, regressions 0, tests run by agent 12, $3.101
+07:06:14 7f6d319806 file: fix: clear socket._meta on reply.hijack() when onTimeout is 
+07:16:40   steps 74, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 14, $4.100
+07:16:40 7f6d319806 hooks: fix: clear socket._meta on reply.hijack() when onTimeout is 
+07:25:42   steps 52, first gold read at 12, gold edited true, success true, regressions 0, tests run by agent 17, $2.838, gate x1
+07:25:42 cc8d9a3c96 none: fix: hasRequestDecorator/hasReplyDecorator misses constructo
+07:25:43 baseline suite at 6e6be15312: 191 files
+07:26:32   49s, 2 failing at base (excluded)
+07:30:56   steps 31, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 8, $1.231
+07:30:56 cc8d9a3c96 file: fix: hasRequestDecorator/hasReplyDecorator misses constructo
+07:30:56 generating map for 2026-06 at 6e6be15312
+07:31:43 map: 172 lines, $0.820
+07:34:42   steps 21, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 5, $0.982
+07:34:42 cc8d9a3c96 hooks: fix: hasRequestDecorator/hasReplyDecorator misses constructo
+07:49:21   steps 44, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 13, $2.320, gate x2
+07:49:21 47670c1fce none: fix: include hint and docs URL in FSTWRN004 warning message
+07:49:22 baseline suite at 3e04cff927: 191 files
+07:50:11   49s, 4 failing at base (excluded)
+07:52:18   steps 18, first gold read at 2, gold edited true, success -, regressions 0, tests run by agent 2, $0.634
+07:52:18 47670c1fce file: fix: include hint and docs URL in FSTWRN004 warning message
+07:52:18 generating map for 2026-05 at 3e04cff927
+07:53:09 map: 178 lines, $0.483
+07:57:27   steps 23, first gold read at 9, gold edited true, success -, regressions 0, tests run by agent 3, $0.946
+07:57:28 47670c1fce hooks: fix: include hint and docs URL in FSTWRN004 warning message
+08:01:52   steps 23, first gold read at 5, gold edited true, success -, regressions 0, tests run by agent 4, $1.143, gate x2
+08:01:52 1d5f8ae199 none: fix: ajv options type validation
+08:01:52 baseline suite at c02c5f5696: 186 files
+08:02:41   49s, 4 failing at base (excluded)
+08:17:17   steps 65, first gold read at 4, gold edited true, success false, regressions 0, tests run by agent 3, $3.141
+08:17:17 1d5f8ae199 file: fix: ajv options type validation
+08:17:17 generating map for 2026-01 at c02c5f5696
+08:18:13 map: 167 lines, $0.486
+08:29:43   steps 76, first gold read at 6, gold edited true, success false, regressions 0, tests run by agent 2, $3.446
+08:29:43 1d5f8ae199 hooks: fix: ajv options type validation
+08:35:53   steps 62, first gold read at 5, gold edited true, success false, regressions 0, tests run by agent 2, $2.770, gate x1
+08:35:53 c277b9f0ec none: fix: add FST_ERR_CTP_INVALID_JSON_BODY
+08:35:53 baseline suite at 9529209842: 185 files
+08:36:42   49s, 4 failing at base (excluded)
+08:41:40   steps 51, first gold read at 20, gold edited true, success false, regressions 0, tests run by agent 6, $1.813
+08:41:40 c277b9f0ec file: fix: add FST_ERR_CTP_INVALID_JSON_BODY
+08:41:40 generating map for 2025-07 at 9529209842
+08:42:28 map: 191 lines, $0.476
+08:48:52   steps 48, first gold read at 12, gold edited true, success false, regressions 0, tests run by agent 7, $2.290
+08:48:52 c277b9f0ec hooks: fix: add FST_ERR_CTP_INVALID_JSON_BODY
+08:58:56   steps 66, first gold read at 3, gold edited true, success false, regressions 0, tests run by agent 9, $3.118, gate x2
+08:58:56 55345987cb none: Aborting `signal` of server.lister method before actual list
+08:58:56 baseline suite at e0315b9db2: 184 files
+08:59:36   40s, 49 failing at base (excluded)
+09:05:01   steps 44, first gold read at 4, gold edited true, success false, regressions 0, tests run by agent 6, $2.080
+09:05:01 55345987cb file: Aborting `signal` of server.lister method before actual list
+09:05:01 generating map for 2025-06 at e0315b9db2
+09:06:02 map: 183 lines, $0.500
+09:11:21   steps 41, first gold read at 3, gold edited true, success false, regressions 0, tests run by agent 11, $2.108
+09:11:21 55345987cb hooks: Aborting `signal` of server.lister method before actual list
+09:15:08   steps 29, first gold read at 3, gold edited true, success false, regressions 0, tests run by agent 2, $1.439
+09:15:08 7299a57d3f none: fix: clear trailer state when removing all trailers
+09:15:09 baseline suite at 043baf9880: 194 files
+09:15:58   50s, 2 failing at base (excluded)
+09:19:46   steps 21, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 8, $0.868
+09:19:46 7299a57d3f file: fix: clear trailer state when removing all trailers
+09:19:46 generating map for 2026-08 at 043baf9880
+09:20:32 map: 177 lines, $0.471
+09:23:53   steps 27, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 9, $1.174
+09:23:53 7299a57d3f hooks: fix: clear trailer state when removing all trailers
+09:35:57   steps 56, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 14, $2.855, gate x1
+09:35:57 9ba6d6016f none: fix: do not force close in-flight connections when forceClos
+09:35:57 baseline suite at 74c44c94af: 194 files
+09:36:48   51s, 2 failing at base (excluded)
+09:42:59   steps 20, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 6, $0.900
+09:42:59 9ba6d6016f file: fix: do not force close in-flight connections when forceClos
+09:49:12   steps 26, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 8, $1.138
+09:49:12 9ba6d6016f hooks: fix: do not force close in-flight connections when forceClos
+09:57:19   steps 29, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 7, $1.400, gate x1
+09:57:19 0f54a40f63 none: TypeScript types for http2
+09:57:19 baseline suite at 0e9a3b35d8: 194 files
+09:58:08   49s, 2 failing at base (excluded)
+10:02:31   steps 41, first gold read at 3, gold edited true, success false, regressions 0, tests run by agent 0, $1.663
+10:02:31 0f54a40f63 file: TypeScript types for http2
+10:06:42   steps 25, first gold read at 3, gold edited true, success false, regressions 0, tests run by agent 0, $1.060
+10:06:42 0f54a40f63 hooks: TypeScript types for http2
+10:17:52   steps 30, first gold read at 3, gold edited true, success false, regressions 0, tests run by agent 0, $1.226
+10:17:52 29bdcbb91f none: fix: honor quoted-string in `Content-Type` parameter values
+10:17:53 baseline suite at 01ca8393b9: 194 files
+10:18:41   48s, 2 failing at base (excluded)
+10:25:52   steps 40, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 10, $1.945
+10:25:52 29bdcbb91f file: fix: honor quoted-string in `Content-Type` parameter values
+10:30:08   steps 26, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 8, $1.428
+10:30:09 29bdcbb91f hooks: fix: honor quoted-string in `Content-Type` parameter values
+10:36:52   steps 45, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 12, $2.572
+10:36:52 6682c4f9a7 none: fix: normalize method in findRoute
+10:36:52 baseline suite at ab9b96eb2f: 192 files
+10:37:43   50s, 2 failing at base (excluded)
+10:39:40   steps 18, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 5, $0.597
+10:39:40 6682c4f9a7 file: fix: normalize method in findRoute
+10:42:03   steps 18, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 3, $0.681
+10:42:03 6682c4f9a7 hooks: fix: normalize method in findRoute
+10:46:51   steps 21, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 6, $0.890
+10:46:51 6ac2e95370 none: fix: derive request.port from request.host
+10:46:51 baseline suite at 5f4871f931: 192 files
+10:47:40   49s, 2 failing at base (excluded)
+10:51:56   steps 41, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 9, $1.776
+10:51:56 6ac2e95370 file: fix: derive request.port from request.host
+10:56:47   steps 42, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 7, $2.147
+10:56:47 6ac2e95370 hooks: fix: derive request.port from request.host
+11:01:46   steps 38, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 8, $2.002, gate x1
+11:01:46 8b9c07b645 none: fix: clear socket._meta after response to prevent keep-alive
+11:01:47 baseline suite at 9d29148579: 191 files
+11:02:37   50s, 2 failing at base (excluded)
+11:08:32   steps 44, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 15, $2.033
+11:08:32 8b9c07b645 file: fix: clear socket._meta after response to prevent keep-alive
+11:24:26   steps 43, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 11, $?
+11:24:26 8b9c07b645 hooks: fix: clear socket._meta after response to prevent keep-alive
+11:40:23   steps 49, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 19, $?, gate x1
+11:40:23 2bf4265b99 none: fix: chunk large HTTP/2 buffer replies
+11:40:25 baseline suite at fc9eafddae: 191 files
+11:41:14   49s, 2 failing at base (excluded)
+11:48:58   steps 46, first gold read at 4, gold edited true, success true, regressions 0, tests run by agent 7, $2.340
+11:48:58 2bf4265b99 file: fix: chunk large HTTP/2 buffer replies
+11:57:36   steps 59, first gold read at 4, gold edited true, success true, regressions 0, tests run by agent 12, $3.074
+11:57:36 2bf4265b99 hooks: fix: chunk large HTTP/2 buffer replies
+12:06:19   steps 68, first gold read at 4, gold edited true, success true, regressions 0, tests run by agent 9, $3.714, gate x1
+12:06:19 9026164f5a none: fix: ignore duplicate trailer completions
+12:06:19 baseline suite at 6d202c6203: 191 files
+12:07:09   50s, 4 failing at base (excluded)
+12:10:06   steps 23, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 7, $0.904
+12:10:06 9026164f5a file: fix: ignore duplicate trailer completions
+12:12:17   steps 18, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 8, $0.711
+12:12:17 9026164f5a hooks: fix: ignore duplicate trailer completions
+12:17:12   steps 23, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 9, $1.057, gate x1
+12:17:12 21b4c3c101 none: socketAddr !== null check is invalid
+12:17:13 baseline suite at 9bbf60978d: 190 files
+12:18:07   55s, 4 failing at base (excluded)
+12:21:23   steps 26, first gold read at 1, gold edited true, success false, regressions 0, tests run by agent 2, $1.068
+12:21:23 21b4c3c101 file: socketAddr !== null check is invalid
+12:25:59   steps 30, first gold read at 1, gold edited true, success false, regressions 0, tests run by agent 4, $1.709
+12:25:59 21b4c3c101 hooks: socketAddr !== null check is invalid
+12:29:29   steps 33, first gold read at 1, gold edited true, success false, regressions 0, tests run by agent 7, $1.595, gate x1
+12:29:29 d9659819fb none: error.code not present on some fastify routing errors
+12:29:29 baseline suite at c2ba18c177: 190 files
+12:30:17   48s, 4 failing at base (excluded)
+12:32:26   steps 17, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 2, $0.634
+12:32:26 d9659819fb file: error.code not present on some fastify routing errors
+12:35:03   steps 20, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 5, $0.780
+12:35:03 d9659819fb hooks: error.code not present on some fastify routing errors
+12:38:13   steps 25, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 4, $1.035
+12:38:13 c2ba18c177 none: fix: avoid duplicate closeIdleConnections call on native ser
+12:38:14 baseline suite at d33f017ffe: 190 files
+12:39:01   47s, 4 failing at base (excluded)
+12:42:08   steps 25, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 4, $0.994
+12:42:08 c2ba18c177 file: fix: avoid duplicate closeIdleConnections call on native ser
+12:46:33   steps 33, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 10, $1.369
+12:46:33 c2ba18c177 hooks: fix: avoid duplicate closeIdleConnections call on native ser
+12:52:56   steps 34, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 10, $1.539, gate x1
+12:52:56 8dee9be05e none: Regression on Fastify V5.8.3 with trustProxy: 1 for Windows 
+12:52:57 baseline suite at d457aeda86: 189 files
+12:53:45   48s, 4 failing at base (excluded)
+12:57:28   steps 29, first gold read at 4, gold edited true, success true, regressions 0, tests run by agent 4, $1.217
+12:57:28 8dee9be05e file: Regression on Fastify V5.8.3 with trustProxy: 1 for Windows 
+12:57:28 generating map for 2026-03 at d457aeda86
+12:58:22 map: 177 lines, $0.515
+13:03:19   steps 42, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 5, $2.165
+13:03:19 8dee9be05e hooks: Regression on Fastify V5.8.3 with trustProxy: 1 for Windows 
+13:09:50   steps 36, first gold read at 18, gold edited true, success true, regressions 0, tests run by agent 4, $1.852, gate x1
+13:09:51 4e1db5bd00 none: fix: gate host and protocol getters on proxy trust function
+13:09:51 baseline suite at a22217f942: 188 files
+13:10:43   52s, 4 failing at base (excluded)
+13:21:40   steps 45, first gold read at 4, gold edited true, success true, regressions 0, tests run by agent 4, $2.169
+13:21:40 4e1db5bd00 file: fix: gate host and protocol getters on proxy trust function
+13:27:57   steps 54, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 8, $2.861
+13:27:57 4e1db5bd00 hooks: fix: gate host and protocol getters on proxy trust function
+13:34:53   steps 53, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 11, $2.663, gate x1
+13:34:53 1e0be1294e none: fix: remove format placeholder from FST_ERR_CTP_INVALID_MEDI
+13:34:54 baseline suite at 8fad07272b: 187 files
+13:35:47   53s, 4 failing at base (excluded)
+13:39:28   steps 23, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 10, $0.671
+13:39:28 1e0be1294e file: fix: remove format placeholder from FST_ERR_CTP_INVALID_MEDI
+13:39:28 generating map for 2026-02 at 8fad07272b
+13:40:25 map: 178 lines, $0.489
+13:42:19   steps 18, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 4, $0.479
+13:42:19 1e0be1294e hooks: fix: remove format placeholder from FST_ERR_CTP_INVALID_MEDI
+13:45:45   steps 17, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 5, $0.776, gate x1
+13:45:45 b4db85b665 none: routerOptions cannot be reused across multiple fastify insta
+13:45:45 baseline suite at 3653e7b927: 186 files
+13:46:33   48s, 4 failing at base (excluded)
+13:52:41   steps 47, first gold read at 7, gold edited true, success true, regressions 0, tests run by agent 11, $2.102
+13:52:41 b4db85b665 file: routerOptions cannot be reused across multiple fastify insta
+13:56:25   steps 30, first gold read at 11, gold edited true, success true, regressions 0, tests run by agent 7, $1.720
+13:56:25 b4db85b665 hooks: routerOptions cannot be reused across multiple fastify insta
+14:04:07   steps 41, first gold read at 13, gold edited true, success true, regressions 0, tests run by agent 12, $1.948
+14:04:07 f18cda12d6 none: [Typescript] incorrect type definition for `routerOptions.de
+14:04:08 baseline suite at 4c10980bd4: 186 files
+14:04:57   49s, 4 failing at base (excluded)
+14:09:41   steps 36, first gold read at 15, gold edited true, success false, regressions 0, tests run by agent 0, $1.572
+14:09:41 f18cda12d6 file: [Typescript] incorrect type definition for `routerOptions.de
+14:14:55   steps 40, first gold read at 8, gold edited true, success false, regressions 0, tests run by agent 2, $1.911
+14:14:55 f18cda12d6 hooks: [Typescript] incorrect type definition for `routerOptions.de
+14:21:36   steps 51, first gold read at 8, gold edited true, success false, regressions 0, tests run by agent 3, $2.387, gate x1
+14:21:36 79ab8e9564 none: fix: use JSON.stringify in onBadUrl for proper escaping
+14:21:36 baseline suite at 970c575832: 186 files
+14:22:26   51s, 4 failing at base (excluded)
+14:27:45   steps 16, first gold read at 5, gold edited true, success true, regressions 0, tests run by agent 4, $0.684
+14:27:45 79ab8e9564 file: fix: use JSON.stringify in onBadUrl for proper escaping
+14:27:45 generating map for 2025-12 at 970c575832
+14:33:54 map: 161 lines, $0.477
+14:38:24   steps 30, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 3, $1.285
+14:38:24 79ab8e9564 hooks: fix: use JSON.stringify in onBadUrl for proper escaping
+14:42:51   steps 38, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 7, $1.687, gate x1
+14:42:51 e1f58aba76 none: fix: respect child logger factory in fastify options
+14:42:52 baseline suite at 387b168997: 185 files
+14:43:38   47s, 4 failing at base (excluded)
+14:45:28   steps 13, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 1, $0.518
+14:45:28 e1f58aba76 file: fix: respect child logger factory in fastify options
+14:45:28 generating map for 2025-10 at 387b168997
+14:49:49 map: 166 lines, $0.493
+14:52:31   steps 16, first gold read at 8, gold edited true, success true, regressions 0, tests run by agent 4, $0.731
+14:52:31 e1f58aba76 hooks: fix: respect child logger factory in fastify options
+14:57:30   steps 29, first gold read at 13, gold edited true, success true, regressions 0, tests run by agent 6, $1.148, gate x1
+14:57:30 f863b9a655 none: Add missing error types
+14:57:30 baseline suite at 7dc58951e9: 184 files
+14:58:07   37s, 49 failing at base (excluded)
+15:00:34   steps 27, first gold read at 2, gold edited true, success false, regressions 0, tests run by agent 2, $1.023
+15:00:34 f863b9a655 file: Add missing error types
+15:04:14   steps 33, first gold read at 2, gold edited true, success false, regressions 0, tests run by agent 2, $1.549
+15:04:14 f863b9a655 hooks: Add missing error types
+15:06:19   steps 22, first gold read at 3, gold edited true, success false, regressions 0, tests run by agent 2, $0.924
+15:06:19 8ddd4fa856 none: fix: internal function _addHook failure should be turned int
+15:06:19 baseline suite at 850ebf6ef0: 184 files
+15:06:42   23s, 94 failing at base (excluded)
+15:09:41   steps 32, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 8, $1.221
+15:09:41 8ddd4fa856 file: fix: internal function _addHook failure should be turned int
+15:09:41 generating map for 2025-05 at 850ebf6ef0
+15:10:34 map: 189 lines, $0.479
+15:16:01   steps 37, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 9, $1.611
+15:16:01 8ddd4fa856 hooks: fix: internal function _addHook failure should be turned int
+15:20:28   steps 47, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 14, $1.833, gate x1
+15:20:28 done: bench/results/fastify-damage/runs.jsonl

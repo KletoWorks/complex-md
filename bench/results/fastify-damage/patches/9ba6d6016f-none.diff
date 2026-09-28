@@ -1,0 +1,84 @@
+diff --git a/fastify.js b/fastify.js
+index 30b6c1ec..7e110198 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -392,7 +392,7 @@ function fastify (serverOptions) {
+           if (forceCloseConnections === 'idle' && options.serverFactory) {
+             instance.server.closeIdleConnections()
+             /* istanbul ignore next: Cannot test this without Node.js core support */
+-          } else if (serverHasCloseAllConnections && forceCloseConnections) {
++          } else if (serverHasCloseAllConnections && forceCloseConnections === true) {
+             instance.server.closeAllConnections()
+           } else if (forceCloseConnections === true) {
+             for (const conn of fastify[kKeepAliveConnections]) {
+diff --git a/test/close.test.js b/test/close.test.js
+index 810ffe4f..026f7c46 100644
+--- a/test/close.test.js
++++ b/test/close.test.js
+@@ -425,6 +425,66 @@ test('shutsdown while keep-alive connections are active (non-async, idle, native
+   })
+ })
+ 
++test('does not destroy in-flight requests (idle, native)', { skip: noSupport }, async t => {
++  t.plan(2)
++
++  const fastify = Fastify({ forceCloseConnections: 'idle' })
++
++  fastify.get('/', async () => {
++    await sleep(400)
++    return { hello: 'world' }
++  })
++
++  await fastify.listen({ port: 0 })
++
++  const client = new Client('http://localhost:' + fastify.server.address().port)
++  t.after(() => client.destroy())
++
++  const request = client.request({ path: '/', method: 'GET' })
++
++  await sleep(100)
++  const closed = fastify.close()
++
++  const response = await request
++  t.assert.strictEqual(response.statusCode, 200)
++  t.assert.deepStrictEqual(await response.body.json(), { hello: 'world' })
++
++  // the socket is only idle once the response has been read, so it must be
++  // released here for `close()` to settle without waiting on a server timeout
++  await client.close()
++  await closed
++})
++
++test('does not destroy in-flight requests (default options, native)', { skip: noSupport }, async t => {
++  t.plan(2)
++
++  const fastify = Fastify()
++
++  fastify.get('/', async () => {
++    await sleep(400)
++    return { hello: 'world' }
++  })
++
++  await fastify.listen({ port: 0 })
++
++  const client = new Client('http://localhost:' + fastify.server.address().port)
++  t.after(() => client.destroy())
++
++  const request = client.request({ path: '/', method: 'GET' })
++
++  await sleep(100)
++  const closed = fastify.close()
++
++  const response = await request
++  t.assert.strictEqual(response.statusCode, 200)
++  t.assert.deepStrictEqual(await response.body.json(), { hello: 'world' })
++
++  // the socket is only idle once the response has been read, so it must be
++  // released here for `close()` to settle without waiting on a server timeout
++  await client.close()
++  await closed
++})
++
+ test('triggers on-close hook in the right order with multiple bindings', async t => {
+   const expectedOrder = [1, 2, 3]
+   const order = []

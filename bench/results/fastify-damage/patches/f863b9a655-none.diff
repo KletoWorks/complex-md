@@ -1,0 +1,103 @@
+diff --git a/test/types/errors.test-d.ts b/test/types/errors.test-d.ts
+index 497759b0..2fb8bdd3 100644
+--- a/test/types/errors.test-d.ts
++++ b/test/types/errors.test-d.ts
+@@ -11,6 +11,9 @@ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_SCHEMA_ERROR_FORMAT
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_AJV_CUSTOM_OPTIONS_OPT_NOT_OBJ)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_AJV_CUSTOM_OPTIONS_OPT_NOT_ARR)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_VALIDATION)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_LISTEN_OPTIONS_INVALID)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_ERROR_HANDLER_NOT_FN)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_ERROR_HANDLER_ALREADY_SET)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_CTP_ALREADY_PRESENT)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_CTP_INVALID_TYPE)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_CTP_EMPTY_TYPE)
+@@ -25,6 +28,8 @@ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_DEC_ALREADY_PRESENT
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_DEC_DEPENDENCY_INVALID_TYPE)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_DEC_MISSING_DEPENDENCY)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_DEC_AFTER_START)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_DEC_REFERENCE_TYPE)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_DEC_UNDECLARED)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_HOOK_INVALID_TYPE)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_HOOK_INVALID_HANDLER)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_HOOK_INVALID_ASYNC_HANDLER)
+@@ -33,7 +38,12 @@ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_MISSING_MIDDLEWARE)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_HOOK_TIMEOUT)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_LOG_INVALID_DESTINATION)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_LOG_INVALID_LOGGER)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_LOG_INVALID_LOGGER_INSTANCE)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_LOG_INVALID_LOGGER_CONFIG)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_REP_INVALID_PAYLOAD_TYPE)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_REP_RESPONSE_BODY_CONSUMED)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_REP_READABLE_STREAM_LOCKED)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_REP_ALREADY_SENT)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_REP_SENT_VALUE)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_SEND_INSIDE_ONERR)
+@@ -57,6 +67,7 @@ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_FORCE_CLOSE_CONNECT
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_DUPLICATED_ROUTE)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_BAD_URL)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_ASYNC_CONSTRAINT)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_INVALID_URL)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_ROUTE_OPTIONS_NOT_OBJ)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_ROUTE_DUPLICATED_HANDLER)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_ROUTE_HANDLER_NOT_FN)
+@@ -71,6 +82,7 @@ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_REOPENED_SERVER)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_INSTANCE_ALREADY_LISTENING)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_PLUGIN_VERSION_MISMATCH)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_PLUGIN_NOT_PRESENT_IN_INSTANCE)
++expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_PLUGIN_INVALID_ASYNC_HANDLER)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_PLUGIN_CALLBACK_NOT_FN)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_PLUGIN_NOT_VALID)
+ expectAssignable<FastifyErrorConstructor>(errorCodes.FST_ERR_ROOT_PLG_BOOTED)
+diff --git a/types/errors.d.ts b/types/errors.d.ts
+index d59bf630..3b831e30 100644
+--- a/types/errors.d.ts
++++ b/types/errors.d.ts
+@@ -9,6 +9,9 @@ export type FastifyErrorCodes = Record<
+   'FST_ERR_AJV_CUSTOM_OPTIONS_OPT_NOT_OBJ' |
+   'FST_ERR_AJV_CUSTOM_OPTIONS_OPT_NOT_ARR' |
+   'FST_ERR_VALIDATION' |
++  'FST_ERR_LISTEN_OPTIONS_INVALID' |
++  'FST_ERR_ERROR_HANDLER_NOT_FN' |
++  'FST_ERR_ERROR_HANDLER_ALREADY_SET' |
+   'FST_ERR_CTP_ALREADY_PRESENT' |
+   'FST_ERR_CTP_INVALID_TYPE' |
+   'FST_ERR_CTP_EMPTY_TYPE' |
+@@ -24,6 +27,7 @@ export type FastifyErrorCodes = Record<
+   'FST_ERR_DEC_MISSING_DEPENDENCY' |
+   'FST_ERR_DEC_AFTER_START' |
+   'FST_ERR_DEC_REFERENCE_TYPE' |
++  'FST_ERR_DEC_UNDECLARED' |
+   'FST_ERR_HOOK_INVALID_TYPE' |
+   'FST_ERR_HOOK_INVALID_HANDLER' |
+   'FST_ERR_HOOK_INVALID_ASYNC_HANDLER' |
+@@ -32,7 +36,12 @@ export type FastifyErrorCodes = Record<
+   'FST_ERR_HOOK_TIMEOUT' |
+   'FST_ERR_LOG_INVALID_DESTINATION' |
+   'FST_ERR_LOG_INVALID_LOGGER' |
++  'FST_ERR_LOG_INVALID_LOGGER_INSTANCE' |
++  'FST_ERR_LOG_INVALID_LOGGER_CONFIG' |
++  'FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED' |
+   'FST_ERR_REP_INVALID_PAYLOAD_TYPE' |
++  'FST_ERR_REP_RESPONSE_BODY_CONSUMED' |
++  'FST_ERR_REP_READABLE_STREAM_LOCKED' |
+   'FST_ERR_REP_ALREADY_SENT' |
+   'FST_ERR_REP_SENT_VALUE' |
+   'FST_ERR_SEND_INSIDE_ONERR' |
+@@ -56,7 +65,6 @@ export type FastifyErrorCodes = Record<
+   'FST_ERR_DUPLICATED_ROUTE' |
+   'FST_ERR_BAD_URL' |
+   'FST_ERR_ASYNC_CONSTRAINT' |
+-  'FST_ERR_DEFAULT_ROUTE_INVALID_TYPE' |
+   'FST_ERR_INVALID_URL' |
+   'FST_ERR_ROUTE_OPTIONS_NOT_OBJ' |
+   'FST_ERR_ROUTE_DUPLICATED_HANDLER' |
+@@ -72,6 +80,7 @@ export type FastifyErrorCodes = Record<
+   'FST_ERR_INSTANCE_ALREADY_LISTENING' |
+   'FST_ERR_PLUGIN_VERSION_MISMATCH' |
+   'FST_ERR_PLUGIN_NOT_PRESENT_IN_INSTANCE' |
++  'FST_ERR_PLUGIN_INVALID_ASYNC_HANDLER' |
+   'FST_ERR_PLUGIN_CALLBACK_NOT_FN' |
+   'FST_ERR_PLUGIN_NOT_VALID' |
+   'FST_ERR_ROOT_PLG_BOOTED' |

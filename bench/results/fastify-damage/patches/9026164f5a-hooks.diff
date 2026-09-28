@@ -1,0 +1,70 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 024b297a..3848fbfd 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -848,9 +848,15 @@ function sendTrailer (payload, res, reply) {
+     skipped = false
+     handled--
+ 
++    // a handler can complete twice, e.g. when it calls the callback and
++    // also resolves. Only the first completion counts: without this guard
++    // `handled` reaches zero too early and the trailers of the sibling
++    // handlers still pending are dropped.
++    let called = false
++
+     function cb (err, value) {
+-      // TODO: we may protect multiple callback calls
+-      //       or mixing async-await with callback
++      if (called) return
++      called = true
+       handled++
+ 
+       // we can safely ignore error for trailer
+diff --git a/test/reply-trailers.test.js b/test/reply-trailers.test.js
+index f7d948fe..fcd75a4a 100644
+--- a/test/reply-trailers.test.js
++++ b/test/reply-trailers.test.js
+@@ -232,6 +232,43 @@ test('send is called once when multiple trailer callbacks run synchronously', (t
+   })
+ })
+ 
++test('duplicate trailer completions are ignored when mixing callback and promise', (t, testDone) => {
++  t.plan(6)
++  const fastify = Fastify()
++  let endCalls = 0
++
++  fastify.get('/', function (request, reply) {
++    const originalEnd = reply.raw.end.bind(reply.raw)
++    reply.raw.end = function (...args) {
++      endCalls++
++      return originalEnd(...args)
++    }
++    // completes twice: once through the callback, once by resolving
++    reply.trailer('Return-Early', async function (reply, payload, done) {
++      done(null, 'first')
++      return 'second'
++    })
++    reply.trailer('Content-MD5', async function (reply, payload) {
++      await sleep(100)
++      return 'slow'
++    })
++    reply.send('hello')
++  })
++
++  fastify.inject({
++    method: 'GET',
++    url: '/'
++  }, (error, res) => {
++    t.assert.ifError(error)
++    t.assert.strictEqual(res.statusCode, 200)
++    t.assert.strictEqual(res.trailers['return-early'], 'first')
++    t.assert.strictEqual(res.trailers['content-md5'], 'slow')
++    t.assert.strictEqual(endCalls, 1)
++    t.assert.ok(!res.headers['content-length'])
++    testDone()
++  })
++})
++
+ describe('trailer handler counter', () => {
+   const data = JSON.stringify({ hello: 'world' })
+   const hash = createHash('md5')

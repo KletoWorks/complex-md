@@ -1,0 +1,123 @@
+diff --git a/docs/Reference/Server.md b/docs/Reference/Server.md
+index 7eff0fc8..7c2ef2d3 100644
+--- a/docs/Reference/Server.md
++++ b/docs/Reference/Server.md
+@@ -832,6 +832,11 @@ const fastify = require('fastify')({
+ Fastify uses [find-my-way](https://github.com/delvedor/find-my-way) which supports,
+ can pass a default route with the option defaultRoute.
+ 
++The callback is invoked by the router, so it receives the raw Node.js request and
++response objects (`http.IncomingMessage` and `http.ServerResponse`, or their HTTP/2
++equivalents) rather than Fastify's `Request` and `Reply` objects. Methods such as
++`reply.send()` are not available there.
++
+ ```js
+ const fastify = require('fastify')({
+   routerOptions: {
+@@ -923,6 +928,9 @@ Fastify uses [find-my-way](https://github.com/delvedor/find-my-way) which suppor
+ the use case of a badly formatted url (eg: /hello/%world), by default find-my-way
+ will invoke the defaultRoute, unless you specify the onBadUrl option.
+ 
++As with [`defaultRoute`](#defaultroute), the callback receives the raw Node.js
++request and response objects, not Fastify's `Request` and `Reply` objects.
++
+ ```js
+ const fastify = require('fastify')({
+   routerOptions: {
+diff --git a/fastify.d.ts b/fastify.d.ts
+index 65891df1..ae153cfd 100644
+--- a/fastify.d.ts
++++ b/fastify.d.ts
+@@ -96,11 +96,20 @@ declare namespace fastify {
+     constraints?: {
+       [name: string]: ConstraintStrategy<FindMyWayVersion<RawServer>, unknown>,
+     },
+-    defaultRoute?: (req: FastifyRequest, res: FastifyReply) => void,
++    // defaultRoute and onBadUrl are called by find-my-way, so they receive the
++    // raw Node.js request and response objects, not FastifyRequest/FastifyReply
++    defaultRoute?: (
++      req: RawRequestDefaultExpression<RawServer>,
++      res: RawReplyDefaultExpression<RawServer>
++    ) => void,
+     ignoreDuplicateSlashes?: boolean,
+     ignoreTrailingSlash?: boolean,
+     maxParamLength?: number,
+-    onBadUrl?: (path: string, req: FastifyRequest, res: FastifyReply) => void,
++    onBadUrl?: (
++      path: string,
++      req: RawRequestDefaultExpression<RawServer>,
++      res: RawReplyDefaultExpression<RawServer>
++    ) => void,
+     querystringParser?: (str: string) => { [key: string]: unknown },
+     useSemicolonDelimiter?: boolean,
+   }
+diff --git a/test/types/fastify.test-d.ts b/test/types/fastify.test-d.ts
+index 17740b5b..98d158bc 100644
+--- a/test/types/fastify.test-d.ts
++++ b/test/types/fastify.test-d.ts
+@@ -17,6 +17,7 @@ import fastify, {
+   LightMyRequestCallback,
+   LightMyRequestChain,
+   LightMyRequestResponse,
++  RawReplyDefaultExpression,
+   RawRequestDefaultExpression,
+   RouteGenericInterface,
+   SafePromiseLike
+@@ -226,6 +227,32 @@ expectAssignable<FastifyInstance>(fastify({
+     }
+   }
+ }))
++// routerOptions.defaultRoute and routerOptions.onBadUrl are invoked by the
++// router with the raw Node.js request and response objects
++expectAssignable<FastifyInstance>(fastify({
++  routerOptions: {
++    defaultRoute: (req, res) => {
++      expectType<RawRequestDefaultExpression>(req)
++      expectType<RawReplyDefaultExpression>(res)
++      res.statusCode = 404
++      res.end()
++    },
++    onBadUrl: (path, req, res) => {
++      expectType<string>(path)
++      expectType<RawRequestDefaultExpression>(req)
++      expectType<RawReplyDefaultExpression>(res)
++      res.statusCode = 400
++      res.end()
++    }
++  }
++}))
++expectError(fastify({
++  routerOptions: {
++    defaultRoute: (req, res) => {
++      res.send('this is a FastifyReply method, not a ServerResponse one')
++    }
++  }
++}))
+ expectAssignable<FastifyInstance>(fastify({ return503OnClosing: true }))
+ expectAssignable<FastifyInstance>(fastify({
+   ajv: {
+diff --git a/test/types/instance.test-d.ts b/test/types/instance.test-d.ts
+index b975249f..74d2674d 100644
+--- a/test/types/instance.test-d.ts
++++ b/test/types/instance.test-d.ts
+@@ -339,11 +339,18 @@ type InitialConfig = Readonly<{
+     constraints?: {
+       [name: string]: ConstraintStrategy<FindMyWayVersion<RawServerDefault>, unknown>
+     }
+-    defaultRoute?: (req: FastifyRequest, res: FastifyReply) => void,
++    defaultRoute?: (
++      req: RawRequestDefaultExpression<RawServerDefault>,
++      res: RawReplyDefaultExpression<RawServerDefault>
++    ) => void,
+     ignoreDuplicateSlashes?: boolean,
+     ignoreTrailingSlash?: boolean,
+     maxParamLength?: number,
+-    onBadUrl?: (path: string, req: FastifyRequest, res: FastifyReply) => void,
++    onBadUrl?: (
++      path: string,
++      req: RawRequestDefaultExpression<RawServerDefault>,
++      res: RawReplyDefaultExpression<RawServerDefault>
++    ) => void,
+     querystringParser?: (str: string) => { [key: string]: unknown },
+     useSemicolonDelimiter?: boolean,
+   }

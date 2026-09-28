@@ -1,0 +1,234 @@
+diff --git a/fastify.js b/fastify.js
+index 515e0c60..7d5ef7d0 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -35,7 +35,7 @@ const {
+   kErrorHandlerAlreadySet
+ } = require('./lib/symbols.js')
+ 
+-const { createServer } = require('./lib/server')
++const { createServer, closeHttp2Sessions } = require('./lib/server')
+ const Reply = require('./lib/reply')
+ const Request = require('./lib/request')
+ const Context = require('./lib/context.js')
+@@ -491,6 +491,12 @@ function fastify (options) {
+           }
+         }
+ 
++        // http2 sessions are not covered by the connection handling above:
++        // `server.close` waits for every open session, so an idle client
++        // would keep the server alive until `http2SessionTimeout` fires.
++        // https://github.com/fastify/fastify/issues/5716
++        closeHttp2Sessions(instance.server, forceCloseConnections === true)
++
+         // No new TCP connections are accepted.
+         // We must call close on the server even if we are not listening
+         // otherwise memory will be leaked.
+diff --git a/lib/server.js b/lib/server.js
+index 205ea1e2..c45d4b5d 100644
+--- a/lib/server.js
++++ b/lib/server.js
+@@ -6,7 +6,7 @@ const http2 = require('node:http2')
+ const dns = require('node:dns')
+ const os = require('node:os')
+ 
+-const { kState, kOptions, kServerBindings } = require('./symbols')
++const { kState, kOptions, kServerBindings, kHttp2Sessions } = require('./symbols')
+ const { FSTWRN003 } = require('./warnings')
+ const { onListenHookRunner } = require('./hooks')
+ const {
+@@ -17,11 +17,35 @@ const {
+ const PonyPromise = require('./promise')
+ 
+ module.exports.createServer = createServer
++module.exports.closeHttp2Sessions = closeHttp2Sessions
+ 
+ function defaultResolveServerListeningText (address) {
+   return `Server listening at ${address}`
+ }
+ 
++/**
++ * Closes every http2 session tracked for the given server, if any.
++ * Sessions keep `server.close` from completing, so they must be
++ * closed on shutdown.
++ *
++ * @param {import('node:http2').Http2Server} server
++ * @param {boolean} force When true the sessions are destroyed instead of
++ * being gracefully closed.
++ */
++function closeHttp2Sessions (server, force) {
++  const sessions = server[kHttp2Sessions]
++  if (sessions === undefined) return
++
++  for (const session of sessions.values()) {
++    if (force) {
++      session.destroy()
++    } else {
++      session.close()
++    }
++  }
++  sessions.clear()
++}
++
+ function createServer (options, httpHandler) {
+   const server = getServerInstance(options, httpHandler)
+ 
+@@ -171,6 +195,7 @@ function multipleBindings (mainServer, httpHandler, serverOpts, listenOptions, o
+             // is done running, we better wait until the main server is closed.
+             // No new TCP connections are accepted
+             // We swallow any error from the secondary server
++            closeHttp2Sessions(secondaryServer, serverOpts.forceCloseConnections === true)
+             secondaryServer.close(() => {})
+             if (typeof secondaryServer.closeAllConnections === 'function' && serverOpts.forceCloseConnections === true) {
+               secondaryServer.closeAllConnections()
+@@ -283,9 +308,24 @@ function getServerInstance (options, httpHandler) {
+ 
+   if (options.http2) {
+     const server = typeof httpsOptions === 'object' ? http2.createSecureServer(httpsOptions, httpHandler) : http2.createServer(options.http, httpHandler)
+-    server.on('session', (session) => session.setTimeout(options.http2SessionTimeout, () => {
+-      session.close()
+-    }))
++
++    // We keep track of the open sessions, so that we can close them
++    // when the server is closed. Otherwise `server.close` would wait
++    // for the clients to close their sessions on their own.
++    // https://github.com/fastify/fastify/issues/5716
++    let sessionId = 0
++    server[kHttp2Sessions] = new Map()
++    server.on('session', (session) => {
++      const id = sessionId++
++      server[kHttp2Sessions].set(id, session)
++      session.on('close', () => {
++        server[kHttp2Sessions].delete(id)
++      })
++
++      session.setTimeout(options.http2SessionTimeout, () => {
++        session.close()
++      })
++    })
+ 
+     server.setTimeout(options.connectionTimeout)
+ 
+diff --git a/lib/symbols.js b/lib/symbols.js
+index cd7da0fb..5631ed72 100644
+--- a/lib/symbols.js
++++ b/lib/symbols.js
+@@ -60,6 +60,7 @@ const keys = {
+   kChildLoggerFactory: Symbol('fastify.childLoggerFactory'),
+   kHasBeenDecorated: Symbol('fastify.hasBeenDecorated'),
+   kKeepAliveConnections: Symbol('fastify.keepAliveConnections'),
++  kHttp2Sessions: Symbol('fastify.http2Sessions'),
+   kRouteByFastify: Symbol('fastify.routeByFastify')
+ }
+ 
+diff --git a/test/http2/closing.test.js b/test/http2/closing.test.js
+index 2d14090d..e0b3a8b7 100644
+--- a/test/http2/closing.test.js
++++ b/test/http2/closing.test.js
+@@ -8,6 +8,7 @@ const connect = promisify(http2.connect)
+ const { once } = require('node:events')
+ const { buildCertificate } = require('../build-certificate')
+ const { getServerUrl } = require('../helper')
++const { kHttp2Sessions } = require('../../lib/symbols')
+ 
+ test.before(buildCertificate)
+ 
+@@ -148,6 +149,98 @@ test('https/2 closes successfully with async await', async t => {
+   await fastify.close()
+ })
+ 
++test('http/2 sessions are tracked and closed on fastify.close()', async t => {
++  const fastify = Fastify({
++    http2: true
++  })
++
++  fastify.get('/', async () => ({}))
++
++  await fastify.listen({ port: 0 })
++
++  const url = getServerUrl(fastify)
++  const session = await connect(url)
++  // An error might or might not happen, as it's OS dependent.
++  session.on('error', () => {})
++
++  // the request makes sure the server has seen the session
++  const req = session.request({
++    ':method': 'GET',
++    ':path': '/'
++  }).end()
++  const [headers] = await once(req, 'response')
++  t.assert.strictEqual(headers[':status'], 200)
++  req.resume()
++
++  t.assert.strictEqual(fastify.server[kHttp2Sessions].size, 1)
++
++  const sessionClosed = once(session, 'close')
++  // the default `http2SessionTimeout` is used, so the session would
++  // stay open for a long time if `close` did not take care of it
++  await fastify.close()
++  await sessionClosed
++
++  t.assert.strictEqual(fastify.server[kHttp2Sessions].size, 0)
++})
++
++test('http/2 sessions are destroyed on fastify.close() with forceCloseConnections', async t => {
++  const fastify = Fastify({
++    http2: true,
++    forceCloseConnections: true
++  })
++
++  fastify.get('/', async () => ({}))
++
++  await fastify.listen({ port: 0 })
++
++  const url = getServerUrl(fastify)
++  const session = await connect(url)
++  // An error might or might not happen, as it's OS dependent.
++  session.on('error', () => {})
++
++  const sessionClosed = once(session, 'close')
++  await fastify.close()
++  await sessionClosed
++
++  t.assert.strictEqual(fastify.server[kHttp2Sessions].size, 0)
++})
++
++test('http/2 sessions are removed from the tracking map when closed by the client', async t => {
++  const fastify = Fastify({
++    http2: true
++  })
++
++  fastify.get('/', async () => ({}))
++
++  t.after(() => fastify.close())
++
++  await fastify.listen({ port: 0 })
++
++  const url = getServerUrl(fastify)
++  const session = await connect(url)
++  // An error might or might not happen, as it's OS dependent.
++  session.on('error', () => {})
++
++  const req = session.request({
++    ':method': 'GET',
++    ':path': '/'
++  }).end()
++  await once(req, 'response')
++  req.resume()
++
++  t.assert.strictEqual(fastify.server[kHttp2Sessions].size, 1)
++
++  session.close()
++  await once(session, 'close')
++
++  // the server side session is closed asynchronously
++  while (fastify.server[kHttp2Sessions].size > 0) {
++    await new Promise(resolve => setTimeout(resolve, 10))
++  }
++
++  t.assert.strictEqual(fastify.server[kHttp2Sessions].size, 0)
++})
++
+ test('http/2 server side session emits a timeout event', async t => {
+   let _resolve
+   const p = new Promise((resolve) => { _resolve = resolve })

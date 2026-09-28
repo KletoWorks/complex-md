@@ -1,0 +1,149 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 6b15b67f..b58a4a8a 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -126,6 +126,16 @@ Reply.prototype.writeEarlyHints = function (hints, callback) {
+ 
+ Reply.prototype.hijack = function () {
+   this[kReplyHijacked] = true
++
++  // A hijacked reply never reaches onResFinished, so release socket._meta here
++  // as well. Without this the request/reply pair is retained for the lifetime
++  // of the socket. The ownership guard avoids clearing a reference that the
++  // next request on a keep-alive socket has already claimed.
++  const socket = this.request.raw.socket
++  if (socket && socket._meta && socket._meta.request === this.request) {
++    socket._meta = null
++  }
++
+   // Clear handler timeout and signal — hijacked replies manage their own lifecycle
+   if (this.request[kRequestSignal]) {
+     clearTimeout(this.request[kTimeoutTimer])
+diff --git a/lib/route.js b/lib/route.js
+index 4c8ee129..a7285609 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -582,8 +582,17 @@ function buildRouting (options) {
+       })
+     }
+ 
+-    if (context.onTimeout !== null) {
+-      if (!request.raw.socket._meta) {
++    // The handler has already been dispatched above, so it may have hijacked
++    // the reply or answered synchronously. Tracking a timeout for a reply that
++    // is already sent would re-attach the metadata that `hijack()` just
++    // released, and there is nothing left to time out.
++    if (context.onTimeout !== null && reply.sent === false) {
++      // `_meta` is released (set to null) once the response finishes or the
++      // reply is hijacked, while the listener stays attached for the lifetime
++      // of the socket. Only `undefined` means "never attached", so testing for
++      // it — rather than for falsiness — keeps this to one listener per socket
++      // instead of one per request on keep-alive connections.
++      if (request.raw.socket._meta === undefined) {
+         request.raw.socket.on('timeout', handleTimeout)
+       }
+       request.raw.socket._meta = { context, request, reply }
+@@ -598,7 +607,15 @@ function handleOnRequestAbortHooksErrors (reply, err) {
+ }
+ 
+ function handleTimeout () {
+-  const { context, request, reply } = this._meta
++  // The response may already have finished, or the reply may have been
++  // hijacked, which releases `_meta`. A timeout arriving after that has no
++  // request to report on, so drop it rather than throwing on a null `_meta`.
++  const meta = this._meta
++  if (!meta) {
++    return
++  }
++
++  const { context, request, reply } = meta
+   onTimeoutHookRunner(
+     context.onTimeout,
+     request,
+diff --git a/test/hooks.test.js b/test/hooks.test.js
+index 5be37637..32b70f58 100644
+--- a/test/hooks.test.js
++++ b/test/hooks.test.js
+@@ -3300,6 +3300,82 @@ test('socket._meta is cleared after response to prevent keep-alive leaks', async
+   t.assert.strictEqual(result.status, 200)
+ })
+ 
++test('socket._meta is cleared on reply.hijack() when onTimeout is registered', async t => {
++  t.plan(6)
++  const fastify = Fastify({ connectionTimeout: 500 })
++  t.after(() => { fastify.close() })
++
++  fastify.addHook('onTimeout', function (req, res, done) { done() })
++
++  // A hijacked reply never emits 'finish', so onResFinished never runs and the
++  // metadata must be released by hijack() itself.
++  let syncSocket = null
++  fastify.get('/sync', (req, reply) => {
++    syncSocket = req.raw.socket
++    reply.hijack()
++    reply.raw.writeHead(200, { 'content-length': 2 })
++    reply.raw.end('ok')
++  })
++
++  let asyncSocket = null
++  fastify.get('/async', async (req, reply) => {
++    asyncSocket = req.raw.socket
++    await sleep(10)
++    t.assert.strictEqual(asyncSocket._meta.request, req, 'metadata is armed before hijack')
++    reply.hijack()
++    reply.raw.writeHead(200, { 'content-length': 2 })
++    reply.raw.end('ok')
++  })
++
++  const address = await fastify.listen({ port: 0 })
++
++  const syncRes = await fetch(address + '/sync')
++  t.assert.strictEqual(await syncRes.text(), 'ok')
++  t.assert.ok(!syncSocket._meta, 'socket._meta must not retain a hijacked request/reply')
++
++  const asyncRes = await fetch(address + '/async')
++  t.assert.strictEqual(await asyncRes.text(), 'ok')
++  t.assert.strictEqual(asyncSocket._meta, null, 'socket._meta must be cleared by hijack()')
++
++  // The 'timeout' listener outlives the request; it must tolerate the released
++  // metadata instead of throwing on a null _meta.
++  t.assert.doesNotThrow(() => asyncSocket.emit('timeout'))
++})
++
++test('onTimeout socket listener is attached once per keep-alive socket', async t => {
++  t.plan(3)
++  const fastify = Fastify()
++  t.after(() => { fastify.close() })
++
++  fastify.addHook('onTimeout', function (req, res, done) { done() })
++  fastify.addHook('onResponse', function (req, reply, done) { done() })
++
++  let socket = null
++  fastify.get('/', async (req) => {
++    socket = req.raw.socket
++    return { hello: 'world' }
++  })
++
++  const address = await fastify.listen({ port: 0 })
++  const { port } = new URL(address)
++
++  const client = connect(port, '127.0.0.1')
++  t.after(() => { client.destroy() })
++  client.on('error', () => {})
++  await new Promise(resolve => client.once('connect', resolve))
++
++  const counts = []
++  for (let i = 0; i < 3; i++) {
++    client.write('GET / HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n\r\n')
++    await new Promise(resolve => client.once('data', resolve))
++    counts.push(socket.listenerCount('timeout'))
++  }
++
++  t.assert.strictEqual(counts[0], counts[1], 'no listener added on the second request')
++  t.assert.strictEqual(counts[1], counts[2], 'no listener added on the third request')
++  t.assert.strictEqual(socket._meta, null, 'socket._meta is released between requests')
++})
++
+ test('registering invalid hooks should throw an error', async t => {
+   t.plan(3)
+ 

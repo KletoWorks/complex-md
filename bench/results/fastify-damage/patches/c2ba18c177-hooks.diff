@@ -1,0 +1,101 @@
+diff --git a/fastify.js b/fastify.js
+index ef46ee03..a372261d 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -380,9 +380,10 @@ function fastify (serverOptions) {
+ 
+       hookRunnerApplication('preClose', fastify[kAvvioBoot], fastify, function () {
+         if (fastify[kState].listening) {
+-          /* istanbul ignore next: Cannot test this without Node.js core support */
+-          if (forceCloseConnections === 'idle') {
+-            // Not needed in Node 19
++          if (forceCloseConnections === 'idle' && options.serverFactory) {
++            // Native Node.js servers already close idle connections as part of
++            // server.close(), so the explicit call is only needed for servers
++            // provided through a custom serverFactory.
+             instance.server.closeIdleConnections()
+             /* istanbul ignore next: Cannot test this without Node.js core support */
+           } else if (serverHasCloseAllConnections && forceCloseConnections) {
+diff --git a/test/close-pipelining.test.js b/test/close-pipelining.test.js
+index 81e6325d..f0490d0a 100644
+--- a/test/close-pipelining.test.js
++++ b/test/close-pipelining.test.js
+@@ -41,7 +41,7 @@ test('Should return 503 while closing - pipelining', async t => {
+ })
+ 
+ test('Should close the socket abruptly - pipelining - return503OnClosing: false', async t => {
+-  // Since Node v20, we will always invoke server.closeIdleConnections()
++  // Native Node.js servers close idle connections as part of server.close(),
+   // therefore our socket will be closed
+   const fastify = Fastify({
+     return503OnClosing: false,
+diff --git a/test/close.test.js b/test/close.test.js
+index 810ffe4f..191443b3 100644
+--- a/test/close.test.js
++++ b/test/close.test.js
+@@ -425,6 +425,65 @@ test('shutsdown while keep-alive connections are active (non-async, idle, native
+   })
+ })
+ 
++// Node.js calls closeIdleConnections() from within server.close(), so only the
++// calls happening before close() are the ones Fastify makes explicitly.
++function countExplicitCloseIdleConnections (server) {
++  const counter = { calls: 0 }
++  const closeIdleConnections = server.closeIdleConnections.bind(server)
++  const close = server.close.bind(server)
++  let closing = false
++
++  server.closeIdleConnections = function () {
++    if (!closing) counter.calls++
++    return closeIdleConnections()
++  }
++  server.close = function (...args) {
++    closing = true
++    return close(...args)
++  }
++
++  return counter
++}
++
++test('does not call closeIdleConnections on a native server (idle)', { skip: noSupport }, async t => {
++  t.plan(1)
++
++  const fastify = Fastify({ forceCloseConnections: 'idle' })
++  const counter = countExplicitCloseIdleConnections(fastify.server)
++
++  fastify.get('/', (req, reply) => {
++    reply.send({ hello: 'world' })
++  })
++
++  await fastify.listen({ port: 0 })
++  await fastify.close()
++
++  t.assert.strictEqual(counter.calls, 0)
++})
++
++test('calls closeIdleConnections on a serverFactory server (idle)', { skip: noSupport }, async t => {
++  t.plan(1)
++
++  let counter
++  const fastify = Fastify({
++    forceCloseConnections: 'idle',
++    serverFactory (handler, opts) {
++      const server = http.createServer(handler)
++      counter = countExplicitCloseIdleConnections(server)
++      return server
++    }
++  })
++
++  fastify.get('/', (req, reply) => {
++    reply.send({ hello: 'world' })
++  })
++
++  await fastify.listen({ port: 0 })
++  await fastify.close()
++
++  t.assert.strictEqual(counter.calls, 1)
++})
++
+ test('triggers on-close hook in the right order with multiple bindings', async t => {
+   const expectedOrder = [1, 2, 3]
+   const order = []

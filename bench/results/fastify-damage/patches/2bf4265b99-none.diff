@@ -1,0 +1,178 @@
+diff --git a/docs/Reference/Reply.md b/docs/Reference/Reply.md
+index 5c60a134..17753969 100644
+--- a/docs/Reference/Reply.md
++++ b/docs/Reference/Reply.md
+@@ -728,6 +728,15 @@ fastify.get('/streams', async function (request, reply) {
+ })
+ ```
+ 
++Streams are piped to the response as they are, so the chunks they emit are
++written unchanged. Over HTTP/2, handing a very large chunk to a single write
++can stall the whole session if the client cancels the request while that data
++is still queued, affecting the other requests multiplexed on the same
++connection. When a stream is under your control, emit data in reasonably sized
++chunks (for example, the default 64 KiB `highWaterMark` of
++`fs.createReadStream`) instead of a few very large ones. Buffer and string
++payloads are chunked by Fastify itself.
++
+ #### Buffers
+ <a id="send-buffers"></a>
+ 
+diff --git a/lib/reply.js b/lib/reply.js
+index 38d2ca97..ca1ae7a4 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -61,6 +61,10 @@ const decorators = require('./decorate')
+ 
+ const toString = Object.prototype.toString
+ 
++// Payloads bigger than this are written to an HTTP/2 stream in multiple
++// chunks. See sendChunkedPayload for the rationale.
++const HTTP2_CHUNK_SIZE = 64 * 1024
++
+ function Reply (res, request, log) {
+   this.raw = res
+   this[kReplySerializer] = null
+@@ -676,12 +680,51 @@ function onSendEnd (reply, payload) {
+   }
+ 
+   safeWriteHead(reply, statusCode)
++
++  if (req.raw?.httpVersionMajor === 2 && Buffer.byteLength(payload) > HTTP2_CHUNK_SIZE) {
++    sendChunkedPayload(payload, res, reply)
++    return
++  }
++
+   // write payload first
+   res.write(payload)
+   // then send trailers
+   sendTrailer(payload, res, reply)
+ }
+ 
++// Writing a big payload to an HTTP/2 stream with a single `write` hands the
++// whole buffer over to the session at once. If the client cancels the request
++// (RST_STREAM) while that data is still queued, the session is left with data
++// it can no longer flush and stops serving the other streams multiplexed on
++// it. Writing in bounded chunks keeps the queue small and lets us stop as soon
++// as the stream goes away.
++function sendChunkedPayload (payload, res, reply) {
++  // Strings cannot be split safely by character (a slice may cut a surrogate
++  // pair and change the byte length), so we always chunk over bytes.
++  const buffer = Buffer.isBuffer(payload) ? payload : Buffer.from(payload)
++  let offset = 0
++
++  function write () {
++    while (offset < buffer.length) {
++      // the client is gone, there is no point in feeding the session
++      if (res.destroyed || res.writableEnded) return
++
++      const chunk = buffer.subarray(offset, offset + HTTP2_CHUNK_SIZE)
++      offset += chunk.length
++
++      if (res.write(chunk) === false && offset < buffer.length) {
++        res.once('drain', write)
++        return
++      }
++    }
++
++    // then send trailers
++    sendTrailer(payload, res, reply)
++  }
++
++  write()
++}
++
+ function logStreamError (logger, err, res) {
+   if (err.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+     if (!logger[kDisableRequestLogging]) {
+diff --git a/test/http2/plain.test.js b/test/http2/plain.test.js
+index 3e1d5b4c..96a2ab0e 100644
+--- a/test/http2/plain.test.js
++++ b/test/http2/plain.test.js
+@@ -1,6 +1,8 @@
+ 'use strict'
+ 
+ const { test } = require('node:test')
++const http2 = require('node:http2')
++const { once } = require('node:events')
+ const Fastify = require('../..')
+ const h2url = require('h2url')
+ const msg = { hello: 'world' }
+@@ -66,3 +68,77 @@ test('http2 plain test', async t => {
+     t.assert.strictEqual(JSON.parse(res.body).port, parseInt(host.split(':')[1]))
+   })
+ })
++
++test('http2 large payload test', async t => {
++  const fastify = Fastify({ http2: true })
++  // bigger than a single chunk, so the write is split
++  const large = Buffer.alloc(5 * 1024 * 1024, 'a')
++
++  fastify.get('/large', function (req, reply) {
++    reply.type('application/octet-stream').send(large)
++  })
++
++  fastify.get('/large-string', function (req, reply) {
++    reply.type('text/plain').send(large.toString())
++  })
++
++  fastify.get('/', function (req, reply) {
++    reply.code(200).send(msg)
++  })
++
++  t.after(() => fastify.close())
++
++  await fastify.listen({ port: 0 })
++  const url = `http://localhost:${fastify.server.address().port}`
++
++  await t.test('a large buffer is sent in full', async (t) => {
++    t.plan(3)
++
++    const client = http2.connect(url)
++    t.after(() => client.close())
++
++    const req = client.request({ ':path': '/large' })
++    const [headers] = await once(req, 'response')
++    const body = Buffer.concat(await req.toArray())
++
++    t.assert.strictEqual(headers[':status'], 200)
++    t.assert.strictEqual(headers['content-length'], '' + large.length)
++    t.assert.ok(body.equals(large))
++  })
++
++  await t.test('a large string is sent in full', async (t) => {
++    t.plan(2)
++
++    const client = http2.connect(url)
++    t.after(() => client.close())
++
++    const req = client.request({ ':path': '/large-string' })
++    const [headers] = await once(req, 'response')
++    const body = Buffer.concat(await req.toArray())
++
++    t.assert.strictEqual(headers['content-length'], '' + large.length)
++    t.assert.ok(body.equals(large))
++  })
++
++  await t.test('cancelling a large payload does not poison the session', async (t) => {
++    t.plan(2)
++
++    const client = http2.connect(url)
++    t.after(() => client.close())
++
++    // request the large payload and cancel it without reading the body, so
++    // that the server is still writing when the stream goes away
++    const cancelled = client.request({ ':path': '/large' })
++    await once(cancelled, 'response')
++    cancelled.close(http2.constants.NGHTTP2_CANCEL)
++    await once(cancelled, 'close')
++
++    // the session must still be usable
++    const req = client.request({ ':path': '/' })
++    const [headers] = await once(req, 'response')
++    const body = Buffer.concat(await req.toArray()).toString()
++
++    t.assert.strictEqual(headers[':status'], 200)
++    t.assert.deepStrictEqual(JSON.parse(body), msg)
++  })
++})

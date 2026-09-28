@@ -1,0 +1,175 @@
+diff --git a/docs/Reference/Server.md b/docs/Reference/Server.md
+index 8832ddfc..59856b7e 100644
+--- a/docs/Reference/Server.md
++++ b/docs/Reference/Server.md
+@@ -558,6 +558,22 @@ Configure the Ajv v8 instance used by Fastify without providing a custom one.
+ The default configuration is explained in the
+ [#schema-validator](./Validation-and-Serialization.md#schema-validator) section.
+ 
++This object is forwarded as-is to
++[`@fastify/ajv-compiler`](https://github.com/fastify/ajv-compiler#options),
++which accepts:
++
+++ `customOptions`: the [Ajv options](https://ajv.js.org/options.html) (or the
++  [JTD options](https://ajv.js.org/json-type-definition.html) when `mode` is
++  `'JTD'`).
+++ `plugins`: an array of [Ajv plugins](https://ajv.js.org/plugins.html) to
++  apply to the instance. A plugin must return the Ajv instance it receives.
+++ `onCreate`: a function called with the newly created Ajv instance, after the
++  options and the plugins have been applied. Use it to further customize the
++  instance, for example to add keywords, formats or schemas.
+++ `mode`: set it to `'JTD'` to compile
++  [JSON Type Definition](https://ajv.js.org/json-type-definition.html) schemas
++  instead of JSON Schema ones.
++
+ ```js
+ const fastify = require('fastify')({
+   ajv: {
+@@ -569,7 +585,10 @@ const fastify = require('fastify')({
+       [require('ajv-keywords'), 'instanceof']
+       // Usage: [plugin, pluginOptions] - Plugin with options
+       // Usage: plugin - Plugin without options
+-    ]
++    ],
++    onCreate: (ajvInstance) => {
++      ajvInstance.addFormat('myFormat', /^[a-z]+$/)
++    }
+   }
+ })
+ ```
+diff --git a/fastify.d.ts b/fastify.d.ts
+index 2f34f8b2..0cfe10aa 100644
+--- a/fastify.d.ts
++++ b/fastify.d.ts
+@@ -3,7 +3,7 @@ import * as http2 from 'node:http2'
+ import * as https from 'node:https'
+ import { Socket } from 'node:net'
+ 
+-import { Options as AjvOptions, ValidatorFactory } from '@fastify/ajv-compiler'
++import { BuildCompilerFromPool, ValidatorFactory } from '@fastify/ajv-compiler'
+ import { FastifyError } from '@fastify/error'
+ import { Options as FJSOptions, SerializerFactory } from '@fastify/fast-json-stringify-compiler'
+ import { Config as FindMyWayConfig, ConstraintStrategy, HTTPVersion } from 'find-my-way'
+@@ -103,6 +103,13 @@ declare namespace fastify {
+     querystringParser?: (str: string) => { [key: string]: unknown }
+   }
+ 
++  /**
++   * The `ajv` server option, mirrored from `@fastify/ajv-compiler` so that the
++   * accepted options (including `mode: 'JTD'`, `onCreate` and the Ajv plugin
++   * signature) always match what the compiler supports.
++   */
++  export type AjvServerOptions = NonNullable<Parameters<BuildCompilerFromPool>[1]>
++
+   /**
+    * Options for a fastify server instance. Utilizes conditional logic on the generic server parameter to enforce certain https and http2
+    */
+@@ -151,10 +158,12 @@ declare namespace fastify {
+       };
+     };
+     return503OnClosing?: boolean,
+-    ajv?: {
+-      customOptions?: AjvOptions,
+-      plugins?: (Function | [Function, unknown])[]
+-    },
++    /**
++     * Options passed to the `@fastify/ajv-compiler` instance used to build the
++     * default validator compiler. The type is mirrored from the compiler
++     * itself, since Fastify forwards this object to it untouched.
++     */
++    ajv?: AjvServerOptions,
+     frameworkErrors?: <RequestGeneric extends RequestGenericInterface = RequestGenericInterface, TypeProvider extends FastifyTypeProvider = FastifyTypeProviderDefault, SchemaCompiler extends FastifySchema = FastifySchema>(
+       error: FastifyError,
+       req: FastifyRequest<RequestGeneric, RawServer, RawRequestDefaultExpression<RawServer>, FastifySchema, TypeProvider>,
+diff --git a/fastify.js b/fastify.js
+index d02ab6dd..d922ce55 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -82,7 +82,7 @@ const { FSTWRN004 } = require('./lib/warnings.js')
+ const initChannel = diagnostics.channel('fastify.initialization')
+ 
+ /**
+- * @param {import('./fastify.js').FastifyServerOptions} options
++ * @param {import('./fastify.js').FastifyServerOptions} serverOptions
+  */
+ function fastify (serverOptions) {
+   const {
+diff --git a/package.json b/package.json
+index e6cb8f05..e534b931 100644
+--- a/package.json
++++ b/package.json
+@@ -203,7 +203,7 @@
+     "yup": "^1.4.0"
+   },
+   "dependencies": {
+-    "@fastify/ajv-compiler": "^4.0.0",
++    "@fastify/ajv-compiler": "^4.0.6",
+     "@fastify/error": "^4.0.0",
+     "@fastify/fast-json-stringify-compiler": "^5.0.0",
+     "@fastify/proxy-addr": "^5.0.0",
+diff --git a/test/types/fastify.test-d.ts b/test/types/fastify.test-d.ts
+index 17740b5b..989530ee 100644
+--- a/test/types/fastify.test-d.ts
++++ b/test/types/fastify.test-d.ts
+@@ -1,4 +1,4 @@
+-import { ErrorObject as AjvErrorObject } from 'ajv'
++import Ajv, { ErrorObject as AjvErrorObject } from 'ajv'
+ import * as http from 'node:http'
+ import * as http2 from 'node:http2'
+ import * as https from 'node:https'
+@@ -232,14 +232,54 @@ expectAssignable<FastifyInstance>(fastify({
+     customOptions: {
+       removeAdditional: 'all'
+     },
+-    plugins: [() => { }]
++    plugins: [(ajv) => ajv]
++  }
++}))
++expectAssignable<FastifyInstance>(fastify({
++  ajv: {
++    plugins: [[(ajv) => ajv, ['keyword1', 'keyword2']]]
++  }
++}))
++expectAssignable<FastifyInstance>(fastify({
++  ajv: {
++    customOptions: {
++      removeAdditional: 'all'
++    },
++    onCreate: (ajvInstance) => {
++      expectType<Ajv>(ajvInstance)
++      ajvInstance.addKeyword('x-my-keyword')
++    }
+   }
+ }))
+ expectAssignable<FastifyInstance>(fastify({
++  ajv: {
++    mode: 'JTD',
++    customOptions: {
++      // JTD options, not Ajv ones
++      allErrors: true
++    },
++    onCreate: (ajvInstance) => {
++      expectType<Ajv>(ajvInstance)
++    }
++  }
++}))
++// an ajv plugin must return the Ajv instance to comply with the ajv plugin definition
++expectError(fastify({
++  ajv: {
++    plugins: [() => { }]
++  }
++}))
++expectError(fastify({
+   ajv: {
+     plugins: [[() => { }, ['keyword1', 'keyword2']]]
+   }
+ }))
++// `mode` only accepts 'JTD'
++expectError(fastify({
++  ajv: {
++    mode: 'foo'
++  }
++}))
+ expectAssignable<FastifyInstance>(fastify({ frameworkErrors: () => { } }))
+ expectAssignable<FastifyInstance>(fastify({
+   rewriteUrl: function (req) {

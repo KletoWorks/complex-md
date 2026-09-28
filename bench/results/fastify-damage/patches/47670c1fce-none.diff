@@ -1,0 +1,65 @@
+diff --git a/fastify.js b/fastify.js
+index c47640ed..f33bbdfe 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -776,7 +776,7 @@ function fastify (serverOptions) {
+     if (!options.allowErrorHandlerOverride && this[kErrorHandlerAlreadySet]) {
+       throw new FST_ERR_ERROR_HANDLER_ALREADY_SET()
+     } else if (this[kErrorHandlerAlreadySet]) {
+-      FSTWRN004("To disable this behavior, set 'allowErrorHandlerOverride' to false or ignore this message. For more information, visit: https://fastify.dev/docs/latest/Reference/Server/#allowerrorhandleroverride")
++      FSTWRN004()
+     }
+ 
+     this[kErrorHandlerAlreadySet] = true
+diff --git a/lib/warnings.js b/lib/warnings.js
+index 1a5092e9..dbbb07f4 100644
+--- a/lib/warnings.js
++++ b/lib/warnings.js
+@@ -30,7 +30,7 @@ const FSTWRN003 = createWarning({
+ const FSTWRN004 = createWarning({
+   name: 'FastifyWarning',
+   code: 'FSTWRN004',
+-  message: 'It seems that you are overriding an errorHandler in the same scope, which can lead to subtle bugs.',
++  message: 'It seems that you are overriding an errorHandler in the same scope, which can lead to subtle bugs. To disable this behavior, set \'allowErrorHandlerOverride\' to false or ignore this message. For more information, visit: https://fastify.dev/docs/latest/Reference/Server/#allowerrorhandleroverride',
+   unlimited: true
+ })
+ 
+diff --git a/test/set-error-handler.test.js b/test/set-error-handler.test.js
+index 9fbe9b27..e3f61b8f 100644
+--- a/test/set-error-handler.test.js
++++ b/test/set-error-handler.test.js
+@@ -3,6 +3,7 @@
+ const { test } = require('node:test')
+ const Fastify = require('..')
+ const { FST_ERR_ERROR_HANDLER_NOT_FN, FST_ERR_ERROR_HANDLER_ALREADY_SET } = require('../lib/errors')
++const { FSTWRN004 } = require('../lib/warnings')
+ 
+ test('setErrorHandler should throw an error if the handler is not a function', t => {
+   t.plan(1)
+@@ -67,3 +68,26 @@ test('if `allowErrorHandlerOverride` is disabled, setErrorHandler should throw i
+ 
+   await fastify.ready()
+ })
++
++test('setErrorHandler should emit FSTWRN004 with the hint if called more than once in the same scope', (t, testDone) => {
++  t.plan(4)
++
++  const fastify = Fastify()
++
++  process.on('warning', onWarning)
++  function onWarning (warning) {
++    t.assert.strictEqual(warning.name, 'FastifyWarning')
++    t.assert.strictEqual(warning.code, FSTWRN004.code)
++    t.assert.ok(warning.message.includes("set 'allowErrorHandlerOverride' to false"))
++    t.assert.ok(warning.message.includes('https://fastify.dev/docs/latest/Reference/Server/#allowerrorhandleroverride'))
++    testDone()
++  }
++
++  t.after(() => {
++    process.removeListener('warning', onWarning)
++    FSTWRN004.emitted = false
++  })
++
++  fastify.setErrorHandler(() => {})
++  fastify.setErrorHandler(() => {})
++})

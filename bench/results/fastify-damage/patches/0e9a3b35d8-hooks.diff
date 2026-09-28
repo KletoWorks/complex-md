@@ -1,0 +1,211 @@
+diff --git a/docs/Reference/Server.md b/docs/Reference/Server.md
+index 4d04d5d6..da351e11 100644
+--- a/docs/Reference/Server.md
++++ b/docs/Reference/Server.md
+@@ -1725,8 +1725,23 @@ fastify.mkcol('/', (req, reply) => {
+ })
+ ```
+ 
++`addHttpMethod` can also redefine the body support of a method that is already
++supported, including the standard ones. Since this changes how every route
++registered for that method is handled, Fastify emits the
++[`FSTWRN005`](./Warnings.md#FSTWRN005) warning unless the `override` option
++is set to `true`:
++
++```js
++// Emits FSTWRN005: GET is supported without a body by default
++fastify.addHttpMethod('GET', { hasBody: true })
++
++// Intentional override, no warning
++fastify.addHttpMethod('GET', { hasBody: true, override: true })
++```
++
+ > ⚠ Warning:
+-> `addHttpMethod` overrides existing methods.
++> Overriding a standard HTTP method may break the expectations of clients,
++> proxies and plugins. Prefer adding a non standard method instead.
+ 
+ #### addSchema
+ <a id="add-schema"></a>
+diff --git a/docs/Reference/Warnings.md b/docs/Reference/Warnings.md
+index 2f55900d..19fe101f 100644
+--- a/docs/Reference/Warnings.md
++++ b/docs/Reference/Warnings.md
+@@ -8,6 +8,7 @@
+     - [FSTWRN001](#FSTWRN001)
+     - [FSTWRN003](#FSTWRN003)
+     - [FSTWRN004](#FSTWRN004)
++    - [FSTWRN005](#FSTWRN005)
+   - [Fastify Deprecation Codes](#fastify-deprecation-codes)
+     - [FSTDEP022](#FSTDEP022)
+     - [FSTDEP023](#FSTDEP023)
+@@ -46,6 +47,7 @@ Disabling warnings is not recommended and may cause unexpected behavior.
+ | <a id="FSTWRN001">FSTWRN001</a> | The specified schema for a route is missing. This may indicate the schema is not well specified. | Check the schema for the route. | [#4647](https://github.com/fastify/fastify/pull/4647) |
+ | <a id="FSTWRN003">FSTWRN003</a> | The `%s` plugin mixes async and callback styles, which may lead to unhandled rejections. | Do not mix async and callback style. | [#6011](https://github.com/fastify/fastify/pull/6011) |
+ | <a id="FSTWRN004">FSTWRN004</a> | An `errorHandler` is being overridden in the same scope, which can lead to subtle bugs. | Avoid calling `setErrorHandler` more than once in the same scope. For more information, see [Server documentation](https://fastify.dev/docs/latest/Reference/Server/#allowerrorhandleroverride). | [#6104](https://github.com/fastify/fastify/pull/6104) |
++| <a id="FSTWRN005">FSTWRN005</a> | `addHttpMethod` is changing the body support of an HTTP method that is already supported, which can lead to subtle bugs. | Only call `addHttpMethod` for methods Fastify does not support yet, or pass `override: true` when the change is intentional. For more information, see [Server documentation](https://fastify.dev/docs/latest/Reference/Server/#addHttpMethod). | [#6353](https://github.com/fastify/fastify/issues/6353) |
+ 
+ 
+ ### Fastify Deprecation Codes
+diff --git a/fastify.js b/fastify.js
+index 2005da39..ed1b3570 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -80,7 +80,7 @@ const {
+ } = errorCodes
+ 
+ const { buildErrorHandler } = require('./lib/error-handler.js')
+-const { FSTWRN004, FSTDEP023, FSTDEP024 } = require('./lib/warnings.js')
++const { FSTWRN004, FSTWRN005, FSTDEP023, FSTDEP024 } = require('./lib/warnings.js')
+ 
+ const initChannel = diagnostics.channel('fastify.initialization')
+ 
+@@ -823,11 +823,20 @@ function fastify (serverOptions) {
+     return this
+   }
+ 
+-  function addHttpMethod (method, { hasBody = false } = {}) {
++  function addHttpMethod (method, { hasBody = false, override = false } = {}) {
+     if (typeof method !== 'string' || http.METHODS.indexOf(method) === -1) {
+       throw new FST_ERR_ROUTE_METHOD_INVALID()
+     }
+ 
++    const isBodywith = this[kSupportedHTTPMethods].bodywith.has(method)
++    const isSupported = isBodywith || this[kSupportedHTTPMethods].bodyless.has(method)
++    // Redefining the body support of an already supported method silently
++    // changes how every route registered for it is handled, so it has to be
++    // opted into explicitly.
++    if (override !== true && isSupported && isBodywith !== (hasBody === true)) {
++      FSTWRN005(method)
++    }
++
+     if (hasBody === true) {
+       this[kSupportedHTTPMethods].bodywith.add(method)
+       this[kSupportedHTTPMethods].bodyless.delete(method)
+diff --git a/lib/warnings.js b/lib/warnings.js
+index 65eb2b68..8c3a2aee 100644
+--- a/lib/warnings.js
++++ b/lib/warnings.js
+@@ -36,6 +36,13 @@ const FSTWRN004 = createWarning({
+   unlimited: true
+ })
+ 
++const FSTWRN005 = createWarning({
++  name: 'FastifyWarning',
++  code: 'FSTWRN005',
++  message: 'It seems that you are changing the body support of the %s HTTP method, which is already supported by Fastify and can lead to subtle bugs. To do it intentionally, set the \'override\' option to true. For more information, visit: https://fastify.dev/docs/latest/Reference/Server/#addHttpMethod',
++  unlimited: true
++})
++
+ const FSTSEC001 = createWarning({
+   name: 'FastifySecurity',
+   code: 'FSTSEC001',
+@@ -68,6 +75,7 @@ module.exports = {
+   FSTWRN001,
+   FSTWRN003,
+   FSTWRN004,
++  FSTWRN005,
+   FSTSEC001,
+   FSTDEP022,
+   FSTDEP023,
+diff --git a/test/http-methods/custom-http-methods.test.js b/test/http-methods/custom-http-methods.test.js
+index 61feed4e..6b17369a 100644
+--- a/test/http-methods/custom-http-methods.test.js
++++ b/test/http-methods/custom-http-methods.test.js
+@@ -112,3 +112,67 @@ test('addHttpMethod rejects fake http method', t => {
+   const fastify = Fastify()
+   t.assert.throws(() => { fastify.addHttpMethod('FOOO') }, /Provided method is invalid!/)
+ })
++
++async function collectWarnings (fn) {
++  const warnings = []
++  const listener = (w) => { warnings.push(w) }
++  process.on('warning', listener)
++  fn()
++  // warnings are emitted asynchronously
++  await new Promise(resolve => setImmediate(resolve))
++  process.removeListener('warning', listener)
++  return warnings
++}
++
++test('addHttpMethod warns when overriding the body support of a supported method', async t => {
++  t.plan(3)
++  const app = Fastify()
++
++  const warnings = await collectWarnings(() => { app.addHttpMethod('GET', { hasBody: true }) })
++
++  const warning = warnings.find(w => w.code === 'FSTWRN005')
++  t.assert.ok(warning, 'FSTWRN005 has been emitted')
++  t.assert.match(warning.message, /GET/)
++
++  // the override still takes place
++  addEcho(app, 'GET')
++  const response = await app.inject({ method: 'GET', url: '/', payload: { hello: 'world' } })
++  t.assert.deepStrictEqual(response.json(), { hello: 'world' })
++})
++
++test('addHttpMethod does not warn when the body support is unchanged', async t => {
++  t.plan(3)
++  const app = Fastify()
++
++  const warnings = await collectWarnings(() => {
++    // already supported with the same body support
++    app.addHttpMethod('TRACE')
++    app.addHttpMethod('POST', { hasBody: true })
++    // not supported by default
++    app.addHttpMethod('REBIND', { hasBody: true })
++  })
++
++  t.assert.deepStrictEqual(warnings.filter(w => w.code === 'FSTWRN005'), [])
++  t.assert.ok(app.supportedMethods.includes('REBIND'))
++  t.assert.ok(app.supportedMethods.includes('TRACE'))
++})
++
++test('addHttpMethod does not warn when the override is explicit', async t => {
++  t.plan(2)
++  const app = Fastify()
++
++  const warnings = await collectWarnings(() => {
++    app.addHttpMethod('GET', { hasBody: true, override: true })
++  })
++
++  t.assert.deepStrictEqual(warnings.filter(w => w.code === 'FSTWRN005'), [])
++
++  app.route({
++    method: 'GET',
++    url: '/',
++    handler: (req, reply) => { reply.send(req.body) }
++  })
++
++  const response = await app.inject({ method: 'GET', url: '/', payload: { hello: 'world' } })
++  t.assert.deepStrictEqual(response.json(), { hello: 'world' })
++})
+diff --git a/test/types/instance.tst.ts b/test/types/instance.tst.ts
+index af00b8a8..8607061b 100644
+--- a/test/types/instance.tst.ts
++++ b/test/types/instance.tst.ts
+@@ -215,6 +215,7 @@ function invalidSchemaErrorFormatter (err: Error) {
+ server.setSchemaErrorFormatter(invalidSchemaErrorFormatter)
+ 
+ expect(server.addHttpMethod('SEARCH', { hasBody: true })).type.toBe<FastifyInstance>()
++expect(server.addHttpMethod('GET', { hasBody: true, override: true })).type.toBe<FastifyInstance>()
+ 
+ // test listen opts objects
+ const options: FastifyListenOptions = {}
+diff --git a/types/instance.d.ts b/types/instance.d.ts
+index f126a5b7..a1459da2 100644
+--- a/types/instance.d.ts
++++ b/types/instance.d.ts
+@@ -662,8 +662,11 @@ export interface FastifyInstance<
+    *
+    * Methods defined by default include `GET`, `HEAD`, `TRACE`, `DELETE`,
+    * `OPTIONS`, `PATCH`, `PUT` and `POST`
++   *
++   * Changing the body support of an already supported method emits the
++   * `FSTWRN005` warning unless `override` is set to `true`
+    */
+-  addHttpMethod(method: string, methodOptions?: { hasBody: boolean }): FastifyInstance<RawServer, RawRequest, RawReply,
++  addHttpMethod(method: string, methodOptions?: { hasBody?: boolean, override?: boolean }): FastifyInstance<RawServer, RawRequest, RawReply,
+     Logger, TypeProvider>;
+   /**
+    * Fastify default JSON parser

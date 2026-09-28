@@ -1,0 +1,18 @@
+diff --git a/fastify.js b/fastify.js
+index d23e03f0..7970f316 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -681,7 +681,12 @@ function fastify (options) {
+       this[kHooks].add(name, fn)
+     } else {
+       this.after((err, done) => {
+-        _addHook.call(this, name, fn)
++        try {
++          _addHook.call(this, name, fn)
++        } catch (error) {
++          done(error)
++          return
++        }
+         done(err)
+       })
+     }
