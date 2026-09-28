@@ -21,6 +21,7 @@
 // evaluated at all. --no-suite skips the regression suite.
 // Runs are appended to <out>/runs.jsonl and skipped when already present, so it resumes.
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync, symlinkSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -46,8 +47,15 @@ const model = opt('--model', null);
 const range = opt('--tasks', `0-${dataset.tasks.length - 1}`).split('-').map(Number);
 const tasks = dataset.tasks.slice(range[0], (range[1] ?? range[0]) + 1);
 const workRoot = opt('--work', '/tmp/cxbench');
+/* --skill <file>: the integration block the agent reads, in place of
+   prompts/integration.md. The text a skill optimizer trains is this one.
+   --cache <dir>: where maps and suite baselines live; defaults to the out
+   dir, and is shared when many small out dirs judge the same tasks. */
+const skillText = opt('--skill', null) ? readFileSync(opt('--skill'), 'utf8') : null;
+const cacheDir = opt('--cache', outDir);
 const suiteOn = stopAt === 'none' && !flag('--no-suite') && agent !== 'mock';
-for (const d of ['maps', 'transcripts', 'patches', 'baseline']) mkdirSync(join(outDir, d), { recursive: true });
+for (const d of ['transcripts', 'patches']) mkdirSync(join(outDir, d), { recursive: true });
+for (const d of ['maps', 'baseline']) mkdirSync(join(cacheDir, d), { recursive: true });
 const runsPath = join(outDir, 'runs.jsonl');
 const done = new Set(existsSync(runsPath) ? readFileSync(runsPath, 'utf8').split('\n').filter(Boolean).map((l) => { const r = JSON.parse(l); return `${r.task}/${r.arm}`; }) : []);
 
@@ -61,7 +69,7 @@ const log = (s) => process.stderr.write(`${new Date().toISOString().slice(11, 19
 /** COMPLEX.md as of the task's base commit. One map per calendar month of base dates: maps are regenerated periodically, not per commit. */
 async function mapFor(task, wt) {
   const key = `${(dataset.repo || 'repo').replace('/', '-')}-${task.date.slice(0, 7)}.md`;
-  const cached = join(outDir, 'maps', key);
+  const cached = join(cacheDir, 'maps', key);
   if (existsSync(cached)) return readFileSync(cached, 'utf8');
   log(`generating map for ${task.date.slice(0, 7)} at ${task.base.slice(0, 10)}`);
   const sig = computeSignals(wt);
@@ -102,7 +110,7 @@ function prepareWorktree(task, arm) {
    from the computed signals, not the generated prose, so it is identical
    for the `none` arm and costs no model call. */
 async function baselineFor(task, wt) {
-  const cached = join(outDir, 'baseline', `${task.base.slice(0, 12)}.json`);
+  const cached = join(cacheDir, 'baseline', `${task.base.slice(0, 12)}.json`);
   if (existsSync(cached)) return JSON.parse(readFileSync(cached, 'utf8'));
   const sig = computeSignals(wt);
   const risky = {
@@ -139,7 +147,7 @@ async function armSetup(task, arm, wt) {
   if (arm === 'none') return;
   const full = await mapFor(task, wt);
   writeFileSync(join(wt, 'COMPLEX.md'), arm === 'front' ? frontMatterOnly(full) : full);
-  wire(wt, { agents: ['claude'], hooks: arm === 'hooks' || arm === 'mcp', mcp: arm === 'mcp' });
+  wire(wt, { agents: ['claude'], hooks: arm === 'hooks' || arm === 'mcp', mcp: arm === 'mcp', block: skillText });
   // The package is not on npm yet: hooks and MCP call this checkout's binary.
   for (const f of ['.claude/settings.json', '.mcp.json']) {
     const p = join(wt, f);
@@ -339,7 +347,7 @@ for (const task of tasks) {
       const damage = suiteOn && baseline && !m.error ? await runDamage(task, wt, baseline) : null;
       const success = stopAt === 'none' ? runGoldTests(task, wt) : null;
       const conduct = baseline ? behaviour(edited, m, baseline.risky) : null;
-      const rec = { task: task.id, arm, agent, model, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
+      const rec = { task: task.id, arm, agent, model, skill: skillText ? createHash('sha1').update(skillText).digest('hex').slice(0, 10) : null, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
       appendFileSync(runsPath, JSON.stringify(rec) + '\n');
       log(`  steps ${m.steps}, first gold read at ${m.first_gold_read ?? '-'}, gold edited ${rec.gold_edited}, success ${rec.success ?? '-'}, regressions ${rec.regressed_tests ?? '-'}, tests run by agent ${m.agent_test_runs}, $${m.cost_usd?.toFixed(3) ?? '?'}${m.gate_fired ? `, gate x${m.gate_fired}` : ''}${m.error ? `, error: ${m.error}` : ''}`);
     } finally {

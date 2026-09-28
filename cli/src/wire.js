@@ -57,12 +57,15 @@ the section below; complex-md appends to this file rather than rewriting it.
    by construction and the agent takes the offer. The server stays available
    for anyone who measures it earning its calls on their own repository; it is
    no longer installed on the strength of an assumption. */
-export function wire(root, { hooks = true, mcp = false, rules = true, agents = null, log = () => {} } = {}) {
+/* `block` replaces the integration text for this call only: the benchmark
+   uses it to try candidate wordings against the same map. The heading is
+   kept so a second wire() still recognises the block as present. */
+export function wire(root, { hooks = true, mcp = false, rules = true, agents = null, block: blockText = null, log = () => {} } = {}) {
   const map = loadComplexMd(root);
   if (!map) throw new Error('No COMPLEX.md at the repository root; generate it first.');
   for (const name of agents || []) if (!TARGETS[name]) throw new Error(`unknown wiring target "${name}"; one of: ${TARGET_NAMES.join(', ')}`);
   const inv = invocation(root);
-  const block = integrationBlock();
+  const block = blockText ? (blockText.includes(BLOCK_HEADING) ? blockText.trim() + '\n' : `${BLOCK_HEADING}\n\n${blockText.trim()}\n`) : integrationBlock();
   /* Coerced rather than trusted. A hand written map can put anything in these
      keys, and wiring crashing on a malformed map helps nobody: the worst
      acceptable outcome is fewer paths, never a stack trace. */

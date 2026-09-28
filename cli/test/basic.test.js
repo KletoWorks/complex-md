@@ -344,3 +344,17 @@ test('an all digit commit sha in the front matter stays a string', () => {
   assert.equal(typeof m.front.commit, 'string');
   assert.equal(m.front.commit, '1234567');
 });
+
+test('wire takes a replacement integration block and keeps the heading that marks it', async () => {
+  const { wire } = await import('../src/wire.js');
+  const { readFileSync } = await import('node:fs');
+  const dir = makeRepo();
+  const s = computeSignals(dir);
+  writeFileSync(join(dir, 'COMPLEX.md'), frontMatter(s, 'test') + '\n## Where the risk lives\n\nx\n\n## Why these files are hot\n\nsrc/a.js is hot. Before editing this file, run test/a.test.js.\n\n## Change coupling\n\nx\n\n## What to read first\n\n1. src/a.js\n');
+  wire(dir, { agents: ['claude'], block: 'Read COMPLEX.md before any edit to a listed file.' });
+  const agents = readFileSync(join(dir, 'AGENTS.md'), 'utf8');
+  assert.match(agents, /## COMPLEX\.md: the structural risk map\n\nRead COMPLEX\.md before any edit/);
+  assert.doesNotMatch(agents, /past fixes predict where the next one lands/, 'the default text is not there');
+  const second = wire(dir, { agents: ['claude'], block: 'Read COMPLEX.md before any edit to a listed file.' });
+  assert.deepEqual(second.primary, [], 'the heading makes the block recognisable on a second run');
+});
