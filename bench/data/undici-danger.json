@@ -1,0 +1,679 @@
+{
+  "repo": "nodejs/undici",
+  "path": "/tmp/undici",
+  "created": "2026-09-28",
+  "months": 18,
+  "tasks": [
+    {
+      "id": "cb75bbb342",
+      "repo": "nodejs/undici",
+      "base": "6d583124e7cf60b640097d64144ed633cc450584",
+      "fix": "cb75bbb34224a968b4ad80cab8b7aba5e0b3b28a",
+      "date": "2026-09-04",
+      "title": "fix(cache): do not cache Set-Cookie in shared caches",
+      "text": "Prevent the shared cache interceptor from storing or re-serving responses containing Set-Cookie, including existing cache entries and synchronous or background revalidation paths, so cookies from one request are not disclosed to later callers while preserving private-cache behavior.\n\nFixes: GHSA-2jfj-6hjv-fm6j\nCVE: CVE-2026-84933\nSigned-off-by: Matteo Collina <hello@matteocollina.com>",
+      "source": "commit",
+      "gold": [
+        "lib/handler/cache-handler.js",
+        "lib/interceptor/cache.js"
+      ],
+      "tests": [
+        "test/interceptors/cache.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/handler/cache-handler.js",
+        "lib/interceptor/cache.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "2be07bf97b",
+      "repo": "nodejs/undici",
+      "base": "caf6194d3dae989b731ed87ab85f182befe5eb80",
+      "fix": "2be07bf97b3022e0324142d31f99f6e019d815e3",
+      "date": "2026-09-04",
+      "title": "fix(cache): reject unsafe method response caching",
+      "text": "Restrict cache reads and writes to safe HTTP methods while preserving successful unsafe-method invalidation. This prevents responses to methods such as POST or DELETE from being stored and replayed.\n\nFixes: GHSA-8436-99hf-9mmv\nCVE: CVE-2026-85008\nSigned-off-by: Matteo Collina <hello@matteocollina.com>\n(cherry picked from commit c655ee00ef5cb3272a46000be8b37c9ec8b295c5)",
+      "source": "commit",
+      "gold": [
+        "lib/handler/cache-handler.js",
+        "lib/interceptor/cache.js"
+      ],
+      "tests": [
+        "test/interceptors/cache.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/handler/cache-handler.js",
+        "lib/interceptor/cache.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "b96a11620e",
+      "repo": "nodejs/undici",
+      "base": "a18ef2d05af48047339be51d8817492abc30f39d",
+      "fix": "b96a11620e2f9fe5adafa2ba7b7f363b96b5a9d7",
+      "date": "2026-08-01",
+      "title": "fix(interceptors): cache() and deduplicate() silently inert on Client/Pool without opts.origin",
+      "text": "## Problem\n\nWhen `cache()` or `deduplicate()` interceptors are composed onto a `Client` or `Pool` directly (not via `Agent`), `opts.origin` is not set. Both interceptors use `opts.origin` as the cache/dedup key without fallback — silently falling back to an empty string, making all requests share a single broken key and effectively disabling the interceptors.\n\n## Fix\n\nAdded `getEffectiveOrigin()` helper in `lib/util/cache.js` that derives origin from `opts.origin` or falls back to reconstructing it from `opts.path`. Both `cache.js` and `deduplicate.js` use this helper.\n\n## Tests\n\nAdded `test/interceptors/interceptors-on-client.js` — 4 tests, all pass.\n\n> Split from #5626 as requested by @mcollina.",
+      "source": "pr",
+      "gold": [
+        "lib/interceptor/cache.js",
+        "lib/interceptor/deduplicate.js",
+        "lib/util/cache.js"
+      ],
+      "tests": [
+        "test/interceptors/interceptors-on-client.js"
+      ],
+      "names_gold": true,
+      "risky_gold": [
+        "lib/interceptor/cache.js",
+        "lib/util/cache.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "313f4e0168",
+      "repo": "nodejs/undici",
+      "base": "2f66db7322f4eefa3a014ec990becde802f08436",
+      "fix": "313f4e01689993cdb9a90a2d501d721885a80347",
+      "date": "2026-06-05",
+      "title": "MaxListenersExceededWarning when using signal",
+      "text": "## Bug Description\n\nWhen a signal is passed to `fecth`, an `abort` event is listened for.\n\nHowever, when requesting a result, there is no overflow listener for the `abort` event. This means that if the same signal is used for multiple requests, there is a risk of signal leakage, and Node.js continuously outputs warnings.\n\n```\n(node:14604) MaxListenersExceededWarning: Possible EventTarget memory leak detected. 9053 abort listeners added to [AbortSignal]. Use events.setMaxListeners() to increase limit\n```\n\n## Reproducible By\n\n```js\n        const response = await fetch(requestUrl, {\n            method,\n            headers: requestHeaders,\n            dispatcher: downloadAgent,\n            signal\n        })\n```\n\n## Expected Behavior\n\nThe abort event listener should be canceled when the request ends.\n\n## Logs & Screenshots\n\n\n\n## Environment\n\n\n\n### Additional context",
+      "source": "issue",
+      "gold": [
+        "lib/web/fetch/index.js",
+        "lib/web/fetch/request.js"
+      ],
+      "tests": [
+        "test/fetch/issue-5285.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/web/fetch/index.js",
+        "lib/web/fetch/request.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "c8d50b4a82",
+      "repo": "nodejs/undici",
+      "base": "a1d6766adef90b87de59f4e0eebc169138f6c935",
+      "fix": "c8d50b4a820002f7f47795e5c6b5606ad82bdde7",
+      "date": "2026-04-19",
+      "title": "fix: reject malformed content-length request headers",
+      "text": "## This relates to...\r\n\r\nFixes: https://github.com/nodejs/undici/issues/5059\r\n\r\n## Rationale\r\n\r\n`content-length` was being validated too loosely because malformed values could be partially normalized before later request-body length checks.\r\n\r\nThis change makes the header validation stricter so only digit-only values are accepted during request parsing.\r\n\r\n## Changes\r\n\r\n- Reject non-string, empty, fractional, signed, and partially numeric `content-length` values before parsing them.\r\n- Preserve existing behavior for valid decimal integer `content-length` values.\r\n\r\n### Features\r\n\r\nN/A\r\n\r\n### Bug Fixes\r\n\r\nRequest `content-length` malformed values are rejected with `InvalidArgumentError('invalid content-length header')` instead of being normalized or deferred into a later mismatch error.\r\n\r\n### Breaking Changes and Deprecations\r\n\r\nRequests that previously accepted malformed `content-length` values will now fail immediately during header validation.\r\n\r\n## Status\r\r\r\r\r\r\r\r\n\r\n[cert]: https://github.com/nodejs/undici/blob/main/CONTRIBUTING.md#developers-certificate-of-origin",
+      "source": "pr",
+      "gold": [
+        "lib/core/request.js",
+        "lib/web/fetch/index.js"
+      ],
+      "tests": [
+        "test/fetch/content-length.js",
+        "test/invalid-headers.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/core/request.js",
+        "lib/web/fetch/index.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "4f4bf4f1a6",
+      "repo": "nodejs/undici",
+      "base": "ce45abf7e7e3f0dbdc77d04ec5320feb7f4b6d1c",
+      "fix": "4f4bf4f1a6e985e7144be5b142c84e9a4823e3de",
+      "date": "2026-04-07",
+      "title": "fetch() throws network error on POST 401 responses when body source is null",
+      "text": "## Bug Description\n\n`fetch()` throws `TypeError: fetch failed` for **POST requests** that receive a **401 response** when the request body is a `ReadableStream` (i.e. `body.source` is `null`). GET requests with 401 responses work correctly since #4769.\n\nThis is a remaining edge case from the `isTraversableNavigable` / 401 retry logic introduced in #4747 and partially fixed by #4761 and #4769.\n\n### Root Cause\n\nIn [`httpNetworkOrCacheFetch`](https://github.com/nodejs/undici/blob/v7.24.4/lib/web/fetch/index.js#L1647-L1697), the 401 handler block has an early return for POST requests that fires **before** the `return response` fix from #4769:\n\n```javascript\n// Step 13 (L1647)\nif (response.status === 401 && ... && isTraversableNavigable(...)) {\n  // Step 13.2: body check\n  if (request.body != null) {                     // POST → true\n    if (request.body.source == null) {            // ReadableStream → source is null\n      return makeNetworkError('expected non-null body source')  // ← throws here\n    }\n  }\n\n  // ...\n\n  if (request.useURLCredentials === undefined || isAuthenticationFetch) {\n    // ...\n    return response  // ← #4769 fix (never reached for POST with ReadableStream body)\n  }\n}\n```\n\nThe flow:\n1. `isTraversableNavigable()` returns `true` (the TODO stub) → enters the block\n2. POST has a body → `request.body != null` is `true`\n3. When body was constructed from a `ReadableStream` (e.g. `new Request(url, { body: stream, method: 'POST', duplex: 'half' })`), `body.source` is `null`\n4. Returns `makeNetworkError('expected non-null body source')` → `TypeError: fetch failed`\n5. The `return response` fix from #4769 at the bottom of the block is **never reached**\n\n### Why GET 401 works\n\nGET requests have no body, so `request.body != null` is `false`, skipping the body check entirely and reaching the `return response` fix from #4769.\n\n## Reproducible Example\n\n```javascript\nimport { createServer } from 'node:http';\nimport { once } from 'node:events';\n\nconst server = createServer((req, res) => {\n  res.writeHead(401, { 'Content-Type': 'application/json' });\n  res.end(JSON.stringify({ error: 'unauthorized' }));\n});\n\nserver.listen(0);\nawait once(server, 'listening');\n\nconst url = `http://localhost:${server.address().port}`;\n\n// ✅ GET 401 — works correctly (fixed by #4769)\nconst getRes = await fetch(url);\nconsole.log('GET status:', getRes.status); // 401\n\n// ❌ POST 401 — throws TypeError: fetch failed\ntry {\n  const postRes = await fetch(url, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({ data: 'test' }),\n  });\n  console.log('POST status:', postRes.status);\n} catch (e) {\n  console.error('POST threw:', e.message); // \"fetch failed\"\n}\n\nserver.close();\n```\n\n## Suggested Fix\n\nTwo possible approaches:\n\n### Option A: Return response early for null body source (minimal, consistent with #4769)\n\n```diff\n  if (request.body != null) {\n    if (request.body.source == null) {\n-     return makeNetworkError('expected non-null body source')\n+     return response\n    }\n```\n\n### Option B: Make `isTraversableNavigable` return `false` (addresses the root cause)\n\n```diff\n  function isTraversableNavigable (navigable) {\n-   // TODO\n-   return true\n+   return false\n  }\n```\n\nOption B prevents entering the entire 401 retry block, which makes sense since Node.js has no traversable navigable that can prompt users for credentials. This was the approach originally proposed in #4756 by @killagu.\n\n## Impact\n\nThis affects any Node.js application using `fetch()` for HTTP APIs that return 401 on POST requests — a very common pattern for authentication endpoints. The workaround is to patch `isTraversableNavigable` to return `false`, but a proper fix in undici would be preferable.\n\nReal-world reproduction: Cloudflare Workers local dev via `@cloudflare/vite-plugin` + miniflare (which uses undici internally). Any POST endpoint returning 401 crashes the dev server.\n\n## Related\n\n- #4747 — PR that introduced `isTraversableNavigable` returning `true`\n- #4756 — @killagu's original fix proposal (`isTraversableNavigable → false`), closed in favor of #4761\n- #4761 — @KhafraDev's fix for the infinite loop (added `return makeNetworkError()`)\n- #4769 — @KhafraDev's follow-up fix (changed to `return response`), fixed GET 401 but missed POST\n- #4767 — @xconverge's report that 401 responses always throw\n\n## Environment\n\n- undici: 7.24.4 (also reproduced on 7.24.5)\n- Node.js: v24.13.1\n- OS: macOS (Darwin 25.3.0)",
+      "source": "issue",
+      "gold": [
+        "lib/web/fetch/index.js",
+        "lib/web/fetch/util.js"
+      ],
+      "tests": [
+        "test/fetch/401-statuscode-no-infinite-loop.js"
+      ],
+      "names_gold": true,
+      "risky_gold": [
+        "lib/web/fetch/index.js",
+        "lib/web/fetch/util.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "fe7aa836ef",
+      "repo": "nodejs/undici",
+      "base": "0daba937990d92f670b858216e4715ec9f92da44",
+      "fix": "fe7aa836ef0140c6301ea62cd8fb15b4ce6a7c4a",
+      "date": "2025-04-23",
+      "title": "Cache interceptor does not process capitalized `Cache-Control` header in request",
+      "text": "## Bug Description\r\n\r\nCache interceptor does not process `Cache-Control: no-store` request header if header name is capitalized.\r\n\r\nIn code we can see that you look for lowercased header name only.\r\n\r\nYou should convert header names to lowercase before search for `cache-control`;\r\n\r\n## Reproducible By\r\n\r\nPlease. see above.\r\n\r\n## Expected Behavior\r\n\r\nPlease. see above.\r\n\r\n## Logs & Screenshots\r\n\r\n\r\n\r\n## Environment\r\n\r\n\r\nundici v7\r\n\r\n### Additional context",
+      "source": "issue",
+      "gold": [
+        "lib/interceptor/cache.js",
+        "lib/util/cache.js"
+      ],
+      "tests": [
+        "test/issue-3904.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/interceptor/cache.js",
+        "lib/util/cache.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "f3cbe48670",
+      "repo": "nodejs/undici",
+      "base": "1d4ea0a883bf33275d00c4db55377892180b2747",
+      "fix": "f3cbe486706da6163b4ca226022e74df73168dd5",
+      "date": "2026-09-23",
+      "title": "fix websocketstream bugs",
+      "text": "main (websocket wpts):\r\n```\r\nTotal Test Files: 522\r\n✅ Passing: 1255\r\n❌ Failing: 354\r\n```\r\n\r\nhere (websocket wpts):\r\n```\r\n✅ Passing: 1467\r\n❌ Failing: 102\r\n```\r\n\r\nmost of this was fixing h2 websockets... if only the CI was green",
+      "source": "pr",
+      "gold": [
+        "lib/web/websocket/connection.js",
+        "lib/web/websocket/stream/websocketstream.js"
+      ],
+      "tests": [
+        "test/web-platform-tests/expectation.json",
+        "test/web-platform-tests/runner/certs/cacert.key",
+        "test/web-platform-tests/runner/certs/cacert.pem",
+        "test/web-platform-tests/runner/certs/web-platform.test.key",
+        "test/web-platform-tests/runner/certs/web-platform.test.pem",
+        "test/web-platform-tests/runner/config.json",
+        "test/web-platform-tests/wpt-runner.mjs",
+        "test/websocket/stream/abort-before-open.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/web/websocket/connection.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "9196a012a0",
+      "repo": "nodejs/undici",
+      "base": "7ce2cc15bc9e59baf48362cdf2af1415937d2258",
+      "fix": "9196a012a08b6f5573a50ea49a618d63e13c165e",
+      "date": "2026-09-21",
+      "title": "fix(retry): settle responses after connection close",
+      "text": "Ensure retry responses that finish while their controller is paused are retained until the retry policy completes. This lets retries advance after a peer closes the connection and preserves the final response body when retries are exhausted.\n\nAdds concurrent coverage for connection-closing retry responses.",
+      "source": "pr",
+      "gold": [
+        "lib/handler/retry-handler.js"
+      ],
+      "tests": [
+        "test/interceptors/retry.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/handler/retry-handler.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "7ce2cc15bc",
+      "repo": "nodejs/undici",
+      "base": "164a354dbc3901e63451dc59e5b9c5461011f323",
+      "fix": "7ce2cc15bc9e59baf48362cdf2af1415937d2258",
+      "date": "2026-09-21",
+      "title": "fix cache.addAll and cache.add hanging",
+      "text": "Fixes https://github.com/nodejs/undici/issues/5615\r\n\r\n\r\n\r\n## This relates to...\r\n\r\n\r\n\r\n## Rationale\r\n\r\n\r\n\r\n## Changes\r\n\r\n\r\n\r\n### Features\r\n\r\n\r\n\r\n### Bug Fixes\r\n\r\n\r\n\r\n### Breaking Changes and Deprecations\r\n\r\n\r\n\r\n## Status\r\r\r\r\r\r\r\r\n\r\n[cert]: https://github.com/nodejs/undici/blob/main/CONTRIBUTING.md#developers-certificate-of-origin",
+      "source": "pr",
+      "gold": [
+        "lib/web/cache/cache.js",
+        "lib/web/fetch/index.js"
+      ],
+      "tests": [
+        "test/cache/issue-5615.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/web/fetch/index.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "bfea02017e",
+      "repo": "nodejs/undici",
+      "base": "19901d8b73cb46a48e817dab4afce790f37fd2c1",
+      "fix": "bfea02017eca586787a62194d11cb81226a6ecc3",
+      "date": "2026-09-16",
+      "title": "fix(h2): validate h2Options.maxConcurrentStreams itself",
+      "text": "## This relates to...\r\n\r\nRegression from #5498. Supersedes the `maxConcurrentStreams` half of #5608.\r\n\r\n## Rationale\r\n\r\nThe `maxConcurrentStreams` was validated with the wrong option\r\n\r\n## Changes\r\n\r\n- `lib/dispatcher/client.js`: Validate `maxConcurrentStreams` correctly\r\n- `test/http2-instantiation.js`: Check the client-side h2Options (`maxConcurrentStreams`, `connectionWindowSize`, `pingInterval`) work when passed by themselves\r\n\r\n### Features\r\n\r\n\r\n### Bug Fixes\r\n\r\n- `maxConcurrentStreams` is now validated correctly\r\n\r\n### Breaking Changes and Deprecations\r\n\r\n### Tests\r\n- `npm run lint`\r\n- `npm run test:h2:core` (116/116)\r\n- `npx borp --timeout 180000 -p \"test/http2-instantiation.js\"` (4/4)\r\n\r\n## Status\r\r\r\n- [S] Benchmarked (**optional**)\r\n- [S] Documented\r\r\r\r\n\r\n[cert]: https://github.com/nodejs/undici/blob/main/CONTRIBUTING.md#developers-certificate-of-origin",
+      "source": "pr",
+      "gold": [
+        "lib/dispatcher/client.js"
+      ],
+      "tests": [
+        "test/http2-instantiation.js"
+      ],
+      "names_gold": true,
+      "risky_gold": [
+        "lib/dispatcher/client.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "19901d8b73",
+      "repo": "nodejs/undici",
+      "base": "6933139baebca36b470c6db663d4207f29944867",
+      "fix": "19901d8b73cb46a48e817dab4afce790f37fd2c1",
+      "date": "2026-09-16",
+      "title": "fix: honor backpressure in decompression interceptor",
+      "text": "I made a mess of the original GHSA fix by treating a stream backpressure bug as a response-size policy decision.\n\nA 64 MiB limit answers a different question: how large a decoded response an application is willing to accept. It also rejects legitimate responses that can be consumed safely as streams. The correct fix is to honor the stream contract: stop pulling decoded output when the consumer pauses, propagate writable pressure from the decoder back to the transport, keep those pause reasons independent across retries, and wait to signal completion until the consumer resumes.\n\n`maxSize` still exists as an opt-in per-stage circuit breaker. It now defaults to `0`, leaving size policy to applications while backpressure keeps buffering tied to consumer demand.",
+      "source": "pr",
+      "gold": [
+        "lib/handler/retry-handler.js",
+        "lib/interceptor/decompress.js",
+        "types/interceptors.d.ts"
+      ],
+      "tests": [
+        "test/interceptors/decompress.js",
+        "test/retry-handler-controller-proxy.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/handler/retry-handler.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "e905b5b87e",
+      "repo": "nodejs/undici",
+      "base": "0160a719063fb0a77f4fdf9500b9166b91e14329",
+      "fix": "e905b5b87e6953bcc542af90557b2fee5b7b5974",
+      "date": "2026-09-04",
+      "title": "fix(retry): settle exposed body on terminal failure",
+      "text": "Propagate a terminal retry error to the response body already exposed to the caller instead of forwarding a replacement response and orphaning the original stream. Preserve normal response forwarding when no earlier response has been exposed.\n\nFixes: GHSA-pmjh-fq2x-6v4x\nCVE: CVE-2026-18149\nSigned-off-by: Matteo Collina <hello@matteocollina.com>",
+      "source": "commit",
+      "gold": [
+        "lib/handler/retry-handler.js"
+      ],
+      "tests": [
+        "test/interceptors/retry.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/handler/retry-handler.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "0160a71906",
+      "repo": "nodejs/undici",
+      "base": "66e12816064cf3068f63bd134748b7fc4e779bad",
+      "fix": "0160a719063fb0a77f4fdf9500b9166b91e14329",
+      "date": "2026-09-04",
+      "title": "fix(retry): validate resumed response framing",
+      "text": "Checkpoint the original response framing before exposing headers and reject resumed responses whose Content-Range does not match it. Do not retry after an exposed response without a resumable length, preventing attacker-controlled retry responses from being concatenated into downstream output.\n\nFixes: GHSA-r53p-7pc4-xj5r\nCVE: CVE-2026-18540\nSigned-off-by: Matteo Collina <hello@matteocollina.com>",
+      "source": "commit",
+      "gold": [
+        "lib/handler/retry-handler.js"
+      ],
+      "tests": [
+        "test/interceptors/retry.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/handler/retry-handler.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "66e1281606",
+      "repo": "nodejs/undici",
+      "base": "7aac7f12f757844763c8b8f1ab6e305e80d55838",
+      "fix": "66e12816064cf3068f63bd134748b7fc4e779bad",
+      "date": "2026-09-04",
+      "title": "fix(websocket): reject unrequested subprotocols",
+      "text": "Guard the opening-handshake protocol check when the client did not request any subprotocols. Fail the WebSocket connection with protocol error 1002 instead of allowing a TypeError to escape from the response microtask and terminate the process.\n\nFixes: GHSA-rfgv-xxqx-mfg5\nCVE: CVE-2026-19534\nSigned-off-by: Matteo Collina <hello@matteocollina.com>",
+      "source": "commit",
+      "gold": [
+        "lib/web/websocket/connection.js"
+      ],
+      "tests": [
+        "test/websocket/opening-handshake.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/web/websocket/connection.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "66923b47dc",
+      "repo": "nodejs/undici",
+      "base": "392649944c3b989681af1eae2e0970661f9ca464",
+      "fix": "66923b47dc1ed095581daa6a53b2ad1bf3e899b4",
+      "date": "2026-08-03",
+      "title": "Original hostname is lost for HTTP connections when using the DNS interceptor",
+      "text": "## Bug Description\n\nWe collect DNS lookup, TCP connection, and TLS handshake duration metrics using Node.js diagnostics channels ([source](https://github.com/tramvaijs/tramvai/blob/main/packages/modules/metrics/src/request/createRequestWithMetrics.ts#L164)).\n\nHowever, when the DNS interceptor is used, Undici resolves the original hostname before creating the socket and replaces the connection origin with the selected IP address.\n\nFor HTTPS connections, the original hostname is still available through servername, because it is required for TLS SNI.\n\nFor plain HTTP connections, however, the original hostname is no longer available at the socket level. Instrumentation based on Node.js's net.client.socket diagnostics channel can only observe the resolved IP address.\n\nThis makes it impossible to correctly attribute TCP connection metrics to the original service hostname.\n\n## Reproduction\n\n**Standalone reproduction script:**\n\n```javascript\nconst { test } = require(\"node:test\");\nconst { createServer } = require(\"node:http\");\nconst { once } = require(\"node:events\");\nconst diagnosticsChannel = require(\"node:diagnostics_channel\");\nconst { Agent, fetch, interceptors } = require(\"undici\");\n\nconst netClientSocketChannel = diagnosticsChannel.channel(\"net.client.socket\");\n\nconst ORIGINAL_HOSTNAME = \"localhost\";\nconst PORT = 3000;\nconst RESOLVED_ADDRESS = \"127.0.0.1\";\nconst url = `http://${ORIGINAL_HOSTNAME}:${PORT}`;\n\n// Create dispatcher with dns cache\nconst dispatcherWithDnsCache = new Agent().compose(\n  interceptors.dns({\n    maxTTL: 60_000,\n    lookup(hostname, options, callback) {\n      callback(null, [\n        {\n          address: RESOLVED_ADDRESS,\n          family: 4,\n          ttl: 60_000,\n        },\n      ]);\n    },\n  }),\n);\n\nlet lookupEmitted = false;\nlet host;\n\n// Subscribe on diagnostic channel events\nnetClientSocketChannel.subscribe(({ socket }) => {\n  socket.once(\"lookup\", (error, address, family, hostname) => {\n    lookupEmitted = true;\n  });\n\n  socket.once(\"connect\", () => {\n    host = socket._host;\n  });\n});\n\ntest(\"Host field should be available\", { timeout: 60000 }, async (t) => {\n  // 1. Start a local HTTP server\n  const server = createServer({}, async (req, res) => {\n    res.statusCode = 200;\n    res.setHeader(\"content-length\", 100);\n    res.end(\"hello\".repeat(20));\n  });\n\n  t.after(() => {\n    server.closeAllConnections?.();\n    server.close();\n  });\n\n  server.listen(PORT);\n  await once(server, \"listening\");\n\n  // 2. Perform the request without dns cache\n  const response = await fetch(url);\n\n  // host should be 'localhost'\n  t.assert.strictEqual(host, ORIGINAL_HOSTNAME);\n\n  // 3. Perform the request with dns cache\n  const cachedDnsResponse = await fetch(url, { dispatcher: dispatcherWithDnsCache });\n\n  // host should be 'localhost'\n  t.assert.strictEqual(host, ORIGINAL_HOSTNAME);\n});\n\n```\n\n## Expected Behavior\n\nConnection instrumentation should have access to both:\n\n- the resolved address used for the TCP connection;\n- the original hostname supplied in the request URL.\n\nFor example:\n\n{\n  remoteAddress: '127.0.0.1',\n  host: 'localhost'\n}\n\nThis would also make HTTP and HTTPS connection instrumentation consistent.\n\n## Actual Behavior\n\nThe socket created for the HTTP request contains only the resolved IP address:\n\n{\n  remoteAddress: '127.0.0.1',\n  host: null\n}\n\nThe original hostname is not available from the socket or from the net.client.socket diagnostics event.\n\nAs a result, diagnostics-based instrumentation cannot determine which logical hostname or service initiated that connection.",
+      "source": "issue",
+      "gold": [
+        "lib/core/connect.js",
+        "lib/dispatcher/client.js"
+      ],
+      "tests": [
+        "test/interceptors/dns.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/dispatcher/client.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "4fe5bc5fef",
+      "repo": "nodejs/undici",
+      "base": "10d93fc332f2c8c161982dec3833201de29891b5",
+      "fix": "4fe5bc5fefe5ac81a200fc8e1cf84b8bf8464451",
+      "date": "2026-07-23",
+      "title": "fix: handle empty qualified private cache directive",
+      "text": "Signed-off-by: Matteo Collina <hello@matteocollina.com>",
+      "source": "commit",
+      "gold": [
+        "lib/util/cache.js"
+      ],
+      "tests": [
+        "test/cache-interceptor/utils.js",
+        "test/interceptors/cache.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/util/cache.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "1ca0912378",
+      "repo": "nodejs/undici",
+      "base": "87270e46a22660a1975e199335862cdaeb11e22c",
+      "fix": "1ca091237806cc347cd405fe7217ef1618623398",
+      "date": "2026-07-17",
+      "title": "cache: unsafe-method invalidation does not invalidate Location / Content-Location URIs (RFC 9111 §4.4)",
+      "text": "`CacheHandler.onResponseStart` deletes only the request URI's entry on a 2xx/3xx response to an\nunsafe method (lib/handler/cache-handler.js:109-122). RFC 9111 §4.4 also says caches SHOULD\ninvalidate the URIs in the response's `Location` and `Content-Location` fields when they share\nthe request URI's origin — the classic `POST /collection` → `201 Location: /collection/123` flow\ncurrently leaves a previously cached `GET /collection/123` stale.\n\nRepro: cache `GET /target`; `POST /src` returning `Location: <origin>/target`; `GET /target`\nagain → observed: served from cache (undici 8.7.0/main, Node 22); expected: refetched.\n\nFix sketch: in the invalidation branch, parse `Location`/`Content-Location`, same-origin check\nagainst `cacheKey.origin`, and `store.delete({origin, path, method: 'GET'})` for each (both\nbundled stores key deletion on origin+path, so this is ~25-40 LOC + tests).\n\n---\n*Found during an agent-assisted HTTP-caching review for @jeswr; every claim reproduced on undici 8.6.0 (repo) and 8.7.0 (npm) on Node 22.23.1. Fix PR to follow.*",
+      "source": "issue",
+      "gold": [
+        "lib/handler/cache-handler.js"
+      ],
+      "tests": [
+        "test/interceptors/cache.js"
+      ],
+      "names_gold": true,
+      "risky_gold": [
+        "lib/handler/cache-handler.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "85b35e7791",
+      "repo": "nodejs/undici",
+      "base": "de01babccb69bf3dc2b2ebd064bc302d7c31f9f1",
+      "fix": "85b35e7791209b610020c4924a7777cffe6e43da",
+      "date": "2026-07-16",
+      "title": "uncaughtException in unidici.request()",
+      "text": "My app uses `unidici 8.7.0` to download files from CloudFlare R2:\n\n```js\nconst fast_dispatcher = new Agent().compose(interceptors.redirect({maxRedirections: 5}));\nfunction get_download_stream_fast(url){\n  return request(url, {\n    dispatcher: fast_dispatcher,\n    signal: AbortSignal.timeout(30000)\n  }).then(function({statusCode, body}){\n    if(statusCode >= 200 && statusCode < 300){\n      return body;\n    }\n    body.dump(); //free the connection, we don't use the body\n    throw new Error(`HTTP ${statusCode} for: ${url}`);\n  });\n}\n```\n\nMy app also monitors for `uncaughtException` errors:\n\n```js\nprocess.on('uncaughtException', function(err) {\n  console.log( \"[UNCAUGHT EXCEPTION] \" + err.stack || err.message );\n  process.exit(1);\n});\n```\n\nI am regularly seeing these in my logs (which seems to correlate with downloads hitting the 30s timeout above). \n\n```txt\n [UNCAUGHT EXCEPTION] SocketError: other side closed\n     at TLSSocket.onHttp2SocketEnd (/frontend/node_modules/undici/lib/dispatcher/client-h2.js:661:22)\n     at TLSSocket.emit (node:events:531:35)\n     at endReadableNT (node:internal/streams/readable:1698:12)\n     at process.processTicksAndRejections (node:internal/process/task_queues:89:21)\n```\n\nPerhaps the CDN is not always 100% reliable. Is there a way to catch these exceptions, or should I just ignore them?",
+      "source": "issue",
+      "gold": [
+        "lib/core/util.js",
+        "lib/dispatcher/client-h2.js"
+      ],
+      "tests": [
+        "test/http2-dispatcher.js"
+      ],
+      "names_gold": true,
+      "risky_gold": [
+        "lib/core/util.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "de01babccb",
+      "repo": "nodejs/undici",
+      "base": "e1cc0d436cc43ee737a083f9e6348ec45614e796",
+      "fix": "de01babccb69bf3dc2b2ebd064bc302d7c31f9f1",
+      "date": "2026-07-16",
+      "title": "fix: store revalidation-only responses so etag revalidation can engage",
+      "text": "## This relates to...\n\nDiscussion #4620 and PR #4624 by @steunix (this PR supersedes #4624 — full credit to @steunix for identifying the problem and taking the first pass at it; see \"Relationship to #4624\" below for why a fresh approach was needed).\n\n## Rationale\n\nResponses with a validator (`ETag` or `Last-Modified`) but zero freshness lifetime — `Cache-Control: no-cache` or `max-age=0` with no other freshness source — are never stored by the cache interceptor: `determineStaleAt()` returns `undefined`, so no entry is created, no `If-None-Match` is ever sent, and every request gets a full 200 from the origin. `ETag` + `no-cache` is the canonical \"cache, but always validate\" pattern for API servers, and RFC 9111 [§3](https://www.rfc-editor.org/rfc/rfc9111.html#section-3) / [§5.2.2.4](https://www.rfc-editor.org/rfc/rfc9111.html#section-5.2.2.4) explicitly allows storing these responses as long as each reuse is revalidated — undici currently gets zero 304 benefit from them.\n\nRepro against `main` (Node 22), origin serving `cache-control: no-cache` + `etag \"...\"` (no `Last-Modified`):\n\n- **before**: 2 requests → 2 full 200s at the origin, no conditional headers sent\n- **after**: 2 requests → 1 full 200 + 1 conditional request answered with a 304, cached body reused\n\nSame for `cache-control: max-age=0` + `etag`. The already-working `no-cache` + `Last-Modified` case (stored via the heuristic-freshness branch) is unchanged, and now covered by a regression test.\n\n## Changes\n\nStore such responses with immediate-stale semantics (three coordinated pieces in `lib/handler/cache-handler.js`):\n\n1. `determineStaleAt()` returns `0` instead of `undefined` for `max-age=0` / `s-maxage=0` / unqualified `no-cache` when the response has a usable validator (`isEtagUsable` etag or a `Last-Modified` header). The new `no-cache` branch sits *below* the `Last-Modified` heuristic branch so it cannot shadow the existing behavior.\n2. The \"response is already stale\" rejection in `onResponseStart()` is relaxed for these revalidation-only entries (zero freshness lifetime + validator) so they can actually be written to the store.\n3. `determineDeleteAt()` retains them for a bounded 24h window: the usual revalidation buffer is proportional to the freshness lifetime, which is zero here, so the entry would otherwise be evicted immediately and never be available to revalidate. Every successful revalidation re-stores the entry, sliding the window; store-level limits (LRU / maxCount / maxSize) still apply.\n\nThe read side needs no changes: stored unqualified-`no-cache` entries are already forced through revalidation on every use by `needsRevalidation()`, and `max-age=0` entries are always stale, so `isStale()` triggers the same conditional-request flow.\n\n### Relationship to #4624\n\n#4624 identified exactly this problem and made `determineStaleAt()` return `0` for `no-cache`/`max-age=0`. Testing that diff against `main` showed two issues (which is why this is a fresh PR rather than a review comment):\n\n- the entry is still rejected downstream: with `staleAt = 0`, `now >= absoluteStaleAt` is true, so `onResponseStart()` bails with \"response is already stale\" before anything is written — and even past that, `determineDeleteAt()` computes a delete time of `staleAt + freshnessLifetime (= 0) + ≤1s padding`, evicting the entry immediately (pieces 2 and 3 above address these);\n- because the new `no-cache → 0` branch sat *above* the `Last-Modified` heuristic branch, the currently-working `no-cache` + `Last-Modified` case stopped being cached (request pattern went from `full, conditional` to `full, full`).\n\n### Features\n\nN/A\n\n### Bug Fixes\n\n- Responses with `Cache-Control: no-cache` (unqualified) and a validator are now stored and revalidated with a conditional request on each reuse.\n- Responses with `Cache-Control: max-age=0` (or `s-maxage=0` for shared caches) and a validator are now stored and revalidated before reuse.\n\n### Breaking Changes and Deprecations\n\nN/A\n\n## Tests\n\n- 3 new tests in `test/interceptors/cache.js` (no-cache + etag, max-age=0 + etag, and the no-cache + etag + last-modified regression guard). The first two fail on `main`, all three pass with this change.\n- Full cache test files (`test/interceptors/cache*.js`, `test/cache-interceptor/*`): 124/124 pass.\n- mnot cache-tests conformance runner (`node test/cache-interceptor/cache-tests.mjs`): 0 required failures before and after; the previously failing optional test `cc-resp-no-cache-revalidate` (\"An optimal HTTP cache stores a response with `Cache-Control: no-cache`, but revalidates it upon use\") now passes in all 4 environments (221 passed / 57 failed-optional, vs 220 / 58 on `main`). No test regressed.\n- (Observation while verifying, left out of this PR to keep it self-contained: the `cc-resp-no-cache` / `cc-resp-no-cache-case-insensitive` skip-list entries in `test/cache-interceptor/cache-tests.mjs` appear stale — both pass on unmodified `main` when un-skipped.)\n\nSibling PRs from the same RFC 9111 review (each self-contained against `main`): #5510 (`fix/cache-request-max-age-zero`, the request-side `max-age=0` falsy check) and #5512 (`fix/cache-if-modified-since-value`, validator sent on revalidation) touch the adjacent request-directive/revalidation logic; also #5511, #5513, #5514.\n\nThis change is agent-assisted (Claude Fable 5) working with @jeswr.\n\n## Status\n\n\n\n\n\n\n\n\n[cert]: https://github.com/nodejs/undici/blob/main/CONTRIBUTING.md#developers-certificate-of-origin",
+      "source": "pr",
+      "gold": [
+        "lib/handler/cache-handler.js"
+      ],
+      "tests": [
+        "test/interceptors/cache.js"
+      ],
+      "names_gold": true,
+      "risky_gold": [
+        "lib/handler/cache-handler.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "197a83db6c",
+      "repo": "nodejs/undici",
+      "base": "4708df14fec5ae0d44419b28ab5c8cf229f434e3",
+      "fix": "197a83db6c3b022d1fe0d02ccea12e05f7154704",
+      "date": "2026-07-12",
+      "title": "writeH1 calls socket.setTypeOfService() unconditionally — uncaught EINVAL on macOS crashes the process",
+      "text": "## Bug Description\n\n`writeH1` calls `socket.setTypeOfService(request.typeOfService)` unconditionally on every HTTP/1.1 request, with no error handling. Since `Request` defaults `typeOfService` to `0` (`this.typeOfService = typeOfService ?? 0` in `lib/core/request.js`), the setsockopt path runs even when the user never asked for any QoS marking. On macOS, `Socket.setTypeOfService` can throw `EINVAL` synchronously depending on socket state — and because the call site has no try/catch, the exception is uncaught and **kills the whole process**.\n\n```js\n// lib/dispatcher/client-h1.js (writeH1)\nif (socket.setTypeOfService) {\n  socket.setTypeOfService(request.typeOfService)\n}\n```\n\nObserved crash:\n\n```\nnode:net:829\n      throw new ErrnoException(err, 'setTypeOfService');\n      ^\nError: setTypeOfService EINVAL\n    at Socket.setTypeOfService (node:net:829:13)\n    at writeH1 (node:internal/deps/undici/undici:7922:16)\n    at Object.write (node:internal/deps/undici/undici:7666:18)\n    at _resume (node:internal/deps/undici/undici:9963:54)\n    at resume (node:internal/deps/undici/undici:9896:7)\n  errno: -22, code: 'EINVAL', syscall: 'setTypeOfService'\n```\n\nReproduced on **Node 24.18.0 and 26.4.0** (macOS, Apple Silicon, Darwin 25.5) — the same crash with both bundled undici versions, so LTS is affected too.\n\n## Impact\n\nAny app using global `fetch` can die mid-flight with no way to catch the error (it is thrown from the socket write path, not surfaced through the fetch promise). In our case an MCP (Model Context Protocol) stdio server process silently exited mid-request; the client only saw \"connection closed\", which made this painful to diagnose.\n\n## Reproduction notes\n\nWe could not reduce it to a one-liner — plain `fetch()` against IPv4/IPv6/localhost/https targets succeeds on the same machine. The crash occurs reliably inside a real application (`@steipete/oracle` 0.15.2, during HTTP calls in its Chrome-automation cleanup phase), so the EINVAL seems to depend on socket state (e.g. connection reuse / socket mid-teardown) rather than address family. Happy to run diagnostics against a debug build if that helps pin it down.\n\n## Suggested fix\n\nIP QoS marking is inherently best-effort; a failed setsockopt should never take the process down:\n\n1. Wrap the `setTypeOfService` call in try/catch (ignore or debug-log failures), and/or\n2. Skip the call entirely when `typeOfService` is unset/0, so the default path never touches setsockopt.\n\nRelated: this call was introduced with the IP prioritization hints feature (#4831).\n\n## Environment\n\n- undici: bundled with Node 24.18.0 and 26.4.0 (also reproduced with the copy bundled in 26.4.0)\n- Node.js: 24.18.0, 26.4.0\n- OS: macOS (Darwin 25.5.0), arm64",
+      "source": "issue",
+      "gold": [
+        "lib/core/request.js",
+        "lib/dispatcher/client-h1.js",
+        "types/dispatcher.d.ts"
+      ],
+      "tests": [
+        "test/ip-prioritization.js"
+      ],
+      "names_gold": true,
+      "risky_gold": [
+        "lib/core/request.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "d65a9f9b3e",
+      "repo": "nodejs/undici",
+      "base": "df25cc573b8c7f32a25b793cab927bda7cc0c86f",
+      "fix": "d65a9f9b3e697dc33db5ea3efcbce0f8d7ec6e47",
+      "date": "2026-07-11",
+      "title": "`normalizeHeaders` fails with `opts.headers is not a valid header map` depending on interceptor ordering",
+      "text": "## Bug Description\n\nDepending on the order of the `dns` and `cache` interceptor calls fail with `Error: opts.headers is not a valid header map`.\n\n## Reproduction\n\n**Example 1, `dns then cache` vs. `cache then dns` with empty array as headers:**\n\n```js\nimport { Agent, interceptors, request } from \"undici\";\n\nconst { cache, dns } = interceptors;\n\nconst dnsThenCache = new Agent().compose(dns(), cache());\n\nconst cacheThenDns = new Agent().compose(cache(), dns());\n\nconst url = \"https://www.google.com\";\n\n// NOTE: `const headers = {};` works\nconst headers = [];\n\nconst r1 = await request(url, {\n  dispatcher: dnsThenCache,\n  headers,\n});\n\nconsole.log(r1.statusCode);\nr1.body.destroy();\n\nconst r2 = await request(url, {\n  dispatcher: cacheThenDns,\n  headers,\n});\n\nconsole.log(r2.statusCode);\nr2.body.destroy();\n```\n\n```\n200\nnode_modules/.pnpm/undici@8.7.0/node_modules/undici/lib/util/cache.js:47\n          throw new Error('opts.headers is not a valid header map')\n          ^\n\nError: opts.headers is not a valid header map\n    at normalizeHeaders (node_modules/.pnpm/undici@8.7.0/node_modules/undici/lib/util/cache.js:47:17)\n    at node_modules/.pnpm/undici@8.7.0/node_modules/undici/lib/interceptor/cache.js:468:18\n    at node_modules/.pnpm/undici@8.7.0/node_modules/undici/lib/interceptor/dns.js:563:9\n    at node_modules/.pnpm/undici@8.7.0/node_modules/undici/lib/interceptor/dns.js:201:9\n    at GetAddrInfoReqWrap.callback (node_modules/.pnpm/undici@8.7.0/node_modules/undici/lib/interceptor/dns.js:262:9)\n    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:133:8)\n```\n\n**Example 2, `dns then cache` vs. `cache then dns` with no headers and redirect:**\n\n```js\nimport { Agent, interceptors, request } from \"undici\";\n\nconst { cache, dns, redirect } = interceptors;\n\nconst dnsThenCache = new Agent().compose(dns(), cache(), redirect({ maxRedirections: 3 }));\n\nconst cacheThenDns = new Agent().compose(cache(), dns(), redirect({ maxRedirections: 3 }));\n\nconst url = \"https://google.com\"; // redirects to https://www.google.com\n\nconst r1 = await request(url, {\n  dispatcher: dnsThenCache,\n});\n\nconsole.log(r1.statusCode);\nr1.body.destroy();\n\nconst r2 = await request(url, {\n  dispatcher: cacheThenDns,\n});\n\nconsole.log(r2.statusCode);\nr2.body.destroy();\n```\n\n```\n200\nnode_modules/.pnpm/undici@8.7.0/node_modules/undici/lib/util/cache.js:47\n          throw new Error('opts.headers is not a valid header map')\n          ^\n\nError: opts.headers is not a valid header map\n    at normalizeHeaders (node_modules/.pnpm/undici@8.7.0/node_modules/undici/lib/util/cache.js:47:17)\n    at node_modules/.pnpm/undici@8.7.0/node_modules/undici/lib/interceptor/cache.js:468:18\n    at node_modules/.pnpm/undici@8.7.0/node_modules/undici/lib/interceptor/dns.js:563:9\n    at node_modules/.pnpm/undici@8.7.0/node_modules/undici/lib/interceptor/dns.js:201:9\n    at GetAddrInfoReqWrap.callback (node_modules/.pnpm/undici@8.7.0/node_modules/undici/lib/interceptor/dns.js:262:9)\n    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:133:8)\n```\n\n## Environment\n\n- OS: Linux\n- Node.js version: 26.4.0\n- undici version: 8.7.0",
+      "source": "issue",
+      "gold": [
+        "lib/util/cache.js"
+      ],
+      "tests": [
+        "test/cache-interceptor/cache-utils.js"
+      ],
+      "names_gold": true,
+      "risky_gold": [
+        "lib/util/cache.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "838b6cdce4",
+      "repo": "nodejs/undici",
+      "base": "b39c77d7162060c4257ee18aa9069ac1a4bb3740",
+      "fix": "838b6cdce4cbe1850999b54c0c569af4ba13dee5",
+      "date": "2026-07-02",
+      "title": "fix: do not reject open-ended Range values in simpleRangeHeaderValue",
+      "text": "The \"simple range header value\" parser rejected valid open-ended ranges such\nas `bytes=5-`.\n\nPer https://fetch.spec.whatwg.org/#simple-range-header-value step 18, the\n\"start greater than end\" failure only applies when rangeStartValue and\nrangeEndValue are both numbers. For an open-ended range like `bytes=5-`,\nrangeEndValue is null. The code compared `rangeStartValue > rangeEndValue`\ndirectly, and JavaScript coerces null to 0 in that comparison, so `5 > null`\nbecomes `5 > 0`, which is true, and the parser returned failure.\n\nThe effect is that `fetch()` of a `blob:` URL with `Range: bytes=5-` returned a\nnetwork error and the promise rejected, instead of returning a 206 Partial\nContent. `bytes=0-` worked only by accident because 0 does not exceed 0.\n\nThis change guards the comparison so it runs only when both values are numbers,\nmatching the spec. A genuinely inverted range such as `bytes=5-3` still returns\nfailure, and the null-null case is already handled by step 17.\n\nAdded a test that fetches a blob URL with `Range: bytes=5-` and asserts a 206\nresponse with the correct body and Content-Range.",
+      "source": "pr",
+      "gold": [
+        "lib/web/fetch/util.js"
+      ],
+      "tests": [
+        "test/fetch/range-open-ended.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/web/fetch/util.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "445522ba1b",
+      "repo": "nodejs/undici",
+      "base": "ae3efd442e9b5b76957c528ba6649e95775a3e1f",
+      "fix": "445522ba1bc22bcef2971bfdc30c883531e84e84",
+      "date": "2026-06-19",
+      "title": "ProxyAgent loop on SocketError",
+      "text": "## Bug Description\r\n\r\nWhen the connection to the proxy server is closed with `UND_ERR_SOCKET` using `ProxyAgent` an infinite loop is created.\r\nThis is actually a double bug; I found this while investigating why `ProxyAgent` doesn't work with a basic http proxy built with `node:http`:\r\n```js\r\nimport { ok } from \"node:assert\";\r\nimport { createServer, request as httpRequest } from \"node:http\";\r\nimport { request as httpsRequest } from \"node:https\";\r\nimport { Client, ProxyAgent, request } from \"undici\";\r\n\r\nconst server = createServer((req, res) => {\r\n    ok(req.url);\r\n    const targetUrl = new URL(req.url);\r\n    req.pipe(\r\n        (targetUrl.protocol === \"https:\" ? httpsRequest : httpRequest)(\r\n            {\r\n                method: req.method,\r\n                hostname: targetUrl.hostname,\r\n                port: targetUrl.port,\r\n                path: targetUrl.pathname + targetUrl.search,\r\n                headers: req.headers,\r\n            },\r\n            (proxiedRes) => {\r\n                ok(proxiedRes.statusCode);\r\n                res.writeHead(\r\n                    proxiedRes.statusCode,\r\n                    proxiedRes.statusMessage,\r\n                    proxiedRes.headers,\r\n                );\r\n                proxiedRes.pipe(res);\r\n            },\r\n        ).once(\"error\", res.destroy.bind(res)),\r\n    );\r\n}).listen();\r\nconst address = server.address();\r\nok(address && typeof address === \"object\");\r\n\r\n// This works fine:\r\nconsole.log(\r\n    await new Client(`http://localhost:${address.port}`)\r\n        .request({\r\n            method: \"GET\",\r\n            path: \"http://example.com\",\r\n            headers: { host: \"example.com\" },\r\n        })\r\n        .then((res) => res.body.text()),\r\n);\r\n\r\n// This doesn't work and creates an infinite loop trying to connect to proxy url\r\n// For instance, listening to server.on(\"connection\", console.log) logs infinite times\r\nconsole.log(\r\n    await request(\"http://example.com\", {\r\n        dispatcher: new ProxyAgent(`http://localhost:${address.port}`),\r\n    }).then((res) => res.body.text()),\r\n);\r\n```\r\n\r\nNow here there are two questions:\r\n1. **Why is the connection closing in the first place?** Spent hours debugging but honestly couldn't find the reason\r\n2. **Why is it looping until a connection is established?** This creates a significant overhead both on the client and on the proxy server that is flooded by requests\r\n\r\nThe error is caught here where there is already something about \"avoiding a loop in client.js#connect\" https://github.com/nodejs/undici/blob/1cfe0949053aac6267f11b919cee9315a27f1fd6/lib/dispatcher/proxy-agent.js#L97-L104\r\n\r\n## Reproducible By\r\n\r\nExample above\r\n\r\n## Expected Behavior\r\n\r\nIf the connection is closed, the error should be thrown immediately instead of trying infinite times.\r\nAlso, I think the example above should be successful considering that using a `Client` works\r\n\r\n## Logs & Screenshots\r\n\r\nThe error (added `throw err` to avoid loop)\r\n```shell\r\nSocketError: other side closed\r\n    at Socket.onHttpSocketEnd (D:\\-\\node_modules\\undici\\lib\\dispatcher\\client-h1.js:902:22)\r\n    at Socket.emit (node:events:530:35)\r\n    at endReadableNT (node:internal/streams/readable:1698:12)\r\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {\r\n  code: 'UND_ERR_SOCKET',\r\n  socket: {\r\n    localAddress: '::1',\r\n    localPort: 60534,\r\n    remoteAddress: '::1',\r\n    remotePort: 60533,\r\n    remoteFamily: 'IPv6',\r\n    timeout: undefined,\r\n    bytesWritten: 73,\r\n    bytesRead: 0\r\n  }\r\n}\r\n```\r\n\r\n## Environment\r\n\r\nNode v22, all undici versions with `ProxyAgent`\r\n\r\n### Additional context\r\n\r\nUsing `ProxyAgent` with a \"real\" proxy works (even if it seems a bit slow?), so I'm not sure what is it expecting from my custom server that is different from a normal proxy",
+      "source": "issue",
+      "gold": [
+        "lib/core/errors.js",
+        "lib/dispatcher/proxy-agent.js",
+        "types/errors.d.ts"
+      ],
+      "tests": [
+        "test/issue-3897.js",
+        "test/types/errors.test-d.ts"
+      ],
+      "names_gold": true,
+      "risky_gold": [
+        "lib/core/errors.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "c5ed787569",
+      "repo": "nodejs/undici",
+      "base": "e114e778de1476172a1a9a0d4668af8cf2c25cac",
+      "fix": "c5ed78756914b17501223dcc345b3a966351604a",
+      "date": "2026-06-13",
+      "title": "websocket: handle empty fragments and stream limits",
+      "text": "Treat zero-byte frames as real fragments so fragmented messages can start\nwith an empty frame and empty continuations still count toward\nmaxFragments.\n\nPass dispatcher WebSocket limits through to WebSocketStream's parser, add\nregression coverage for WebSocket and WebSocketStream fragment limits, make\nthe fragment close tests wait for both endpoints, and fix the Client docs\ntypo for maxFragments.\n\nCo-authored-by: Ulises Gascon <ulisesgascongonzalez@gmail.com>",
+      "source": "commit",
+      "gold": [
+        "lib/web/websocket/receiver.js",
+        "lib/web/websocket/stream/websocketstream.js"
+      ],
+      "tests": [
+        "test/websocket/fragments.js",
+        "test/websocket/stream/too-many-fragments.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/web/websocket/receiver.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "6df53c50da",
+      "repo": "nodejs/undici",
+      "base": "32dbf0b3dd93daf6d87badf506d52e89f2e20e78",
+      "fix": "6df53c50daf252c2e7a3d8cb631c94b7fb0e3817",
+      "date": "2026-06-13",
+      "title": "fix: preserve h2 queue on out-of-order completion",
+      "text": "Fixes: https://github.com/nodejs/undici/issues/5404\n\nHTTP/2 streams can complete out of order. The H2 completion path was advancing `kRunningIdx` and clearing `kQueue[kRunningIdx]`, which assumes in-order completion. When a later stream completed first, this could clear the wrong request slot and leave completed/running entries misclassified. Destroy/error paths could then lose the still-running request or encounter `null` queue entries.\n\nThis changes H2 request finalization to remove the actual completed request from the running queue section, preserving other running requests. It also skips stale `null` entries defensively in destroy/error cleanup loops.\n\nTested with:\n\n- `node --test test/issue-5404.js`\n- `node --test test/issue-5404.js test/http2-resume-null-request.js test/http2-goaway-retry-body.js test/http2-invalid-session.js`\n- `node --test test/http2-dispatcher.js`\n- `node --test test/issue-5404.js test/http2-pipelining-default.js`\n- `npm run test:h2:core`\n- `npm run lint`",
+      "source": "pr",
+      "gold": [
+        "lib/dispatcher/client-h2.js",
+        "lib/dispatcher/client.js"
+      ],
+      "tests": [
+        "test/issue-5404.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/dispatcher/client.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "b4c287b382",
+      "repo": "nodejs/undici",
+      "base": "c9fbe9d2ab56a033b0f5a0df4aadc6e0e909b84a",
+      "fix": "b4c287b3821a723d8c0912986fd2d8945399728d",
+      "date": "2026-06-08",
+      "title": "fix(websocket): enforce max payload size across fragments",
+      "text": "Account for previously received fragment bytes when checking WebSocket payload size limits, so fragmented messages cannot exceed maxPayloadSize by splitting the payload across frames.\n\nAdd coverage for cumulative fragmented payload size enforcement.\n\nCo-authored-by: Matthew Aitken <maitken033380023@gmail.com>",
+      "source": "commit",
+      "gold": [
+        "lib/web/websocket/receiver.js"
+      ],
+      "tests": [
+        "test/websocket/permessage-deflate-limit.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/web/websocket/receiver.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "01e89e95e9",
+      "repo": "nodejs/undici",
+      "base": "d03fb2441fefbb603ed454a31b0cce93a2112651",
+      "fix": "01e89e95e9f4fa7d0d98ccf7b524f977111f3735",
+      "date": "2026-06-08",
+      "title": "AssertionError in ERR_TLS_CERT_ALTNAME_INVALID handler when pipelining > 1",
+      "text": "## Bug Description\n\nWhen using a `Pool` or `Client` with `pipelining > 1`, a TLS connect error of type `ERR_TLS_CERT_ALTNAME_INVALID` causes an uncaught `AssertionError` that crashes the process.\n\n## Reproduction\n\n```js\nimport { Pool } from 'undici'\n\nconst pool = new Pool('https://wrong.host.example.com', {\n  pipelining: 10,\n  connections: 5,\n})\n\n// Send concurrent requests — crash occurs when TLS handshake fails\nawait Promise.allSettled(\n  Array.from({ length: 20 }, () =>\n    pool.request({ path: '/', method: 'GET' })\n  )\n)\n```\n\nError:\n\n```\nAssertionError [ERR_ASSERTION]: false == true\n    at connect (undici/lib/client.js:1313:7)\n```\n\n## Root Cause\n\nIn `lib/client.js`, the `ERR_TLS_CERT_ALTNAME_INVALID` connect error handler contains:\n\n```js\nif (err.code === 'ERR_TLS_CERT_ALTNAME_INVALID') {\n  assert(client[kRunning] === 0)  // crashes when pipelining > 1\n  while (client[kPending] > 0 ...) { ... }\n}\n```\n\nWith `pipelining > 1`, multiple requests can be in-flight (`kRunning > 0`) when the TLS error fires at connect time. The assertion assumes `pipelining=1` and throws when that assumption is violated.\n\nEvery other error code routes through `onError()` which already handles `kRunning > 0` correctly. The `ERR_TLS_CERT_ALTNAME_INVALID` path is the only one with this broken assumption.\n\n## Fix\n\nDrain in-flight running requests before draining pending ones, mirroring the existing `onError` pattern:\n\n```js\nif (err.code === 'ERR_TLS_CERT_ALTNAME_INVALID') {\n  while (client[kRunning] > 0) {\n    const request = client[kQueue][client[kRunningIdx]]\n    client[kQueue][client[kRunningIdx]++] = null\n    errorRequest(client, request, err)\n  }\n  client[kPendingIdx] = client[kRunningIdx]\n  while (client[kPending] > 0 ...) { ... }\n}\n```\n\n## Versions\n\n- undici: 5.29.0 (same assertion exists in v6 `lib/dispatcher/client.js`)\n- node: 20.x\n- Confirmed: crash does not occur with `pipelining: 1`",
+      "source": "issue",
+      "gold": [
+        "lib/dispatcher/client.js"
+      ],
+      "tests": [
+        "test/node-test/client-tls.js"
+      ],
+      "names_gold": true,
+      "risky_gold": [
+        "lib/dispatcher/client.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "f0497300fa",
+      "repo": "nodejs/undici",
+      "base": "cc793b780c5f181d779bb4367a9394efe8a8f9c6",
+      "fix": "f0497300fa5fcbee99f82b043c67b1ce8c30c555",
+      "date": "2026-05-26",
+      "title": "fix(core): simplify `addAbortListener` util",
+      "text": "The current implementation looks more complicated than it needs to be, AFAICT using \"native\" one should always work\r\n\r\n## This relates to...\r\n\r\n\r\n\r\n## Rationale\r\n\r\n\r\n\r\n## Changes\r\n\r\n\r\n\r\n### Features\r\n\r\n\r\n\r\n### Bug Fixes\r\n\r\n\r\n\r\n### Breaking Changes and Deprecations\r\n\r\n\r\n\r\n## Status\r\r\r\r\r\r\r\r\n\r\n[cert]: https://github.com/nodejs/undici/blob/main/CONTRIBUTING.md#developers-certificate-of-origin",
+      "source": "pr",
+      "gold": [
+        "lib/core/util.js"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/core/util.js"
+      ],
+      "refixed": true
+    },
+    {
+      "id": "01122dafab",
+      "repo": "nodejs/undici",
+      "base": "2b0d4c993d9214c8373499d93e681446d1e723e6",
+      "fix": "01122dafab593148b714acee60e390b72da33b22",
+      "date": "2026-05-06",
+      "title": "fix: accept unknown-size Content-Range values",
+      "text": "## This relates to...\r\n\r\nFixes: https://github.com/nodejs/undici/issues/5119\r\n\r\n## Rationale\r\n\r\n`Content-Range` values such as `bytes 3-5/*` are valid when the complete representation length is unknown.\r\nThe retry resume path previously rejected these headers as a `Content-Range mismatch`, which could fail otherwise valid resumable `206 Partial Content` responses.\r\n\r\n## Changes\r\n\r\n- Accept `*` as the complete length in `Content-Range` byte ranges.\r\n- Parse unknown complete length as `size: null`.\r\n\r\n### Features\r\n\r\nN/A\r\n\r\n### Bug Fixes\r\n\r\nAccept unknown-size Content-Range values\r\n\r\n### Breaking Changes and Deprecations\r\n\r\nN/A\r\n\r\n## Status\r\r\r\r\r\r\r\r\n\r\n[cert]: https://github.com/nodejs/undici/blob/main/CONTRIBUTING.md#developers-certificate-of-origin\r\n\r\nAssisted-by: openai:gpt-5.5",
+      "source": "pr",
+      "gold": [
+        "lib/core/util.js"
+      ],
+      "tests": [
+        "test/retry-handler.js"
+      ],
+      "names_gold": false,
+      "risky_gold": [
+        "lib/core/util.js"
+      ],
+      "refixed": true
+    }
+  ],
+  "prepare": [
+    "npm run generate-pem",
+    "npm run build:node"
+  ]
+}

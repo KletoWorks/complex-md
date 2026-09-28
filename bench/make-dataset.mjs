@@ -25,6 +25,8 @@ const slug = opt('--repo', null);
 const max = Number(opt('--max', 30));
 const months = Number(opt('--months', 12));
 const maxGold = Number(opt('--max-gold', 3));
+/* A file that gets fixed every month would otherwise fill the set on its own. */
+const maxPerFile = Number(opt('--max-per-file', 0));
 const out = opt('--out', `bench/data/${(slug || 'repo').replace('/', '-')}.json`);
 
 function git(a) {
@@ -95,8 +97,10 @@ async function gh(path) {
 
 const tasks = [];
 let limited = false;
+const perFile = new Map();
 for (const c of candidates) {
   if (tasks.length >= max) break;
+  if (maxPerFile && c.gold.some((g) => (perFile.get(g) || 0) >= maxPerFile)) continue;
   let title = c.subject.replace(/\s*\(#\d+\)\s*$/, '');
   let text = c.body.trim();
   let source = 'commit';
@@ -119,6 +123,7 @@ for (const c of candidates) {
   if (NOT_A_FIX.test(title)) continue;
   if (text.length < 40) continue; // a bare title is too thin to stand in for an issue
   const namesGold = c.gold.some((g) => text.includes(g) || title.includes(g) || text.includes(g.split('/').pop()));
+  for (const g of c.gold) perFile.set(g, (perFile.get(g) || 0) + 1);
   tasks.push({ id: c.sha.slice(0, 10), repo: slug, base: c.base, fix: c.sha, date: c.date, title, text, source, gold: c.gold, tests: c.tests, names_gold: namesGold, ...(c.risky_gold ? { risky_gold: c.risky_gold, refixed: c.refixed } : {}) });
   console.error(`${tasks.length}. ${c.sha.slice(0, 10)} [${source}${namesGold ? ', names gold' : ''}${c.refixed ? ', refixed' : ''}] ${title.slice(0, 70)} -> ${c.gold.join(', ')}`);
 }

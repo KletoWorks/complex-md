@@ -101,6 +101,10 @@ function prepareWorktree(task, arm) {
      made once; a repository without one records success as null. */
   const nm = join(dataset.path, 'node_modules');
   if (existsSync(nm) && !existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
+  /* Generated inputs the suite needs (test certificates, a bundled build):
+     the dataset lists them as `prepare`, run once per worktree before any
+     arm touches it. A failure here is the worktree's problem, not a row. */
+  for (const cmd of dataset.prepare || []) spawnSync('sh', ['-c', cmd], { cwd: wt, stdio: 'ignore', timeout: 600000 });
   return wt;
 }
 

@@ -5,7 +5,7 @@
 // and fails after the patch, on two runs; a test that fails at the base is
 // out of scope for every arm.
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, globSync } from 'node:fs';
 import { join } from 'node:path';
 
 /* The runner the repository uses, from every script value in package.json:
@@ -17,7 +17,7 @@ export function detectRunner(wt) {
   if (/\btap\b/.test(scripts)) return { name: 'tap', cmd: 'npx', args: ['tap', '--no-coverage', '--reporter=tap'], tap: true };
   /* borp is a thin node:test wrapper (fastify uses it); node --test runs
      the same files without the wrapper. */
-  if (/node --test|node:test|\bborp\b/.test(scripts)) return { name: 'node', cmd: 'node', args: ['--test', '--test-reporter=tap'], tap: true };
+  if (/node --test|node:test|\bborp\b/.test(scripts)) return { name: 'node', cmd: 'node', args: ['--test', '--test-reporter=tap', '--expose-gc'], tap: true };
   if (/\bmocha\b/.test(scripts)) return { name: 'mocha', cmd: 'npx', args: ['mocha'], tap: false };
   if (/\bvitest\b/.test(scripts)) return { name: 'vitest', cmd: 'npx', args: ['vitest', 'run'], tap: false };
   if (/\bjest\b/.test(scripts)) return { name: 'jest', cmd: 'npx', args: ['jest'], tap: false };
@@ -25,10 +25,31 @@ export function detectRunner(wt) {
 }
 
 const TEST_FILE = /\.(test|spec)\.(m?js|cjs|ts|mts)$/;
+/* Suites that need a network, a browser, a fuzzer or another runner. */
+const OUTSIDE = /wpt|web-platform|autobahn|fuzz|jest|benchmark|\.d\.ts$|\.ts$/;
 
-/* Test files under test/, tests/ or __tests__/, recursively. A repository
-   that keeps them elsewhere gets an empty list and null suite metrics. */
+/* The globs the repository's own scripts hand to its runner (`borp -p
+   "test/*.js"`, `node --test test/**`), expanded and deduplicated. That is
+   the suite as the maintainers define it. Falls back to a walk of test/,
+   tests/ and __tests__/ for `.test.*` files when the scripts name none. */
 export function listTestFiles(wt) {
+  let scripts = {};
+  try { scripts = JSON.parse(readFileSync(join(wt, 'package.json'), 'utf8')).scripts || {}; } catch {}
+  const globs = new Set();
+  for (const v of Object.values(scripts)) {
+    if (/\s-w\b/.test(v)) continue; // a watch script is not the suite
+    for (const m of v.matchAll(/\bborp\b[^&|]*?-p\s+"([^"]+)"/g)) globs.add(m[1]);
+    for (const m of v.matchAll(/\bnode\s+--test(?:\s+--[\w-]+(?:=\S+)?)*\s+"?([^\s"&|]+\*[^\s"&|]*)"?/g)) globs.add(m[1]);
+  }
+  if (globs.size) {
+    const found = new Set();
+    for (const g of globs) {
+      let hits = [];
+      try { hits = globSync(g, { cwd: wt }); } catch { continue; }
+      for (const f of hits) if (!OUTSIDE.test(f) && /\.(m?js|cjs)$/.test(f)) found.add(f);
+    }
+    if (found.size) return [...found].sort();
+  }
   const out = [];
   const walk = (dir) => {
     for (const e of readdirSync(join(wt, dir))) {
@@ -56,7 +77,7 @@ function parseTap(stdout) {
 /* One file: { ok, tests: { name: passed } }. A timeout or a crash is a
    failed file with whatever tests were reported before it. Asynchronous so
    a pool of these actually overlaps; spawnSync would serialise the pool. */
-export function runTestFile(wt, runner, file, { timeout = 120000 } = {}) {
+export function runTestFile(wt, runner, file, { timeout = 240000 } = {}) {
   return new Promise((res) => {
     const child = spawn(runner.cmd, [...runner.args, file], { cwd: wt, env: { ...process.env, CI: '1' }, stdio: ['ignore', 'pipe', 'ignore'] });
     let out = '';
@@ -70,7 +91,7 @@ export function runTestFile(wt, runner, file, { timeout = 120000 } = {}) {
 }
 
 /* The whole list, a few files at a time. Returns { file: { ok, tests } }. */
-export async function runSuite(wt, runner, files, { concurrency = 4, timeout = 120000 } = {}) {
+export async function runSuite(wt, runner, files, { concurrency = 4, timeout = 240000 } = {}) {
   const results = {};
   let i = 0;
   const worker = async () => {
