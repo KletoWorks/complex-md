@@ -1,0 +1,153 @@
+diff --git a/lib/dispatcher/client-h2.js b/lib/dispatcher/client-h2.js
+index f810f88d..54dcf75d 100644
+--- a/lib/dispatcher/client-h2.js
++++ b/lib/dispatcher/client-h2.js
+@@ -535,6 +535,11 @@ function onHttp2SessionClose () {
+     const requests = client[kQueue].splice(client[kRunningIdx])
+     for (let i = 0; i < requests.length; i++) {
+       const request = requests[i]
++
++      if (request == null) {
++        continue
++      }
++
+       util.errorRequest(client, request, err)
+     }
+   }
+@@ -710,7 +715,7 @@ function failUpgradeStream (state, err) {
+   }
+ 
+   releaseUpgradeStream(state.stream)
+-  state.abort(err, true)
++  state.abort(err)
+ }
+ 
+ function onUpgradeStreamError () {
+@@ -794,22 +799,35 @@ function writeH2 (client, request) {
+   headers[HTTP2_HEADER_METHOD] = method
+ 
+   let requestFinalized = false
+-  const finalizeRequest = (resetPendingIdx = false) => {
++  const finalizeRequest = () => {
+     if (requestFinalized) {
+       return
+     }
+ 
+     requestFinalized = true
+-    client[kQueue][client[kRunningIdx]++] = null
+ 
+-    if (resetPendingIdx && client[kPendingIdx] < client[kRunningIdx]) {
+-      client[kPendingIdx] = client[kRunningIdx]
++    // HTTP/2 multiplexes requests on independent streams, so they can complete
++    // out of order and the finalized request is not necessarily the one at
++    // kRunningIdx. Remove the request itself from the running section of the
++    // queue so that the other running requests, and their relative order, are
++    // preserved.
++    const queue = client[kQueue]
++    const idx = queue.indexOf(request, client[kRunningIdx])
++
++    if (idx !== -1 && idx < client[kPendingIdx]) {
++      queue.splice(idx, 1)
++      client[kPendingIdx] -= 1
+     }
+ 
++    // Otherwise the request is not part of the running section: either it has
++    // already been removed, it has been requeued for a retry, or it has not been
++    // promoted from pending yet (a synchronous abort from writeH2, in which case
++    // writeH2 returns false and _resume removes it from the queue).
++
+     client[kResume]()
+   }
+ 
+-  const abort = (err, resetPendingIdx = false) => {
++  const abort = (err) => {
+     if (request.aborted || request.completed) {
+       return
+     }
+@@ -824,9 +842,9 @@ function writeH2 (client, request) {
+       // On Abort, we close the stream to send RST_STREAM frame
+       stream.close()
+ 
+-      // We move the running index to the next request
++      // We remove the request from the running section of the queue
+       client[kOnError](err)
+-      finalizeRequest(resetPendingIdx)
++      finalizeRequest()
+     }
+ 
+     // We do not destroy the socket as we can continue using the session
+@@ -1064,7 +1082,10 @@ function writeH2 (client, request) {
+     writeBodyH2.call(stream)
+   }
+ 
+-  return true
++  // Writing the body can fail synchronously, which aborts the request before it
++  // has been promoted to the running section of the queue. Returning false lets
++  // _resume remove it from the queue.
++  return !requestFinalized
+ }
+ 
+ function removeRequestStreamListeners (stream) {
+@@ -1164,7 +1185,7 @@ function onEnd () {
+   } else {
+     // Stream ended without receiving a response - this is an error
+     // (e.g., server destroyed the stream before sending headers)
+-    state.abort(new InformationalError('HTTP/2: stream half-closed (remote)'), true)
++    state.abort(new InformationalError('HTTP/2: stream half-closed (remote)'))
+   }
+ }
+ 
+diff --git a/lib/dispatcher/client.js b/lib/dispatcher/client.js
+index 37d3d139..910a49f8 100644
+--- a/lib/dispatcher/client.js
++++ b/lib/dispatcher/client.js
+@@ -395,6 +395,11 @@ class Client extends DispatcherBase {
+       const requests = this[kQueue].splice(this[kPendingIdx])
+       for (let i = 0; i < requests.length; i++) {
+         const request = requests[i]
++
++        if (request == null) {
++          continue
++        }
++
+         util.errorRequest(this, request, err)
+       }
+ 
+@@ -434,6 +439,11 @@ function onError (client, err) {
+ 
+     for (let i = 0; i < requests.length; i++) {
+       const request = requests[i]
++
++      if (request == null) {
++        continue
++      }
++
+       util.errorRequest(client, request, err)
+     }
+     assert(client[kSize] === 0)
+@@ -572,12 +582,22 @@ function handleConnectError (client, err, { host, hostname, protocol, port }) {
+     client[kPendingIdx] = client[kRunningIdx]
+ 
+     for (let i = 0; i < running.length; i++) {
++      if (running[i] == null) {
++        continue
++      }
++
+       util.errorRequest(client, running[i], err)
+     }
+ 
+-    while (client[kPending] > 0 && client[kQueue][client[kPendingIdx]].servername === client[kServerName]) {
+-      const request = client[kQueue].splice(client[kPendingIdx], 1)[0]
+-      util.errorRequest(client, request, err)
++    while (client[kPending] > 0) {
++      const pending = client[kQueue][client[kPendingIdx]]
++
++      if (pending == null || pending.servername !== client[kServerName]) {
++        break
++      }
++
++      client[kQueue].splice(client[kPendingIdx], 1)
++      util.errorRequest(client, pending, err)
+     }
+   } else {
+     onError(client, err)

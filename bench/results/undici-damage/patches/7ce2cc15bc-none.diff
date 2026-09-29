@@ -1,0 +1,191 @@
+diff --git a/lib/web/cache/cache.js b/lib/web/cache/cache.js
+index 44f3adda..e0693751 100644
+--- a/lib/web/cache/cache.js
++++ b/lib/web/cache/cache.js
+@@ -153,16 +153,36 @@ class Cache {
+       // 5.6
+       const responsePromise = Promise.withResolvers()
+ 
++      // The response that will be cached. Its body is a clone of the fetched
++      // response's body, which has to be fully read (see below), hence the
++      // clone.
++      let clonedResponse = null
++
++      // Resolves with the bytes of the fetched response's body.
++      const bodyReadPromise = Promise.withResolvers()
++
++      // The rejection is handled below, once the body has been read; this only
++      // avoids an unhandled rejection when the fetch is aborted instead.
++      bodyReadPromise.promise.catch(() => {})
++
+       // 5.7
+       fetchControllers.push(fetching({
+         request: r,
+         processResponse (response) {
++          const body = (response.internalResponse ?? response).body
++
+           // 1.
+           if (response.type === 'error' || response.status === 206 || response.status < 200 || response.status > 299) {
+             responsePromise.reject(webidl.errors.exception({
+               header: 'Cache.addAll',
+               message: 'Received an invalid status code or the request failed.'
+             }))
++
++            // The body will never be read, cancel it so that the connection
++            // isn't left waiting for a reader.
++            body?.stream.cancel().catch(() => {})
++
++            return
+           } else if (response.headersList.contains('vary')) { // 2.
+             // 2.1
+             const fieldValues = getFieldValues(response.headersList.get('vary'))
+@@ -184,6 +204,22 @@ class Cache {
+               }
+             }
+           }
++
++          // processResponseEndOfBody is only run once the response's body has
++          // been fully read, so the body has to be consumed here, otherwise
++          // the returned promise would never settle. Cloning the response
++          // tees its body, keeping a copy of it for the cache.
++          clonedResponse = cloneResponse(response)
++
++          if (body == null) {
++            bodyReadPromise.resolve(undefined)
++          } else {
++            readAllBytes(
++              body.stream.getReader(),
++              bodyReadPromise.resolve,
++              bodyReadPromise.reject
++            )
++          }
+         },
+         processResponseEndOfBody (response) {
+           // 1.
+@@ -193,7 +229,15 @@ class Cache {
+           }
+ 
+           // 2.
+-          responsePromise.resolve(response)
++          responsePromise.resolve(bodyReadPromise.promise.then((bytes) => {
++            const innerResponse = clonedResponse.internalResponse ?? clonedResponse
++
++            if (innerResponse.body != null) {
++              innerResponse.body.source = bytes
++            }
++
++            return clonedResponse
++          }))
+         }
+       }))
+ 
+diff --git a/test/cache/cache.js b/test/cache/cache.js
+index 0a3d438e..2e6ab7d9 100644
+--- a/test/cache/cache.js
++++ b/test/cache/cache.js
+@@ -1,8 +1,11 @@
+ 'use strict'
+ 
+ const { test } = require('node:test')
++const { createServer } = require('node:http')
++const { once } = require('node:events')
++const { closeServerAsPromise } = require('../utils/node-http')
+ const { Cache } = require('../../lib/web/cache/cache')
+-const { caches, Response } = require('../../')
++const { caches, Request, Response } = require('../../')
+ 
+ test('constructor', (t) => {
+   t.assert.throws(() => new Cache(null), {
+@@ -11,6 +14,92 @@ test('constructor', (t) => {
+   })
+ })
+ 
++// https://github.com/nodejs/undici/issues/5615
++test('cache.add and cache.addAll do not hang', async (t) => {
++  const server = createServer((req, res) => {
++    if (req.url === '/404') {
++      res.statusCode = 404
++      res.end('not found')
++    } else if (req.url === '/no-content') {
++      res.statusCode = 204
++      res.end()
++    } else if (req.url === '/vary-star') {
++      // Give /slow-body the time to start streaming before it is aborted.
++      setTimeout(() => {
++        res.setHeader('vary', '*')
++        res.end('varies')
++      }, 100)
++    } else if (req.url === '/slow-body') {
++      res.write('first chunk')
++      setTimeout(() => res.end('last chunk'), 500)
++    } else {
++      res.end(`body of ${req.url}`)
++    }
++  }).listen(0)
++
++  const cache = await caches.open('test-add')
++
++  t.after(closeServerAsPromise(server))
++  t.after(async () => {
++    await caches.delete('test-add')
++  })
++
++  await once(server, 'listening')
++
++  const origin = `http://localhost:${server.address().port}`
++
++  await cache.add(`${origin}/one`)
++
++  let match = await cache.match(`${origin}/one`)
++  t.assert.strictEqual(await match.text(), 'body of /one')
++
++  await cache.addAll([`${origin}/two`, new Request(`${origin}/three`)])
++
++  for (const path of ['/two', '/three']) {
++    match = await cache.match(`${origin}${path}`)
++    t.assert.strictEqual(await match.text(), `body of ${path}`)
++  }
++
++  // A cached response can be read more than once.
++  match = await cache.match(`${origin}/one`)
++  t.assert.strictEqual(await match.text(), 'body of /one')
++
++  // Responses without a body are supported as well.
++  await cache.add(`${origin}/no-content`)
++
++  match = await cache.match(`${origin}/no-content`)
++  t.assert.strictEqual(match.status, 204)
++  t.assert.strictEqual(await match.text(), '')
++
++  t.assert.deepStrictEqual(
++    (await cache.keys()).map((request) => new URL(request.url).pathname),
++    ['/one', '/two', '/three', '/no-content']
++  )
++
++  await t.assert.rejects(cache.add(`${origin}/404`), {
++    name: 'TypeError',
++    message: 'Cache.addAll: Received an invalid status code or the request failed.'
++  })
++
++  await t.assert.rejects(cache.add(`${origin}/vary-star`), {
++    name: 'TypeError',
++    message: 'Cache.addAll: invalid vary field value'
++  })
++
++  // Aborting the other in-flight fetches must not result in an unhandled
++  // rejection.
++  const onUnhandledRejection = (reason) => t.assert.fail(reason)
++  process.on('unhandledRejection', onUnhandledRejection)
++  t.after(() => process.off('unhandledRejection', onUnhandledRejection))
++
++  await t.assert.rejects(cache.addAll([`${origin}/slow-body`, `${origin}/vary-star`]), {
++    name: 'TypeError',
++    message: 'Cache.addAll: invalid vary field value'
++  })
++
++  await new Promise((resolve) => setTimeout(resolve, 100))
++})
++
+ // https://github.com/nodejs/undici/issues/4710
+ test('cache.match should work after garbage collection', async (t) => {
+   const cache = await caches.open('test-gc-cache')

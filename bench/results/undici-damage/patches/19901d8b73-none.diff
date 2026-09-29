@@ -1,0 +1,809 @@
+diff --git a/docs/docs/api/Interceptors.md b/docs/docs/api/Interceptors.md
+index 856877c3..d81b6780 100644
+--- a/docs/docs/api/Interceptors.md
++++ b/docs/docs/api/Interceptors.md
+@@ -210,9 +210,16 @@ Automatically decompresses response bodies encoded with `gzip`, `x-gzip`,
+     skipped. **Default:** `[204, 304]`.
+   * `skipErrorResponses` {boolean} When `true`, responses with a status code
+     >= 400 are not decompressed. **Default:** `true`.
+-  * `maxSize` {number} Maximum decompressed response size in bytes. The request
+-    fails with a `ResponseExceededMaxSizeError` if the decoded body exceeds
+-    this limit. **Default:** `67108864` (64 MiB).
++  * `maxSize` {number} Maximum output size in bytes of each stage of the
++    decompression chain. The request fails with a
++    `ResponseExceededMaxSizeError` as soon as a stage produces more than this
++    many bytes. `0` disables the limit. **Default:** `0`.
++
++Decoded output is pushed downstream only while the consumer keeps asking for
++it: when the consumer pauses, the interceptor stops reading from the decoder,
++and the decoder's writable backpressure is propagated to the transport. Memory
++use is therefore bounded by consumer demand, and `maxSize` is only needed when
++an application wants to cap how large a decoded body it is willing to accept.
+ 
+ **Returns:** {Dispatcher.DispatcherComposeInterceptor}
+ 
+diff --git a/lib/interceptor/decompress.js b/lib/interceptor/decompress.js
+index 73b114c2..2c58c053 100644
+--- a/lib/interceptor/decompress.js
++++ b/lib/interceptor/decompress.js
+@@ -22,7 +22,11 @@ const supportedEncodings = {
+ }
+ 
+ const defaultSkipStatusCodes = /** @type {const} */ ([204, 304])
+-const defaultMaxSize = 64 * 1024 * 1024
++// Size policy belongs to the application, not to the transport. Backpressure
++// keeps the amount of buffered decoded output tied to consumer demand, so no
++// limit is needed to bound memory. `maxSize` stays available as an opt-in
++// circuit breaker for callers that do want to cap a decoded body.
++const defaultMaxSize = 0
+ 
+ /**
+  * Limits the output of one stage in a decompression chain.
+@@ -48,18 +52,127 @@ function createMaxSizeLimiter (maxSize) {
+   })
+ }
+ 
++/**
++ * The controller handed to the downstream handler while a response is being
++ * decoded.
++ *
++ * Decompression splits one flow-controlled stream into two: the compressed
++ * bytes arriving from the transport, and the decoded bytes leaving the decoder.
++ * They pause for different reasons and must be tracked separately, so the
++ * consumer gets this proxy instead of the transport controller. Its pause
++ * state is owned by the consumer and lives in the handler, which leaves the
++ * transport controller free to carry only the decoder's writable pressure --
++ * a controller that is replaced on every retry, and whose pause state must not
++ * be mistaken for the consumer's.
++ *
++ * Before the first response arrives -- and for responses that are not decoded
++ * at all -- the proxy is inert and forwards flow control straight through.
++ */
++class DecompressController {
++  /** @type {Controller|null} */
++  target = null
++  /** @type {boolean} */
++  #paused = false
++  /** @type {boolean} */
++  #active = false
++  /** @type {() => void} */
++  #onPause
++  /** @type {() => void} */
++  #onResume
++
++  /**
++   * @param {() => void} onPause - Called when the consumer asks us to stop
++   * @param {() => void} onResume - Called when the consumer asks for more
++   */
++  constructor (onPause, onResume) {
++    this.#onPause = onPause
++    this.#onResume = onResume
++  }
++
++  /**
++   * Starts intercepting the consumer's flow control. Called once decompression
++   * is known to be active for this response.
++   * @returns {void}
++   */
++  activate () {
++    this.#active = true
++  }
++
++  pause () {
++    if (!this.#active) {
++      this.target?.pause()
++      return
++    }
++
++    if (!this.#paused) {
++      this.#paused = true
++      this.#onPause()
++    }
++  }
++
++  resume () {
++    if (!this.#active) {
++      this.target?.resume()
++      return
++    }
++
++    if (this.#paused) {
++      this.#paused = false
++      this.#onResume()
++    }
++  }
++
++  get paused () {
++    return this.#active ? this.#paused : (this.target?.paused ?? false)
++  }
++
++  abort (reason) {
++    this.target?.abort(reason)
++  }
++
++  get aborted () {
++    return this.target?.aborted ?? false
++  }
++
++  get reason () {
++    return this.target?.reason ?? null
++  }
++
++  get rawHeaders () {
++    return this.target?.rawHeaders ?? null
++  }
++
++  set rawHeaders (value) {
++    if (this.target) {
++      this.target.rawHeaders = value
++    }
++  }
++
++  get rawTrailers () {
++    return this.target?.rawTrailers ?? null
++  }
++
++  set rawTrailers (value) {
++    if (this.target) {
++      this.target.rawTrailers = value
++    }
++  }
++}
++
+ let warningEmitted = /** @type {boolean} */ (false)
+ 
+ /**
+  * @typedef {Object} DecompressHandlerOptions
+  * @property {number[]|Readonly<number[]>} [skipStatusCodes=[204, 304]] - List of status codes to skip decompression for
+  * @property {boolean} [skipErrorResponses] - Whether to skip decompression for error responses (status codes >= 400)
+- * @property {number} [maxSize=67108864] - Maximum decompressed response size in bytes
++ * @property {number} [maxSize=0] - Maximum output size in bytes of each decompression stage, or 0 to disable the limit
+  */
+ 
+ class DecompressHandler extends DecoratorHandler {
+   /** @type {Transform[]} */
+   #decompressors = []
++  /** @type {Transform|null} */
++  #output = null
+   /** @type {Record<string, string | string[]> | undefined} */
+   #trailers
+   /** @type {Readonly<number[]>} */
+@@ -74,16 +187,40 @@ class DecompressHandler extends DecoratorHandler {
+   #terminated = false
+   /** @type {boolean} */
+   #inputEnded = false
++  /** @type {boolean} */
++  #outputEnded = false
++  /** @type {DecompressController} */
++  #controller
++  /** @type {boolean} - The consumer asked us to stop pushing decoded output */
++  #consumerPaused = false
++  /** @type {boolean} - The decoder's writable side is full */
++  #writePressure = false
++  /** @type {boolean} - We paused the transport and owe it a resume */
++  #transportPaused = false
++  /** @type {boolean} - Guards against re-entering the read loop */
++  #reading = false
+ 
+   constructor (handler, { skipStatusCodes = defaultSkipStatusCodes, skipErrorResponses = true, maxSize = defaultMaxSize } = {}) {
+-    if (!Number.isSafeInteger(maxSize) || maxSize < 1) {
+-      throw new InvalidArgumentError('maxSize must be a positive integer')
++    if (!Number.isSafeInteger(maxSize) || maxSize < 0) {
++      throw new InvalidArgumentError('maxSize must be a non-negative integer')
+     }
+ 
+     super(handler)
+     this.#skipStatusCodes = skipStatusCodes
+     this.#skipErrorResponses = skipErrorResponses
+     this.#maxSize = maxSize
++    this.#controller = new DecompressController(
++      () => {
++        // Stop reading decoded output, and stop the compressed bytes feeding it
++        // rather than letting the decoder buffer them on the consumer's behalf.
++        this.#consumerPaused = true
++        this.#syncTransport()
++      },
++      () => {
++        this.#consumerPaused = false
++        this.#flush()
++      }
++    )
+   }
+ 
+   /**
+@@ -131,7 +268,7 @@ class DecompressHandler extends DecoratorHandler {
+       decompressors.push(supportedEncodings[encoding]())
+     }
+ 
+-    if (decompressors.length < 2) {
++    if (decompressors.length < 2 || this.#maxSize === 0) {
+       return decompressors
+     }
+ 
+@@ -147,13 +284,37 @@ class DecompressHandler extends DecoratorHandler {
+     return streams
+   }
+ 
++  /**
++   * Mirrors the current pause reasons onto the transport.
++   *
++   * The pause is re-asserted on every call because a retry dispatches on a
++   * fresh connection whose controller starts unpaused; only a resume we own is
++   * ever sent, so the consumer's own pause is never cleared by accident.
++   * @returns {void}
++   */
++  #syncTransport () {
++    const target = this.#controller.target
++    if (target === null) {
++      return
++    }
++
++    // Once the response is done the transport must never be left paused by us,
++    // whatever the pause reasons still say.
++    if (!this.#terminated && (this.#writePressure || this.#consumerPaused)) {
++      this.#transportPaused = true
++      target.pause()
++    } else if (this.#transportPaused) {
++      this.#transportPaused = false
++      target.resume()
++    }
++  }
++
+   /**
+    * Stops decompression and reports an error.
+-   * @param {Controller} controller - The controller to coordinate with
+    * @param {Error} error - The decompression error
+    * @returns {void}
+    */
+-  #fail (controller, error) {
++  #fail (error) {
+     if (this.#terminated) {
+       return
+     }
+@@ -161,75 +322,104 @@ class DecompressHandler extends DecoratorHandler {
+     if (this.#inputEnded) {
+       // The request is already marked complete once the compressed input ends,
+       // so controller.abort() can no longer propagate decoder flush errors.
+-      this.onResponseError(controller, error)
++      this.onResponseError(this.#controller.target, error)
+     } else {
+-      controller.abort(error)
++      this.#controller.abort(error)
+     }
+   }
+ 
+   /**
+-   * Sets up event handlers for a decompressor stream using readable events
+-   * @param {DecompressorStream} decompressor - The decompressor stream
+-   * @param {Controller} controller - The controller to coordinate with
++   * Pushes decoded output downstream for as long as the consumer wants it.
+    * @returns {void}
+    */
+-  #setupDecompressorEvents (decompressor, controller) {
+-    decompressor.on('readable', () => {
+-      if (this.#terminated) {
+-        return
+-      }
+-
+-      let chunk
+-      while ((chunk = decompressor.read()) !== null) {
+-        const decompressedSize = this.#decompressedSize + chunk.length
+-        if (decompressedSize > this.#maxSize) {
+-          this.#fail(controller, new ResponseExceededMaxSizeError(
+-            `Decompressed response size (${decompressedSize}) exceeded maxSize (${this.#maxSize})`
+-          ))
+-          return
+-        }
++  #flush () {
++    if (!this.#terminated && !this.#reading && this.#output !== null) {
++      const output = this.#output
++      this.#reading = true
++
++      try {
++        let chunk
++        while (!this.#consumerPaused && (chunk = output.read()) !== null) {
++          const decompressedSize = this.#decompressedSize + chunk.length
++          if (this.#maxSize !== 0 && decompressedSize > this.#maxSize) {
++            this.#reading = false
++            this.#fail(new ResponseExceededMaxSizeError(
++              `Decompressed response size (${decompressedSize}) exceeded maxSize (${this.#maxSize})`
++            ))
++            return
++          }
+ 
+-        this.#decompressedSize = decompressedSize
+-        const result = super.onResponseData(controller, chunk)
+-        if (result === false) {
+-          break
++          this.#decompressedSize = decompressedSize
++          super.onResponseData(this.#controller, chunk)
+         }
++      } finally {
++        this.#reading = false
+       }
++    }
++
++    this.#maybeComplete()
++    this.#syncTransport()
++  }
++
++  /**
++   * Signals completion once the decoder is done and the consumer has taken
++   * everything it produced.
++   * @returns {void}
++   */
++  #maybeComplete () {
++    if (this.#terminated || !this.#outputEnded || this.#consumerPaused) {
++      return
++    }
++
++    if (this.#output !== null && this.#output.readableLength > 0) {
++      return
++    }
++
++    this.#terminated = true
++    this.#output = null
++    this.#cleanupDecompressors()
++    this.#syncTransport()
++    super.onResponseEnd(this.#controller, this.#trailers)
++  }
++
++  /**
++   * Sets up event handlers for a decompressor stream using readable events
++   * @param {DecompressorStream} decompressor - The decompressor stream
++   * @returns {void}
++   */
++  #setupDecompressorEvents (decompressor) {
++    this.#output = decompressor
++
++    decompressor.on('readable', () => {
++      this.#flush()
+     })
+ 
+     decompressor.on('error', (error) => {
+-      this.#fail(controller, error)
++      this.#fail(error)
+     })
+   }
+ 
+   /**
+    * Sets up event handling for a single decompressor
+-   * @param {Controller} controller - The controller to handle events
+    * @returns {void}
+    */
+-  #setupSingleDecompressor (controller) {
++  #setupSingleDecompressor () {
+     const decompressor = this.#decompressors[0]
+-    this.#setupDecompressorEvents(decompressor, controller)
++    this.#setupDecompressorEvents(decompressor)
+ 
+     decompressor.on('end', () => {
+-      if (this.#terminated) {
+-        return
+-      }
+-
+-      this.#terminated = true
+-      this.#cleanupDecompressors()
+-      super.onResponseEnd(controller, this.#trailers)
++      this.#outputEnded = true
++      this.#maybeComplete()
+     })
+   }
+ 
+   /**
+    * Sets up event handling for multiple chained decompressors using pipeline
+-   * @param {Controller} controller - The controller to handle events
+    * @returns {void}
+    */
+-  #setupMultipleDecompressors (controller) {
++  #setupMultipleDecompressors () {
+     const lastDecompressor = this.#decompressors[this.#decompressors.length - 1]
+-    this.#setupDecompressorEvents(lastDecompressor, controller)
++    this.#setupDecompressorEvents(lastDecompressor)
+ 
+     pipeline(this.#decompressors, (err) => {
+       if (this.#terminated) {
+@@ -237,13 +427,12 @@ class DecompressHandler extends DecoratorHandler {
+       }
+ 
+       if (err) {
+-        this.#fail(controller, err)
++        this.#fail(err)
+         return
+       }
+ 
+-      this.#terminated = true
+-      this.#cleanupDecompressors()
+-      super.onResponseEnd(controller, this.#trailers)
++      this.#outputEnded = true
++      this.#maybeComplete()
+     })
+   }
+ 
+@@ -255,6 +444,16 @@ class DecompressHandler extends DecoratorHandler {
+     this.#decompressors.length = 0
+   }
+ 
++  /**
++   * @param {Controller} controller
++   * @param {unknown} context
++   * @returns {void}
++   */
++  onRequestStart (controller, context) {
++    this.#controller.target = controller
++    return super.onRequestStart(this.#controller, context)
++  }
++
+   /**
+    * @param {Controller} controller
+    * @param {number} statusCode
+@@ -263,6 +462,8 @@ class DecompressHandler extends DecoratorHandler {
+    * @returns {void}
+    */
+   onResponseStart (controller, statusCode, headers, statusMessage) {
++    this.#controller.target = controller
++
+     // Repeated field lines reach us as an array. RFC 9110 section 5.3 lets a
+     // recipient join them with commas, which yields the single-line form the
+     // decompression chain already handles.
+@@ -273,14 +474,14 @@ class DecompressHandler extends DecoratorHandler {
+ 
+     // If content encoding is not supported or status code is in skip list
+     if (this.#shouldSkipDecompression(contentEncoding, statusCode)) {
+-      return super.onResponseStart(controller, statusCode, headers, statusMessage)
++      return super.onResponseStart(this.#controller, statusCode, headers, statusMessage)
+     }
+ 
+     const decompressors = this.#createDecompressionChain(contentEncoding.toLowerCase())
+ 
+     if (decompressors.length === 0) {
+       this.#cleanupDecompressors()
+-      return super.onResponseStart(controller, statusCode, headers, statusMessage)
++      return super.onResponseStart(this.#controller, statusCode, headers, statusMessage)
+     }
+ 
+     this.#decompressors = decompressors
+@@ -315,13 +516,25 @@ class DecompressHandler extends DecoratorHandler {
+       }
+     }
+ 
++    // From here on the consumer's pause is ours to honour, not the transport's.
++    this.#controller.activate()
++
+     if (this.#decompressors.length === 1) {
+-      this.#setupSingleDecompressor(controller)
++      this.#setupSingleDecompressor()
+     } else {
+-      this.#setupMultipleDecompressors(controller)
++      this.#setupMultipleDecompressors()
+     }
+ 
+-    return super.onResponseStart(controller, statusCode, newHeaders, statusMessage)
++    // The decoder's writable side applies backpressure as soon as the consumer
++    // stops reading, so keep the transport in step with it.
++    this.#decompressors[0].on('drain', () => {
++      this.#writePressure = false
++      this.#syncTransport()
++    })
++
++    const result = super.onResponseStart(this.#controller, statusCode, newHeaders, statusMessage)
++    this.#syncTransport()
++    return result
+   }
+ 
+   /**
+@@ -330,11 +543,16 @@ class DecompressHandler extends DecoratorHandler {
+    * @returns {void}
+    */
+   onResponseData (controller, chunk) {
++    this.#controller.target = controller
++
+     if (this.#decompressors.length > 0) {
+-      this.#decompressors[0].write(chunk)
++      if (this.#decompressors[0].write(chunk) === false) {
++        this.#writePressure = true
++      }
++      this.#syncTransport()
+       return
+     }
+-    super.onResponseData(controller, chunk)
++    return super.onResponseData(this.#controller, chunk)
+   }
+ 
+   /**
+@@ -343,13 +561,15 @@ class DecompressHandler extends DecoratorHandler {
+    * @returns {void}
+    */
+   onResponseEnd (controller, trailers) {
++    this.#controller.target = controller
++
+     if (this.#decompressors.length > 0) {
+       this.#inputEnded = true
+       this.#trailers = trailers
+       this.#decompressors[0].end()
+       return
+     }
+-    super.onResponseEnd(controller, trailers)
++    return super.onResponseEnd(this.#controller, trailers)
+   }
+ 
+   /**
+@@ -358,16 +578,21 @@ class DecompressHandler extends DecoratorHandler {
+    * @returns {void}
+    */
+   onResponseError (controller, err) {
++    if (controller != null) {
++      this.#controller.target = controller
++    }
++
+     if (this.#terminated) {
+       return
+     }
+ 
+     this.#terminated = true
++    this.#output = null
+     for (const decompressor of this.#decompressors) {
+       decompressor.destroy()
+     }
+     this.#cleanupDecompressors()
+-    super.onResponseError(controller, err)
++    return super.onResponseError(this.#controller, err)
+   }
+ }
+ 
+diff --git a/test/interceptors/decompress.js b/test/interceptors/decompress.js
+index 4cb38b07..06eda0e8 100644
+--- a/test/interceptors/decompress.js
++++ b/test/interceptors/decompress.js
+@@ -1249,18 +1249,236 @@ test('should allow a decompressed response exactly equal to maxSize', async t =>
+ test('should reject invalid maxSize values', async t => {
+   t = tspl(t, { plan: 5 })
+ 
+-  for (const maxSize of [0, -1, 1.5, Infinity, '1024']) {
++  for (const maxSize of [-1, 1.5, Infinity, '1024', null]) {
+     const dispatch = createDecompressInterceptor({ maxSize })(() => true)
+     t.throws(() => dispatch({ method: 'GET' }, {}), {
+       name: 'InvalidArgumentError',
+       code: 'UND_ERR_INVALID_ARG',
+-      message: 'maxSize must be a positive integer'
++      message: 'maxSize must be a non-negative integer'
+     })
+   }
+ 
+   await t.completed
+ })
+ 
++test('should accept a maxSize of 0 as disabling the limit', async t => {
++  t = tspl(t, { plan: 1 })
++
++  const dispatch = createDecompressInterceptor({ maxSize: 0 })(() => true)
++  t.doesNotThrow(() => dispatch({ method: 'GET' }, {}))
++
++  await t.completed
++})
++
++test('should not limit the decompressed size by default', async t => {
++  t = tspl(t, { plan: 2 })
++
++  // Comfortably past the 64 MiB cap the interceptor used to impose.
++  const chunk = Buffer.alloc(1024 * 1024, 0x61)
++  const chunks = 80
++  const server = createServer({ joinDuplicateHeaders: true }, async (req, res) => {
++    const gzip = createGzip()
++    res.writeHead(200, {
++      'Content-Type': 'text/plain',
++      'Content-Encoding': 'gzip'
++    })
++
++    gzip.pipe(res)
++    for (let i = 0; i < chunks; i++) {
++      if (!gzip.write(chunk)) {
++        await once(gzip, 'drain')
++      }
++    }
++    gzip.end()
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const client = new Client(
++    `http://localhost:${server.address().port}`
++  ).compose(createDecompressInterceptor())
++
++  after(async () => {
++    await client.close()
++    server.close()
++    await once(server, 'close')
++  })
++
++  const response = await client.request({
++    method: 'GET',
++    path: '/'
++  })
++
++  let received = 0
++  for await (const part of response.body) {
++    received += part.length
++  }
++
++  t.equal(response.statusCode, 200)
++  t.equal(received, chunk.length * chunks)
++
++  await t.completed
++})
++
++test('should stop pushing decoded output while the consumer is paused', async t => {
++  t = tspl(t, { plan: 4 })
++
++  const data = Buffer.alloc(4 * 1024 * 1024, 0x62)
++  const server = createServer({ joinDuplicateHeaders: true }, async (req, res) => {
++    const gzip = createGzip()
++    res.writeHead(200, {
++      'Content-Type': 'text/plain',
++      'Content-Encoding': 'gzip'
++    })
++
++    gzip.pipe(res)
++    gzip.end(data)
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const client = new Client(
++    `http://localhost:${server.address().port}`
++  ).compose(createDecompressInterceptor())
++
++  after(async () => {
++    await client.close()
++    server.close()
++    await once(server, 'close')
++  })
++
++  let controller
++  let received = 0
++  let paused = false
++  let deliveredWhilePaused = 0
++  let endedWhilePaused = false
++  let resumed = false
++
++  const handler = {
++    onRequestStart (ctrl) {
++      controller = ctrl
++    },
++
++    onResponseStart (ctrl, statusCode) {
++      t.equal(statusCode, 200)
++    },
++
++    onResponseData (ctrl, chunk) {
++      received += chunk.length
++
++      if (paused) {
++        deliveredWhilePaused += chunk.length
++        return
++      }
++
++      if (!resumed) {
++        // Hold the response open for a while and check that nothing else is
++        // pushed at us, and that it is not completed behind our back.
++        paused = true
++        controller.pause()
++        setTimeout(() => {
++          paused = false
++          resumed = true
++          controller.resume()
++        }, 200)
++      }
++    },
++
++    onResponseEnd () {
++      endedWhilePaused = paused
++    },
++
++    onResponseError (ctrl, err) {
++      t.fail(err)
++    }
++  }
++
++  await client.dispatch({ method: 'GET', path: '/' }, handler)
++
++  // Let the paused window elapse before asserting.
++  await new Promise(resolve => setTimeout(resolve, 500))
++
++  t.equal(deliveredWhilePaused, 0, 'no data should be delivered while paused')
++  t.equal(endedWhilePaused, false, 'completion should wait for the consumer')
++  t.equal(received, data.length, 'all data should eventually arrive')
++
++  await t.completed
++})
++
++test('should propagate decoder write pressure to the transport', async t => {
++  t = tspl(t, { plan: 3 })
++
++  const data = Buffer.alloc(8 * 1024 * 1024, 0x63)
++  const server = createServer({ joinDuplicateHeaders: true }, async (req, res) => {
++    const gzip = createGzip()
++    res.writeHead(200, {
++      'Content-Type': 'text/plain',
++      'Content-Encoding': 'gzip'
++    })
++
++    gzip.pipe(res)
++    gzip.end(data)
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const client = new Client(
++    `http://localhost:${server.address().port}`
++  ).compose(createDecompressInterceptor())
++
++  after(async () => {
++    await client.close()
++    server.close()
++    await once(server, 'close')
++  })
++
++  let transportPaused = false
++  let received = 0
++
++  const handler = {
++    onRequestStart (ctrl) {
++      // The consumer talks to the interceptor's controller; the transport
++      // controller underneath it is the one that carries write pressure.
++      const transportController = ctrl.target
++      const pause = transportController.pause.bind(transportController)
++      transportController.pause = () => {
++        transportPaused = true
++        pause()
++      }
++    },
++
++    onResponseStart (ctrl, statusCode) {
++      t.equal(statusCode, 200)
++      // Never read the decoded output until the very end, which backs up the
++      // decoder and must stall the socket rather than buffer without bound.
++      ctrl.pause()
++      setTimeout(() => ctrl.resume(), 200)
++    },
++
++    onResponseData (ctrl, chunk) {
++      received += chunk.length
++    },
++
++    onResponseEnd () {
++      t.equal(received, data.length)
++    },
++
++    onResponseError (ctrl, err) {
++      t.fail(err)
++    }
++  }
++
++  await client.dispatch({ method: 'GET', path: '/' }, handler)
++  await new Promise(resolve => setTimeout(resolve, 500))
++
++  t.ok(transportPaused, 'the transport should have been paused')
++
++  await t.completed
++})
++
+ test('should behave like fetch() for compressed responses', async t => {
+   t = tspl(t, { plan: 10 })
+ 
+diff --git a/types/interceptors.d.ts b/types/interceptors.d.ts
+index c11d4017..255df0ba 100644
+--- a/types/interceptors.d.ts
++++ b/types/interceptors.d.ts
+@@ -12,7 +12,7 @@ declare namespace Interceptors {
+   export type DecompressInterceptorOpts = {
+     skipErrorResponses?: boolean
+     skipStatusCodes?: number[]
+-    /** Maximum decompressed response size in bytes. @default 67108864 */
++    /** Maximum output size in bytes of each decompression stage. `0` disables the limit. @default 0 */
+     maxSize?: number
+   }
+ 

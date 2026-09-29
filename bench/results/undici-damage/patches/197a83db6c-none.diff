@@ -1,0 +1,108 @@
+diff --git a/lib/dispatcher/client-h1.js b/lib/dispatcher/client-h1.js
+index 5ab9e6d6..d0850ddc 100644
+--- a/lib/dispatcher/client-h1.js
++++ b/lib/dispatcher/client-h1.js
+@@ -1265,8 +1265,15 @@ function writeH1 (client, request) {
+     socket[kBlocking] = true
+   }
+ 
+-  if (socket.setTypeOfService) {
+-    socket.setTypeOfService(request.typeOfService)
++  // IP QoS marking is best-effort: setsockopt can fail depending on the
++  // platform and socket state (e.g. EINVAL on macOS), which must never take
++  // down the request, let alone the process. Skip it entirely when unset.
++  if (request.typeOfService !== 0 && socket.setTypeOfService) {
++    try {
++      socket.setTypeOfService(request.typeOfService)
++    } catch {
++      // Ignore.
++    }
+   }
+ 
+   let header = `${method} ${path} HTTP/1.1\r\n`
+diff --git a/test/ip-prioritization.js b/test/ip-prioritization.js
+index 8dc0412f..34adce3b 100644
+--- a/test/ip-prioritization.js
++++ b/test/ip-prioritization.js
+@@ -45,6 +45,81 @@ test('HTTP/1.1 Request Prioritization', async (t) => {
+   }
+ })
+ 
++test('HTTP/1.1 does not touch setsockopt when typeOfService is unset', async (t) => {
++  let called = false
++
++  const server = createServer((req, res) => {
++    res.end('ok')
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const client = new Client(`http://localhost:${server.address().port}`, {
++    connect: (opts, cb) => {
++      const socket = require('node:net').connect({
++        ...opts,
++        host: opts.hostname,
++        port: opts.port
++      }, () => {
++        cb(null, socket)
++      })
++      socket.setTypeOfService = () => {
++        called = true
++      }
++      return socket
++    }
++  })
++  after(() => client.close())
++  after(() => server.close())
++
++  await client.request({ path: '/', method: 'GET' })
++
++  if (called) {
++    throw new Error('Expected setTypeOfService not to be called')
++  }
++})
++
++test('HTTP/1.1 survives a throwing setTypeOfService', async (t) => {
++  const server = createServer((req, res) => {
++    res.end('ok')
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const client = new Client(`http://localhost:${server.address().port}`, {
++    connect: (opts, cb) => {
++      const socket = require('node:net').connect({
++        ...opts,
++        host: opts.hostname,
++        port: opts.port
++      }, () => {
++        cb(null, socket)
++      })
++      socket.setTypeOfService = () => {
++        const err = new Error('setTypeOfService EINVAL')
++        err.code = 'EINVAL'
++        throw err
++      }
++      return socket
++    }
++  })
++  after(() => client.close())
++  after(() => server.close())
++
++  const { statusCode, body } = await client.request({
++    path: '/',
++    method: 'GET',
++    typeOfService: 42
++  })
++
++  if (statusCode !== 200) {
++    throw new Error(`Expected statusCode 200, got ${statusCode}`)
++  }
++  await body.text()
++})
++
+ test('HTTP/2 Connection Prioritization', async (t) => {
+   const net = require('node:net')
+   const buildConnector = require('../lib/core/connect')

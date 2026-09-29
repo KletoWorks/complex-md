@@ -1,0 +1,133 @@
+diff --git a/lib/util/cache.js b/lib/util/cache.js
+index a8f11216..1bab921b 100644
+--- a/lib/util/cache.js
++++ b/lib/util/cache.js
+@@ -38,6 +38,32 @@ function normalizeHeaders (opts) {
+   let headers
+   if (opts.headers == null) {
+     headers = {}
++  } else if (Array.isArray(opts.headers)) {
++    headers = {}
++
++    if (opts.headers.length !== 0 && Array.isArray(opts.headers[0])) {
++      // Array of key-value pairs
++      for (const entry of opts.headers) {
++        if (!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string') {
++          throw new Error('opts.headers is not a valid header map')
++        }
++        headers[entry[0].toLowerCase()] = entry[1]
++      }
++    } else {
++      // Flat array of alternating keys and values, the shape accepted by
++      // Request and produced by other interceptors (e.g. dns, redirect)
++      if (opts.headers.length % 2 !== 0) {
++        throw new Error('opts.headers is not a valid header map')
++      }
++
++      for (let i = 0; i < opts.headers.length; i += 2) {
++        const key = opts.headers[i]
++        if (typeof key !== 'string') {
++          throw new Error('opts.headers is not a valid header map')
++        }
++        headers[key.toLowerCase()] = opts.headers[i + 1]
++      }
++    }
+   } else if (typeof opts.headers === 'object') {
+     headers = {}
+ 
+diff --git a/test/cache-interceptor/cache-utils.js b/test/cache-interceptor/cache-utils.js
+index 7b66e66d..9e0b4a00 100644
+--- a/test/cache-interceptor/cache-utils.js
++++ b/test/cache-interceptor/cache-utils.js
+@@ -42,3 +42,31 @@ test('normalizeHeaders handles headers from Map', (t) => {
+ 
+   strictEqual(headers['x-test'], 'ok')
+ })
++
++test('normalizeHeaders handles a flat array of keys and values', (t) => {
++  const { deepStrictEqual } = tspl(t, { plan: 3 })
++
++  deepStrictEqual(normalizeHeaders({ headers: [] }), {})
++  deepStrictEqual(normalizeHeaders({ headers: ['Host', 'example.com', 'X-Test', 'ok'] }), {
++    host: 'example.com',
++    'x-test': 'ok'
++  })
++  deepStrictEqual(normalizeHeaders({ headers: ['X-Test', ['a', 'b']] }), { 'x-test': ['a', 'b'] })
++})
++
++test('normalizeHeaders handles an array of key-value pairs', (t) => {
++  const { deepStrictEqual } = tspl(t, { plan: 1 })
++
++  deepStrictEqual(normalizeHeaders({ headers: [['Host', 'example.com'], ['X-Test', 'ok']] }), {
++    host: 'example.com',
++    'x-test': 'ok'
++  })
++})
++
++test('normalizeHeaders rejects invalid arrays', (t) => {
++  const { throws } = tspl(t, { plan: 3 })
++
++  throws(() => normalizeHeaders({ headers: ['X-Test'] }), /not a valid header map/)
++  throws(() => normalizeHeaders({ headers: [1, 'ok'] }), /not a valid header map/)
++  throws(() => normalizeHeaders({ headers: [['X-Test']] }), /not a valid header map/)
++})
+diff --git a/test/interceptors/cache.js b/test/interceptors/cache.js
+index e31b1e30..2551fbea 100644
+--- a/test/interceptors/cache.js
++++ b/test/interceptors/cache.js
+@@ -6,7 +6,7 @@ const { once } = require('node:events')
+ const { equal, strictEqual, notEqual, fail } = require('node:assert')
+ const { setTimeout: sleep } = require('node:timers/promises')
+ const FakeTimers = require('@sinonjs/fake-timers')
+-const { Client, interceptors, cacheStores: { MemoryCacheStore, SqliteCacheStore } } = require('../../index')
++const { Agent, Client, interceptors, request, cacheStores: { MemoryCacheStore, SqliteCacheStore } } = require('../../index')
+ const { makeCacheKey } = require('../../lib/util/cache.js')
+ const { runtimeFeatures } = require('../../lib/util/runtime-features.js')
+ 
+@@ -2412,4 +2412,46 @@ describe('Cache Interceptor', () => {
+       }
+     })
+   })
++
++  // https://github.com/nodejs/undici/issues/4525
++  describe('works regardless of interceptor order', () => {
++    for (const [label, headers] of [
++      ['no headers', undefined],
++      ['empty array', []],
++      ['flat array', ['x-test', 'ok']],
++      ['object', { 'x-test': 'ok' }],
++      ['Map', new Map([['x-test', 'ok']])]
++    ]) {
++      test(`headers: ${label}`, async () => {
++        const server = createServer({ joinDuplicateHeaders: true }, (req, res) => {
++          if (req.url === '/redirect') {
++            res.writeHead(302, { location: '/' })
++            res.end()
++            return
++          }
++          res.end('asd')
++        }).listen(0)
++
++        after(() => server.close())
++        await once(server, 'listening')
++
++        const origin = `http://localhost:${server.address().port}`
++
++        // The dns interceptor rewrites headers into the flat array form, so the
++        // cache interceptor has to understand it when it runs after dns
++        for (const [path, dispatcher] of [
++          ['/', new Agent().compose(interceptors.dns(), interceptors.cache())],
++          ['/', new Agent().compose(interceptors.cache(), interceptors.dns())],
++          ['/redirect', new Agent().compose(interceptors.dns(), interceptors.cache(), interceptors.redirect({ maxRedirections: 3 }))],
++          ['/redirect', new Agent().compose(interceptors.cache(), interceptors.dns(), interceptors.redirect({ maxRedirections: 3 }))]
++        ]) {
++          after(() => dispatcher.close())
++
++          const res = await request(origin, { dispatcher, path, headers })
++          equal(res.statusCode, 200)
++          strictEqual(await res.body.text(), 'asd')
++        }
++      })
++    }
++  })
+ })

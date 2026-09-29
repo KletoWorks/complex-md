@@ -1,0 +1,228 @@
+diff --git a/lib/handler/retry-handler.js b/lib/handler/retry-handler.js
+index 4b72c004..72f69be0 100644
+--- a/lib/handler/retry-handler.js
++++ b/lib/handler/retry-handler.js
+@@ -162,6 +162,13 @@ class RetryHandler {
+     // Set once an abort during the backoff delivered the terminal error
+     // downstream; late policy callbacks and connection errors are then moot.
+     this.aborted = false
++    // Body and end of a response that finished while the retry decision was
++    // pending. The peer closed the connection, so the parser flushed the rest
++    // of the message across the paused controller instead of waiting for the
++    // resume. Retained as `{ chunks, ended, trailers }` until the policy
++    // settles: a retry makes it moot, a terminal failure replays it as the
++    // final response.
++    this.retainedResponse = null
+   }
+ 
+   onResponseStartWithRetry (controller, statusCode, headers, statusMessage, err) {
+@@ -212,11 +219,15 @@ class RetryHandler {
+           this.handler.onResponseStart?.(this.controllerProxy, statusCode, headers, statusMessage)
+         }
+         controller.resume()
++        this.#replayRetainedResponse(controller)
+         return
+       }
+ 
+       this.error = err
+       controller.resume()
++      // The connection may already be gone; if its response ended while we were
++      // deciding, the resume above cannot deliver the end that starts the retry.
++      this.#replayRetainedResponse(controller)
+     }
+ 
+     // The pause()/resume() pair (here and in shouldRetry) acts on THIS
+@@ -485,12 +496,26 @@ class RetryHandler {
+       return
+     }
+ 
++    if (this.retryPending) {
++      this.#retain().chunks.push(chunk)
++      return
++    }
++
+     this.start += chunk.length
+ 
+     this.handler.onResponseData?.(this.controllerProxy, chunk)
+   }
+ 
+   onResponseEnd (_controller, trailers) {
++    if (this.retryPending) {
++      // The retry policy has not settled yet, so we do not know whether this
++      // response is the one the consumer gets. Hold it until it does.
++      const retained = this.#retain()
++      retained.ended = true
++      retained.trailers = trailers
++      return
++    }
++
+     if (this.error && this.retryOpts.throwOnError) {
+       throw this.error
+     }
+@@ -591,6 +616,38 @@ class RetryHandler {
+     ) ?? null
+   }
+ 
++  #retain () {
++    this.retainedResponse ??= { chunks: [], ended: false, trailers: null }
++    return this.retainedResponse
++  }
++
++  // Feed a retained response back through the normal data/end path now that the
++  // policy settled: it either drops it (a retry is under way and `this.error` is
++  // set) or forwards it downstream as the final response. Framing checks in
++  // onResponseEnd throw, and here they would escape through the policy's
++  // callback, so report them downstream instead.
++  #replayRetainedResponse (controller) {
++    const retained = this.retainedResponse
++
++    if (retained === null) {
++      return
++    }
++
++    this.retainedResponse = null
++
++    try {
++      for (const chunk of retained.chunks) {
++        this.onResponseData(controller, chunk)
++      }
++
++      if (retained.ended) {
++        this.onResponseEnd(controller, retained.trailers)
++      }
++    } catch (err) {
++      this.handler.onResponseError?.(this.controllerProxy, err)
++    }
++  }
++
+   #onAbort (reason) {
+     // A consumer abort lands on the controller proxy. If the retry policy is
+     // still deciding (typically holding a backoff timer), cancel the wait and
+diff --git a/test/interceptors/retry.js b/test/interceptors/retry.js
+index 5e609ffd..7830d3cb 100644
+--- a/test/interceptors/retry.js
++++ b/test/interceptors/retry.js
+@@ -3,6 +3,7 @@
+ const { tspl } = require('@matteo.collina/tspl')
+ const { test, after } = require('node:test')
+ const { createServer } = require('node:http')
++const { createServer: createNetServer } = require('node:net')
+ const { once } = require('node:events')
+ const { spawnSync } = require('node:child_process')
+ 
+@@ -957,6 +958,115 @@ test('should reject the original response body when a retry returns a non-retrya
+   t.strictEqual(count, 2)
+ })
+ 
++// An empty body plus `connection: close`, flushed together with the FIN, makes
++// the response end while the retry policy is still deciding: the parser has
++// nothing left to buffer, so the EOF completes the message across the paused
++// controller. A raw socket is what keeps that framing exact.
++function closingRetryServer (shouldSucceed) {
++  return createNetServer(socket => {
++    socket.on('error', () => {})
++    socket.once('data', chunk => {
++      const path = chunk.toString().split(' ')[1]
++
++      if (!shouldSucceed(path)) {
++        socket.end('HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\nContent-Length: 0\r\n\r\n')
++        return
++      }
++
++      const body = `hello ${path}`
++      socket.end(
++        'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n' +
++        `Content-Length: ${body.length}\r\n\r\n${body}`
++      )
++    })
++  })
++}
++
++function withDeadline (promise, message) {
++  let timer
++  return Promise.race([
++    promise.finally(() => clearTimeout(timer)),
++    new Promise((_resolve, reject) => {
++      timer = setTimeout(() => reject(new Error(message)), 10e3)
++    })
++  ])
++}
++
++test('Should retry concurrent responses that end after the connection is closed', async t => {
++  t = tspl(t, { plan: 7 })
++
++  const attempts = new Map()
++  const server = closingRetryServer(path => {
++    const count = (attempts.get(path) ?? 0) + 1
++    attempts.set(path, count)
++    return count === 3
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const client = new Client(
++    `http://localhost:${server.address().port}`
++  ).compose(retry({ minTimeout: 10, maxTimeout: 10, timeoutFactor: 1, throwOnError: false }))
++
++  after(async () => {
++    await client.close()
++    server.close()
++    await once(server, 'close')
++  })
++
++  const paths = ['/a', '/b', '/c']
++  const responses = await withDeadline(
++    Promise.all(paths.map(path => client.request({ method: 'GET', path }))),
++    'retry did not advance after the connection was closed'
++  )
++
++  for (let i = 0; i < paths.length; i++) {
++    t.strictEqual(responses[i].statusCode, 200)
++    t.strictEqual(
++      await withDeadline(responses[i].body.text(), 'response body never settled'),
++      `hello ${paths[i]}`
++    )
++  }
++
++  t.deepStrictEqual([...attempts.values()], [3, 3, 3])
++})
++
++test('Should expose the last closing response once retries are exhausted', async t => {
++  t = tspl(t, { plan: 3 })
++
++  let count = 0
++  const server = closingRetryServer(() => {
++    count++
++    return false
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const client = new Client(
++    `http://localhost:${server.address().port}`
++  ).compose(retry({ maxRetries: 2, minTimeout: 10, maxTimeout: 10, timeoutFactor: 1, throwOnError: false }))
++
++  after(async () => {
++    await client.close()
++    server.close()
++    await once(server, 'close')
++  })
++
++  const response = await withDeadline(
++    client.request({ method: 'GET', path: '/' }),
++    'exhausted retry never settled'
++  )
++
++  t.strictEqual(response.statusCode, 500)
++  t.strictEqual(
++    await withDeadline(response.body.text(), 'final response body never settled'),
++    ''
++  )
++  t.strictEqual(count, 3)
++})
++
+ test('#3975 - keep event loop ticking', async t => {
+   const suite = tspl(t, { plan: 2 })
+ 

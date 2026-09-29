@@ -1,0 +1,101 @@
+diff --git a/lib/dispatcher/client.js b/lib/dispatcher/client.js
+index 8a4f6517..50a442aa 100644
+--- a/lib/dispatcher/client.js
++++ b/lib/dispatcher/client.js
+@@ -429,19 +429,30 @@ function onError (client, err) {
+   ) {
+     // Error is not caused by running request and not a recoverable
+     // socket error.
++    errorQueuedRequests(client, err)
++  }
++}
+ 
+-    assert(client[kPendingIdx] === client[kRunningIdx])
++/**
++ * Fail every request left in the queue. Only valid when nothing is running,
++ * i.e. when no request can make progress on its own anymore.
++ *
++ * @param {Client} client
++ * @param {Error} err
++ * @returns {void}
++ */
++function errorQueuedRequests (client, err) {
++  assert(client[kPendingIdx] === client[kRunningIdx])
+ 
+-    const requests = client[kQueue].splice(client[kRunningIdx])
++  const requests = client[kQueue].splice(client[kRunningIdx])
+ 
+-    for (let i = 0; i < requests.length; i++) {
+-      const request = requests[i]
+-      if (request != null) {
+-        util.errorRequest(client, request, err)
+-      }
++  for (let i = 0; i < requests.length; i++) {
++    const request = requests[i]
++    if (request != null) {
++      util.errorRequest(client, request, err)
+     }
+-    assert(client[kSize] === 0)
+   }
++  assert(client[kSize] === 0)
+ }
+ 
+ /**
+@@ -583,8 +594,13 @@ function handleConnectError (client, err, { host, hostname, protocol, port }) {
+       const request = client[kQueue].splice(client[kPendingIdx], 1)[0]
+       util.errorRequest(client, request, err)
+     }
+-  } else {
+-    onError(client, err)
++  } else if (client[kRunning] === 0) {
++    // Establishing the connection failed, so unlike an error on an already
++    // established socket this is not recoverable by reconnecting: resume()
++    // would immediately call connect() again and spin forever. This happens
++    // e.g. with a proxy that closes the socket of the tunnel request, which
++    // surfaces here as a SocketError (UND_ERR_SOCKET).
++    errorQueuedRequests(client, err)
+   }
+ 
+   client.emit('connectionError', client[kUrl], [client], err)
+diff --git a/test/proxy-agent.js b/test/proxy-agent.js
+index fdf9024b..903a4f95 100644
+--- a/test/proxy-agent.js
++++ b/test/proxy-agent.js
+@@ -1531,6 +1531,37 @@ test('ProxyAgent handles multiple concurrent HTTP requests via HTTP proxy', asyn
+   proxyAgent.close()
+ })
+ 
++test('ProxyAgent does not loop when the proxy closes the tunnel socket - #4374', async (t) => {
++  t = tspl(t, { plan: 3 })
++
++  // A plain HTTP server without a 'connect' listener: node closes the socket of
++  // the tunnel request, which surfaces as UND_ERR_SOCKET.
++  const proxy = createServer((req, res) => res.end())
++  await new Promise(resolve => proxy.listen(0, resolve))
++
++  let connections = 0
++  proxy.on('connection', () => {
++    connections++
++  })
++
++  const proxyAgent = new ProxyAgent(`http://localhost:${proxy.address().port}`)
++  after(() => Promise.all([proxyAgent.close(), proxy.close()]))
++
++  await t.rejects(
++    request('http://localhost:1/', { dispatcher: proxyAgent }),
++    { code: 'UND_ERR_SOCKET' }
++  )
++
++  t.strictEqual(connections, 1, 'should not retry the tunnel connection')
++
++  // The failure must not be sticky either: the next request gets its own single
++  // attempt rather than being rejected by leftover state.
++  await t.rejects(
++    request('http://localhost:1/', { dispatcher: proxyAgent }),
++    { code: 'UND_ERR_SOCKET' }
++  )
++})
++
+ function buildServer () {
+   return new Promise((resolve) => {
+     const server = createServer({ joinDuplicateHeaders: true })

@@ -1,0 +1,161 @@
+diff --git a/docs/docs/api/Errors.md b/docs/docs/api/Errors.md
+index 6a4bc3c6..50d96098 100644
+--- a/docs/docs/api/Errors.md
++++ b/docs/docs/api/Errors.md
+@@ -26,6 +26,7 @@ import { errors } from 'undici'
+ | `InformationalError`                 | `UND_ERR_INFO`                        | expected error with reason                                                |
+ | `ResponseExceededMaxSizeError`       | `UND_ERR_RES_EXCEEDED_MAX_SIZE`       | response body exceed the max size allowed                                 |
+ | `SecureProxyConnectionError`         | `UND_ERR_PRX_TLS`                     | tls connection to a proxy failed                                          |
++| `ProxyConnectionError`               | `UND_ERR_PRX_CONN`                    | the connection to a proxy failed or was closed by the proxy               |
+ | `MessageSizeExceededError`           | `UND_ERR_WS_MESSAGE_SIZE_EXCEEDED`    | WebSocket decompressed message exceeded the maximum allowed size          |
+ | `AbortError`                         | `UND_ERR_ABORT`                       | the operation was aborted (base class of `RequestAbortedError`).          |
+ | `RequestRetryError`                  | `UND_ERR_REQ_RETRY`                   | request failed and could not be retried; carries `statusCode`, `headers` and `data`. |
+diff --git a/lib/core/errors.js b/lib/core/errors.js
+index ed690393..d509d925 100644
+--- a/lib/core/errors.js
++++ b/lib/core/errors.js
+@@ -403,6 +403,25 @@ class SecureProxyConnectionError extends UndiciError {
+   }
+ }
+ 
++const kProxyConnectionError = Symbol.for('undici.error.UND_ERR_PRX_CONN')
++class ProxyConnectionError extends UndiciError {
++  constructor (cause, message, options = {}) {
++    super(message, { cause, ...options })
++    this.name = 'ProxyConnectionError'
++    this.message = message || 'Proxy Connection failed'
++    this.code = 'UND_ERR_PRX_CONN'
++    this.cause = cause
++  }
++
++  static [Symbol.hasInstance] (instance) {
++    return instance && instance[kProxyConnectionError] === true
++  }
++
++  get [kProxyConnectionError] () {
++    return true
++  }
++}
++
+ const kMaxOriginsReachedError = Symbol.for('undici.error.UND_ERR_MAX_ORIGINS_REACHED')
+ class MaxOriginsReachedError extends UndiciError {
+   constructor (message) {
+@@ -471,6 +490,7 @@ module.exports = {
+   RequestRetryError,
+   ResponseError,
+   SecureProxyConnectionError,
++  ProxyConnectionError,
+   MaxOriginsReachedError,
+   Socks5ProxyError,
+   MessageSizeExceededError
+diff --git a/lib/dispatcher/proxy-agent.js b/lib/dispatcher/proxy-agent.js
+index 684565f2..643c41d0 100644
+--- a/lib/dispatcher/proxy-agent.js
++++ b/lib/dispatcher/proxy-agent.js
+@@ -4,7 +4,7 @@ const { kProxy, kClose, kDestroy, kDispatch } = require('../core/symbols')
+ const Agent = require('./agent')
+ const Pool = require('./pool')
+ const DispatcherBase = require('./dispatcher-base')
+-const { InvalidArgumentError, RequestAbortedError, SecureProxyConnectionError } = require('../core/errors')
++const { InvalidArgumentError, RequestAbortedError, SecureProxyConnectionError, ProxyConnectionError } = require('../core/errors')
+ const buildConnector = require('../core/connect')
+ const Client = require('./client')
+ const { channels } = require('../core/diagnostics')
+@@ -231,6 +231,11 @@ class ProxyAgent extends DispatcherBase {
+           if (err.code === 'ERR_TLS_CERT_ALTNAME_INVALID') {
+             // Throw a custom error to avoid loop in client.js#connect
+             callback(new SecureProxyConnectionError(err))
++          } else if (err.code === 'UND_ERR_SOCKET' || err.code === 'UND_ERR_INFO') {
++            // client.js#connect treats these codes as recoverable and keeps the
++            // request queued, which would make it reconnect to the proxy
++            // forever. Wrap them to fail the request instead.
++            callback(new ProxyConnectionError(err, `Proxy connection failed: ${err.message}`))
+           } else {
+             callback(err)
+           }
+diff --git a/test/proxy-agent.js b/test/proxy-agent.js
+index fdf9024b..e7582889 100644
+--- a/test/proxy-agent.js
++++ b/test/proxy-agent.js
+@@ -4,7 +4,7 @@ const { tspl } = require('@matteo.collina/tspl')
+ const { test, after } = require('node:test')
+ const diagnosticsChannel = require('node:diagnostics_channel')
+ const { request, fetch, setGlobalDispatcher, getGlobalDispatcher } = require('..')
+-const { InvalidArgumentError, ConnectTimeoutError, SecureProxyConnectionError } = require('../lib/core/errors')
++const { InvalidArgumentError, ConnectTimeoutError, SecureProxyConnectionError, ProxyConnectionError } = require('../lib/core/errors')
+ const ProxyAgent = require('../lib/dispatcher/proxy-agent')
+ const Pool = require('../lib/dispatcher/pool')
+ const { createServer } = require('node:http')
+@@ -1531,6 +1531,35 @@ test('ProxyAgent handles multiple concurrent HTTP requests via HTTP proxy', asyn
+   proxyAgent.close()
+ })
+ 
++test('ProxyAgent fails the request when the proxy closes the connection', async (t) => {
++  t = tspl(t, { plan: 4 })
++
++  // A plain HTTP server without a `connect` listener: node closes the socket
++  // when it receives the CONNECT request used to establish the tunnel.
++  const proxy = createServer((req, res) => {
++    t.fail('proxy should never receive a plain request')
++  })
++  let connections = 0
++  proxy.on('connection', () => { connections++ })
++  await new Promise(resolve => proxy.listen(0, resolve))
++
++  const proxyAgent = new ProxyAgent(`http://localhost:${proxy.address().port}`)
++
++  try {
++    await request('http://localhost:1/', { dispatcher: proxyAgent })
++    t.fail('should fail')
++  } catch (err) {
++    t.ok(err instanceof ProxyConnectionError)
++    t.strictEqual(err.code, 'UND_ERR_PRX_CONN')
++    t.strictEqual(err.cause.code, 'UND_ERR_SOCKET')
++    // The request must not be retried against the proxy over and over.
++    t.strictEqual(connections, 1)
++  }
++
++  proxy.close()
++  await proxyAgent.close()
++})
++
+ function buildServer () {
+   return new Promise((resolve) => {
+     const server = createServer({ joinDuplicateHeaders: true })
+diff --git a/test/types/errors.test-d.ts b/test/types/errors.test-d.ts
+index 794d0a5e..01f7cd96 100644
+--- a/test/types/errors.test-d.ts
++++ b/test/types/errors.test-d.ts
+@@ -110,6 +110,11 @@ expectAssignable<errors.SecureProxyConnectionError>(new errors.SecureProxyConnec
+ expectAssignable<'SecureProxyConnectionError'>(new errors.SecureProxyConnectionError().name)
+ expectAssignable<'UND_ERR_PRX_TLS'>(new errors.SecureProxyConnectionError().code)
+ 
++expectAssignable<errors.UndiciError>(new errors.ProxyConnectionError())
++expectAssignable<errors.ProxyConnectionError>(new errors.ProxyConnectionError())
++expectAssignable<'ProxyConnectionError'>(new errors.ProxyConnectionError().name)
++expectAssignable<'UND_ERR_PRX_CONN'>(new errors.ProxyConnectionError().code)
++
+ expectAssignable<errors.UndiciError>(new errors.MaxOriginsReachedError())
+ expectAssignable<errors.MaxOriginsReachedError>(new errors.MaxOriginsReachedError())
+ expectAssignable<'MaxOriginsReachedError'>(new errors.MaxOriginsReachedError().name)
+diff --git a/types/errors.d.ts b/types/errors.d.ts
+index 94b90247..7155b9c0 100644
+--- a/types/errors.d.ts
++++ b/types/errors.d.ts
+@@ -154,6 +154,16 @@ declare namespace Errors {
+     code: 'UND_ERR_PRX_TLS'
+   }
+ 
++  export class ProxyConnectionError extends UndiciError {
++    constructor (
++      cause?: Error,
++      message?: string,
++      options?: Record<any, any>
++    )
++    name: 'ProxyConnectionError'
++    code: 'UND_ERR_PRX_CONN'
++  }
++
+   export class MaxOriginsReachedError extends UndiciError {
+     name: 'MaxOriginsReachedError'
+     code: 'UND_ERR_MAX_ORIGINS_REACHED'

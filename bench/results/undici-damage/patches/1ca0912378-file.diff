@@ -1,0 +1,202 @@
+diff --git a/lib/handler/cache-handler.js b/lib/handler/cache-handler.js
+index d4bbd86d..01d9d4d6 100644
+--- a/lib/handler/cache-handler.js
++++ b/lib/handler/cache-handler.js
+@@ -26,6 +26,12 @@ const NOT_UNDERSTOOD_STATUS_CODES = [
+ 
+ const MAX_RESPONSE_AGE = 2147483647000
+ 
++// Base used to resolve the Location/Content-Location fields when the request's
++//  origin isn't a parsable URL (e.g. `{ origin: 'localhost' }`). Relative
++//  references still resolve to the same (placeholder) origin, absolute ones
++//  don't, which is exactly the conservative behavior we want.
++const UNPARSABLE_ORIGIN_BASE = 'http://undici.invalid'
++
+ // Retention for revalidation-only entries (zero freshness lifetime but a
+ //  validator present); each successful revalidation re-stores the entry.
+ const REVALIDATION_ONLY_RETENTION = 86400000 // 24 hours
+@@ -117,11 +123,15 @@ class CacheHandler {
+     ) {
+       // Successful response to an unsafe method, delete it from cache
+       //  https://www.rfc-editor.org/rfc/rfc9111.html#name-invalidating-stored-response
+-      try {
+-        this.#store.delete(this.#cacheKey)?.catch?.(noop)
+-      } catch {
+-        // Fail silently
++      this.#delete(this.#cacheKey)
++
++      // The response's Location and Content-Location fields are invalidated
++      //  too, as long as they point at the request's origin
++      //  https://www.rfc-editor.org/rfc/rfc9111.html#section-4.4
++      for (const path of getSameOriginInvalidationPaths(this.#cacheKey, resHeaders)) {
++        this.#delete({ origin: this.#cacheKey.origin, method: 'GET', path })
+       }
++
+       return downstreamOnHeaders()
+     }
+ 
+@@ -344,6 +354,71 @@ class CacheHandler {
+     this.#writeStream = undefined
+     this.#handler.onResponseError?.(controller, err)
+   }
++
++  /**
++   * @param {import('../../types/cache-interceptor.d.ts').default.CacheKey} key
++   */
++  #delete (key) {
++    try {
++      this.#store.delete(key)?.catch?.(noop)
++    } catch {
++      // Fail silently
++    }
++  }
++}
++
++/**
++ * Resolves the response's Location and Content-Location fields against the
++ *  request's URI, keeping the ones that share its origin.
++ * @see https://www.rfc-editor.org/rfc/rfc9111.html#section-4.4
++ *
++ * @param {import('../../types/cache-interceptor.d.ts').default.CacheKey} cacheKey
++ * @param {import('../../types/header.d.ts').IncomingHttpHeaders} resHeaders
++ * @returns {string[]} the paths (query included) to invalidate
++ */
++function getSameOriginInvalidationPaths (cacheKey, resHeaders) {
++  const location = resHeaders.location
++  const contentLocation = resHeaders['content-location']
++  if (typeof location !== 'string' && typeof contentLocation !== 'string') {
++    return []
++  }
++
++  let requestUri
++  try {
++    requestUri = new URL(
++      cacheKey.path,
++      URL.canParse(cacheKey.origin) ? cacheKey.origin : UNPARSABLE_ORIGIN_BASE
++    )
++  } catch {
++    return []
++  }
++
++  const paths = []
++  for (const value of [location, contentLocation]) {
++    if (typeof value !== 'string' || value.length === 0) {
++      continue
++    }
++
++    let uri
++    try {
++      uri = new URL(value, requestUri)
++    } catch {
++      // Not a valid URI reference, nothing to invalidate
++      continue
++    }
++
++    if (uri.protocol !== requestUri.protocol || uri.host !== requestUri.host) {
++      // Different origin, the response isn't authoritative for it
++      continue
++    }
++
++    const path = `${uri.pathname}${uri.search}`
++    if (path !== cacheKey.path && !paths.includes(path)) {
++      paths.push(path)
++    }
++  }
++
++  return paths
+ }
+ 
+ /**
+diff --git a/test/interceptors/cache.js b/test/interceptors/cache.js
+index 35a592e1..d688555b 100644
+--- a/test/interceptors/cache.js
++++ b/test/interceptors/cache.js
+@@ -692,6 +692,88 @@ describe('Cache Interceptor', () => {
+     }
+   })
+ 
++  test('unsafe methods purge the location & content-location uris from cache', async () => {
++    let requestsToOrigin = 0
++    const server = createServer({ joinDuplicateHeaders: true }, (req, res) => {
++      if (req.method === 'GET') {
++        requestsToOrigin++
++        res.setHeader('cache-control', 's-maxage=10')
++        res.end('asd')
++        return
++      }
++
++      // The unsafe request tells us which fields to respond with
++      const { searchParams } = new URL(req.url, 'http://localhost')
++      for (const header of ['location', 'content-location']) {
++        const value = searchParams.get(header)
++        if (value !== null) {
++          res.setHeader(header, value)
++        }
++      }
++
++      res.statusCode = 201
++      res.end('')
++    }).listen(0)
++
++    after(() => server.close())
++    await once(server, 'listening')
++
++    const origin = `http://localhost:${server.address().port}`
++    const client = new Client(origin)
++      .compose(interceptors.cache({ store: new MemoryCacheStore() }))
++
++    after(async () => { await client.close() })
++
++    const cacheTarget = async () => {
++      await (await client.request({ origin, method: 'GET', path: '/target' })).body.dump()
++    }
++
++    // Sanity check, the second request is served from the cache
++    await cacheTarget()
++    await cacheTarget()
++    equal(requestsToOrigin, 1)
++
++    for (const query of [
++      'location=/target',
++      `location=${origin}/target`,
++      'content-location=/target',
++      // Both fields at once, the target should only be refetched once
++      `location=/target&content-location=${origin}/target`
++    ]) {
++      const requestsBefore = requestsToOrigin
++
++      await (await client.request({
++        origin,
++        method: 'POST',
++        path: `/src?${query}`
++      })).body.dump()
++
++      await cacheTarget()
++      equal(requestsToOrigin, requestsBefore + 1, query)
++
++      // And it's cached again
++      await cacheTarget()
++      equal(requestsToOrigin, requestsBefore + 1, query)
++    }
++
++    // Cross-origin uris aren't invalidated
++    const requestsBefore = requestsToOrigin
++    for (const query of [
++      'location=http://example.com/target',
++      'content-location=https://localhost/target',
++      'location=//example.com/target'
++    ]) {
++      await (await client.request({
++        origin,
++        method: 'POST',
++        path: `/src?${query}`
++      })).body.dump()
++
++      await cacheTarget()
++      equal(requestsToOrigin, requestsBefore, query)
++    }
++  })
++
+   test('unsafe methods aren\'t cached', async () => {
+     const server = createServer({ joinDuplicateHeaders: true }, (_, res) => {
+       res.setHeader('cache-control', 'public, s-maxage=1')

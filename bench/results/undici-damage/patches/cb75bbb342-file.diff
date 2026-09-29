@@ -1,0 +1,326 @@
+diff --git a/lib/handler/cache-handler.js b/lib/handler/cache-handler.js
+index 6148ea04..e9254cbe 100644
+--- a/lib/handler/cache-handler.js
++++ b/lib/handler/cache-handler.js
+@@ -7,7 +7,8 @@ const {
+   parseVaryHeader,
+   hasVaryStar,
+   isInvalidOrWildcardVaryHeader,
+-  isEtagUsable
++  isEtagUsable,
++  isSetCookieDisallowed
+ } = require('../util/cache')
+ const { parseHttpDate } = require('../util/date.js')
+ 
+@@ -300,6 +301,14 @@ class CacheHandler {
+     const deleteAt = determineDeleteAt(baseTime, now, cacheControlDirectives, absoluteStaleAt)
+     const strippedHeaders = stripNecessaryHeaders(resHeaders, cacheControlDirectives)
+ 
++    // A shared cache must not store a response that still carries a Set-Cookie,
++    //  the cookie would be handed to every later caller reusing the entry.
++    //  https://www.rfc-editor.org/rfc/rfc9111.html#section-7.3
++    if (isSetCookieDisallowed(this.#cacheType, strippedHeaders)) {
++      deleteCachedValueIfNotModified(statusCode, this.#store, this.#cacheKey)
++      return downstreamOnHeaders()
++    }
++
+     /**
+      * @type {import('../../types/cache-interceptor.d.ts').default.CacheValue}
+      */
+@@ -323,6 +332,14 @@ class CacheHandler {
+           return downstreamOnHeaders()
+         }
+ 
++        if (isSetCookieDisallowed(this.#cacheType, cachedValue.headers)) {
++          // Entry was stored with a Set-Cookie (e.g. before this was disallowed
++          //  or by a private cache sharing this store). Drop it rather than
++          //  refreshing it.
++          deleteCachedValue(this.#store, this.#cacheKey)
++          return downstreamOnHeaders()
++        }
++
+         // Re-use the cached value: statuscode, statusmessage, headers and body
+         value.statusCode = cachedValue.statusCode
+         value.statusMessage = cachedValue.statusMessage
+diff --git a/lib/interceptor/cache.js b/lib/interceptor/cache.js
+index 9efb818e..b95d1d13 100644
+--- a/lib/interceptor/cache.js
++++ b/lib/interceptor/cache.js
+@@ -14,6 +14,7 @@ const {
+   normalizeHeaders,
+   parseCacheControlHeader,
+   isInvalidOrWildcardVaryHeader,
++  isSetCookieDisallowed,
+   parseVaryHeader
+ } = require('../util/cache.js')
+ const { AbortError } = require('../core/errors.js')
+@@ -130,6 +131,12 @@ function revalidationResponseDisallowsCachedReuse (cacheType, headers) {
+     return true
+   }
+ 
++  // The revalidation response sets a cookie, so it is specific to this request
++  //  and the stored response can no longer be shared.
++  if (isSetCookieDisallowed(cacheType, headers)) {
++    return true
++  }
++
+   const cacheControl = headers['cache-control']
+   if (!cacheControl) {
+     return false
+@@ -417,6 +424,19 @@ function handleResult (
+     return handleUncachedResponse(dispatch, globalOpts, cacheKey, handler, opts, reqCacheControl)
+   }
+ 
++  if (isSetCookieDisallowed(globalOpts.type, result.headers)) {
++    // Entry carries a Set-Cookie, so it cannot be served to anyone but the
++    //  original requester. Drop it and go to the origin instead. Entries like
++    //  this can still be in the store from before this was disallowed, or come
++    //  from a store shared with a private cache.
++    if (util.isStream(result.body)) {
++      result.body.on('error', nop).destroy()
++    }
++
++    deleteCachedValue(globalOpts.store, cacheKey)
++    return dispatch(opts, new CacheHandler(globalOpts, cacheKey, handler))
++  }
++
+   const now = Date.now()
+   if (now > result.deleteAt) {
+     // Response is expired, cache store shouldn't have given this to us
+diff --git a/lib/util/cache.js b/lib/util/cache.js
+index ad2524fa..079c99d9 100644
+--- a/lib/util/cache.js
++++ b/lib/util/cache.js
+@@ -711,6 +711,24 @@ function assertCacheMethods (methods, name = 'CacheMethods') {
+   }
+ }
+ 
++/**
++ * A shared cache must not store or reuse a response containing a Set-Cookie
++ *  header: the cookie is scoped to the client that made the request, so
++ *  serving the stored response to anyone else discloses it.
++ *
++ * @see https://www.rfc-editor.org/rfc/rfc9111.html#section-7.3
++ *
++ * @param {import('../../types/cache-interceptor.d.ts').default.CacheOptions['type']} cacheType
++ * @param {import('../../types/header.d.ts').IncomingHttpHeaders | undefined} headers
++ * @returns {boolean}
++ */
++function isSetCookieDisallowed (cacheType, headers) {
++  return cacheType === 'shared' &&
++    headers != null &&
++    Object.hasOwn(headers, 'set-cookie') &&
++    headers['set-cookie'] !== undefined
++}
++
+ /**
+  * Creates a string key for request deduplication purposes.
+  * This key is used to identify in-flight requests that can be shared.
+@@ -752,6 +770,7 @@ module.exports = {
+   hasVaryStar,
+   isInvalidOrWildcardVaryHeader,
+   isEtagUsable,
++  isSetCookieDisallowed,
+   assertCacheMethods,
+   assertCacheStore,
+   makeDeduplicationKey
+diff --git a/test/interceptors/cache.js b/test/interceptors/cache.js
+index a06fae42..6cf270eb 100644
+--- a/test/interceptors/cache.js
++++ b/test/interceptors/cache.js
+@@ -1333,6 +1333,179 @@ describe('Cache Interceptor', () => {
+     }
+   })
+ 
++  test('shared cache does not store responses with set-cookie', async () => {
++    let requestsToOrigin = 0
++    const server = createServer({ joinDuplicateHeaders: true }, (_, res) => {
++      requestsToOrigin++
++      res.setHeader('cache-control', 'public, s-maxage=10')
++      res.setHeader('set-cookie', `session=${requestsToOrigin}`)
++      res.end('ok')
++    }).listen(0)
++
++    const store = new MemoryCacheStore()
++    const origin = `http://localhost:${server.address().port}`
++    const client = new Client(origin)
++      .compose(interceptors.cache({ store }))
++
++    after(async () => {
++      server.close()
++      await client.close()
++    })
++
++    await once(server, 'listening')
++
++    const request = { origin, method: 'GET', path: '/' }
++
++    {
++      const res = await client.request(request)
++      equal(requestsToOrigin, 1)
++      equal(res.headers['set-cookie'], 'session=1')
++      strictEqual(await res.body.text(), 'ok')
++    }
++
++    equal(store.get(makeCacheKey({ ...request, headers: {} })), undefined)
++
++    // Every caller must get their own cookie from the origin
++    {
++      const res = await client.request(request)
++      equal(requestsToOrigin, 2)
++      equal(res.headers['set-cookie'], 'session=2')
++      strictEqual(await res.body.text(), 'ok')
++    }
++  })
++
++  test('private cache still stores responses with set-cookie', async () => {
++    let requestsToOrigin = 0
++    const server = createServer({ joinDuplicateHeaders: true }, (_, res) => {
++      requestsToOrigin++
++      res.setHeader('cache-control', 'public, max-age=10')
++      res.setHeader('set-cookie', 'session=secret')
++      res.end('ok')
++    }).listen(0)
++
++    const origin = `http://localhost:${server.address().port}`
++    const client = new Client(origin)
++      .compose(interceptors.cache({ type: 'private' }))
++
++    after(async () => {
++      server.close()
++      await client.close()
++    })
++
++    await once(server, 'listening')
++
++    const request = { origin, method: 'GET', path: '/' }
++
++    {
++      const res = await client.request(request)
++      equal(requestsToOrigin, 1)
++      equal(res.headers['set-cookie'], 'session=secret')
++      strictEqual(await res.body.text(), 'ok')
++    }
++
++    {
++      const res = await client.request(request)
++      equal(requestsToOrigin, 1)
++      equal(res.headers['set-cookie'], 'session=secret')
++      strictEqual(await res.body.text(), 'ok')
++    }
++  })
++
++  test('shared cache does not serve an already stored response with set-cookie', async () => {
++    let requestsToOrigin = 0
++    const server = createServer({ joinDuplicateHeaders: true }, (_, res) => {
++      requestsToOrigin++
++      res.setHeader('cache-control', 'public, s-maxage=10')
++      res.end('from origin')
++    }).listen(0)
++
++    const store = new MemoryCacheStore()
++    const origin = `http://localhost:${server.address().port}`
++    const client = new Client(origin)
++      .compose(interceptors.cache({ store }))
++
++    after(async () => {
++      server.close()
++      await client.close()
++    })
++
++    await once(server, 'listening')
++
++    const request = { origin, method: 'GET', path: '/' }
++    const cacheKey = makeCacheKey({ ...request, headers: {} })
++
++    // Entries like this can be left over from before set-cookie was disallowed
++    const writable = store.createWriteStream(cacheKey, {
++      statusCode: 200,
++      statusMessage: 'OK',
++      headers: { 'cache-control': 'public, s-maxage=10', 'set-cookie': 'session=secret' },
++      cacheControlDirectives: { public: true, 's-maxage': 10 },
++      cachedAt: Date.now(),
++      staleAt: Date.now() + 10000,
++      deleteAt: Date.now() + 20000
++    })
++    writable.end('from cache')
++
++    const res = await client.request(request)
++    equal(requestsToOrigin, 1)
++    equal(res.headers['set-cookie'], undefined)
++    strictEqual(await res.body.text(), 'from origin')
++
++    // ... and the offending entry is replaced by the cookie-less one
++    equal(store.get(cacheKey).headers['set-cookie'], undefined)
++  })
++
++  test('shared cache drops the entry when a revalidation response sets a cookie', async () => {
++    const clock = FakeTimers.install({ shouldClearNativeTimers: true })
++    let requestsToOrigin = 0
++    const server = createServer({ joinDuplicateHeaders: true }, (req, res) => {
++      requestsToOrigin++
++
++      if (req.headers['if-none-match'] === '"asd"' && requestsToOrigin === 2) {
++        res.statusCode = 304
++        res.setHeader('set-cookie', 'session=secret')
++        res.end()
++        return
++      }
++
++      res.setHeader('cache-control', 'public, s-maxage=1')
++      res.setHeader('etag', '"asd"')
++      res.end('ok')
++    }).listen(0)
++
++    const store = new MemoryCacheStore()
++    const origin = `http://localhost:${server.address().port}`
++    const client = new Client(origin)
++      .compose(interceptors.cache({ store }))
++
++    after(async () => {
++      server.close()
++      await client.close()
++      clock.uninstall()
++    })
++
++    await once(server, 'listening')
++
++    const request = { origin, method: 'GET', path: '/' }
++
++    {
++      const res = await client.request(request)
++      equal(requestsToOrigin, 1)
++      strictEqual(await res.body.text(), 'ok')
++    }
++
++    clock.tick(1500)
++
++    // The revalidation response sets a cookie, so the stored response can't be
++    //  reused and we go back to the origin for a fresh one
++    {
++      const res = await client.request(request)
++      equal(requestsToOrigin, 3)
++      equal(res.statusCode, 200)
++      strictEqual(await res.body.text(), 'ok')
++    }
++  })
++
+   test('malformed quoted no-cache does not swallow a following no-store directive', async () => {
+     for (const cacheControl of [
+       'public, max-age=60, no-cache="set-cookie" garbage, no-store',
+diff --git a/types/cache-interceptor.d.ts b/types/cache-interceptor.d.ts
+index 8588ccdc..72ef42b6 100644
+--- a/types/cache-interceptor.d.ts
++++ b/types/cache-interceptor.d.ts
+@@ -34,7 +34,10 @@ declare namespace CacheHandler {
+     cacheByDefault?: number
+ 
+     /**
+-     * TODO docs
++     * Whether the cache is shared between users or belongs to a single one.
++     * A shared cache never stores or reuses responses that are specific to one
++     * user, such as those with a `Set-Cookie` header or the `private`
++     * cache-control directive.
+      * @default 'shared'
+      */
+     type?: 'shared' | 'private'

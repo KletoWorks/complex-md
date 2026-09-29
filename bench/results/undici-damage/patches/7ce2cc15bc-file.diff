@@ -1,0 +1,220 @@
+diff --git a/lib/web/cache/cache.js b/lib/web/cache/cache.js
+index 44f3adda..4e872a6f 100644
+--- a/lib/web/cache/cache.js
++++ b/lib/web/cache/cache.js
+@@ -24,6 +24,39 @@ const { urlIsHttpHttpsScheme, readAllBytes } = require('../fetch/util')
+  * @typedef {[any, any][]} requestResponseList
+  */
+ 
++/**
++ * Reads a response's body to completion.
++ * @param {any} response an inner response
++ * @returns {Promise<Uint8Array|undefined>} the body's bytes, or undefined if
++ *   the response has no body
++ */
++function readResponseBody (response) {
++  const body = (response.internalResponse ?? response).body
++
++  if (body == null) {
++    return Promise.resolve(undefined)
++  }
++
++  const { promise, resolve, reject } = Promise.withResolvers()
++
++  readAllBytes(body.stream.getReader(), resolve, reject)
++
++  return promise
++}
++
++/**
++ * Cancels a response's body, if it has one.
++ * @param {any} response an inner response
++ */
++function cancelResponseBody (response) {
++  const body = (response.internalResponse ?? response).body
++
++  if (body != null && !body.stream.locked) {
++    // The body is never read, the error is of no interest to anyone.
++    body.stream.cancel().catch(() => {})
++  }
++}
++
+ class Cache {
+   /**
+    * @see https://w3c.github.io/ServiceWorker/#dfn-relevant-request-response-list
+@@ -153,6 +186,13 @@ class Cache {
+       // 5.6
+       const responsePromise = Promise.withResolvers()
+ 
++      // The response that ends up in the cache is a clone of the fetched one,
++      // taken before its body is read, so that the cached body can be read
++      // again later. See the note in processResponse below.
++      let clonedResponse = null
++      /** @type {Promise<Uint8Array|undefined>|null} */
++      let bodyReadPromise = null
++
+       // 5.7
+       fetchControllers.push(fetching({
+         request: r,
+@@ -163,6 +203,11 @@ class Cache {
+               header: 'Cache.addAll',
+               message: 'Received an invalid status code or the request failed.'
+             }))
++
++            // Nothing is going to read this body, cancel it so the connection
++            // isn't left hanging.
++            cancelResponseBody(response)
++            return
+           } else if (response.headersList.contains('vary')) { // 2.
+             // 2.1
+             const fieldValues = getFieldValues(response.headersList.get('vary'))
+@@ -184,6 +229,16 @@ class Cache {
+               }
+             }
+           }
++
++          // Not in the spec. undici's fetch doesn't pipe the response body
++          // through an identity transform stream (see fetchFinale), so the
++          // body is only drained once something reads it. Nothing would read
++          // it here, so process response end-of-body, and therefore addAll's
++          // promise, would never run.
++          // Reading the body now also gives the cached response bytes it can
++          // replay, the same way Cache.put does.
++          clonedResponse = cloneResponse(response)
++          bodyReadPromise = readResponseBody(response)
+         },
+         processResponseEndOfBody (response) {
+           // 1.
+@@ -192,8 +247,22 @@ class Cache {
+             return
+           }
+ 
++          // process response already rejected this response, there is nothing
++          // left to cache.
++          if (bodyReadPromise === null) {
++            return
++          }
++
+           // 2.
+-          responsePromise.resolve(response)
++          responsePromise.resolve(bodyReadPromise.then((bytes) => {
++            const innerResponse = clonedResponse.internalResponse ?? clonedResponse
++
++            if (innerResponse.body != null) {
++              innerResponse.body.source = bytes
++            }
++
++            return clonedResponse
++          }))
+         }
+       }))
+ 
+diff --git a/test/cache/cache.js b/test/cache/cache.js
+index 0a3d438e..45734982 100644
+--- a/test/cache/cache.js
++++ b/test/cache/cache.js
+@@ -1,6 +1,9 @@
+ 'use strict'
+ 
+-const { test } = require('node:test')
++const { test, describe, before, after } = require('node:test')
++const { createServer } = require('node:http')
++const { once } = require('node:events')
++const { closeServerAsPromise } = require('../utils/node-http')
+ const { Cache } = require('../../lib/web/cache/cache')
+ const { caches, Response } = require('../../')
+ 
+@@ -51,3 +54,93 @@ test('cache.match should work after garbage collection', async (t) => {
+     t.assert.deepStrictEqual(result, testData, `Iteration ${i}: response body should match`)
+   }
+ })
++
++// https://github.com/nodejs/undici/issues/5615
++describe('cache.add and cache.addAll', () => {
++  let server
++  let base
++
++  before(async () => {
++    server = createServer({ joinDuplicateHeaders: true }, (req, res) => {
++      switch (req.url) {
++        case '/404':
++          res.writeHead(404)
++          res.end('not found')
++          break
++        case '/vary':
++          res.writeHead(200, { vary: '*' })
++          res.end('varies')
++          break
++        case '/204':
++          res.writeHead(204)
++          res.end()
++          break
++        default:
++          res.writeHead(200, { 'content-type': 'text/plain' })
++          res.end(`body for ${req.url}`)
++      }
++    }).listen(0)
++
++    await once(server, 'listening')
++
++    base = `http://localhost:${server.address().port}`
++  })
++
++  after(() => closeServerAsPromise(server)())
++
++  test('add resolves and caches the response body', async (t) => {
++    const cache = await caches.open('add')
++    t.after(() => caches.delete('add'))
++
++    t.assert.strictEqual(await cache.add(`${base}/one`), undefined)
++
++    // The body must be readable, and readable more than once.
++    t.assert.strictEqual(await (await cache.match(`${base}/one`)).text(), 'body for /one')
++    t.assert.strictEqual(await (await cache.match(`${base}/one`)).text(), 'body for /one')
++  })
++
++  test('addAll resolves and caches every response', async (t) => {
++    const cache = await caches.open('add-all')
++    t.after(() => caches.delete('add-all'))
++
++    t.assert.strictEqual(await cache.addAll([`${base}/one`, `${base}/two`, `${base}/204`]), undefined)
++
++    t.assert.deepStrictEqual(
++      (await cache.keys()).map((request) => new URL(request.url).pathname),
++      ['/one', '/two', '/204']
++    )
++
++    t.assert.strictEqual(await (await cache.match(`${base}/one`)).text(), 'body for /one')
++    t.assert.strictEqual(await (await cache.match(`${base}/two`)).text(), 'body for /two')
++
++    const noContent = await cache.match(`${base}/204`)
++    t.assert.strictEqual(noContent.status, 204)
++    t.assert.strictEqual(await noContent.text(), '')
++  })
++
++  test('add rejects on a non-ok response', async (t) => {
++    const cache = await caches.open('add-404')
++    t.after(() => caches.delete('add-404'))
++
++    await t.assert.rejects(cache.add(`${base}/404`), TypeError)
++    t.assert.strictEqual(await cache.match(`${base}/404`), undefined)
++  })
++
++  test('addAll rejects on a `vary: *` response', async (t) => {
++    const cache = await caches.open('add-vary')
++    t.after(() => caches.delete('add-vary'))
++
++    await t.assert.rejects(cache.addAll([`${base}/vary`]), TypeError)
++    t.assert.strictEqual(await cache.match(`${base}/vary`), undefined)
++  })
++
++  test('addAll caches nothing when one request fails', async (t) => {
++    const cache = await caches.open('add-all-partial')
++    t.after(() => caches.delete('add-all-partial'))
++
++    await t.assert.rejects(cache.addAll([`${base}/one`, `${base}/404`]), TypeError)
++
++    t.assert.strictEqual(await cache.match(`${base}/one`), undefined)
++    t.assert.strictEqual(await cache.match(`${base}/404`), undefined)
++  })
++})

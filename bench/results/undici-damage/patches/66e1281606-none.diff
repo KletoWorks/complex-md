@@ -1,0 +1,55 @@
+diff --git a/lib/web/websocket/connection.js b/lib/web/websocket/connection.js
+index 4ecc8a19..d823abd9 100644
+--- a/lib/web/websocket/connection.js
++++ b/lib/web/websocket/connection.js
+@@ -200,7 +200,9 @@ function establishWebSocketConnection (url, protocols, client, handler, options)
+         // is specified, the server needs to include the same field and one of
+         // the selected subprotocol values in its response for the connection to
+         // be established.
+-        if (!requestProtocols.includes(secProtocol)) {
++        // If the client did not request any subprotocols, requestProtocols is
++        // null and any subprotocol the server selected was not requested.
++        if (requestProtocols === null || !requestProtocols.includes(secProtocol)) {
+           failWebsocketConnection(handler, 1002, 'Protocol was not set in the opening handshake.')
+           return
+         }
+diff --git a/test/websocket/opening-handshake.js b/test/websocket/opening-handshake.js
+index 25b160d3..7d7ce108 100644
+--- a/test/websocket/opening-handshake.js
++++ b/test/websocket/opening-handshake.js
+@@ -516,3 +516,35 @@ test('Server sends invalid Sec-WebSocket-Extensions header', { skip: runtimeFeat
+     })
+   })
+ })
++
++test('Server sends Sec-WebSocket-Protocol header when no protocols were requested', { skip: runtimeFeatures.has('crypto') === false }, (t) => {
++  return new Promise((resolve, reject) => {
++    const server = createServer({ joinDuplicateHeaders: true }, (req, res) => {
++      const key = req.headers['sec-websocket-key']
++      t.assert.ok(key)
++      t.assert.strictEqual(req.headers['sec-websocket-protocol'], undefined)
++
++      const accept = require('node:crypto').hash('sha1', key + uid, 'base64')
++
++      res.setHeader('Upgrade', 'websocket')
++      res.setHeader('Connection', 'upgrade')
++      res.setHeader('Sec-WebSocket-Accept', accept)
++      res.setHeader('Sec-WebSocket-Protocol', 'chat') // <-- never requested
++      res.statusCode = 101
++
++      res.end()
++    }).listen(0, () => {
++      // No protocols are requested, so the request has no Sec-WebSocket-Protocol
++      // header. The connection must fail rather than throw a TypeError.
++      const ws = new WebSocket(`ws://localhost:${server.address().port}`)
++
++      ws.onopen = reject
++
++      ws.addEventListener('error', ({ error }) => {
++        t.assert.ok(error)
++        server.close()
++        resolve()
++      })
++    })
++  })
++})

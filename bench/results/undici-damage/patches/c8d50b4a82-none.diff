@@ -1,0 +1,92 @@
+diff --git a/lib/core/request.js b/lib/core/request.js
+index 2b2633f3..9922058b 100644
+--- a/lib/core/request.js
++++ b/lib/core/request.js
+@@ -25,6 +25,13 @@ const {
+ const { channels } = require('./diagnostics.js')
+ const { headerNameLowerCasedRecord } = require('./constants')
+ 
++// Verifies that a given value consists of one or more decimal digits only
++const digitOnlyRegex = /^\d+$/
++
++function isDigitOnly (value) {
++  return value.length !== 0 && digitOnlyRegex.test(value)
++}
++
+ // Verifies that a given path is valid does not contain control chars \x00 to \x20
+ const invalidPathRegex = /[^\u0021-\u00ff]/
+ 
+@@ -484,6 +491,11 @@ function processHeader (request, key, val) {
+     if (request.contentLength !== null) {
+       throw new InvalidArgumentError('duplicate content-length header')
+     }
++    // Only digit-only values are valid, e.g. no sign, no fraction and no
++    // trailing garbage which would otherwise be silently dropped by parseInt.
++    if (typeof val !== 'string' || !isDigitOnly(val)) {
++      throw new InvalidArgumentError('invalid content-length header')
++    }
+     request.contentLength = parseInt(val, 10)
+     if (!Number.isFinite(request.contentLength)) {
+       throw new InvalidArgumentError('invalid content-length header')
+diff --git a/test/content-length.js b/test/content-length.js
+index 92386b93..35f02dcf 100644
+--- a/test/content-length.js
++++ b/test/content-length.js
+@@ -7,6 +7,57 @@ const { createServer } = require('node:http')
+ const { Readable } = require('node:stream')
+ const { maybeWrapStream, consts } = require('./utils/async-iterators')
+ 
++test('request malformed content-length header', async (t) => {
++  const malformed = ['', ' ', '10.5', '+10', '-1', '10abc', ' 10', '10 ', '0x10', 'asd', ['10'], 10.5, -1, NaN]
++  t = tspl(t, { plan: malformed.length })
++
++  const client = new Client('http://localhost:3000')
++  after(() => client.close())
++
++  for (const value of malformed) {
++    client.request({
++      path: '/',
++      method: 'PUT',
++      headers: {
++        'content-length': value
++      },
++      body: 'asd'
++    }, (err) => {
++      t.ok(err instanceof errors.InvalidArgumentError, `${String(value)} should be rejected`)
++    })
++  }
++
++  await t.completed
++})
++
++test('request valid content-length header', async (t) => {
++  t = tspl(t, { plan: 2 })
++
++  const server = createServer({ joinDuplicateHeaders: true }, (req, res) => {
++    t.strictEqual(req.headers['content-length'], '3')
++    res.end()
++  })
++  after(() => server.close())
++  server.listen(0, () => {
++    const client = new Client(`http://localhost:${server.address().port}`)
++    after(() => client.close())
++
++    client.request({
++      path: '/',
++      method: 'PUT',
++      headers: {
++        'content-length': '3'
++      },
++      body: 'asd'
++    }, (err, data) => {
++      t.ifError(err)
++      data?.body.resume()
++    })
++  })
++
++  await t.completed
++})
++
+ test('request invalid content-length', async (t) => {
+   t = tspl(t, { plan: 7 })
+ 

@@ -1,0 +1,140 @@
+diff --git a/lib/util/cache.js b/lib/util/cache.js
+index c88db629..050f9703 100644
+--- a/lib/util/cache.js
++++ b/lib/util/cache.js
+@@ -156,6 +156,33 @@ function assertCacheValue (value) {
+   }
+ }
+ 
++/**
++ * Records a qualified `private` or `no-cache` directive (one given with a list
++ *  of field names). An empty list, e.g. `private=""`, qualifies nothing, so the
++ *  directive is applied to the entire response as if it were unqualified. An
++ *  unqualified occurrence always wins over a qualified one.
++ *
++ * @see https://www.rfc-editor.org/rfc/rfc9111.html#name-private
++ *
++ * @param {import('../../types/cache-interceptor.d.ts').default.CacheControlDirectives} output
++ * @param {'private' | 'no-cache'} key
++ * @param {string[]} fieldNames
++ */
++function addQualifiedDirective (output, key, fieldNames) {
++  const current = output[key]
++
++  if (current === true) {
++    return
++  }
++
++  if (fieldNames.length === 0) {
++    output[key] = true
++    return
++  }
++
++  output[key] = current === undefined ? fieldNames : current.concat(fieldNames)
++}
++
+ /**
+  * @see https://www.rfc-editor.org/rfc/rfc9111.html#name-cache-control
+  * @see https://www.iana.org/assignments/http-cache-directives/http-cache-directives.xhtml
+@@ -246,7 +273,9 @@ function parseCacheControlHeader (header) {
+             // Add the first header on and cut off the leading quote
+             const headers = [value.substring(1)]
+ 
+-            let foundEndingQuote = value[value.length - 1] === '"'
++            // `value.length > 1` so that the leading quote of something like
++            //  `no-cache="` isn't also counted as the ending one
++            let foundEndingQuote = value.length > 1 && value[value.length - 1] === '"'
+             if (!foundEndingQuote) {
+               // Something like `no-cache="some-header, another-header"`
+               //  This can still be something invalid, e.g. `no-cache="some-header, ...`
+@@ -270,25 +299,21 @@ function parseCacheControlHeader (header) {
+                 headers[headers.length - 1] = lastHeader
+               }
+ 
++              const fieldNames = []
+               for (let j = 0; j < headers.length; j++) {
+-                headers[j] = headers[j].trim()
++                const fieldName = headers[j].trim()
++                if (fieldName.length !== 0) {
++                  fieldNames.push(fieldName)
++                }
+               }
+ 
+-              if (key in output) {
+-                output[key] = output[key].concat(headers)
+-              } else {
+-                output[key] = headers
+-              }
++              addQualifiedDirective(output, key, fieldNames)
+             }
+           } else {
+-            // Something like `no-cache="some-header"`
++            // Something like `no-cache=some-header`
+             const fieldName = value.trim()
+ 
+-            if (key in output) {
+-              output[key] = output[key].concat(fieldName)
+-            } else {
+-              output[key] = [fieldName]
+-            }
++            addQualifiedDirective(output, key, fieldName.length !== 0 ? [fieldName] : [])
+           }
+ 
+           break
+diff --git a/test/cache-interceptor/utils.js b/test/cache-interceptor/utils.js
+index 103ee569..2f20263f 100644
+--- a/test/cache-interceptor/utils.js
++++ b/test/cache-interceptor/utils.js
+@@ -163,6 +163,52 @@ describe('parseCacheControlHeader', () => {
+     })
+   })
+ 
++  test('empty qualified no-cache and private are treated as unqualified', () => {
++    let directives = parseCacheControlHeader('max-age=10, private="", only-if-cached')
++    deepStrictEqual(directives, {
++      'max-age': 10,
++      private: true,
++      'only-if-cached': true
++    })
++
++    directives = parseCacheControlHeader('no-cache=""')
++    deepStrictEqual(directives, { 'no-cache': true })
++
++    // Nothing but whitespace or empty field names
++    directives = parseCacheControlHeader('private=" "')
++    deepStrictEqual(directives, { private: true })
++
++    directives = parseCacheControlHeader('private=", "')
++    deepStrictEqual(directives, { private: true })
++
++    directives = parseCacheControlHeader('private= ')
++    deepStrictEqual(directives, { private: true })
++
++    // Only a leading quote, invalid & should be skipped
++    directives = parseCacheControlHeader('max-age=10, private="')
++    deepStrictEqual(directives, { 'max-age': 10 })
++  })
++
++  test('an unqualified no-cache or private takes precedence over a qualified one', () => {
++    let directives = parseCacheControlHeader('private, private="some-header"')
++    deepStrictEqual(directives, { private: true })
++
++    directives = parseCacheControlHeader('private="some-header", private')
++    deepStrictEqual(directives, { private: true })
++
++    directives = parseCacheControlHeader('no-cache="some-header", no-cache=""')
++    deepStrictEqual(directives, { 'no-cache': true })
++
++    // Qualified ones are still merged together
++    directives = parseCacheControlHeader('private="some-header", private=another-one')
++    deepStrictEqual(directives, {
++      private: [
++        'some-header',
++        'another-one'
++      ]
++    })
++  })
++
+   test('handles multiple headers correctly', () => {
+     // For requests like
+     //  cache-control: max-stale=1

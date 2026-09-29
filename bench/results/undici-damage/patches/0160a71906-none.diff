@@ -1,0 +1,182 @@
+diff --git a/lib/handler/retry-handler.js b/lib/handler/retry-handler.js
+index 458df481..dc0d7031 100644
+--- a/lib/handler/retry-handler.js
++++ b/lib/handler/retry-handler.js
+@@ -133,6 +133,10 @@ class RetryHandler {
+     this.start = 0
+     this.end = null
+     this.etag = null
++    // Whether the framing of the exposed response was checkpointed, i.e.
++    // whether a resumed response can be validated against it. Only a
++    // resumable response may be retried once its headers went downstream.
++    this.resume = false
+     this.statusCode = null
+     this.headers = null
+     this.controllerProxy = new RetryController(reason => this.#onAbort(reason))
+@@ -340,8 +344,16 @@ class RetryHandler {
+ 
+       const { start, size, end = size ? size - 1 : null } = contentRange
+ 
+-      assert(this.start === start, 'content-range mismatch')
+-      assert(this.end == null || this.end === end, 'content-range mismatch')
++      // The resumed response must continue the checkpointed one exactly:
++      // it has to start where we left off and end where the original said it
++      // would. Anything else is a different entity and must not be
++      // concatenated into the body the handler is already reading.
++      if (this.start !== start || (this.end != null && this.end !== end)) {
++        throw new RequestRetryError('Content-Range mismatch', statusCode, {
++          headers,
++          data: { count: this.retryCount }
++        })
++      }
+ 
+       return
+     }
+@@ -364,6 +376,12 @@ class RetryHandler {
+         const range = parseRangeHeader(headers['content-range'])
+ 
+         if (range == null || range.end == null) {
++          // A 206 without a usable content-range carries no framing we could
++          // checkpoint -- its body is not a plain byte slice of the entity
++          // (e.g. a multipart/byteranges envelope), so a `bytes=<start>-`
++          // resume would not continue it. Forward it as-is and leave
++          // this.resume false so it is never retried once exposed.
++          this.resume = false
+           this.headersSent = true
+           this.handler.onResponseStart?.(
+             this.controllerProxy,
+@@ -462,6 +480,22 @@ class RetryHandler {
+   }
+ 
+   retry () {
++    // The headers are already downstream but we never checkpointed the
++    // framing of that response, so there is nothing to validate a resumed
++    // response against. Retrying would let the next -- possibly
++    // attacker-controlled -- response be concatenated into the body the
++    // handler is already reading. Surface the failure instead.
++    if (this.headersSent && !this.resume) {
++      this.handler.onResponseError?.(
++        this.controllerProxy,
++        new RequestRetryError('the response is not resumable', this.statusCode, {
++          headers: this.headers,
++          data: { count: this.retryCount }
++        })
++      )
++      return
++    }
++
+     if (this.start !== 0) {
+       const headers = { range: `bytes=${this.start}-${this.end ?? ''}` }
+ 
+diff --git a/test/retry-handler.js b/test/retry-handler.js
+index 29449776..b16350b8 100644
+--- a/test/retry-handler.js
++++ b/test/retry-handler.js
+@@ -1715,6 +1715,107 @@ test('Should throw RequestRetryError when Content-Range mismatch', async t => {
+   await t.completed
+ })
+ 
++test('Should not resume a 206 exposed without a usable Content-Range', async t => {
++  t = tspl(t, { plan: 7 })
++
++  const chunks = []
++  let settle
++  const terminated = new Promise(resolve => { settle = resolve })
++
++  // A 206 without content-range is forwarded as-is, so nothing about its
++  // framing was checkpointed. Resuming it would let the second response be
++  // concatenated into the body the handler already received.
++  let x = 0
++  const server = createServer({ joinDuplicateHeaders: true }, (req, res) => {
++    if (x === 0) {
++      t.ok(true, 'pass')
++      res.statusCode = 206
++      res.write('abc')
++      setTimeout(() => {
++        res.destroy()
++      }, 1e2)
++    } else {
++      res.setHeader('content-range', 'bytes 3-5/6')
++      res.statusCode = 206
++      res.end('def')
++    }
++    x++
++  })
++
++  const dispatchOptions = {
++    retryOptions: {
++      retry: function (err, _, done) {
++        if (err.code && err.code === 'UND_ERR_DESTROYED') {
++          return done(false)
++        }
++
++        if (err.statusCode === 206) return done(err)
++
++        setTimeout(done, 800)
++      }
++    },
++    method: 'GET',
++    path: '/',
++    headers: {
++      'content-type': 'application/json'
++    }
++  }
++
++  server.listen(0, () => {
++    const client = new Client(`http://localhost:${server.address().port}`)
++    const handler = new RetryHandler(dispatchOptions, {
++      dispatch: (...args) => {
++        return client.dispatch(...args)
++      },
++      handler: {
++        onRequestStart () {
++          t.ok(true, 'pass')
++        },
++        onResponseStart (_controller, status, _headers, _statusMessage) {
++          t.strictEqual(status, 206)
++          return true
++        },
++        onResponseData (_controller, chunk) {
++          chunks.push(chunk)
++          return true
++        },
++        onResponseEnd () {
++          settle(null)
++        },
++        onResponseError (_controller, err) {
++          settle(err)
++        }
++      }
++    })
++
++    client.dispatch(
++      {
++        method: 'GET',
++        path: '/',
++        headers: {
++          'content-type': 'application/json'
++        }
++      },
++      handler
++    )
++
++    after(async () => {
++      await client.close()
++
++      server.close()
++      await once(server, 'close')
++    })
++  })
++
++  const err = await terminated
++  t.strictEqual(Buffer.concat(chunks).toString('utf-8'), 'abc')
++  t.strictEqual(err?.code, 'UND_ERR_REQ_RETRY')
++  t.strictEqual(err?.message, 'the response is not resumable')
++  t.strictEqual(x, 1, 'must not dispatch a resume request')
++
++  await t.completed
++})
++
+ test('Should use retry-after header for retries (date) but date format is wrong', async t => {
+   t = tspl(t, { plan: 3 })
+ 

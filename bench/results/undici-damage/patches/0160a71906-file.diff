@@ -1,0 +1,243 @@
+diff --git a/lib/handler/retry-handler.js b/lib/handler/retry-handler.js
+index 458df481..3c481c1a 100644
+--- a/lib/handler/retry-handler.js
++++ b/lib/handler/retry-handler.js
+@@ -130,8 +130,16 @@ class RetryHandler {
+     this.retryCount = 0
+     this.retryCountCheckpoint = 0
+     this.headersSent = false
++    // Framing checkpoint of the response handed downstream, taken before its
++    // headers are exposed. `resume` is only true once onResponseStart has
++    // recorded start/end/size/etag for the response it is about to expose; the
++    // paths that expose one without a checkpoint -- an error response, or a 206
++    // whose content-range gives us no framing -- leave it false and are never
++    // resumed, because there would be nothing to hold the resumed body to.
++    this.resume = false
+     this.start = 0
+     this.end = null
++    this.size = null
+     this.etag = null
+     this.statusCode = null
+     this.headers = null
+@@ -340,8 +348,22 @@ class RetryHandler {
+ 
+       const { start, size, end = size ? size - 1 : null } = contentRange
+ 
+-      assert(this.start === start, 'content-range mismatch')
+-      assert(this.end == null || this.end === end, 'content-range mismatch')
++      // The resumed response must continue the exact entity checkpointed before
++      // the original headers went downstream: it has to pick up at the next
++      // byte we expect and describe the same last byte and the same total size.
++      // A response describing anything else is a different payload, and
++      // forwarding it would concatenate it onto the body the handler is already
++      // reading.
++      if (
++        start !== this.start ||
++        (this.end != null && end !== this.end) ||
++        (this.size != null && size != null && size !== this.size)
++      ) {
++        throw new RequestRetryError('Content-Range mismatch', statusCode, {
++          headers,
++          data: { count: this.retryCount }
++        })
++      }
+ 
+       return
+     }
+@@ -364,6 +386,13 @@ class RetryHandler {
+         const range = parseRangeHeader(headers['content-range'])
+ 
+         if (range == null || range.end == null) {
++          // An absent, empty or malformed content-range gives us no framing to
++          // checkpoint -- a multipart/byteranges response is the compliant case
++          // (RFC 9110 15.3.7.2), and its content-length describes the envelope
++          // rather than a range of the entity, so it is no checkpoint either.
++          // Expose the response as is, but leave `resume` false: a resumed body
++          // could not be validated against anything and must not be appended to
++          // what the handler has already read.
+           this.headersSent = true
+           this.handler.onResponseStart?.(
+             this.controllerProxy,
+@@ -385,12 +414,14 @@ class RetryHandler {
+ 
+         this.start = start
+         this.end = end
++        this.size = size ?? null
+       }
+ 
+       // We make our best to checkpoint the body for further range headers
+       if (this.end == null && this.opts.method !== 'HEAD') {
+         const contentLength = headers['content-length']
+         this.end = contentLength != null ? Number(contentLength) - 1 : null
++        this.size = this.end != null ? this.end + 1 : null
+       }
+ 
+       assert(Number.isFinite(this.start))
+@@ -501,6 +532,16 @@ class RetryHandler {
+       return
+     }
+ 
++    // The handler already holds the headers of a response we never checkpointed
++    // a resumable length for. Resuming would hand it the body of a second,
++    // unvalidated response, which it would concatenate onto what it has already
++    // read -- an attacker-controlled retry response smuggled into the original
++    // one. Surface the error instead of retrying.
++    if (this.headersSent && !this.resume) {
++      this.handler.onResponseError?.(this.controllerProxy, err)
++      return
++    }
++
+     function shouldRetry (returnedErr) {
+       if (this.aborted) {
+         // Aborted while the policy was deciding; the decision is moot.
+diff --git a/test/interceptors/retry.js b/test/interceptors/retry.js
+index 7dca2a3c..f010a762 100644
+--- a/test/interceptors/retry.js
++++ b/test/interceptors/retry.js
+@@ -536,6 +536,146 @@ test('Should forward a multipart/byteranges 206 without content-range', async t
+   t.strictEqual(await response.body.text(), body)
+ })
+ 
++test('Should not resume a truncated 206 without content-range', async t => {
++  t = tspl(t, { plan: 4 })
++
++  let requests = 0
++  const server = createServer({ joinDuplicateHeaders: true }, (_req, res) => {
++    if (requests++ === 0) {
++      res.writeHead(206, {
++        'content-type': 'multipart/byteranges; boundary=THIS_STRING_SEPARATES'
++      })
++      res.write('AAAA')
++      setTimeout(() => res.socket.destroy(), 50)
++      return
++    }
++
++    res.writeHead(206, { 'content-range': 'bytes 4-11/12', 'content-length': '8' })
++    res.end('XXXXXXXX')
++  })
++
++  server.listen(0)
++
++  await once(server, 'listening')
++
++  const client = new Client(
++    `http://localhost:${server.address().port}`
++  ).compose(retry({ maxRetries: 3, minTimeout: 10, maxTimeout: 10 }))
++
++  after(async () => {
++    await client.close()
++    server.close()
++
++    await once(server, 'close')
++  })
++
++  const response = await client.request({ method: 'GET', path: '/' })
++  t.strictEqual(response.statusCode, 206)
++
++  const chunks = []
++  await t.rejects(async () => {
++    for await (const chunk of response.body) {
++      chunks.push(chunk)
++    }
++  }, { code: 'UND_ERR_SOCKET' })
++
++  // The second response must not be appended to the body already exposed.
++  t.strictEqual(Buffer.concat(chunks).toString(), 'AAAA')
++  t.strictEqual(requests, 1)
++})
++
++test('Should not resume a truncated error response exposed downstream', async t => {
++  t = tspl(t, { plan: 4 })
++
++  let requests = 0
++  const server = createServer({ joinDuplicateHeaders: true }, (_req, res) => {
++    if (requests++ === 0) {
++      res.writeHead(404, { 'content-length': '12' })
++      res.write('AAAA')
++      setTimeout(() => res.socket.destroy(), 50)
++      return
++    }
++
++    res.writeHead(206, { 'content-range': 'bytes 4-11/12', 'content-length': '8' })
++    res.end('XXXXXXXX')
++  })
++
++  server.listen(0)
++
++  await once(server, 'listening')
++
++  const client = new Client(
++    `http://localhost:${server.address().port}`
++  ).compose(retry({ maxRetries: 3, minTimeout: 10, maxTimeout: 10 }))
++
++  after(async () => {
++    await client.close()
++    server.close()
++
++    await once(server, 'close')
++  })
++
++  const response = await client.request({ method: 'GET', path: '/' })
++  t.strictEqual(response.statusCode, 404)
++
++  const chunks = []
++  await t.rejects(async () => {
++    for await (const chunk of response.body) {
++      chunks.push(chunk)
++    }
++  }, { code: 'UND_ERR_SOCKET' })
++
++  t.strictEqual(Buffer.concat(chunks).toString(), 'AAAA')
++  t.strictEqual(requests, 1)
++})
++
++test('Should reject a resumed response whose content-range total does not match', async t => {
++  t = tspl(t, { plan: 4 })
++
++  let requests = 0
++  const server = createServer({ joinDuplicateHeaders: true }, (_req, res) => {
++    if (requests++ === 0) {
++      res.writeHead(200, { 'content-length': '12' })
++      res.write('AAAA')
++      setTimeout(() => res.socket.destroy(), 50)
++      return
++    }
++
++    // Same start, but a different entity: the total size disagrees with the
++    // framing checkpointed from the first response.
++    res.writeHead(206, { 'content-range': 'bytes 4-11/24', 'content-length': '8' })
++    res.end('XXXXXXXX')
++  })
++
++  server.listen(0)
++
++  await once(server, 'listening')
++
++  const client = new Client(
++    `http://localhost:${server.address().port}`
++  ).compose(retry({ maxRetries: 3, minTimeout: 10, maxTimeout: 10 }))
++
++  after(async () => {
++    await client.close()
++    server.close()
++
++    await once(server, 'close')
++  })
++
++  const response = await client.request({ method: 'GET', path: '/' })
++  t.strictEqual(response.statusCode, 200)
++
++  const chunks = []
++  await t.rejects(async () => {
++    for await (const chunk of response.body) {
++      chunks.push(chunk)
++    }
++  }, { code: 'UND_ERR_REQ_RETRY', message: 'Content-Range mismatch' })
++
++  t.strictEqual(Buffer.concat(chunks).toString(), 'AAAA')
++  t.strictEqual(requests, 2)
++})
++
+ test('Should handle 206 partial content - bad-etag', async t => {
+   t = tspl(t, { plan: 5 })
+ 

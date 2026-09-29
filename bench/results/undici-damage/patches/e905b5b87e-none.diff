@@ -1,0 +1,85 @@
+diff --git a/lib/handler/retry-handler.js b/lib/handler/retry-handler.js
+index d252414d..a53e1cec 100644
+--- a/lib/handler/retry-handler.js
++++ b/lib/handler/retry-handler.js
+@@ -142,9 +142,10 @@ class RetryHandler {
+     // Backoff timer returned by the retry policy, so #onAbort can cancel it.
+     // Null for custom policies that do not return their timer.
+     this.retryTimer = null
+-    // Set once an abort during the backoff delivered the terminal error
+-    // downstream; late policy callbacks and connection errors are then moot.
+-    this.aborted = false
++    // Set once a terminal error has been delivered downstream (a consumer abort
++    // during the backoff, or a stale retry decision landing after a response was
++    // already exposed); late policy callbacks and connection errors are then moot.
++    this.settled = false
+   }
+ 
+   onResponseStartWithRetry (controller, statusCode, headers, statusMessage, err) {
+@@ -169,14 +170,30 @@ class RetryHandler {
+     }
+ 
+     function shouldRetry (passedErr) {
+-      if (this.aborted) {
+-        // Aborted while the policy was deciding; the decision is moot.
++      if (this.settled) {
++        // Already settled downstream while the policy was deciding; the
++        // decision is moot.
+         return
+       }
+       this.retryPending = false
+       this.retryTimer = null
+ 
+       if (passedErr) {
++        if (this.headersSent) {
++          // A response was already exposed downstream while this decision was
++          // pending (another dispatch of the same request got that far).
++          // Forwarding this one would hand the caller a replacement response and
++          // orphan the body they are already reading -- it would never end nor
++          // error. Settle that body with the terminal error instead, and treat
++          // late callbacks and connection errors as moot from here on.
++          this.settled = true
++          this.handler.onResponseError?.(this.controllerProxy, passedErr)
++          // Release this now-stale connection last: whatever it still delivers
++          // is dropped downstream, since the exposed body is already settled.
++          controller.resume()
++          return
++        }
++
+         this.headersSent = true
+         this.checkpointResponseEnd(headers)
+         this.handler.onResponseStart?.(this.controllerProxy, statusCode, headers, statusMessage)
+@@ -509,9 +526,9 @@ class RetryHandler {
+   }
+ 
+   onResponseError (controller, err) {
+-    if (this.aborted) {
+-      // #onAbort already delivered the terminal error downstream; the late
+-      // error of the torn-down connection must not be forwarded twice.
++    if (this.settled) {
++      // The terminal error was already delivered downstream; the late error of
++      // the torn-down connection must not be forwarded twice.
+       return
+     }
+ 
+@@ -523,8 +540,9 @@ class RetryHandler {
+     }
+ 
+     function shouldRetry (returnedErr) {
+-      if (this.aborted) {
+-        // Aborted while the policy was deciding; the decision is moot.
++      if (this.settled) {
++        // Already settled downstream while the policy was deciding; the
++        // decision is moot.
+         return
+       }
+       this.retryPending = false
+@@ -569,7 +587,7 @@ class RetryHandler {
+       return
+     }
+ 
+-    this.aborted = true
++    this.settled = true
+     this.retryPending = false
+     clearTimeout(this.retryTimer)
+     this.retryTimer = null

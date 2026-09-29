@@ -1,0 +1,40 @@
+diff --git a/lib/web/fetch/util.js b/lib/web/fetch/util.js
+index b77be74f..0232f0f1 100644
+--- a/lib/web/fetch/util.js
++++ b/lib/web/fetch/util.js
+@@ -1194,8 +1194,9 @@ function simpleRangeHeaderValue (value, allowWhitespace) {
+ 
+   // 18. If rangeStartValue and rangeEndValue are numbers, and rangeStartValue is
+   //     greater than rangeEndValue, then return failure.
+-  // Note: ... when can they not be numbers?
+-  if (rangeStartValue > rangeEndValue) {
++  // Note: an open-ended range such as "bytes=5-" has a null rangeEndValue, which
++  //       would be coerced to 0 by the comparison below.
++  if (rangeStartValue !== null && rangeEndValue !== null && rangeStartValue > rangeEndValue) {
+     return 'failure'
+   }
+ 
+diff --git a/test/fetch/blob-uri.js b/test/fetch/blob-uri.js
+index 1eb21352..3d1c7075 100644
+--- a/test/fetch/blob-uri.js
++++ b/test/fetch/blob-uri.js
+@@ -36,6 +36,19 @@ test('fetching blob: uris', async (t) => {
+     t.assert.strictEqual(res.headers.get('Content-Range'), `bytes 1-3/${blob.size}`)
+   })
+ 
++  await t.test('an open-ended range fetch request returns the rest of the blob', async () => {
++    const res = await fetch(objectURL, {
++      headers: {
++        Range: 'bytes=5-'
++      }
++    })
++
++    t.assert.strictEqual(res.status, 206)
++    t.assert.strictEqual(await res.text(), blobContents.slice(5))
++    t.assert.strictEqual(res.headers.get('Content-Length'), `${blob.size - 5}`)
++    t.assert.strictEqual(res.headers.get('Content-Range'), `bytes 5-${blob.size - 1}/${blob.size}`)
++  })
++
+   await t.test('non-GET method to blob: fails', async () => {
+     try {
+       await fetch(objectURL, {

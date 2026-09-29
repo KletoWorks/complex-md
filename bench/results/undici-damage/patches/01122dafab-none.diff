@@ -1,0 +1,32 @@
+diff --git a/lib/core/util.js b/lib/core/util.js
+index 54346a25..516b6673 100644
+--- a/lib/core/util.js
++++ b/lib/core/util.js
+@@ -776,7 +776,7 @@ function isValidHeaderValue (characters) {
+   return !headerCharRegex.test(characters)
+ }
+ 
+-const rangeHeaderRegex = /^bytes (\d+)-(\d+)\/(\d+)?$/
++const rangeHeaderRegex = /^bytes (\d+)-(\d+)\/(?:(\d+)|\*)?$/
+ 
+ /**
+  * @typedef {object} RangeHeader
+diff --git a/test/node-test/util.js b/test/node-test/util.js
+index 772f1a96..6409babe 100644
+--- a/test/node-test/util.js
++++ b/test/node-test/util.js
+@@ -206,3 +206,14 @@ test('serializePathWithQuery', () => {
+ test('headerNameLowerCasedRecord', () => {
+   assert.ok(typeof headerNameLowerCasedRecord.hasOwnProperty !== 'function')
+ })
++
++test('parseRangeHeader', () => {
++  assert.deepStrictEqual(util.parseRangeHeader(undefined), { start: 0, end: null, size: null })
++  assert.deepStrictEqual(util.parseRangeHeader(''), { start: 0, end: null, size: null })
++  assert.deepStrictEqual(util.parseRangeHeader('bytes 3-5/10'), { start: 3, end: 5, size: 10 })
++  // An unknown complete length is valid and parsed as a null size
++  assert.deepStrictEqual(util.parseRangeHeader('bytes 3-5/*'), { start: 3, end: 5, size: null })
++  assert.strictEqual(util.parseRangeHeader('bytes 3-5/*1'), null)
++  assert.strictEqual(util.parseRangeHeader('bytes */10'), null)
++  assert.strictEqual(util.parseRangeHeader('invalid'), null)
++})

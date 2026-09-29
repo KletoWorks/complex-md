@@ -1,0 +1,154 @@
+diff --git a/lib/dispatcher/client-h2.js b/lib/dispatcher/client-h2.js
+index f810f88d..bb739f77 100644
+--- a/lib/dispatcher/client-h2.js
++++ b/lib/dispatcher/client-h2.js
+@@ -153,6 +153,47 @@ function requeueUnsentRequest (client, request) {
+   client[kQueue].splice(client[kPendingIdx] + 1, 0, request)
+ }
+ 
++/**
++ * Removes a finished request from the queue.
++ *
++ * HTTP/2 streams can complete out of order, so the request that finished is
++ * not necessarily the one sitting at `kRunningIdx`. Only advance the index
++ * when the request completed in order, otherwise splice it out so that the
++ * other running requests keep their slots.
++ *
++ * @param {import('./client.js')} client
++ * @param {import('../core/request.js')} request
++ * @returns {boolean} whether the request was still queued
++ */
++function removeQueuedRequest (client, request) {
++  const queue = client[kQueue]
++
++  for (let i = client[kRunningIdx]; i < queue.length; i++) {
++    if (queue[i] !== request) {
++      continue
++    }
++
++    if (i === client[kRunningIdx] && i < client[kPendingIdx]) {
++      // In-order completion, keep the amortized O(1) fast path.
++      queue[i] = null
++      client[kRunningIdx]++
++    } else {
++      // Either an out-of-order completion, or a request that was moved back
++      // into the pending section (e.g. by GOAWAY or socket close) before it
++      // finished. Drop just this entry so the indices stay consistent.
++      queue.splice(i, 1)
++
++      if (i < client[kPendingIdx]) {
++        client[kPendingIdx]--
++      }
++    }
++
++    return true
++  }
++
++  return false
++}
++
+ function canRetryRequestAfterGoAway (request) {
+   const { body } = request
+ 
+@@ -535,7 +576,11 @@ function onHttp2SessionClose () {
+     const requests = client[kQueue].splice(client[kRunningIdx])
+     for (let i = 0; i < requests.length; i++) {
+       const request = requests[i]
+-      util.errorRequest(client, request, err)
++
++      // Slots of already finalized requests are nulled out.
++      if (request != null) {
++        util.errorRequest(client, request, err)
++      }
+     }
+   }
+ }
+@@ -710,7 +755,7 @@ function failUpgradeStream (state, err) {
+   }
+ 
+   releaseUpgradeStream(state.stream)
+-  state.abort(err, true)
++  state.abort(err)
+ }
+ 
+ function onUpgradeStreamError () {
+@@ -794,22 +839,21 @@ function writeH2 (client, request) {
+   headers[HTTP2_HEADER_METHOD] = method
+ 
+   let requestFinalized = false
+-  const finalizeRequest = (resetPendingIdx = false) => {
++  const finalizeRequest = () => {
+     if (requestFinalized) {
+       return
+     }
+ 
+     requestFinalized = true
+-    client[kQueue][client[kRunningIdx]++] = null
+ 
+-    if (resetPendingIdx && client[kPendingIdx] < client[kRunningIdx]) {
+-      client[kPendingIdx] = client[kRunningIdx]
+-    }
++    // Remove the request that actually finished rather than assuming that
++    // streams complete in the order they were dispatched.
++    removeQueuedRequest(client, request)
+ 
+     client[kResume]()
+   }
+ 
+-  const abort = (err, resetPendingIdx = false) => {
++  const abort = (err) => {
+     if (request.aborted || request.completed) {
+       return
+     }
+@@ -824,9 +868,9 @@ function writeH2 (client, request) {
+       // On Abort, we close the stream to send RST_STREAM frame
+       stream.close()
+ 
+-      // We move the running index to the next request
++      // We remove the request from the running section of the queue
+       client[kOnError](err)
+-      finalizeRequest(resetPendingIdx)
++      finalizeRequest()
+     }
+ 
+     // We do not destroy the socket as we can continue using the session
+@@ -1164,7 +1208,7 @@ function onEnd () {
+   } else {
+     // Stream ended without receiving a response - this is an error
+     // (e.g., server destroyed the stream before sending headers)
+-    state.abort(new InformationalError('HTTP/2: stream half-closed (remote)'), true)
++    state.abort(new InformationalError('HTTP/2: stream half-closed (remote)'))
+   }
+ }
+ 
+diff --git a/lib/dispatcher/client.js b/lib/dispatcher/client.js
+index 37d3d139..b8007222 100644
+--- a/lib/dispatcher/client.js
++++ b/lib/dispatcher/client.js
+@@ -395,7 +395,12 @@ class Client extends DispatcherBase {
+       const requests = this[kQueue].splice(this[kPendingIdx])
+       for (let i = 0; i < requests.length; i++) {
+         const request = requests[i]
+-        util.errorRequest(this, request, err)
++
++        // Slots of finalized requests are nulled out, and can end up in the
++        // pending section when kPendingIdx is reset (e.g. on socket close).
++        if (request != null) {
++          util.errorRequest(this, request, err)
++        }
+       }
+ 
+       const callback = () => {
+@@ -434,7 +439,11 @@ function onError (client, err) {
+ 
+     for (let i = 0; i < requests.length; i++) {
+       const request = requests[i]
+-      util.errorRequest(client, request, err)
++
++      // Slots of finalized requests are nulled out.
++      if (request != null) {
++        util.errorRequest(client, request, err)
++      }
+     }
+     assert(client[kSize] === 0)
+   }

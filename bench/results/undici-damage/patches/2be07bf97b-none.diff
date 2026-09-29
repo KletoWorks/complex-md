@@ -1,0 +1,101 @@
+diff --git a/lib/handler/cache-handler.js b/lib/handler/cache-handler.js
+index b710fc40..18b1f048 100644
+--- a/lib/handler/cache-handler.js
++++ b/lib/handler/cache-handler.js
+@@ -206,14 +206,16 @@ class CacheHandler {
+       )
+     const handler = this
+ 
+-    if (
+-      !arrayIncludes(util.safeHTTPMethods, this.#cacheKey.method) &&
+-      statusCode >= 200 &&
+-      statusCode <= 399
+-    ) {
+-      // Successful response to an unsafe method, delete it from cache
+-      //  https://www.rfc-editor.org/rfc/rfc9111.html#name-invalidating-stored-response
+-      invalidateUnsafeRequest(this.#store, this.#cacheKey, resHeaders)
++    if (!arrayIncludes(util.safeHTTPMethods, this.#cacheKey.method)) {
++      if (statusCode >= 200 && statusCode <= 399) {
++        // Successful response to an unsafe method, delete it from cache
++        //  https://www.rfc-editor.org/rfc/rfc9111.html#name-invalidating-stored-response
++        invalidateUnsafeRequest(this.#store, this.#cacheKey, resHeaders)
++      }
++
++      // Responses to unsafe methods are never stored, whatever the status code
++      //  or caching directives say.
++      //  https://www.rfc-editor.org/rfc/rfc9111.html#name-storing-responses-in-caches
+       return downstreamOnHeaders()
+     }
+ 
+diff --git a/lib/interceptor/cache.js b/lib/interceptor/cache.js
+index ffaa268c..a4bea654 100644
+--- a/lib/interceptor/cache.js
++++ b/lib/interceptor/cache.js
+@@ -624,6 +624,15 @@ module.exports = (opts = {}) => {
+        * @type {import('../../types/cache-interceptor.d.ts').default.CacheKey}
+        */
+       const cacheKey = makeCacheKey(opts, requestOrigin)
++
++      // Responses to unsafe methods are never stored or served from the cache,
++      //  but they still need to go through the cache handler so that a
++      //  successful response invalidates the stored entries for the target URI.
++      //  https://www.rfc-editor.org/rfc/rfc9111.html#name-storing-responses-in-caches
++      if (!arrayIncludes(util.safeHTTPMethods, opts.method)) {
++        return dispatch(opts, new CacheHandler(globalOpts, cacheKey, handler))
++      }
++
+       const result = store.get(cacheKey)
+ 
+       if (result && typeof result.then === 'function') {
+diff --git a/test/interceptors/cache.js b/test/interceptors/cache.js
+index 1a7b589d..6025b246 100644
+--- a/test/interceptors/cache.js
++++ b/test/interceptors/cache.js
+@@ -1091,6 +1091,47 @@ describe('Cache Interceptor', () => {
+     }
+   })
+ 
++  test('unsafe methods aren\'t cached or served from the cache on error responses', async () => {
++    let requestsToOrigin = 0
++    const server = createServer({ joinDuplicateHeaders: true }, (_, res) => {
++      requestsToOrigin++
++      res.statusCode = 404
++      res.setHeader('cache-control', 'public, max-age=60')
++      res.setHeader('last-modified', new Date(0).toUTCString())
++      res.end(`body ${requestsToOrigin}`)
++    }).listen(0)
++
++    const client = new Client(`http://localhost:${server.address().port}`)
++      .compose(interceptors.cache({
++        store: {
++          get (key) {
++            fail(`unexpected cache read for ${key.method}`)
++          },
++          createWriteStream (key) {
++            fail(`unexpected cache write for ${key.method}`)
++          },
++          delete () { }
++        }
++      }))
++
++    after(async () => {
++      server.close()
++      await client.close()
++    })
++
++    await once(server, 'listening')
++
++    const origin = `http://localhost:${server.address().port}`
++
++    for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
++      const res = await client.request({ origin, method, path: '/' })
++      strictEqual(res.statusCode, 404)
++      await res.body.text()
++    }
++
++    strictEqual(requestsToOrigin, 4)
++  })
++
+   test('necessary headers are stripped', async () => {
+     const headers = [
+       // Headers defined in the spec that we need to strip

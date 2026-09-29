@@ -1,0 +1,91 @@
+diff --git a/lib/interceptor/cache.js b/lib/interceptor/cache.js
+index 295c566f..30b7a261 100644
+--- a/lib/interceptor/cache.js
++++ b/lib/interceptor/cache.js
+@@ -319,8 +319,12 @@ module.exports = (opts = {}) => {
+         return dispatch(opts, handler)
+       }
+ 
+-      const reqCacheControl = opts.headers?.['cache-control']
+-        ? parseCacheControlHeader(opts.headers['cache-control'])
++      // Header names are case-insensitive, so normalise them before looking
++      //  anything up
++      const reqHeaders = normaliseHeaders(opts)
++
++      const reqCacheControl = reqHeaders['cache-control']
++        ? parseCacheControlHeader(reqHeaders['cache-control'])
+         : undefined
+ 
+       if (reqCacheControl?.['no-store']) {
+@@ -330,7 +334,7 @@ module.exports = (opts = {}) => {
+       /**
+        * @type {import('../../types/cache-interceptor.d.ts').default.CacheKey}
+        */
+-      const cacheKey = makeCacheKey(opts)
++      const cacheKey = makeCacheKey(opts, reqHeaders)
+       const result = store.get(cacheKey)
+ 
+       if (result && typeof result.then === 'function') {
+diff --git a/lib/util/cache.js b/lib/util/cache.js
+index 17039709..6b41a846 100644
+--- a/lib/util/cache.js
++++ b/lib/util/cache.js
+@@ -6,14 +6,13 @@ const {
+ 
+ /**
+  * @param {import('../../types/dispatcher.d.ts').default.DispatchOptions} opts
++ * @param {Record<string, string[] | string>} [headers] already normalised headers, if available
+  */
+-function makeCacheKey (opts) {
++function makeCacheKey (opts, headers = normaliseHeaders(opts)) {
+   if (!opts.origin) {
+     throw new Error('opts.origin is undefined')
+   }
+ 
+-  const headers = normaliseHeaders(opts)
+-
+   return {
+     origin: opts.origin.toString(),
+     method: opts.method,
+diff --git a/test/interceptors/cache.js b/test/interceptors/cache.js
+index 6ea6ec35..fe614a19 100644
+--- a/test/interceptors/cache.js
++++ b/test/interceptors/cache.js
+@@ -1008,6 +1008,37 @@ describe('Cache Interceptor', () => {
+       })
+     })
+ 
++    test('no-store w/ capitalized header name', async () => {
++      const server = createServer({ joinDuplicateHeaders: true }, (_, res) => {
++        res.setHeader('cache-control', 'public, s-maxage=100')
++        res.end('asd')
++      }).listen(0)
++
++      const store = new MemoryCacheStore()
++      store.createWriteStream = () => {
++        fail('shouln\'t have reached this')
++      }
++
++      const client = new Client(`http://localhost:${server.address().port}`)
++        .compose(interceptors.cache({ store }))
++
++      after(async () => {
++        server.close()
++        await client.close()
++      })
++
++      await once(server, 'listening')
++
++      await client.request({
++        origin: 'localhost',
++        method: 'GET',
++        path: '/',
++        headers: {
++          'Cache-Control': 'no-store'
++        }
++      })
++    })
++
+     test('only-if-cached', async () => {
+       let requestsToOrigin = 0
+       const server = createServer({ joinDuplicateHeaders: true }, (_, res) => {

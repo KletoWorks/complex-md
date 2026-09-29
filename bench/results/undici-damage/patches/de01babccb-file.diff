@@ -1,0 +1,267 @@
+diff --git a/lib/handler/cache-handler.js b/lib/handler/cache-handler.js
+index 6e13f8eb..4912cdcc 100644
+--- a/lib/handler/cache-handler.js
++++ b/lib/handler/cache-handler.js
+@@ -26,6 +26,11 @@ const NOT_UNDERSTOOD_STATUS_CODES = [
+ 
+ const MAX_RESPONSE_AGE = 2147483647000
+ 
++// How long to hold onto a response that is stored purely so it can be
++// revalidated (see determineStaleAt). Its freshness lifetime is zero, so there
++// is no lifetime to derive a retention window from.
++const REVALIDATION_ONLY_RETENTION = 86400000
++
+ /**
+  * @typedef {import('../../types/dispatcher.d.ts').default.DispatchHandler} DispatchHandler
+  *
+@@ -159,7 +164,12 @@ class CacheHandler {
+ 
+     const baseTime = resDate ? resDate.getTime() : now
+     const absoluteStaleAt = staleAt + baseTime
+-    if (now >= absoluteStaleAt) {
++
++    // A response with no freshness lifetime but a validator is stored on
++    // purpose: it is stale the moment it arrives and every reuse of it is
++    // revalidated with a conditional request.
++    const revalidationOnly = staleAt === 0 && hasUsableValidator(resHeaders)
++    if (now >= absoluteStaleAt && !revalidationOnly) {
+       // Response is already stale
+       return downstreamOnHeaders()
+     }
+@@ -174,7 +184,7 @@ class CacheHandler {
+     }
+ 
+     const cachedAt = resAge ? now - resAge : now
+-    const deleteAt = determineDeleteAt(baseTime, cachedAt, cacheControlDirectives, absoluteStaleAt)
++    const deleteAt = determineDeleteAt(baseTime, cachedAt, cacheControlDirectives, absoluteStaleAt, revalidationOnly)
+     const strippedHeaders = stripNecessaryHeaders(resHeaders, cacheControlDirectives)
+ 
+     /**
+@@ -415,6 +425,30 @@ function getAge (ageHeader) {
+   return isNaN(age) ? undefined : age * 1000
+ }
+ 
++/**
++ * Whether the response carries a validator we can revalidate it with later on.
++ *
++ * @param {import('../../types/header.d.ts').IncomingHttpHeaders} resHeaders
++ * @returns {boolean}
++ */
++function hasUsableValidator (resHeaders) {
++  return (typeof resHeaders.etag === 'string' && isEtagUsable(resHeaders.etag)) ||
++    typeof resHeaders['last-modified'] === 'string'
++}
++
++/**
++ * A response with no freshness lifetime can still be stored as long as it is
++ * revalidated before each reuse, which needs a validator to be of any use.
++ * https://www.rfc-editor.org/rfc/rfc9111.html#section-3
++ * https://www.rfc-editor.org/rfc/rfc9111.html#section-5.2.2.4
++ *
++ * @param {import('../../types/header.d.ts').IncomingHttpHeaders} resHeaders
++ * @returns {0 | undefined} zero, i.e. immediately stale, or undefined if it shouldn't be cached
++ */
++function determineRevalidationOnlyStaleAt (resHeaders) {
++  return hasUsableValidator(resHeaders) ? 0 : undefined
++}
++
+ /**
+  * @param {import('../../types/cache-interceptor.d.ts').default.CacheOptions['type']} cacheType
+  * @param {number} now
+@@ -432,13 +466,13 @@ function determineStaleAt (cacheType, now, age, resHeaders, responseDate, cacheC
+     //  https://www.rfc-editor.org/rfc/rfc9111.html#section-5.2.2.10-3
+     const sMaxAge = cacheControlDirectives['s-maxage']
+     if (sMaxAge !== undefined) {
+-      return sMaxAge > 0 ? sMaxAge * 1000 : undefined
++      return sMaxAge > 0 ? sMaxAge * 1000 : determineRevalidationOnlyStaleAt(resHeaders)
+     }
+   }
+ 
+   const maxAge = cacheControlDirectives['max-age']
+   if (maxAge !== undefined) {
+-    return maxAge > 0 ? maxAge * 1000 : undefined
++    return maxAge > 0 ? maxAge * 1000 : determineRevalidationOnlyStaleAt(resHeaders)
+   }
+ 
+   if (typeof resHeaders.expires === 'string') {
+@@ -477,6 +511,16 @@ function determineStaleAt (cacheType, now, age, resHeaders, responseDate, cacheC
+     }
+   }
+ 
++  // Unqualified no-cache has no freshness lifetime of its own, but the response
++  //  may still be stored and revalidated on every use.
++  //  https://www.rfc-editor.org/rfc/rfc9111.html#name-no-cache-2
++  // This is checked after the heuristics above so that a response which does
++  //  have a freshness lifetime keeps it; needsRevalidation() forces the
++  //  conditional request either way.
++  if (cacheControlDirectives['no-cache'] === true) {
++    return determineRevalidationOnlyStaleAt(resHeaders)
++  }
++
+   if (cacheControlDirectives.immutable) {
+     // https://www.rfc-editor.org/rfc/rfc8246.html#section-2.2
+     return 31536000000
+@@ -490,8 +534,9 @@ function determineStaleAt (cacheType, now, age, resHeaders, responseDate, cacheC
+  * @param {number} cachedAt
+  * @param {import('../../types/cache-interceptor.d.ts').default.CacheControlDirectives} cacheControlDirectives
+  * @param {number} staleAt
++ * @param {boolean} [revalidationOnly] response is stored only so it can be revalidated
+  */
+-function determineDeleteAt (baseTime, cachedAt, cacheControlDirectives, staleAt) {
++function determineDeleteAt (baseTime, cachedAt, cacheControlDirectives, staleAt, revalidationOnly = false) {
+   let staleWhileRevalidate = -Infinity
+   let staleIfError = -Infinity
+   let immutable = -Infinity
+@@ -517,8 +562,17 @@ function determineDeleteAt (baseTime, cachedAt, cacheControlDirectives, staleAt)
+   // skew so short-lived entries do not disappear exactly when they should be
+   // revalidated.
+   if (staleWhileRevalidate === -Infinity && staleIfError === -Infinity && immutable === -Infinity) {
+-    const freshnessLifetime = staleAt - baseTime
+     const datePrecisionPadding = Math.min(Math.max(cachedAt - baseTime, 0), 1000)
++
++    // A revalidation-only entry has a freshness lifetime of zero, so the buffer
++    // below would evict it before it could ever be revalidated. Keep it for a
++    // bounded window instead; every successful revalidation re-stores the entry
++    // and slides that window forward.
++    if (revalidationOnly) {
++      return staleAt + REVALIDATION_ONLY_RETENTION + datePrecisionPadding
++    }
++
++    const freshnessLifetime = staleAt - baseTime
+     return staleAt + freshnessLifetime + datePrecisionPadding
+   }
+ 
+diff --git a/test/interceptors/cache.js b/test/interceptors/cache.js
+index 39a659fd..65e18294 100644
+--- a/test/interceptors/cache.js
++++ b/test/interceptors/cache.js
+@@ -2354,6 +2354,129 @@ describe('Cache Interceptor', () => {
+     })
+   })
+ 
++  describe('revalidation-only responses', () => {
++    /**
++     * Serves a response with a validator but no freshness lifetime, answering
++     * conditional requests with a 304.
++     *
++     * @param {Record<string, string>} headers headers sent with the full response
++     */
++    async function startValidatorOnlyServer (headers) {
++      const state = { requestsToOrigin: 0, conditionalRequests: 0 }
++
++      const server = createServer({ joinDuplicateHeaders: true }, (req, res) => {
++        state.requestsToOrigin++
++
++        if (req.headers['if-none-match'] === '"asd"') {
++          state.conditionalRequests++
++          res.statusCode = 304
++          for (const [key, value] of Object.entries(headers)) {
++            res.setHeader(key, value)
++          }
++          res.end()
++          return
++        }
++
++        for (const [key, value] of Object.entries(headers)) {
++          res.setHeader(key, value)
++        }
++        res.end('asd')
++      }).listen(0)
++
++      await once(server, 'listening')
++
++      const client = new Client(`http://localhost:${server.address().port}`)
++        .compose(interceptors.cache())
++
++      after(async () => {
++        server.close()
++        await client.close()
++      })
++
++      return { state, client }
++    }
++
++    test('stores and revalidates a no-cache response with an etag', async () => {
++      const { state, client } = await startValidatorOnlyServer({
++        'cache-control': 'no-cache',
++        etag: '"asd"'
++      })
++
++      const request = { origin: 'localhost', method: 'GET', path: '/' }
++
++      // First request hits the origin unconditionally
++      {
++        const res = await client.request(request)
++        equal(res.statusCode, 200)
++        strictEqual(await res.body.text(), 'asd')
++        equal(state.requestsToOrigin, 1)
++        equal(state.conditionalRequests, 0)
++      }
++
++      // Second request revalidates the stored response and reuses its body
++      {
++        const res = await client.request(request)
++        equal(res.statusCode, 200)
++        strictEqual(await res.body.text(), 'asd')
++        equal(state.requestsToOrigin, 2)
++        equal(state.conditionalRequests, 1)
++      }
++    })
++
++    test('stores and revalidates a max-age=0 response with an etag', async () => {
++      const { state, client } = await startValidatorOnlyServer({
++        'cache-control': 'max-age=0',
++        etag: '"asd"'
++      })
++
++      const request = { origin: 'localhost', method: 'GET', path: '/' }
++
++      {
++        const res = await client.request(request)
++        equal(res.statusCode, 200)
++        strictEqual(await res.body.text(), 'asd')
++        equal(state.requestsToOrigin, 1)
++        equal(state.conditionalRequests, 0)
++      }
++
++      {
++        const res = await client.request(request)
++        equal(res.statusCode, 200)
++        strictEqual(await res.body.text(), 'asd')
++        equal(state.requestsToOrigin, 2)
++        equal(state.conditionalRequests, 1)
++      }
++    })
++
++    test('keeps storing a no-cache response that also has a last-modified header', async () => {
++      const { state, client } = await startValidatorOnlyServer({
++        'cache-control': 'no-cache',
++        etag: '"asd"',
++        'last-modified': new Date(Date.now() - 20000).toUTCString()
++      })
++
++      const request = { origin: 'localhost', method: 'GET', path: '/' }
++
++      {
++        const res = await client.request(request)
++        equal(res.statusCode, 200)
++        strictEqual(await res.body.text(), 'asd')
++        equal(state.requestsToOrigin, 1)
++        equal(state.conditionalRequests, 0)
++      }
++
++      // The heuristic freshness lifetime from last-modified must still win, so
++      // this stays a conditional request rather than a second full one
++      {
++        const res = await client.request(request)
++        equal(res.statusCode, 200)
++        strictEqual(await res.body.text(), 'asd')
++        equal(state.requestsToOrigin, 2)
++        equal(state.conditionalRequests, 1)
++      }
++    })
++  })
++
+   describe('determineDeleteAt', () => {
+     test('max-age response has deleteAt proportional to freshness lifetime, not 1 year', async () => {
+       const clock = FakeTimers.install({ now: 1000, toFake: ['Date'] })

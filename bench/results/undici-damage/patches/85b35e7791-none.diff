@@ -1,0 +1,56 @@
+diff --git a/lib/core/util.js b/lib/core/util.js
+index 2586e3ee..f00ddfce 100644
+--- a/lib/core/util.js
++++ b/lib/core/util.js
+@@ -370,7 +370,12 @@ function destroy (stream, err) {
+       stream.socket = null
+     }
+ 
+-    stream.destroy(err)
++    try {
++      stream.destroy(err)
++    } catch {
++      // stream.destroy may throw on managed sockets (e.g., http2).
++      // Silently ignore — the socket lifecycle is handled by the subsystem.
++    }
+   } else if (err) {
+     queueMicrotask(() => {
+       stream.emit('error', err)
+diff --git a/lib/dispatcher/client-h2.js b/lib/dispatcher/client-h2.js
+index 846b04c5..282f5f69 100644
+--- a/lib/dispatcher/client-h2.js
++++ b/lib/dispatcher/client-h2.js
+@@ -246,7 +246,6 @@ function connectH2 (client, socket) {
+ 
+   util.addListener(session, 'error', onHttp2SessionError)
+   util.addListener(session, 'frameError', onHttp2FrameError)
+-  util.addListener(session, 'end', onHttp2SessionEnd)
+   util.addListener(session, 'goaway', onHttp2SessionGoAway)
+   util.addListener(session, 'close', onHttp2SessionClose)
+   util.addListener(session, 'remoteSettings', onHttp2RemoteSettings)
+@@ -495,12 +494,6 @@ function onHttp2FrameError (type, code, id) {
+   }
+ }
+ 
+-function onHttp2SessionEnd () {
+-  const err = new SocketError('other side closed', util.getSocketInfo(this[kSocket]))
+-  this.destroy(err)
+-  util.destroy(this[kSocket], err)
+-}
+-
+ /**
+  * This is the root cause of #3011
+  * We need to handle GOAWAY frames properly, and trigger the session close
+@@ -644,7 +637,11 @@ function onHttp2SocketError (err) {
+     return
+   }
+ 
+-  this[kClient][kOnError](err)
++  // The socket may no longer be attached to a client (e.g. the session was
++  // detached, or the socket errored before the client adopted it). Resolve the
++  // client through the session and bail out when it is gone, otherwise this
++  // throws inside the 'error' handler and surfaces as an uncaughtException.
++  this[kHTTP2Session]?.[kClient]?.[kOnError](err)
+ }
+ 
+ function onHttp2SocketEnd () {

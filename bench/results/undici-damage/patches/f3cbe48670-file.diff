@@ -1,0 +1,176 @@
+diff --git a/lib/web/websocket/connection.js b/lib/web/websocket/connection.js
+index cd95d2ca..be55a442 100644
+--- a/lib/web/websocket/connection.js
++++ b/lib/web/websocket/connection.js
+@@ -94,13 +94,17 @@ function establishWebSocketConnection (url, protocols, client, handler, options)
+     useParallelQueue: true,
+     dispatcher: options.dispatcher,
+     processResponse (response) {
++      // The presence of a session property on the socket indicates HTTP/2.
++      // Over HTTP/2 the opening handshake is an extended CONNECT, so the
++      // response is a 200 and the HTTP/1.1 upgrade machinery does not apply.
++      // https://datatracker.ietf.org/doc/html/rfc8441
++      const isHttp2 = response.socket?.session != null
++
+       // 1. If response is a network error or its status is not 101,
+       //    fail the WebSocket connection.
+-      // if (response.type === 'error' || ((response.socket?.session != null && response.status !== 200) && response.status !== 101)) {
+       if (response.type === 'error' || response.status !== 101) {
+-        // The presence of a session property on the socket indicates HTTP2
+         // HTTP1
+-        if (response.socket?.session == null) {
++        if (!isHttp2) {
+           failWebsocketConnection(handler, 1002, 'Received network error or non-101 status code.', response.error)
+           return
+         }
+@@ -112,7 +116,7 @@ function establishWebSocketConnection (url, protocols, client, handler, options)
+         }
+       }
+ 
+-      if (warningEmitted === false && response.socket?.session != null) {
++      if (warningEmitted === false && isHttp2) {
+         process.emitWarning('WebSocket over HTTP2 is experimental, and subject to change.', 'ExperimentalWarning')
+         warningEmitted = true
+       }
+@@ -137,7 +141,7 @@ function establishWebSocketConnection (url, protocols, client, handler, options)
+       //    insensitive match for the value "websocket", the client MUST
+       //    _Fail the WebSocket Connection_.
+       //    For H2, no upgrade header is expected.
+-      if (response.socket.session == null && response.headersList.get('Upgrade')?.toLowerCase() !== 'websocket') {
++      if (!isHttp2 && response.headersList.get('Upgrade')?.toLowerCase() !== 'websocket') {
+         failWebsocketConnection(handler, 1002, 'Server did not set Upgrade header to "websocket".')
+         return
+       }
+@@ -147,7 +151,7 @@ function establishWebSocketConnection (url, protocols, client, handler, options)
+       //    ASCII case-insensitive match for the value "Upgrade", the client
+       //    MUST _Fail the WebSocket Connection_.
+       //    For H2, no connection header is expected.
+-      if (response.socket.session == null && response.headersList.get('Connection')?.toLowerCase() !== 'upgrade') {
++      if (!isHttp2 && response.headersList.get('Connection')?.toLowerCase() !== 'upgrade') {
+         failWebsocketConnection(handler, 1002, 'Server did not set Connection header to "upgrade".')
+         return
+       }
+@@ -159,11 +163,17 @@ function establishWebSocketConnection (url, protocols, client, handler, options)
+       //    E914-47DA-95CA-C5AB0DC85B11" but ignoring any leading and
+       //    trailing whitespace, the client MUST _Fail the WebSocket
+       //    Connection_.
+-      const secWSAccept = response.headersList.get('Sec-WebSocket-Accept')
+-      const digest = crypto.hash('sha1', keyValue + uid, 'base64')
+-      if (secWSAccept !== digest) {
+-        failWebsocketConnection(handler, 1002, 'Incorrect hash received in Sec-WebSocket-Accept header.')
+-        return
++      //    The `Sec-WebSocket-Key` and `Sec-WebSocket-Accept` header fields
++      //    are not used when the handshake is bootstrapped over HTTP/2, so
++      //    the server is not expected to echo the key back.
++      //    https://datatracker.ietf.org/doc/html/rfc8441#section-5.1
++      if (!isHttp2) {
++        const secWSAccept = response.headersList.get('Sec-WebSocket-Accept')
++        const digest = crypto.hash('sha1', keyValue + uid, 'base64')
++        if (secWSAccept !== digest) {
++          failWebsocketConnection(handler, 1002, 'Incorrect hash received in Sec-WebSocket-Accept header.')
++          return
++        }
+       }
+ 
+       // 5. If the response includes a |Sec-WebSocket-Extensions| header
+diff --git a/lib/web/websocket/stream/websocketerror.js b/lib/web/websocket/stream/websocketerror.js
+index 04937c27..eb088538 100644
+--- a/lib/web/websocket/stream/websocketerror.js
++++ b/lib/web/websocket/stream/websocketerror.js
+@@ -41,10 +41,10 @@ class WebSocketError extends createInheritableDOMException() {
+ 
+     if (init === kConstruct) {
+       return
+-    } else if (init !== null) {
+-      init = webidl.converters.WebSocketCloseInfo(init)
+     }
+ 
++    init = webidl.converters.WebSocketCloseInfo(init)
++
+     // 3. Let code be init [" closeCode "] if it exists , or null otherwise.
+     let code = init.closeCode ?? null
+ 
+diff --git a/lib/web/websocket/stream/websocketstream.js b/lib/web/websocket/stream/websocketstream.js
+index 1c13a306..24defebc 100644
+--- a/lib/web/websocket/stream/websocketstream.js
++++ b/lib/web/websocket/stream/websocketstream.js
+@@ -11,6 +11,7 @@ const { WebsocketFrameSend } = require('../frame')
+ const { ByteParser } = require('../receiver')
+ const { WebSocketError, createUnvalidatedWebSocketError } = require('./websocketerror')
+ const { kEnumerableProperty } = require('../../../core/util')
++const { getGlobalDispatcher } = require('../../../global')
+ const { utf8DecodeBytes } = require('../../../encoding')
+ 
+ let emittedExperimentalWarning = false
+@@ -84,12 +85,10 @@ class WebSocketStream {
+       emittedExperimentalWarning = true
+     }
+ 
+-    webidl.argumentLengthCheck(arguments, 1, 'WebSocket')
++    webidl.argumentLengthCheck(arguments, 1, 'WebSocketStream')
+ 
+     url = webidl.converters.USVString(url)
+-    if (options !== null) {
+-      options = webidl.converters.WebSocketStreamOptions(options)
+-    }
++    options = webidl.converters.WebSocketStreamOptions(options)
+ 
+     // 1. Let baseURL be this 's relevant settings object 's API base URL .
+     const baseURL = environmentSettingsObject.settingsObject.baseUrl
+@@ -183,9 +182,7 @@ class WebSocketStream {
+ 
+   // The close( closeInfo ) method steps are:
+   close (closeInfo = undefined) {
+-    if (closeInfo !== null) {
+-      closeInfo = webidl.converters.WebSocketCloseInfo(closeInfo)
+-    }
++    closeInfo = webidl.converters.WebSocketCloseInfo(closeInfo)
+ 
+     // 1. Let code be closeInfo [" closeCode "] if present, or null otherwise.
+     const code = closeInfo.closeCode ?? null
+@@ -248,9 +245,14 @@ class WebSocketStream {
+       this.#handler.socket.write(frame.createFrame(opcode), () => {
+         promise.resolve(undefined)
+       })
++    } else {
++      // 6.3. Queue a global task on the WebSocket task source given stream ’s relevant global object to resolve
++      //      promise with undefined.
++      // The message is dropped, but the write still resolves; otherwise a writer waiting on it would hang
++      // forever once the closing handshake has started.
++      promise.resolve(undefined)
+     }
+ 
+-    // 6.3. Queue a global task on the WebSocket task source given stream ’s relevant global object to resolve promise with undefined.
+     return promise.promise
+   }
+ 
+@@ -470,6 +472,16 @@ webidl.converters.WebSocketStreamOptions = webidl.dictionaryConverter([
+     key: 'signal',
+     converter: webidl.nullableConverter(webidl.converters.AbortSignal),
+     defaultValue: () => null
++  },
++  // Note: undici extensions, mirroring WebSocketInit.
++  {
++    key: 'dispatcher',
++    converter: webidl.converters.any,
++    defaultValue: () => getGlobalDispatcher()
++  },
++  {
++    key: 'headers',
++    converter: webidl.nullableConverter(webidl.converters.HeadersInit)
+   }
+ ])
+ 
+diff --git a/types/websocket.d.ts b/types/websocket.d.ts
+index d48b9dad..e1f0feb0 100644
+--- a/types/websocket.d.ts
++++ b/types/websocket.d.ts
+@@ -153,6 +153,8 @@ interface WebSocketInit {
+ interface WebSocketStreamOptions {
+   protocols?: string | string[]
+   signal?: AbortSignal
++  dispatcher?: Dispatcher
++  headers?: HeadersInit
+ }
+ 
+ interface WebSocketCloseInfo {

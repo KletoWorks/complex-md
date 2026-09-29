@@ -1,0 +1,174 @@
+diff --git a/docs/docs/api/Connector.md b/docs/docs/api/Connector.md
+index 8e21f171..e3feddcd 100644
+--- a/docs/docs/api/Connector.md
++++ b/docs/docs/api/Connector.md
+@@ -106,8 +106,13 @@ added: v4.3.0
+     `'http:'`. A value of `'https:'` establishes a TLS connection.
+   * `port` {string} The port to connect to. Defaults to `443` for `https:` and
+     `80` otherwise.
+-  * `servername` {string} (optional) The TLS Server Name Indication (SNI) value.
+-    Derived from `host` when omitted.
++  * `servername` {string} (optional) The name of the requested server. Used as the
++    TLS Server Name Indication (SNI) value, and derived from `host` when omitted.
++    For `http:` targets it is only set when it differs from `hostname` — for
++    example when the address was resolved up front by the
++    [DNS interceptor](Interceptors.md#interceptorsdnsopts) — and is then recorded
++    on the socket so that connection instrumentation can attribute it to the
++    requested hostname rather than the resolved address.
+   * `localAddress` {string|null} (optional) The local address the socket should
+     connect from.
+   * `httpSocket` {Socket} (optional) An existing socket on which to establish the
+diff --git a/docs/docs/api/DiagnosticsChannel.md b/docs/docs/api/DiagnosticsChannel.md
+index aee30030..c09824f9 100644
+--- a/docs/docs/api/DiagnosticsChannel.md
++++ b/docs/docs/api/DiagnosticsChannel.md
+@@ -256,7 +256,8 @@ attributed to a specific request, because connections are pooled and shared.
+     * `hostname` {string} The connection hostname.
+     * `protocol` {string} The protocol, e.g. `'https:'`.
+     * `port` {string} The connection port.
+-    * `servername` {string|null} The TLS server name, or `null`.
++    * `servername` {string|null} The requested server name (the TLS server name
++      for `https:`), or `null`.
+   * `connector` {Function} The function that creates the socket.
+ 
+ ```mjs
+diff --git a/docs/docs/api/Interceptors.md b/docs/docs/api/Interceptors.md
+index c692442d..ce3af572 100644
+--- a/docs/docs/api/Interceptors.md
++++ b/docs/docs/api/Interceptors.md
+@@ -268,6 +268,12 @@ Caches DNS lookups so that repeated requests to the same origin reuse the
+ resolved IP address instead of performing a fresh lookup every time. Supports
+ dual-stack (IPv4 + IPv6) and custom lookup/storage implementations.
+ 
++Because the connection is made to the resolved address, the requested hostname is
++forwarded to the connector as `servername` — used for TLS SNI, and recorded on
++plain HTTP sockets as `socket._host` — so that connection instrumentation (for
++example Node.js' `net.client.socket` diagnostics channel) can still attribute the
++socket to the hostname the request asked for.
++
+ **Parameters**
+ 
+ * `opts` {Object} (optional)
+diff --git a/lib/core/connect.js b/lib/core/connect.js
+index ad962c31..2b5d5755 100644
+--- a/lib/core/connect.js
++++ b/lib/core/connect.js
+@@ -112,6 +112,15 @@ function buildConnector ({ allowH2, preferH2, useH2c, maxCachedSessions, socketP
+         port,
+         host: hostname
+       })
++
++      // When the address has already been resolved (e.g. by the DNS
++      // interceptor) node does not record a hostname on the socket, leaving
++      // `net.client.socket` subscribers with nothing but the IP. Keep the
++      // requested name around, as TLS does through `servername`.
++      if (servername != null && servername !== hostname && socket._host == null) {
++        socket._host = servername
++      }
++
+       if (useH2c === true) {
+         socket.alpnProtocol = 'h2'
+       }
+diff --git a/lib/dispatcher/client.js b/lib/dispatcher/client.js
+index 705b43b8..f64a5ec3 100644
+--- a/lib/dispatcher/client.js
++++ b/lib/dispatcher/client.js
+@@ -699,16 +699,28 @@ function _resume (client, sync) {
+       return
+     }
+ 
+-    if (client[kUrl].protocol === 'https:' && client[kServerName] !== request.servername) {
+-      if (client[kRunning] > 0) {
+-        return
+-      }
++    if (client[kServerName] !== request.servername) {
++      if (client[kUrl].protocol === 'https:') {
++        if (client[kRunning] > 0) {
++          return
++        }
+ 
+-      client[kServerName] = request.servername
+-      client[kHTTPContext]?.destroy(new InformationalError('servername changed'), () => {
+-        client[kHTTPContext] = null
+-        resume(client)
+-      })
++        client[kServerName] = request.servername
++        client[kHTTPContext]?.destroy(new InformationalError('servername changed'), () => {
++          client[kHTTPContext] = null
++          resume(client)
++        })
++      } else if (!client[kHTTPContext] && !client[kConnecting]) {
++        // Plain HTTP has no SNI, but the name is still forwarded to the
++        // connector so that a socket dialed by address (e.g. resolved by the
++        // DNS interceptor) can carry the hostname it was requested with. It
++        // adds nothing once it matches the address we dial, and is only updated
++        // while there is no socket, since it describes the connection we are
++        // about to open.
++        client[kServerName] = request.servername !== client[kUrl].hostname
++          ? request.servername
++          : null
++      }
+     }
+ 
+     if (client[kConnecting]) {
+diff --git a/test/interceptors/dns.js b/test/interceptors/dns.js
+index 5dada0fb..c794d767 100644
+--- a/test/interceptors/dns.js
++++ b/test/interceptors/dns.js
+@@ -4,6 +4,7 @@ const FakeTimers = require('@sinonjs/fake-timers')
+ const { test, after } = require('node:test')
+ const { isIP } = require('node:net')
+ const { lookup } = require('node:dns')
++const diagnosticsChannel = require('node:diagnostics_channel')
+ const { createServer } = require('node:http')
+ const { createServer: createSecureServer } = require('node:https')
+ const { once } = require('node:events')
+@@ -2339,3 +2340,48 @@ test('#4234 - Should pass Pool requests without origin through', async t => {
+   t.equal(await response.body.text(), 'hello world!')
+   t.equal(lookupCount, 0)
+ })
++
++test('Should keep the original hostname on the socket of a plain HTTP connection', async t => {
++  const ctx = t
++  t = tspl(t, { plan: 5 })
++
++  const server = createServer({ joinDuplicateHeaders: true })
++  server.on('request', (req, res) => {
++    t.equal(req.headers.host, `localhost:${server.address().port}`)
++    res.end('hello world!')
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const sockets = []
++  const onClientSocket = ({ socket }) => sockets.push(socket)
++  diagnosticsChannel.subscribe('net.client.socket', onClientSocket)
++  ctx.after(() => diagnosticsChannel.unsubscribe('net.client.socket', onClientSocket))
++
++  const client = new Agent().compose(dns({
++    lookup: (_origin, _opts, cb) => {
++      cb(null, [{ address: '127.0.0.1', family: 4 }])
++    }
++  }))
++
++  after(async () => {
++    await client.close()
++    server.close()
++    await once(server, 'close')
++  })
++
++  const response = await client.request({
++    method: 'GET',
++    path: '/',
++    origin: `http://localhost:${server.address().port}`
++  })
++
++  t.equal(response.statusCode, 200)
++  t.equal(await response.body.text(), 'hello world!')
++
++  // The connection is made to the resolved address, but instrumentation still
++  // needs to know which hostname asked for it.
++  t.equal(sockets.at(-1).remoteAddress, '127.0.0.1')
++  t.equal(sockets.at(-1)._host, 'localhost')
++})

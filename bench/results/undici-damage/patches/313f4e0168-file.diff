@@ -1,0 +1,141 @@
+diff --git a/lib/web/fetch/index.js b/lib/web/fetch/index.js
+index 1959f27c..68e9c29a 100644
+--- a/lib/web/fetch/index.js
++++ b/lib/web/fetch/index.js
+@@ -11,7 +11,7 @@ const {
+   getResponseState
+ } = require('./response')
+ const { HeadersList } = require('./headers')
+-const { Request, cloneRequest, getRequestDispatcher, getRequestState } = require('./request')
++const { Request, cloneRequest, getRequestDispatcher, getRequestState, removeSignalAbortListener } = require('./request')
+ const zlib = require('node:zlib')
+ const {
+   makePolicyContainer,
+@@ -151,10 +151,6 @@ class Fetch extends EE {
+   }
+ }
+ 
+-function handleFetchDone (response) {
+-  finalizeAndReportTiming(response, 'fetch')
+-}
+-
+ // https://fetch.spec.whatwg.org/#fetch-method
+ function fetch (input, init = undefined) {
+   webidl.argumentLengthCheck(arguments, 1, 'globalThis.fetch')
+@@ -208,7 +204,7 @@ function fetch (input, init = undefined) {
+   let controller = null
+ 
+   // 11. Add the following abort steps to requestObject’s signal:
+-  addAbortListener(
++  const removeSignalListener = addAbortListener(
+     requestObject.signal,
+     () => {
+       // 1. Set locallyAborted to true.
+@@ -225,12 +221,33 @@ function fetch (input, init = undefined) {
+       // 4. Abort the fetch() call with p, request, responseObject,
+       //    and requestObject’s signal’s abort reason.
+       abortFetch(p, request, realResponse, requestObject.signal.reason, controller.controller)
++
++      removeAbortListeners()
+     }
+   )
+ 
++  // Once the fetch is over it can no longer be aborted, so stop listening for
++  // aborts: both on requestObject’s signal and on the signal it follows, which
++  // the user may share between many fetches. Waiting for requestObject to be
++  // garbage collected instead leaks a listener per fetch and makes Node emit
++  // MaxListenersExceededWarning. Undici-specific.
++  let listenersRemoved = false
++  function removeAbortListeners () {
++    if (listenersRemoved) {
++      return
++    }
++    listenersRemoved = true
++
++    removeSignalListener()
++    removeSignalAbortListener(requestObject)
++  }
++
+   // 12. Let handleFetchDone given response response be to finalize and
+   // report timing with response, globalObject, and "fetch".
+-  // see function handleFetchDone
++  const handleFetchDone = (response) => {
++    removeAbortListeners()
++    finalizeAndReportTiming(response, 'fetch')
++  }
+ 
+   // 13. Set controller to the result of calling fetch given request,
+   // with processResponseEndOfBody set to handleFetchDone, and processResponse
+diff --git a/lib/web/fetch/request.js b/lib/web/fetch/request.js
+index 6ef40f99..700780d3 100644
+--- a/lib/web/fetch/request.js
++++ b/lib/web/fetch/request.js
+@@ -29,6 +29,7 @@ const assert = require('node:assert')
+ const { getMaxListeners, setMaxListeners, defaultMaxListeners } = require('node:events')
+ 
+ const kAbortController = Symbol('abortController')
++const kSignalAbortCleanup = Symbol('signalAbortCleanup')
+ 
+ const requestFinalizer = new FinalizationRegistry(({ signal, abort }) => {
+   signal.removeEventListener('abort', abort)
+@@ -436,12 +437,21 @@ class Request {
+           setMaxListeners(1500, signal)
+         }
+ 
+-        util.addAbortListener(signal, abort)
++        const removeAbortListener = util.addAbortListener(signal, abort)
+         // The third argument must be a registry key to be unregistered.
+         // Without it, you cannot unregister.
+         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/FinalizationRegistry
+         // abort is used as the unregister key. (because it is unique)
+         requestFinalizer.register(ac, { signal, abort }, abort)
++
++        // Allows the listener above to be removed as soon as the fetch owning
++        // this request is done, rather than waiting for ac to be garbage
++        // collected. Otherwise a signal shared by many requests accumulates one
++        // listener per request and emits MaxListenersExceededWarning.
++        this[kSignalAbortCleanup] = () => {
++          requestFinalizer.unregister(abort)
++          removeAbortListener()
++        }
+       }
+     }
+ 
+@@ -831,6 +841,18 @@ class Request {
+     return request
+   }
+ 
++  /**
++   * Stops this request's signal from following the signal it was constructed
++   * with. Only safe for requests that are not exposed to the user, and only
++   * once they can no longer be aborted.
++   *
++   * @param {Request} request
++   */
++  static removeSignalAbortListener (request) {
++    request[kSignalAbortCleanup]?.()
++    request[kSignalAbortCleanup] = null
++  }
++
+   /**
+    * @param {Request} request
+    */
+@@ -870,8 +892,9 @@ class Request {
+   }
+ }
+ 
+-const { setRequestSignal, getRequestDispatcher, setRequestDispatcher, setRequestHeaders, getRequestState, setRequestState } = Request
++const { setRequestSignal, removeSignalAbortListener, getRequestDispatcher, setRequestDispatcher, setRequestHeaders, getRequestState, setRequestState } = Request
+ Reflect.deleteProperty(Request, 'setRequestSignal')
++Reflect.deleteProperty(Request, 'removeSignalAbortListener')
+ Reflect.deleteProperty(Request, 'getRequestDispatcher')
+ Reflect.deleteProperty(Request, 'setRequestDispatcher')
+ Reflect.deleteProperty(Request, 'setRequestHeaders')
+@@ -1111,5 +1134,6 @@ module.exports = {
+   fromInnerRequest,
+   cloneRequest,
+   getRequestDispatcher,
+-  getRequestState
++  getRequestState,
++  removeSignalAbortListener
+ }

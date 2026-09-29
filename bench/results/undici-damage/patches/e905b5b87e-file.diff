@@ -1,0 +1,136 @@
+diff --git a/lib/handler/retry-handler.js b/lib/handler/retry-handler.js
+index d252414d..0773e196 100644
+--- a/lib/handler/retry-handler.js
++++ b/lib/handler/retry-handler.js
+@@ -142,8 +142,10 @@ class RetryHandler {
+     // Backoff timer returned by the retry policy, so #onAbort can cancel it.
+     // Null for custom policies that do not return their timer.
+     this.retryTimer = null
+-    // Set once an abort during the backoff delivered the terminal error
+-    // downstream; late policy callbacks and connection errors are then moot.
++    // Set once a terminal error has been delivered downstream (by an abort
++    // during the backoff, or by a late retry decision reaching an already
++    // exposed response); late policy callbacks and connection errors are then
++    // moot.
+     this.aborted = false
+   }
+ 
+@@ -177,6 +179,17 @@ class RetryHandler {
+       this.retryTimer = null
+ 
+       if (passedErr) {
++        if (this.headersSent) {
++          // A response was already exposed to the caller -- a later dispatch
++          // started and delivered its headers while this decision was pending.
++          // The caller is reading that body, so forwarding this response would
++          // hand the downstream handler a replacement one and orphan the stream
++          // the caller still holds, leaving it stalled forever. Settle the
++          // exposed body with the terminal error instead.
++          this.#terminate(passedErr)
++          return
++        }
++
+         this.headersSent = true
+         this.checkpointResponseEnd(headers)
+         this.handler.onResponseStart?.(this.controllerProxy, statusCode, headers, statusMessage)
+@@ -569,11 +582,24 @@ class RetryHandler {
+       return
+     }
+ 
++    this.#terminate(reason ?? new RequestAbortedError())
++  }
++
++  // Deliver a terminal error downstream exactly once and stop the request:
++  // cancel a pending retry backoff, tear down whichever connection is still in
++  // flight, and mark the handler so late policy callbacks and the aborted
++  // connection's own error are dropped instead of forwarded a second time.
++  #terminate (err) {
+     this.aborted = true
+     this.retryPending = false
+     clearTimeout(this.retryTimer)
+     this.retryTimer = null
+-    this.handler.onResponseError?.(this.controllerProxy, reason ?? new RequestAbortedError())
++    // The proxy's target is the controller of the active connection; abort it
++    // directly rather than through the proxy, which would loop back into
++    // #onAbort. RequestController.abort is idempotent, so a consumer abort that
++    // already aborted it here is a no-op.
++    this.controllerProxy.target?.abort(err)
++    this.handler.onResponseError?.(this.controllerProxy, err)
+   }
+ }
+ 
+diff --git a/test/interceptors/retry.js b/test/interceptors/retry.js
+index d357f056..058402ae 100644
+--- a/test/interceptors/retry.js
++++ b/test/interceptors/retry.js
+@@ -766,6 +766,70 @@ test('#3900104 - Should not resume a 206 response without a usable content-range
+   t.strictEqual(x, 1)
+ })
+ 
++test('#3900823 - Should settle the exposed body when a late retry decision is terminal', async t => {
++  t = tspl(t, { plan: 4 })
++
++  let x = 0
++  const server = createServer({ joinDuplicateHeaders: true }, (req, res) => {
++    if (x === 0) {
++      // Retryable status, then the connection dies while the retry policy is
++      // still deciding, so a second dispatch starts before that decision lands.
++      res.writeHead(500, { 'content-length': '5' })
++      res.flushHeaders()
++      setTimeout(() => req.socket.destroy(), 20)
++    } else {
++      // The resumed dispatch exposes its response to the caller, then keeps the
++      // body open long enough for the stale decision to arrive.
++      res.writeHead(200, { 'content-length': '5' })
++      res.flushHeaders()
++      setTimeout(() => res.end('hello'), 1000)
++    }
++    x++
++  })
++
++  server.listen(0)
++
++  await once(server, 'listening')
++
++  let policyCalls = 0
++  const client = new Client(
++    `http://localhost:${server.address().port}`
++  ).compose(retry({
++    throwOnError: false,
++    retry (err, _ctx, done) {
++      policyCalls++
++
++      // A custom policy may decide asynchronously; the first decision is
++      // terminal but only arrives once the retry is already streaming.
++      if (policyCalls === 1) {
++        setTimeout(() => done(err), 300)
++        return
++      }
++
++      setTimeout(() => done(null), 0)
++    }
++  }))
++
++  after(async () => {
++    await client.destroy()
++    server.closeAllConnections()
++    server.close()
++
++    await once(server, 'close')
++  })
++
++  const response = await client.request({ method: 'GET', path: '/' })
++  t.strictEqual(response.statusCode, 200)
++  // The terminal error must reach the body the caller already holds instead of
++  // being forwarded as a replacement response, which would stall this read.
++  await t.rejects(response.body.text(), {
++    name: 'RequestRetryError',
++    code: 'UND_ERR_REQ_RETRY'
++  })
++  t.strictEqual(x, 2)
++  t.strictEqual(policyCalls, 2)
++})
++
+ test('Should not reject a HEAD response with content-length', async t => {
+   t = tspl(t, { plan: 3 })
+ 

@@ -1,0 +1,86 @@
+diff --git a/lib/web/fetch/index.js b/lib/web/fetch/index.js
+index 982a0301..19764b90 100644
+--- a/lib/web/fetch/index.js
++++ b/lib/web/fetch/index.js
+@@ -1640,20 +1640,14 @@ async function httpNetworkOrCacheFetch (
+   //     includeCredentials is true, and request’s traversable for user prompts is
+   //     a traversable navigable:
+   if (response.status === 401 && httpRequest.responseTainting !== 'cors' && includeCredentials && isTraversableNavigable(request.traversableForUserPrompts)) {
+-    // 2. If request’s body is non-null, then:
+-    if (request.body != null) {
+-      // 1. If request’s body’s source is null, then return a network error.
+-      if (request.body.source == null) {
+-        return makeNetworkError('expected non-null body source')
+-      }
+-
+-      // 2. Set request’s body to the body of the result of safely extracting
+-      //    request’s body’s source.
+-      request.body = safelyExtractBody(request.body.source)[0]
+-    }
+-
+     // 3. If request’s use-URL-credentials flag is unset or isAuthenticationFetch is
+     //    true, then:
++    //
++    // Note: step 3 is checked before step 2 because we cannot prompt the end user for
++    // credentials, so the request is never re-sent in this branch. Re-extracting the
++    // body would be pointless, and a body that cannot be re-extracted (a stream, whose
++    // source is null) must not turn the response into a network error.
++    // https://github.com/nodejs/undici/issues/4990
+     if (request.useURLCredentials === undefined || isAuthenticationFetch) {
+       // 1. If fetchParams is canceled, then return the appropriate network error
+       //    for fetchParams.
+@@ -1677,6 +1671,18 @@ async function httpNetworkOrCacheFetch (
+       return response
+     }
+ 
++    // 2. If request’s body is non-null, then:
++    if (request.body != null) {
++      // 1. If request’s body’s source is null, then return a network error.
++      if (request.body.source == null) {
++        return makeNetworkError('expected non-null body source')
++      }
++
++      // 2. Set request’s body to the body of the result of safely extracting
++      //    request’s body’s source.
++      request.body = safelyExtractBody(request.body.source)[0]
++    }
++
+     // 4. Set response to the result of running HTTP-network-or-cache fetch given
+     //    fetchParams and true.
+     fetchParams.controller.connection.destroy()
+diff --git a/test/fetch/401-statuscode-no-infinite-loop.js b/test/fetch/401-statuscode-no-infinite-loop.js
+index 96611718..428c3809 100644
+--- a/test/fetch/401-statuscode-no-infinite-loop.js
++++ b/test/fetch/401-statuscode-no-infinite-loop.js
+@@ -20,3 +20,31 @@ test('Receiving a 401 status code should not cause infinite retry loop', async (
+   const response = await fetch(`http://localhost:${server.address().port}`)
+   assert.strictEqual(response.status, 401)
+ })
++
++// https://github.com/nodejs/undici/issues/4990
++test('Receiving a 401 status code for a request with a non-replayable body', async (t) => {
++  const server = createServer({ joinDuplicateHeaders: true }, (req, res) => {
++    req.resume()
++    res.statusCode = 401
++    res.end('Unauthorized')
++  }).listen(0)
++
++  t.after(closeServerAsPromise(server))
++  await once(server, 'listening')
++
++  const body = new ReadableStream({
++    start (controller) {
++      controller.enqueue(new Uint8Array([1, 2, 3]))
++      controller.close()
++    }
++  })
++
++  const response = await fetch(`http://localhost:${server.address().port}`, {
++    method: 'POST',
++    body,
++    duplex: 'half'
++  })
++
++  assert.strictEqual(response.status, 401)
++  assert.strictEqual(await response.text(), 'Unauthorized')
++})

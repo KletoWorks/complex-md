@@ -1,0 +1,62 @@
+diff --git a/lib/web/fetch/index.js b/lib/web/fetch/index.js
+index 982a0301..fa8bec3d 100644
+--- a/lib/web/fetch/index.js
++++ b/lib/web/fetch/index.js
+@@ -1643,8 +1643,13 @@ async function httpNetworkOrCacheFetch (
+     // 2. If request’s body is non-null, then:
+     if (request.body != null) {
+       // 1. If request’s body’s source is null, then return a network error.
++      // The body cannot be re-extracted (it was created from a stream), so the
++      // request cannot be retried. As we never re-send the request with user
++      // supplied credentials anyway (see below), return the response instead of
++      // a network error.
++      // https://github.com/nodejs/undici/pull/4769
+       if (request.body.source == null) {
+-        return makeNetworkError('expected non-null body source')
++        return response
+       }
+ 
+       // 2. Set request’s body to the body of the result of safely extracting
+diff --git a/test/fetch/401-statuscode-no-infinite-loop.js b/test/fetch/401-statuscode-no-infinite-loop.js
+index 96611718..04a4efb6 100644
+--- a/test/fetch/401-statuscode-no-infinite-loop.js
++++ b/test/fetch/401-statuscode-no-infinite-loop.js
+@@ -20,3 +20,38 @@ test('Receiving a 401 status code should not cause infinite retry loop', async (
+   const response = await fetch(`http://localhost:${server.address().port}`)
+   assert.strictEqual(response.status, 401)
+ })
++
++test('Receiving a 401 status code on a POST request should not throw', async (t) => {
++  const server = createServer({ joinDuplicateHeaders: true }, (req, res) => {
++    req.resume()
++    res.statusCode = 401
++    res.end('Unauthorized')
++  }).listen(0)
++
++  t.after(closeServerAsPromise(server))
++  await once(server, 'listening')
++
++  const url = `http://localhost:${server.address().port}`
++
++  const response = await fetch(url, {
++    method: 'POST',
++    body: JSON.stringify({ data: 'test' })
++  })
++  assert.strictEqual(response.status, 401)
++
++  // A body created from a stream has a null source, so it cannot be
++  // re-extracted to retry the request.
++  const stream = new ReadableStream({
++    start (controller) {
++      controller.enqueue(new TextEncoder().encode('test'))
++      controller.close()
++    }
++  })
++
++  const streamedResponse = await fetch(url, {
++    method: 'POST',
++    body: stream,
++    duplex: 'half'
++  })
++  assert.strictEqual(streamedResponse.status, 401)
++})

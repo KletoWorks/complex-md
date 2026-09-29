@@ -1,0 +1,44 @@
+diff --git a/lib/dispatcher/client.js b/lib/dispatcher/client.js
+index ec81541f..92db686b 100644
+--- a/lib/dispatcher/client.js
++++ b/lib/dispatcher/client.js
+@@ -238,7 +238,7 @@ class Client extends DispatcherBase {
+           throw new InvalidArgumentError('h2Options.settings.initialWindowSize must be a positive integer, greater than 0')
+         }
+ 
+-        if (h2Options.maxConcurrentStreams != null && (!Number.isInteger(h2Options.connectionWindowSize) || h2Options.maxConcurrentStreams < 1)) {
++        if (h2Options.maxConcurrentStreams != null && (!Number.isInteger(h2Options.maxConcurrentStreams) || h2Options.maxConcurrentStreams < 1)) {
+           throw new InvalidArgumentError('h2Options.maxConcurrentStreams must be a positive integer, greater than 0')
+         }
+ 
+diff --git a/test/http2-instantiation.js b/test/http2-instantiation.js
+index 8ba07da1..1b0fefaf 100644
+--- a/test/http2-instantiation.js
++++ b/test/http2-instantiation.js
+@@ -50,6 +50,26 @@ test('Should throw if bad maxConcurrentStreams has been passed', async t => {
+   await t.completed
+ })
+ 
++test('Should accept each h2Option on its own', async t => {
++  t = tspl(t, { plan: 3 })
++
++  for (const h2Options of [
++    { maxConcurrentStreams: 50 },
++    { connectionWindowSize: 1024 },
++    { pingInterval: 0 }
++  ]) {
++    t.doesNotThrow(() => {
++      const client = new Client('https://localhost:1000', {
++        allowH2: true,
++        h2Options
++      })
++      after(() => client.close())
++    })
++  }
++
++  await t.completed
++})
++
+ test(
+   'Request should fail if allowH2 is false and server advertises h1 only',
+   async t => {

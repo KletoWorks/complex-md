@@ -1,0 +1,227 @@
+diff --git a/test/interceptors/decompress.js b/test/interceptors/decompress.js
+index 4cb38b07..9fa861c6 100644
+--- a/test/interceptors/decompress.js
++++ b/test/interceptors/decompress.js
+@@ -1247,20 +1247,219 @@ test('should allow a decompressed response exactly equal to maxSize', async t =>
+ })
+ 
+ test('should reject invalid maxSize values', async t => {
+-  t = tspl(t, { plan: 5 })
++  t = tspl(t, { plan: 4 })
+ 
+-  for (const maxSize of [0, -1, 1.5, Infinity, '1024']) {
++  for (const maxSize of [-1, 1.5, Infinity, '1024']) {
+     const dispatch = createDecompressInterceptor({ maxSize })(() => true)
+     t.throws(() => dispatch({ method: 'GET' }, {}), {
+       name: 'InvalidArgumentError',
+       code: 'UND_ERR_INVALID_ARG',
+-      message: 'maxSize must be a positive integer'
++      message: 'maxSize must be a non-negative integer'
+     })
+   }
+ 
+   await t.completed
+ })
+ 
++test('should not limit the decompressed size by default', async t => {
++  t = tspl(t, { plan: 2 })
++
++  // Past the 64 MiB limit the interceptor used to impose, and consumed as a
++  // stream so it is never held in memory all at once.
++  const chunk = Buffer.alloc(1024 * 1024, 'a')
++  const chunks = 65
++  const server = createServer({ joinDuplicateHeaders: true }, (_req, res) => {
++    res.writeHead(200, {
++      'Content-Encoding': 'gzip'
++    })
++
++    const gzip = createGzip()
++    gzip.pipe(res)
++
++    let written = 0
++    const write = () => {
++      while (written < chunks) {
++        written++
++        if (gzip.write(chunk) === false) {
++          gzip.once('drain', write)
++          return
++        }
++      }
++      gzip.end()
++    }
++    write()
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const client = new Client(
++    `http://localhost:${server.address().port}`
++  ).compose(interceptors.decompress())
++
++  after(async () => {
++    await client.close()
++    server.close()
++    await once(server, 'close')
++  })
++
++  const response = await client.request({
++    method: 'GET',
++    path: '/'
++  })
++
++  let received = 0
++  for await (const data of response.body) {
++    received += data.length
++  }
++
++  t.equal(response.statusCode, 200)
++  t.equal(received, chunk.length * chunks)
++
++  await t.completed
++})
++
++test('should stop decoding while the consumer is paused', async t => {
++  t = tspl(t, { plan: 2 })
++
++  const chunk = Buffer.alloc(64 * 1024, 'a')
++  const chunks = 8
++  const total = chunk.length * chunks
++  const server = createServer({ joinDuplicateHeaders: true }, (_req, res) => {
++    res.writeHead(200, {
++      'Content-Encoding': 'gzip'
++    })
++
++    const gzip = createGzip()
++    gzip.pipe(res)
++    for (let i = 0; i < chunks; i++) {
++      gzip.write(chunk)
++    }
++    gzip.end()
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const client = new Client(
++    `http://localhost:${server.address().port}`
++  ).compose(interceptors.decompress())
++
++  after(async () => {
++    await client.close()
++    server.close()
++    await once(server, 'close')
++  })
++
++  let controller
++  let received = 0
++  let paused = false
++  let receivedWhilePaused = 0
++
++  const completed = new Promise((resolve, reject) => {
++    client.dispatch({ method: 'GET', path: '/' }, {
++      onRequestStart (ctrl) {
++        controller = ctrl
++      },
++
++      onResponseStart () {},
++
++      onResponseData (_ctrl, data) {
++        received += data.length
++
++        if (paused) {
++          receivedWhilePaused += data.length
++          return
++        }
++
++        // Hold the body across a macrotask. Nothing more may be decoded until
++        // the resume below, however much compressed input keeps arriving.
++        paused = true
++        controller.pause()
++        setTimeout(() => {
++          paused = false
++          controller.resume()
++        }, 5)
++      },
++
++      onResponseEnd: resolve,
++      onResponseError: (_ctrl, err) => reject(err)
++    })
++  })
++
++  await completed
++
++  t.equal(receivedWhilePaused, 0, 'no data delivered while paused')
++  t.equal(received, total, 'all data received')
++
++  await t.completed
++})
++
++test('should delay completion until a consumer paused on the last chunk resumes', async t => {
++  t = tspl(t, { plan: 3 })
++
++  const data = 'the whole body arrives in one decoded chunk'
++  const server = createServer({ joinDuplicateHeaders: true }, (_req, res) => {
++    res.writeHead(200, {
++      'Content-Encoding': 'gzip'
++    })
++    res.end(gzipSync(data))
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const client = new Client(
++    `http://localhost:${server.address().port}`
++  ).compose(interceptors.decompress())
++
++  after(async () => {
++    await client.close()
++    server.close()
++    await once(server, 'close')
++  })
++
++  let controller
++  let resumed = false
++  let body = ''
++  const completed = new Promise(resolve => {
++    const handler = {
++      onRequestStart (ctrl) {
++        controller = ctrl
++      },
++
++      onResponseStart () {},
++
++      onResponseData (_ctrl, chunk) {
++        body += chunk.toString()
++        controller.pause()
++        setTimeout(() => {
++          resumed = true
++          controller.resume()
++        }, 50)
++      },
++
++      onResponseEnd () {
++        t.ok(resumed, 'completion waits for the consumer to resume')
++        t.equal(body, data)
++        resolve()
++      },
++
++      onResponseError (_ctrl, err) {
++        t.fail(err)
++      }
++    }
++
++    client.dispatch({ method: 'GET', path: '/' }, handler)
++  })
++
++  await completed
++
++  t.ok(resumed)
++
++  await t.completed
++})
++
+ test('should behave like fetch() for compressed responses', async t => {
+   t = tspl(t, { plan: 10 })
+ 

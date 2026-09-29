@@ -1,0 +1,21 @@
+diff --git a/lib/dispatcher/client.js b/lib/dispatcher/client.js
+index c6cd7d17..e1844d4c 100644
+--- a/lib/dispatcher/client.js
++++ b/lib/dispatcher/client.js
+@@ -568,7 +568,15 @@ function handleConnectError (client, err, { host, hostname, protocol, port }) {
+   }
+ 
+   if (err.code === 'ERR_TLS_CERT_ALTNAME_INVALID') {
+-    assert(client[kRunning] === 0)
++    // With pipelining > 1 there can be in-flight requests when the TLS
++    // error fires at connect time. Drain them first, as onError does, so
++    // that kRunningIdx and kPendingIdx stay in sync.
++    while (client[kRunning] > 0) {
++      const request = client[kQueue][client[kRunningIdx]]
++      client[kQueue][client[kRunningIdx]++] = null
++      util.errorRequest(client, request, err)
++    }
++    client[kPendingIdx] = client[kRunningIdx]
+     while (client[kPending] > 0 && client[kQueue][client[kPendingIdx]].servername === client[kServerName]) {
+       const request = client[kQueue][client[kPendingIdx]++]
+       util.errorRequest(client, request, err)

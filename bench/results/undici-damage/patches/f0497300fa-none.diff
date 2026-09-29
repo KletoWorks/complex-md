@@ -1,0 +1,19 @@
+diff --git a/lib/core/util.js b/lib/core/util.js
+index 98337c59..0c4a76a2 100644
+--- a/lib/core/util.js
++++ b/lib/core/util.js
+@@ -698,9 +698,11 @@ function isFormDataLike (object) {
+ }
+ 
+ function addAbortListener (signal, listener) {
+-  if (signal instanceof AbortSignal) {
+-    const disposable = addAbortListenerNative(signal, listener)
+-    return () => disposable[Symbol.dispose]()
++  // `events.addAbortListener` accepts anything with an `aborted` property,
++  // which covers cross-realm `AbortSignal`s as well. Its disposable does not
++  // rely on `this`, so the dispose function can be returned as is.
++  if (!signal || 'aborted' in signal) {
++    return addAbortListenerNative(signal, listener)[Symbol.dispose]
+   }
+ 
+   if (typeof signal.addEventListener === 'function') {

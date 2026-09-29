@@ -1,0 +1,292 @@
+diff --git a/lib/web/websocket/connection.js b/lib/web/websocket/connection.js
+index cd95d2ca..358d0c66 100644
+--- a/lib/web/websocket/connection.js
++++ b/lib/web/websocket/connection.js
+@@ -94,25 +94,32 @@ function establishWebSocketConnection (url, protocols, client, handler, options)
+     useParallelQueue: true,
+     dispatcher: options.dispatcher,
+     processResponse (response) {
++      // The presence of a session property on the socket indicates HTTP/2.
++      const isH2 = response.socket?.session != null
++
+       // 1. If response is a network error or its status is not 101,
+       //    fail the WebSocket connection.
+-      // if (response.type === 'error' || ((response.socket?.session != null && response.status !== 200) && response.status !== 101)) {
+       if (response.type === 'error' || response.status !== 101) {
+-        // The presence of a session property on the socket indicates HTTP2
+         // HTTP1
+-        if (response.socket?.session == null) {
++        if (!isH2) {
+           failWebsocketConnection(handler, 1002, 'Received network error or non-101 status code.', response.error)
+           return
+         }
+ 
+-        // HTTP2
++        // HTTP2 responds with a 200 status code instead of switching
++        // protocols. https://datatracker.ietf.org/doc/html/rfc8441#section-4
+         if (response.status !== 200) {
+           failWebsocketConnection(handler, 1002, 'Received network error or non-200 status code.', response.error)
+           return
+         }
+       }
+ 
+-      if (warningEmitted === false && response.socket?.session != null) {
++      // The handshake response has been received, so the socket is now owned by
++      // the WebSocket. Failing the connection from this point onwards must tear
++      // the socket (or HTTP/2 stream) down, otherwise it is leaked.
++      handler.socket = response.socket
++
++      if (warningEmitted === false && isH2) {
+         process.emitWarning('WebSocket over HTTP2 is experimental, and subject to change.', 'ExperimentalWarning')
+         warningEmitted = true
+       }
+@@ -137,7 +144,7 @@ function establishWebSocketConnection (url, protocols, client, handler, options)
+       //    insensitive match for the value "websocket", the client MUST
+       //    _Fail the WebSocket Connection_.
+       //    For H2, no upgrade header is expected.
+-      if (response.socket.session == null && response.headersList.get('Upgrade')?.toLowerCase() !== 'websocket') {
++      if (!isH2 && response.headersList.get('Upgrade')?.toLowerCase() !== 'websocket') {
+         failWebsocketConnection(handler, 1002, 'Server did not set Upgrade header to "websocket".')
+         return
+       }
+@@ -147,7 +154,7 @@ function establishWebSocketConnection (url, protocols, client, handler, options)
+       //    ASCII case-insensitive match for the value "Upgrade", the client
+       //    MUST _Fail the WebSocket Connection_.
+       //    For H2, no connection header is expected.
+-      if (response.socket.session == null && response.headersList.get('Connection')?.toLowerCase() !== 'upgrade') {
++      if (!isH2 && response.headersList.get('Connection')?.toLowerCase() !== 'upgrade') {
+         failWebsocketConnection(handler, 1002, 'Server did not set Connection header to "upgrade".')
+         return
+       }
+@@ -159,11 +166,16 @@ function establishWebSocketConnection (url, protocols, client, handler, options)
+       //    E914-47DA-95CA-C5AB0DC85B11" but ignoring any leading and
+       //    trailing whitespace, the client MUST _Fail the WebSocket
+       //    Connection_.
+-      const secWSAccept = response.headersList.get('Sec-WebSocket-Accept')
+-      const digest = crypto.hash('sha1', keyValue + uid, 'base64')
+-      if (secWSAccept !== digest) {
+-        failWebsocketConnection(handler, 1002, 'Incorrect hash received in Sec-WebSocket-Accept header.')
+-        return
++      //    The `Sec-WebSocket-Key` and `Sec-WebSocket-Accept` header fields are
++      //    not used by the HTTP/2 handshake, so a server is free to omit it.
++      //    https://datatracker.ietf.org/doc/html/rfc8441#section-5
++      if (!isH2) {
++        const secWSAccept = response.headersList.get('Sec-WebSocket-Accept')
++        const digest = crypto.hash('sha1', keyValue + uid, 'base64')
++        if (secWSAccept !== digest) {
++          failWebsocketConnection(handler, 1002, 'Incorrect hash received in Sec-WebSocket-Accept header.')
++          return
++        }
+       }
+ 
+       // 5. If the response includes a |Sec-WebSocket-Extensions| header
+@@ -314,11 +326,18 @@ function failWebsocketConnection (handler, code, reason, cause) {
+ 
+   handler.controller.abort()
+ 
+-  if (isConnecting(handler.readyState)) {
++  const connecting = isConnecting(handler.readyState)
++
++  // The socket must always be torn down, even when the opening handshake never
++  // completed: an HTTP/2 stream left open here keeps its session (and therefore
++  // the process) alive forever.
++  if (handler.socket?.destroyed === false) {
++    handler.socket.destroy()
++  }
++
++  if (connecting) {
+     // If the connection was not established, we must still emit an 'error' and 'close' events
+     handler.onSocketClose()
+-  } else if (handler.socket?.destroyed === false) {
+-    handler.socket.destroy()
+   }
+ }
+ 
+diff --git a/lib/web/websocket/stream/websocketstream.js b/lib/web/websocket/stream/websocketstream.js
+index 1c13a306..589d6c49 100644
+--- a/lib/web/websocket/stream/websocketstream.js
++++ b/lib/web/websocket/stream/websocketstream.js
+@@ -41,13 +41,27 @@ class WebSocketStream {
+   // Each WebSocketStream object has an associated boolean handshake aborted , which is initially false.
+   #handshakeAborted = false
+ 
++  // Whether the socket is currently paused because the readable stream has no
++  // outstanding demand.
++  #backpressure = false
++
++  // The resolvers of every message that has been queued but not yet flushed to
++  // the socket. A close with an outstanding write is never clean.
++  /** @type {Set<ReturnType<typeof Promise.withResolvers>>} */
++  #pendingWrites = new Set()
++
+   /** @type {import('../websocket').Handler} */
+   #handler = {
+     // https://whatpr.org/websockets/48/7b748d3...d5570f3.html#feedback-to-websocket-stream-from-the-protocol
+     onConnectionEstablished: (response, extensions) => this.#onConnectionEstablished(response, extensions),
+     onMessage: (opcode, data) => this.#onMessage(opcode, data),
+     onParserError: (err) => failWebsocketConnection(this.#handler, null, err.message),
+-    onParserDrain: () => this.#handler.socket.resume(),
++    onParserDrain: () => {
++      // Don't undo the backpressure applied by the readable stream.
++      if (!this.#backpressure) {
++        this.#handler.socket.resume()
++      }
++    },
+     onSocketData: (chunk) => {
+       if (!this.#parser.write(chunk)) {
+         this.#handler.socket.pause()
+@@ -136,18 +150,21 @@ class WebSocketStream {
+       addAbortListener(signal, () => {
+         // 8.3.1. If the WebSocket connection is not yet established : [WSP]
+         if (!isEstablished(this.#handler.readyState)) {
+-          // 8.3.1.1. Fail the WebSocket connection .
+-          failWebsocketConnection(this.#handler)
+-
+-          // Set this 's ready state to CLOSING .
+-          this.#handler.readyState = states.CLOSING
++          // Set this 's handshake aborted to true.
++          // Note: this is set before failing the connection because failing it
++          // synchronously runs the close steps, which must be a no-op once the
++          // handshake was aborted.
++          this.#handshakeAborted = true
+ 
+           // Reject this 's opened promise and closed promise with signal ’s abort reason .
+           this.#openedPromise.reject(signal.reason)
+           this.#closedPromise.reject(signal.reason)
+ 
+-          // Set this 's handshake aborted to true.
+-          this.#handshakeAborted = true
++          // 8.3.1.1. Fail the WebSocket connection .
++          failWebsocketConnection(this.#handler)
++
++          // Set this 's ready state to CLOSING .
++          this.#handler.readyState = states.CLOSING
+         }
+       })
+     }
+@@ -245,12 +262,31 @@ class WebSocketStream {
+     if (!this.#handler.closeState.has(sentCloseFrameState.SENT) && !this.#handler.closeState.has(sentCloseFrameState.RECEIVED)) {
+       const frame = new WebsocketFrameSend(data)
+ 
+-      this.#handler.socket.write(frame.createFrame(opcode), () => {
+-        promise.resolve(undefined)
++      // The message is only fully sent once it has been flushed to the socket.
++      // Until then the promise must stay pending, so that a close while it is
++      // outstanding can reject it and be reported as unclean.
++      this.#pendingWrites.add(promise)
++
++      this.#handler.socket.write(frame.createFrame(opcode), (err) => {
++        if (!this.#pendingWrites.delete(promise)) {
++          // Already settled by the close steps.
++          return
++        }
++
++        if (err) {
++          promise.reject(err)
++        } else {
++          // 6.3. Queue a global task on the WebSocket task source given stream ’s
++          //      relevant global object to resolve promise with undefined.
++          promise.resolve(undefined)
++        }
+       })
++    } else {
++      // The closing handshake has started, so the message will never be sent.
++      // It is rejected once the connection is closed.
++      this.#pendingWrites.add(promise)
+     }
+ 
+-    // 6.3. Queue a global task on the WebSocket task source given stream ’s relevant global object to resolve promise with undefined.
+     return promise.promise
+   }
+ 
+@@ -278,7 +314,7 @@ class WebSocketStream {
+     // This is done in the opening handshake.
+ 
+     // 3. Let extensions be the extensions in use .
+-    const extensions = parsedExtensions ?? ''
++    const extensions = response.headersList.get('sec-websocket-extensions') ?? ''
+ 
+     // 4. Let protocol be the subprotocol in use .
+     const protocol = response.headersList.get('sec-websocket-protocol') ?? ''
+@@ -291,8 +327,15 @@ class WebSocketStream {
+       start: (controller) => {
+         this.#readableStreamController = controller
+       },
++      pull: () => {
++        // There is demand again, so stop applying backpressure.
++        if (this.#backpressure) {
++          this.#backpressure = false
++          this.#handler.socket.resume()
++        }
++      },
+       cancel: (reason) => this.#cancel(reason)
+-    })
++    }, { highWaterMark: 0 })
+ 
+     // 9. Let writeAlgorithm be an action that writes chunk to stream , given chunk .
+     // 10. Let closeAlgorithm be an action that closes stream .
+@@ -304,7 +347,12 @@ class WebSocketStream {
+         this.#writableStreamController = controller
+       },
+       write: (chunk) => this.#write(chunk),
+-      close: () => closeWebSocketConnection(this.#handler, null, null),
++      close: () => {
++        closeWebSocketConnection(this.#handler, null, null)
++
++        // The stream is not closed until the closing handshake completes.
++        return this.#closedPromise.promise
++      },
+       abort: (reason) => this.#closeUsingReason(reason)
+     })
+ 
+@@ -350,13 +398,23 @@ class WebSocketStream {
+     this.#readableStreamController.enqueue(chunk)
+ 
+     // 4. Apply backpressure to the WebSocket.
++    if (!this.#backpressure && this.#readableStreamController.desiredSize <= 0) {
++      this.#backpressure = true
++      this.#handler.socket.pause()
++    }
+   }
+ 
+   /** @type {import('../websocket').Handler['onSocketClose']} */
+   #onSocketClose () {
++    // A message that was queued but never flushed means the connection was not
++    // closed cleanly, no matter how the closing handshake went.
++    const pendingWrites = [...this.#pendingWrites]
++    this.#pendingWrites.clear()
++
+     const wasClean =
+       this.#handler.closeState.has(sentCloseFrameState.SENT) &&
+-      this.#handler.closeState.has(sentCloseFrameState.RECEIVED)
++      this.#handler.closeState.has(sentCloseFrameState.RECEIVED) &&
++      pendingWrites.length === 0
+ 
+     // 1. Change the ready state to CLOSED (3).
+     this.#handler.readyState = states.CLOSED
+@@ -383,7 +441,9 @@ class WebSocketStream {
+     // 1006.
+     let code = result?.code ?? 1005
+ 
+-    if (!this.#handler.closeState.has(sentCloseFrameState.SENT) && !this.#handler.closeState.has(sentCloseFrameState.RECEIVED)) {
++    if (!this.#handler.closeState.has(sentCloseFrameState.RECEIVED)) {
++      // No Close control frame was received, so the closing handshake never
++      // completed.
+       code = 1006
+     }
+ 
+@@ -470,6 +530,14 @@ webidl.converters.WebSocketStreamOptions = webidl.dictionaryConverter([
+     key: 'signal',
+     converter: webidl.nullableConverter(webidl.converters.AbortSignal),
+     defaultValue: () => null
++  },
++  {
++    key: 'dispatcher',
++    converter: webidl.converters.any
++  },
++  {
++    key: 'headers',
++    converter: webidl.nullableConverter(webidl.converters.HeadersInit)
+   }
+ ])
+ 

@@ -1,0 +1,110 @@
+diff --git a/lib/interceptor/cache.js b/lib/interceptor/cache.js
+index f50c1b7b..3f4e1b7e 100644
+--- a/lib/interceptor/cache.js
++++ b/lib/interceptor/cache.js
+@@ -6,7 +6,7 @@ const util = require('../core/util')
+ const CacheHandler = require('../handler/cache-handler')
+ const MemoryCacheStore = require('../cache/memory-cache-store')
+ const CacheRevalidationHandler = require('../handler/cache-revalidation-handler')
+-const { assertCacheStore, assertCacheMethods, makeCacheKey, normalizeHeaders, parseCacheControlHeader, isInvalidOrWildcardVaryHeader } = require('../util/cache.js')
++const { assertCacheStore, assertCacheMethods, getEffectiveOrigin, makeCacheKey, normalizeHeaders, parseCacheControlHeader, isInvalidOrWildcardVaryHeader } = require('../util/cache.js')
+ const { AbortError } = require('../core/errors.js')
+ const { parseHttpDate } = require('../util/date.js')
+ 
+@@ -540,14 +540,14 @@ module.exports = (opts = {}) => {
+ 
+   return dispatch => {
+     return (opts, handler) => {
+-      if (!opts.origin || arrayIncludes(safeMethodsToNotCache, opts.method)) {
+-        // Not a method we want to cache or we don't have the origin, skip
++      if (arrayIncludes(safeMethodsToNotCache, opts.method)) {
++        // Not a method we want to cache, skip
+         return dispatch(opts, handler)
+       }
+ 
+       // Check if origin is in whitelist
+       if (origins !== undefined) {
+-        const requestOrigin = opts.origin.toString().toLowerCase()
++        const requestOrigin = getEffectiveOrigin(opts).toLowerCase()
+         let isAllowed = false
+ 
+         for (let i = 0; i < origins.length; i++) {
+diff --git a/lib/interceptor/deduplicate.js b/lib/interceptor/deduplicate.js
+index 248a9237..bacfeb3f 100644
+--- a/lib/interceptor/deduplicate.js
++++ b/lib/interceptor/deduplicate.js
+@@ -59,7 +59,7 @@ module.exports = (opts = {}) => {
+ 
+   return dispatch => {
+     return (opts, handler) => {
+-      if (!opts.origin || opts.upgrade || methods.includes(opts.method) === false) {
++      if (opts.upgrade || methods.includes(opts.method) === false) {
+         return dispatch(opts, handler)
+       }
+ 
+diff --git a/lib/util/cache.js b/lib/util/cache.js
+index d156731d..ba9446fd 100644
+--- a/lib/util/cache.js
++++ b/lib/util/cache.js
+@@ -145,13 +145,41 @@ function getMalformedRestrictiveDirectiveName (key) {
+ }
+ 
+ /**
++ * Derives the origin to key a request by.
++ *
++ * `opts.origin` is only set when dispatching through an `Agent`. When an
++ * interceptor is composed directly onto a `Client` or `Pool` the origin is
++ * held by the dispatcher itself and never reaches the interceptor, so fall
++ * back to the origin carried by an absolute-form request target and, failing
++ * that, to an empty string. A `Client`/`Pool` only ever talks to a single
++ * origin, so the remaining parts of the key stay unambiguous.
++ *
+  * @param {import('../../types/dispatcher.d.ts').default.DispatchOptions} opts
++ * @returns {string}
+  */
+-function makeCacheKey (opts) {
+-  if (!opts.origin) {
+-    throw new Error('opts.origin is undefined')
++function getEffectiveOrigin (opts) {
++  if (opts.origin) {
++    return opts.origin.toString()
++  }
++
++  const path = opts.path
++  if (typeof path === 'string' && (path.startsWith('http://') || path.startsWith('https://'))) {
++    try {
++      return new URL(path).origin
++    } catch {
++      // Not a parsable absolute URL, fall through.
++    }
+   }
+ 
++  return ''
++}
++
++/**
++ * @param {import('../../types/dispatcher.d.ts').default.DispatchOptions} opts
++ */
++function makeCacheKey (opts) {
++  const origin = getEffectiveOrigin(opts)
++
+   let fullPath = opts.path || '/'
+ 
+   if (opts.query && !pathHasQueryOrFragment(fullPath)) {
+@@ -159,7 +187,7 @@ function makeCacheKey (opts) {
+   }
+ 
+   return {
+-    origin: opts.origin.toString(),
++    origin,
+     method: opts.method,
+     path: fullPath,
+     headers: opts.headers
+@@ -702,6 +730,7 @@ function makeDeduplicationKey (cacheKey, excludeHeaders) {
+ }
+ 
+ module.exports = {
++  getEffectiveOrigin,
+   makeCacheKey,
+   normalizeHeaders,
+   assertCacheKey,

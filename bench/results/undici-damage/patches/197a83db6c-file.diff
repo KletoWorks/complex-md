@@ -1,0 +1,113 @@
+diff --git a/lib/dispatcher/client-h1.js b/lib/dispatcher/client-h1.js
+index 5ab9e6d6..5faa86cc 100644
+--- a/lib/dispatcher/client-h1.js
++++ b/lib/dispatcher/client-h1.js
+@@ -1265,8 +1265,15 @@ function writeH1 (client, request) {
+     socket[kBlocking] = true
+   }
+ 
+-  if (socket.setTypeOfService) {
+-    socket.setTypeOfService(request.typeOfService)
++  // IP ToS marking is best-effort: only touch setsockopt when a value was
++  // actually requested, and never let a failing setsockopt (e.g. EINVAL on
++  // macOS, depending on socket state) escape and take the process down.
++  if (request.typeOfService && socket.setTypeOfService) {
++    try {
++      socket.setTypeOfService(request.typeOfService)
++    } catch {
++      // Ignore, the request is still valid without the ToS marking.
++    }
+   }
+ 
+   let header = `${method} ${path} HTTP/1.1\r\n`
+diff --git a/test/ip-prioritization.js b/test/ip-prioritization.js
+index 8dc0412f..8145766f 100644
+--- a/test/ip-prioritization.js
++++ b/test/ip-prioritization.js
+@@ -45,6 +45,86 @@ test('HTTP/1.1 Request Prioritization', async (t) => {
+   }
+ })
+ 
++test('HTTP/1.1 does not call setTypeOfService when typeOfService is unset', async (t) => {
++  let called = false
++
++  const server = createServer((req, res) => {
++    res.end('ok')
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const client = new Client(`http://localhost:${server.address().port}`, {
++    connect: (opts, cb) => {
++      const socket = require('node:net').connect({
++        ...opts,
++        host: opts.hostname,
++        port: opts.port
++      }, () => {
++        cb(null, socket)
++      })
++      socket.setTypeOfService = () => {
++        called = true
++      }
++      return socket
++    }
++  })
++  after(() => client.close())
++  after(() => server.close())
++
++  await client.request({ path: '/', method: 'GET' })
++
++  if (called) {
++    throw new Error('Expected setTypeOfService not to be called')
++  }
++})
++
++test('HTTP/1.1 survives a throwing setTypeOfService', async (t) => {
++  const server = createServer((req, res) => {
++    res.end('ok')
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const client = new Client(`http://localhost:${server.address().port}`, {
++    connect: (opts, cb) => {
++      const socket = require('node:net').connect({
++        ...opts,
++        host: opts.hostname,
++        port: opts.port
++      }, () => {
++        cb(null, socket)
++      })
++      // Mimics macOS throwing EINVAL from setsockopt depending on socket state.
++      socket.setTypeOfService = () => {
++        const err = new Error('setTypeOfService EINVAL')
++        err.errno = -22
++        err.code = 'EINVAL'
++        err.syscall = 'setTypeOfService'
++        throw err
++      }
++      return socket
++    }
++  })
++  after(() => client.close())
++  after(() => server.close())
++
++  const { statusCode, body } = await client.request({
++    path: '/',
++    method: 'GET',
++    typeOfService: 42
++  })
++
++  if (statusCode !== 200) {
++    throw new Error(`Expected statusCode 200, got ${statusCode}`)
++  }
++  if (await body.text() !== 'ok') {
++    throw new Error('Expected body "ok"')
++  }
++})
++
+ test('HTTP/2 Connection Prioritization', async (t) => {
+   const net = require('node:net')
+   const buildConnector = require('../lib/core/connect')

@@ -1,0 +1,311 @@
+diff --git a/docs/docs/api/Client.md b/docs/docs/api/Client.md
+index 6461d3e9..0152f380 100644
+--- a/docs/docs/api/Client.md
++++ b/docs/docs/api/Client.md
+@@ -25,7 +25,7 @@ Returns: `Client`
+ * **maxHeaderSize** `number | null` (optional) - Default: `--max-http-header-size` or `16384` - The maximum length of request headers in bytes. Defaults to Node.js' --max-http-header-size or 16KiB.
+ * **maxResponseSize** `number | null` (optional) - Default: `-1` - The maximum length of response body in bytes. Set to `-1` to disable.
+ * **webSocket** `WebSocketOptions` (optional) - WebSocket-specific configuration options.
+-  * **maxFragments** `number` (optional) - Defailt: `131072` - Maximum number of fragments in a message. Set to 0 to disable the limit.
++  * **maxFragments** `number` (optional) - Default: `131072` - Maximum number of fragments in a message. Set to 0 to disable the limit.
+   * **maxPayloadSize** `number` (optional) - Default: `134217728` (128 MB) - Maximum allowed payload size in bytes for WebSocket messages. Applied to uncompressed messages, compressed frame payloads, and decompressed (permessage-deflate) messages. Set to 0 to disable the limit.
+ * **pipelining** `number | null` (optional) - Default: `1` - The amount of concurrent requests to be sent over the single TCP/TLS connection according to [RFC7230](https://tools.ietf.org/html/rfc7230#section-6.3.2). Carefully consider your workload and environment before enabling concurrent requests as pipelining may reduce performance if used incorrectly. Pipelining is sensitive to network stack settings as well as head of line blocking caused by e.g. long running requests. Set to `0` to disable keep-alive connections. This option has no effect once HTTP/2 is negotiated — see `maxConcurrentStreams` for the h2 dispatch ceiling.
+ * **connect** `ConnectOptions | Function | null` (optional) - Default: `null` - Configures how undici establishes TCP/TLS connections. Accepts two forms:
+diff --git a/lib/web/websocket/receiver.js b/lib/web/websocket/receiver.js
+index 0e33e616..ca78ac26 100644
+--- a/lib/web/websocket/receiver.js
++++ b/lib/web/websocket/receiver.js
+@@ -49,7 +49,7 @@ class ByteParser extends Writable {
+   /**
+    * @param {import('./websocket').Handler} handler
+    * @param {Map<string, string>|null} extensions
+-   * @param {{ maxPayloadSize?: number }} [options]
++   * @param {{ maxFragments?: number, maxPayloadSize?: number }} [options]
+    */
+   constructor (handler, extensions, options = {}) {
+     super()
+@@ -247,7 +247,10 @@ class ByteParser extends Writable {
+           this.#state = parserStates.INFO
+         } else {
+           if (!this.#info.compressed) {
+-            if (body.length && !this.writeFragments(body)) {
++            // Zero-length frames are still fragments; a fragmented message can
++            // start with an empty frame, and empty continuations must count
++            // towards the maximum number of fragments.
++            if (!this.writeFragments(body)) {
+               return
+             }
+ 
+@@ -271,7 +274,7 @@ class ByteParser extends Writable {
+                   return
+                 }
+ 
+-                if (data.length && !this.writeFragments(data)) {
++                if (!this.writeFragments(data)) {
+                   return
+                 }
+ 
+diff --git a/lib/web/websocket/stream/websocketstream.js b/lib/web/websocket/stream/websocketstream.js
+index 1a070e2f..383fd0bf 100644
+--- a/lib/web/websocket/stream/websocketstream.js
++++ b/lib/web/websocket/stream/websocketstream.js
+@@ -258,7 +258,14 @@ class WebSocketStream {
+   #onConnectionEstablished (response, parsedExtensions) {
+     this.#handler.socket = response.socket
+ 
+-    const parser = new ByteParser(this.#handler, parsedExtensions)
++    // Get options from dispatcher options
++    const maxFragments = this.#handler.controller.dispatcher?.webSocketOptions?.maxFragments
++    const maxPayloadSize = this.#handler.controller.dispatcher?.webSocketOptions?.maxPayloadSize
++
++    const parser = new ByteParser(this.#handler, parsedExtensions, {
++      maxFragments,
++      maxPayloadSize
++    })
+     parser.on('drain', () => this.#handler.onParserDrain())
+     parser.on('error', (err) => this.#handler.onParserError(err))
+ 
+diff --git a/test/websocket/fragments.js b/test/websocket/fragments.js
+index 474a1e5b..24993e13 100644
+--- a/test/websocket/fragments.js
++++ b/test/websocket/fragments.js
+@@ -1,6 +1,7 @@
+ 'use strict'
+ 
+ const { test, after } = require('node:test')
++const { once } = require('node:events')
+ const { WebSocketServer } = require('ws')
+ const { Agent, WebSocket } = require('../..')
+ const diagnosticsChannel = require('node:diagnostics_channel')
+@@ -40,7 +41,35 @@ test('Fragmented frame with a ping frame in the middle of it', (t) => {
+   })
+ })
+ 
+-test('Too many fragments (uncompressed)', (t, done) => {
++test('A fragmented message can start with an empty frame', async (t) => {
++  t.plan(1)
++
++  const server = new WebSocketServer({ port: 0 })
++
++  t.after(() => server.close())
++
++  await once(server, 'listening')
++
++  server.on('connection', (ws) => {
++    const socket = ws._socket
++
++    socket.write(Buffer.from([0x01, 0x00])) // text frame "" (fin clear)
++    socket.write(Buffer.from([0x00, 0x03, 0x61, 0x62, 0x63])) // continuation frame "abc" (fin clear)
++    socket.write(Buffer.from([0x80, 0x00])) // continuation frame "" (fin set)
++  })
++
++  const client = new WebSocket(`ws://127.0.0.1:${server.address().port}`)
++
++  client.onerror = t.assert.fail
++
++  const [{ data }] = await once(client, 'message')
++
++  t.assert.strictEqual(data, 'abc')
++
++  client.close()
++})
++
++test('Too many fragments (uncompressed)', async (t) => {
+   t.plan(4)
+ 
+   const agent = new Agent({
+@@ -49,40 +78,53 @@ test('Too many fragments (uncompressed)', (t, done) => {
+     }
+   })
+ 
+-  const server = new WebSocketServer({ port: 0 }, () => {
+-    const { port } = server.address()
+-    const client = new WebSocket(`ws://127.0.0.1:${port}`, {
+-      dispatcher: agent
++  const server = new WebSocketServer({ port: 0 })
++
++  t.after(async () => {
++    await agent.close()
++    server.close()
++  })
++
++  await once(server, 'listening')
++
++  const serverClosed = new Promise((resolve) => {
++    server.on('connection', (ws) => {
++      ws.on('close', (code, reason) => {
++        t.assert.deepStrictEqual(code, 1008)
++        t.assert.deepStrictEqual(reason.toString(), 'Too many message fragments')
++        resolve()
++      })
++
++      const fragment = Buffer.from('a')
++      const options = { fin: false }
++
++      ws.send(fragment, options)
++      ws.send(fragment, options)
++      ws.send(fragment, options)
++      ws.send(fragment, options)
+     })
++  })
++
++  const client = new WebSocket(`ws://127.0.0.1:${server.address().port}`, {
++    dispatcher: agent
++  })
+ 
+-    client.addEventListener('error', (event) => {
++  const clientClosed = new Promise((resolve) => {
++    client.addEventListener('error', () => {
+       t.assert.ok(true)
+     })
+ 
+     client.addEventListener('close', (event) => {
+       t.assert.deepStrictEqual(event.code, 1006)
++      resolve()
+     })
+   })
+ 
+-  server.on('connection', (ws) => {
+-    ws.on('close', (code, reason) => {
+-      t.assert.deepStrictEqual(code, 1008)
+-      t.assert.deepStrictEqual(reason.toString(), 'Too many message fragments')
+-      agent.close()
+-      server.close(done)
+-    })
+-
+-    const fragment = Buffer.from('a')
+-    const options = { fin: false }
+-
+-    ws.send(fragment, options)
+-    ws.send(fragment, options)
+-    ws.send(fragment, options)
+-    ws.send(fragment, options)
+-  })
++  // Both endpoints must observe the connection being closed.
++  await Promise.all([serverClosed, clientClosed])
+ })
+ 
+-test('Too many fragments (compressed)', (t, done) => {
++test('Too many fragments (compressed)', async (t) => {
+   t.plan(4)
+ 
+   const agent = new Agent({
+@@ -94,35 +136,101 @@ test('Too many fragments (compressed)', (t, done) => {
+   const server = new WebSocketServer({
+     perMessageDeflate: { threshold: 0 },
+     port: 0
+-  }, () => {
+-    const { port } = server.address()
+-    const client = new WebSocket(`ws://127.0.0.1:${port}`, {
+-      dispatcher: agent
++  })
++
++  t.after(async () => {
++    await agent.close()
++    server.close()
++  })
++
++  await once(server, 'listening')
++
++  const serverClosed = new Promise((resolve) => {
++    server.on('connection', (ws) => {
++      ws.on('close', (code, reason) => {
++        t.assert.deepStrictEqual(code, 1008)
++        t.assert.deepStrictEqual(reason.toString(), 'Too many message fragments')
++        resolve()
++      })
++
++      const fragment = Buffer.from('a')
++      const options = { fin: false }
++
++      ws.send(fragment, options)
++      ws.send(fragment, options)
++      ws.send(fragment, options)
++      ws.send(fragment, options)
+     })
++  })
+ 
+-    client.addEventListener('error', (event) => {
++  const client = new WebSocket(`ws://127.0.0.1:${server.address().port}`, {
++    dispatcher: agent
++  })
++
++  const clientClosed = new Promise((resolve) => {
++    client.addEventListener('error', () => {
+       t.assert.ok(true)
+     })
+ 
+     client.addEventListener('close', (event) => {
+       t.assert.deepStrictEqual(event.code, 1006)
++      resolve()
+     })
+   })
+ 
+-  server.on('connection', (ws) => {
+-    ws.on('close', (code, reason) => {
+-      t.assert.deepStrictEqual(code, 1008)
+-      t.assert.deepStrictEqual(reason.toString(), 'Too many message fragments')
+-      agent.close()
+-      server.close(done)
++  // Both endpoints must observe the connection being closed.
++  await Promise.all([serverClosed, clientClosed])
++})
++
++test('Empty fragments count towards maxFragments', async (t) => {
++  t.plan(4)
++
++  const agent = new Agent({
++    webSocket: {
++      maxFragments: 3
++    }
++  })
++
++  const server = new WebSocketServer({ port: 0 })
++
++  t.after(async () => {
++    await agent.close()
++    server.close()
++  })
++
++  await once(server, 'listening')
++
++  const serverClosed = new Promise((resolve) => {
++    server.on('connection', (ws) => {
++      ws.on('close', (code, reason) => {
++        t.assert.deepStrictEqual(code, 1008)
++        t.assert.deepStrictEqual(reason.toString(), 'Too many message fragments')
++        resolve()
++      })
++
++      const socket = ws._socket
++
++      socket.write(Buffer.from([0x01, 0x00])) // text frame "" (fin clear)
++      socket.write(Buffer.from([0x00, 0x00])) // continuation frame "" (fin clear)
++      socket.write(Buffer.from([0x00, 0x00])) // continuation frame "" (fin clear)
++      socket.write(Buffer.from([0x80, 0x00])) // continuation frame "" (fin set)
+     })
++  })
+ 
+-    const fragment = Buffer.from('a')
+-    const options = { fin: false }
++  const client = new WebSocket(`ws://127.0.0.1:${server.address().port}`, {
++    dispatcher: agent
++  })
+ 
+-    ws.send(fragment, options)
+-    ws.send(fragment, options)
+-    ws.send(fragment, options)
+-    ws.send(fragment, options)
++  const clientClosed = new Promise((resolve) => {
++    client.addEventListener('error', () => {
++      t.assert.ok(true)
++    })
++
++    client.addEventListener('close', (event) => {
++      t.assert.deepStrictEqual(event.code, 1006)
++      resolve()
++    })
+   })
++
++  await Promise.all([serverClosed, clientClosed])
+ })

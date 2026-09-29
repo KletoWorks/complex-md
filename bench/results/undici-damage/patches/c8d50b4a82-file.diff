@@ -1,0 +1,88 @@
+diff --git a/lib/core/request.js b/lib/core/request.js
+index 2b2633f3..f40717c7 100644
+--- a/lib/core/request.js
++++ b/lib/core/request.js
+@@ -25,6 +25,9 @@ const {
+ const { channels } = require('./diagnostics.js')
+ const { headerNameLowerCasedRecord } = require('./constants')
+ 
++// Per RFC 9110 Section 8.6, content-length is a sequence of digits only.
++const contentLengthRegex = /^\d+$/
++
+ // Verifies that a given path is valid does not contain control chars \x00 to \x20
+ const invalidPathRegex = /[^\u0021-\u00ff]/
+ 
+@@ -484,7 +487,10 @@ function processHeader (request, key, val) {
+     if (request.contentLength !== null) {
+       throw new InvalidArgumentError('duplicate content-length header')
+     }
+-    request.contentLength = parseInt(val, 10)
++    if (typeof val !== 'string' || !contentLengthRegex.test(val)) {
++      throw new InvalidArgumentError('invalid content-length header')
++    }
++    request.contentLength = Number(val)
+     if (!Number.isFinite(request.contentLength)) {
+       throw new InvalidArgumentError('invalid content-length header')
+     }
+diff --git a/test/content-length.js b/test/content-length.js
+index 92386b93..687c4b24 100644
+--- a/test/content-length.js
++++ b/test/content-length.js
+@@ -472,3 +472,57 @@ test('content-length shouldSendContentLength=false', async (t) => {
+ 
+   await t.completed
+ })
++
++test('malformed content-length is rejected', async (t) => {
++  const malformed = ['10.5', 10.5, ' 10', '10abc', '-1', -1, '', '+1', '1e3', 'abc', ['1', '2']]
++  t = tspl(t, { plan: malformed.length })
++
++  const client = new Client('http://localhost:1')
++  after(() => client.close())
++
++  for (const value of malformed) {
++    client.request({
++      path: '/',
++      method: 'PUT',
++      headers: {
++        'content-length': value
++      },
++      body: 'asd'
++    }, (err) => {
++      t.ok(
++        err instanceof errors.InvalidArgumentError && err.message === 'invalid content-length header',
++        `${JSON.stringify(value)} should be rejected`
++      )
++    })
++  }
++
++  await t.completed
++})
++
++test('valid content-length is preserved', async (t) => {
++  t = tspl(t, { plan: 2 })
++
++  const server = createServer({ joinDuplicateHeaders: true }, (req, res) => {
++    t.strictEqual(req.headers['content-length'], '3')
++    res.end()
++  })
++  after(() => server.close())
++
++  server.listen(0, () => {
++    const client = new Client(`http://localhost:${server.address().port}`)
++    after(() => client.close())
++
++    client.request({
++      path: '/',
++      method: 'PUT',
++      headers: {
++        'content-length': 3
++      },
++      body: 'asd'
++    }, (err) => {
++      t.ifError(err)
++    })
++  })
++
++  await t.completed
++})

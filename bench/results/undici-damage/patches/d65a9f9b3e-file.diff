@@ -1,0 +1,78 @@
+diff --git a/lib/util/cache.js b/lib/util/cache.js
+index a8f11216..ae7e0254 100644
+--- a/lib/util/cache.js
++++ b/lib/util/cache.js
+@@ -38,6 +38,35 @@ function normalizeHeaders (opts) {
+   let headers
+   if (opts.headers == null) {
+     headers = {}
++  } else if (Array.isArray(opts.headers)) {
++    headers = {}
++
++    if (opts.headers.length !== 0 && Array.isArray(opts.headers[0])) {
++      // An array of [key, value] pairs.
++      for (const x of opts.headers) {
++        if (!Array.isArray(x)) {
++          throw new Error('opts.headers is not a valid header map')
++        }
++        const [key, val] = x
++        if (typeof key !== 'string' || typeof val !== 'string') {
++          throw new Error('opts.headers is not a valid header map')
++        }
++        headers[key.toLowerCase()] = val
++      }
++    } else {
++      // A flat [key, value, key, value] array, the shape dispatch accepts and
++      // the shape the dns and redirect interceptors hand down.
++      if (opts.headers.length % 2 !== 0) {
++        throw new Error('opts.headers is not a valid header map')
++      }
++      for (let i = 0; i < opts.headers.length; i += 2) {
++        const key = opts.headers[i]
++        if (typeof key !== 'string') {
++          throw new Error('opts.headers is not a valid header map')
++        }
++        headers[key.toLowerCase()] = opts.headers[i + 1]
++      }
++    }
+   } else if (typeof opts.headers === 'object') {
+     headers = {}
+ 
+diff --git a/test/cache-interceptor/cache-utils.js b/test/cache-interceptor/cache-utils.js
+index 7b66e66d..4b9ea1e2 100644
+--- a/test/cache-interceptor/cache-utils.js
++++ b/test/cache-interceptor/cache-utils.js
+@@ -42,3 +42,33 @@ test('normalizeHeaders handles headers from Map', (t) => {
+ 
+   strictEqual(headers['x-test'], 'ok')
+ })
++
++test('normalizeHeaders handles flat [key, value, key, value] headers', (t) => {
++  const { deepStrictEqual, throws } = tspl(t, { plan: 4 })
++
++  deepStrictEqual(normalizeHeaders({ headers: ['Host', 'example.com'] }), { host: 'example.com' })
++  deepStrictEqual(
++    normalizeHeaders({ headers: ['Host', 'example.com', 'X-Test', 'ok'] }),
++    { host: 'example.com', 'x-test': 'ok' }
++  )
++  deepStrictEqual(normalizeHeaders({ headers: [] }), {})
++
++  throws(
++    () => normalizeHeaders({ headers: ['Host'] }),
++    new Error('opts.headers is not a valid header map')
++  )
++})
++
++test('normalizeHeaders handles an array of [key, value] pairs', (t) => {
++  const { deepStrictEqual, throws } = tspl(t, { plan: 2 })
++
++  deepStrictEqual(
++    normalizeHeaders({ headers: [['Host', 'example.com'], ['X-Test', 'ok']] }),
++    { host: 'example.com', 'x-test': 'ok' }
++  )
++
++  throws(
++    () => normalizeHeaders({ headers: [['Host', 1]] }),
++    new Error('opts.headers is not a valid header map')
++  )
++})

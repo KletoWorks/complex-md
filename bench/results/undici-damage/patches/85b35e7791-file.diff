@@ -1,0 +1,42 @@
+diff --git a/lib/dispatcher/client-h2.js b/lib/dispatcher/client-h2.js
+index 846b04c5..deb80629 100644
+--- a/lib/dispatcher/client-h2.js
++++ b/lib/dispatcher/client-h2.js
+@@ -648,6 +648,13 @@ function onHttp2SocketError (err) {
+ }
+ 
+ function onHttp2SocketEnd () {
++  // Destroying with an error emits 'error' on the socket. Our own
++  // onHttp2SocketError normally consumes it, but the socket outlives the
++  // session it belonged to (a detached GOAWAY'd session, an already destroyed
++  // session whose listeners node has torn down), and then this becomes an
++  // uncaughtException the user cannot catch. Keep a noop guard on the socket so
++  // the FIN path can never crash the process.
++  this.on('error', noop)
+   util.destroy(this, new SocketError('other side closed', util.getSocketInfo(this)))
+ }
+ 
+@@ -759,7 +766,9 @@ function releaseUpgradeStream (stream) {
+   removeUpgradeStreamListeners(stream)
+ 
+   if (!stream.destroyed && !stream.closed) {
+-    stream.once('error', noop)
++    // See releaseRequestStream: a released stream that is still open can be
++    // errored repeatedly, so the guard must not be a one-shot.
++    stream.on('error', noop)
+   }
+ }
+ 
+@@ -1187,7 +1196,11 @@ function releaseRequestStream (stream) {
+   // the stream). All handlers bail out when the stream state is gone.
+   if (!stream.destroyed && !stream.closed) {
+     removeRequestStreamListeners(stream)
+-    stream.once('error', noop)
++    // `on`, not `once`: the stream stays open, so it can be errored more than
++    // once (e.g. an abort followed by the session being destroyed when the
++    // socket closes). A consumed one-shot guard leaves the next error
++    // unhandled, which surfaces as an uncaughtException.
++    stream.on('error', noop)
+   }
+ }
+ 

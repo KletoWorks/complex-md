@@ -1,0 +1,133 @@
+diff --git a/lib/web/websocket/receiver.js b/lib/web/websocket/receiver.js
+index 9221e5cc..8db98656 100644
+--- a/lib/web/websocket/receiver.js
++++ b/lib/web/websocket/receiver.js
+@@ -75,7 +75,9 @@ class ByteParser extends Writable {
+     if (
+       this.#maxPayloadSize > 0 &&
+       !isControlFrame(this.#info.opcode) &&
+-      this.#info.payloadLength > this.#maxPayloadSize
++      // Fragments already buffered for this message count towards the limit,
++      // otherwise a payload could be split across frames to bypass it.
++      this.#fragmentsBytes + this.#info.payloadLength > this.#maxPayloadSize
+     ) {
+       failWebsocketConnection(this.#handler, 1009, 'Payload size exceeds maximum allowed size')
+       return false
+@@ -169,6 +171,16 @@ class ByteParser extends Writable {
+           return
+         }
+ 
++        if (isTextBinaryFrame(opcode)) {
++          this.#info.binaryType = opcode
++          this.#info.compressed = rsv1 !== 0
++        }
++
++        this.#info.opcode = opcode
++        this.#info.masked = masked
++        this.#info.fin = fin
++        this.#info.fragmented = fragmented
++
+         if (payloadLength <= 125) {
+           this.#info.payloadLength = payloadLength
+           this.#state = parserStates.READ_DATA
+@@ -181,16 +193,6 @@ class ByteParser extends Writable {
+         } else if (payloadLength === 127) {
+           this.#state = parserStates.PAYLOADLENGTH_64
+         }
+-
+-        if (isTextBinaryFrame(opcode)) {
+-          this.#info.binaryType = opcode
+-          this.#info.compressed = rsv1 !== 0
+-        }
+-
+-        this.#info.opcode = opcode
+-        this.#info.masked = masked
+-        this.#info.fin = fin
+-        this.#info.fragmented = fragmented
+       } else if (this.#state === parserStates.PAYLOADLENGTH_16) {
+         if (this.#byteOffset < 2) {
+           return callback()
+diff --git a/test/websocket/permessage-deflate-limit.js b/test/websocket/permessage-deflate-limit.js
+index d8e26a06..d7af70fe 100644
+--- a/test/websocket/permessage-deflate-limit.js
++++ b/test/websocket/permessage-deflate-limit.js
+@@ -300,6 +300,79 @@ test('Fragmented compressed payload over total limit is rejected', async (t) =>
+   t.assert.strictEqual(client.readyState, WebSocket.CLOSED, 'Connection should be closed after exceeding limit')
+ })
+ 
++test('Fragmented uncompressed payload over total limit is rejected', async (t) => {
++  const limit = 1 * 1024 * 1024 // 1 MB
++  const fragmentSize = 768 * 1024 // 768 KB, under the limit on its own
++  const server = new WebSocketServer({
++    port: 0,
++    perMessageDeflate: false // Disable compression
++  })
++
++  t.after(() => server.close())
++  await once(server, 'listening')
++
++  let messageReceived = false
++
++  server.on('connection', (ws) => {
++    // Neither fragment exceeds the limit, but together they do.
++    ws.send(Buffer.alloc(fragmentSize, 0x41), { binary: true, fin: false })
++    ws.send(Buffer.alloc(fragmentSize, 0x41), { binary: true, fin: true })
++  })
++
++  const agent = new Agent({
++    webSocket: {
++      maxPayloadSize: limit
++    }
++  })
++
++  t.after(() => agent.close())
++
++  const client = new WebSocket(`ws://127.0.0.1:${server.address().port}`, { dispatcher: agent })
++
++  client.addEventListener('message', () => {
++    messageReceived = true
++  })
++
++  const closePromise = once(client, 'close')
++  const timeoutPromise = sleep(5000)
++
++  await Promise.race([closePromise, timeoutPromise])
++
++  t.assert.strictEqual(messageReceived, false, 'Fragmented uncompressed message over total limit should be rejected')
++  t.assert.strictEqual(client.readyState, WebSocket.CLOSED, 'Connection should be closed after exceeding limit')
++})
++
++test('Fragmented uncompressed payload under total limit is received', async (t) => {
++  const limit = 1 * 1024 * 1024 // 1 MB
++  const fragmentSize = 256 * 1024 // 256 KB
++  const server = new WebSocketServer({
++    port: 0,
++    perMessageDeflate: false // Disable compression
++  })
++
++  t.after(() => server.close())
++  await once(server, 'listening')
++
++  server.on('connection', (ws) => {
++    ws.send(Buffer.alloc(fragmentSize, 0x41), { binary: true, fin: false })
++    ws.send(Buffer.alloc(fragmentSize, 0x41), { binary: true, fin: true })
++  })
++
++  const agent = new Agent({
++    webSocket: {
++      maxPayloadSize: limit
++    }
++  })
++
++  t.after(() => agent.close())
++
++  const client = new WebSocket(`ws://127.0.0.1:${server.address().port}`, { dispatcher: agent })
++
++  const [event] = await once(client, 'message')
++  t.assert.strictEqual(event.data.size, fragmentSize * 2, 'Fragmented message under total limit should be received')
++  client.close()
++})
++
+ test('Raw uncompressed payload over immediate limit is rejected', async (t) => {
+   const limit = 100
+   const server = new WebSocketServer({

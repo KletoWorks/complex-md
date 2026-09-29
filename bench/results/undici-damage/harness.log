@@ -1,0 +1,195 @@
+15:47:24 cb75bbb342 none: fix(cache): do not cache Set-Cookie in shared caches
+15:47:26 baseline suite at 6d583124e7: 397 files
+15:52:46   320s, 1 failing at base (excluded)
+16:11:37   steps 54, first gold read at 3, gold edited true, success false, regressions 0, tests run by agent 7, $4.104
+16:11:37 cb75bbb342 file: fix(cache): do not cache Set-Cookie in shared caches
+16:11:38 generating map for 2026-09 at 6d583124e7
+16:12:33 map: 277 lines, $0.869
+16:24:43   steps 56, first gold read at 3, gold edited true, success false, regressions 0, tests run by agent 13, $4.146
+16:24:43 2be07bf97b none: fix(cache): reject unsafe method response caching
+16:24:46 baseline suite at caf6194d3d: 397 files
+16:30:09   323s, 1 failing at base (excluded)
+16:38:25   steps 31, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 6, $1.783
+16:38:25 2be07bf97b file: fix(cache): reject unsafe method response caching
+16:46:33   steps 23, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 4, $1.622
+16:46:34 b96a11620e none: fix(interceptors): cache() and deduplicate() silently inert 
+16:46:37 baseline suite at a18ef2d05a: 387 files
+16:52:00   323s, 1 failing at base (excluded)
+17:01:15   steps 32, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 6, $1.986
+17:01:15 b96a11620e file: fix(interceptors): cache() and deduplicate() silently inert 
+17:01:16 generating map for 2026-08 at a18ef2d05a
+17:02:11 map: 268 lines, $0.532
+17:22:34   steps 51, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 8, $?
+17:22:34 313f4e0168 none: MaxListenersExceededWarning when using signal
+17:22:38 baseline suite at 2f66db7322: 360 files
+17:27:45   307s, 1 failing at base (excluded)
+17:40:40   steps 53, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 2, $2.833
+17:40:40 313f4e0168 file: MaxListenersExceededWarning when using signal
+17:40:41 generating map for 2026-06 at 2f66db7322
+17:41:40 map: 281 lines, $0.541
+17:56:08   steps 38, first gold read at 12, gold edited true, success true, regressions 0, tests run by agent 1, $2.428
+17:56:08 c8d50b4a82 none: fix: reject malformed content-length request headers
+17:56:13 baseline suite at a1d6766ade: 348 files
+18:01:12   299s, 1 failing at base (excluded)
+18:08:20   steps 30, first gold read at 2, gold edited true, success false, regressions 1, tests run by agent 4, $1.173
+18:08:20 c8d50b4a82 file: fix: reject malformed content-length request headers
+18:08:21 generating map for 2026-04 at a1d6766ade
+18:09:32 map: 286 lines, $0.554
+18:17:04   steps 31, first gold read at 2, gold edited true, success false, regressions 1, tests run by agent 6, $1.375
+18:17:04 4f4bf4f1a6 none: fetch() throws network error on POST 401 responses when body
+18:17:07 baseline suite at ce45abf7e7: 342 files
+18:22:05   298s, 1 failing at base (excluded)
+18:30:22   steps 20, first gold read at 9, gold edited true, success true, regressions 0, tests run by agent 4, $0.788
+18:30:22 4f4bf4f1a6 file: fetch() throws network error on POST 401 responses when body
+18:39:29   steps 27, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 5, $1.266
+18:39:29 fe7aa836ef none: Cache interceptor does not process capitalized `Cache-Contro
+18:39:35 baseline suite at 0daba93799: 266 files
+18:41:05   90s, 13 failing at base (excluded)
+18:44:09   steps 21, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 5, $1.064
+18:44:09 fe7aa836ef file: Cache interceptor does not process capitalized `Cache-Contro
+18:44:10 generating map for 2025-04 at 0daba93799
+18:45:21 map: 266 lines, $0.570
+18:48:20   steps 22, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 5, $0.981
+18:48:20 f3cbe48670 none: fix websocketstream bugs
+18:48:23 baseline suite at 1d4ea0a883: 404 files
+18:53:49   326s, 1 failing at base (excluded)
+19:02:11   steps 76, first gold read at 5, gold edited true, success false, regressions -, tests run by agent 6, $5.031, error: error_max_budget_usd
+19:02:11 f3cbe48670 file: fix websocketstream bugs
+19:10:24   steps 77, first gold read at 5, gold edited true, success false, regressions -, tests run by agent 9, $5.054, error: error_max_budget_usd
+19:10:24 9196a012a0 none: fix(retry): settle responses after connection close
+19:10:27 baseline suite at 7ce2cc15bc: 404 files
+19:15:56   329s, 1 failing at base (excluded)
+19:29:51   steps 74, first gold read at 3, gold edited true, success true, regressions -, tests run by agent 11, $5.060, error: error_max_budget_usd
+19:29:51 9196a012a0 file: fix(retry): settle responses after connection close
+19:48:47   steps 68, first gold read at 28, gold edited true, success true, regressions 0, tests run by agent 6, $4.531
+19:48:47 7ce2cc15bc none: fix cache.addAll and cache.add hanging
+19:48:50 baseline suite at 164a354dbc: 403 files
+19:54:18   328s, 1 failing at base (excluded)
+20:07:50   steps 78, first gold read at 5, gold edited true, success true, regressions 0, tests run by agent 12, $4.202
+20:07:50 7ce2cc15bc file: fix cache.addAll and cache.add hanging
+20:21:33   steps 55, first gold read at 4, gold edited true, success true, regressions 0, tests run by agent 6, $3.337
+20:21:33 bfea02017e none: fix(h2): validate h2Options.maxConcurrentStreams itself
+20:21:36 baseline suite at 19901d8b73: 402 files
+20:27:00   324s, 1 failing at base (excluded)
+20:33:26   steps 15, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 4, $0.594
+20:33:26 bfea02017e file: fix(h2): validate h2Options.maxConcurrentStreams itself
+20:40:43   steps 18, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 4, $0.747
+20:40:43 19901d8b73 none: fix: honor backpressure in decompression interceptor
+20:40:46 baseline suite at 6933139bae: 402 files
+20:46:14   328s, 1 failing at base (excluded)
+21:02:44   steps 60, first gold read at 3, gold edited true, success false, regressions 0, tests run by agent 11, $4.125
+21:02:44 19901d8b73 file: fix: honor backpressure in decompression interceptor
+21:25:15   steps 49, first gold read at 3, gold edited false, success false, regressions 0, tests run by agent 5, $?
+21:25:15 e905b5b87e none: fix(retry): settle exposed body on terminal failure
+21:25:17 baseline suite at 0160a71906: 397 files
+21:30:39   322s, 1 failing at base (excluded)
+21:45:07   steps 43, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 5, $2.677
+21:45:07 e905b5b87e file: fix(retry): settle exposed body on terminal failure
+21:58:01   steps 38, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 5, $2.511
+21:58:01 0160a71906 none: fix(retry): validate resumed response framing
+21:58:04 baseline suite at 66e1281606: 397 files
+22:03:27   323s, 1 failing at base (excluded)
+22:21:10   steps 51, first gold read at 14, gold edited true, success false, regressions 0, tests run by agent 9, $2.694
+22:21:10 0160a71906 file: fix(retry): validate resumed response framing
+22:43:35   steps 45, first gold read at 14, gold edited true, success false, regressions 0, tests run by agent 7, $?
+22:43:35 66e1281606 none: fix(websocket): reject unrequested subprotocols
+22:43:37 baseline suite at 7aac7f12f7: 397 files
+22:48:55   318s, 1 failing at base (excluded)
+22:59:08   steps 30, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 5, $1.334
+22:59:08 66e1281606 file: fix(websocket): reject unrequested subprotocols
+23:10:35   steps 34, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 8, $1.648
+23:10:35 66923b47dc none: Original hostname is lost for HTTP connections when using th
+23:10:38 baseline suite at 392649944c: 390 files
+23:15:56   318s, 1 failing at base (excluded)
+23:38:27   steps 49, first gold read at 11, gold edited true, success false, regressions 0, tests run by agent 12, $?
+23:38:27 66923b47dc file: Original hostname is lost for HTTP connections when using th
+00:00:48   steps 63, first gold read at 2, gold edited true, success false, regressions 0, tests run by agent 12, $?
+00:00:49 4fe5bc5fef none: fix: handle empty qualified private cache directive
+00:00:51 baseline suite at 10d93fc332: 381 files
+00:06:06   315s, 1 failing at base (excluded)
+00:14:02   steps 27, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 5, $1.103
+00:14:02 4fe5bc5fef file: fix: handle empty qualified private cache directive
+00:14:03 generating map for 2026-07 at 10d93fc332
+00:15:04 map: 275 lines, $0.557
+00:23:34   steps 28, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 7, $1.368
+00:23:34 1ca0912378 none: cache: unsafe-method invalidation does not invalidate Locati
+00:23:37 baseline suite at 87270e46a2: 377 files
+00:28:45   308s, 1 failing at base (excluded)
+00:37:24   steps 34, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 7, $1.674
+00:37:24 1ca0912378 file: cache: unsafe-method invalidation does not invalidate Locati
+00:46:15   steps 38, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 6, $2.215
+00:46:15 85b35e7791 none: uncaughtException in unidici.request()
+00:46:18 baseline suite at de01babccb: 377 files
+00:51:31   313s, 1 failing at base (excluded)
+01:01:34   steps 66, first gold read at 2, gold edited true, success true, regressions -, tests run by agent 4, $5.066, error: error_max_budget_usd
+01:01:34 85b35e7791 file: uncaughtException in unidici.request()
+01:15:04   steps 70, first gold read at 61, gold edited true, success true, regressions -, tests run by agent 7, $5.010, error: error_max_budget_usd
+01:15:04 de01babccb none: fix: store revalidation-only responses so etag revalidation 
+01:15:08 baseline suite at e1cc0d436c: 377 files
+01:20:22   315s, 1 failing at base (excluded)
+01:29:28   steps 32, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 3, $1.555
+01:29:28 de01babccb file: fix: store revalidation-only responses so etag revalidation 
+01:39:37   steps 39, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 5, $2.525
+01:39:37 197a83db6c none: writeH1 calls socket.setTypeOfService() unconditionally — un
+01:39:40 baseline suite at 4708df14fe: 377 files
+01:44:57   318s, 1 failing at base (excluded)
+01:51:17   steps 13, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 1, $0.434
+01:51:17 197a83db6c file: writeH1 calls socket.setTypeOfService() unconditionally — un
+01:57:52   steps 12, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 2, $0.534
+01:57:52 d65a9f9b3e none: `normalizeHeaders` fails with `opts.headers is not a valid h
+01:57:55 baseline suite at df25cc573b: 377 files
+02:03:04   309s, 1 failing at base (excluded)
+02:13:26   steps 44, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 7, $2.201
+02:13:26 d65a9f9b3e file: `normalizeHeaders` fails with `opts.headers is not a valid h
+02:23:25   steps 38, first gold read at 1, gold edited true, success true, regressions 0, tests run by agent 5, $1.844
+02:23:25 838b6cdce4 none: fix: do not reject open-ended Range values in simpleRangeHea
+02:23:27 baseline suite at b39c77d716: 375 files
+02:28:35   308s, 1 failing at base (excluded)
+02:35:35   steps 11, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 2, $0.455
+02:35:35 838b6cdce4 file: fix: do not reject open-ended Range values in simpleRangeHea
+02:42:08   steps 17, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 3, $0.725
+02:42:08 445522ba1b none: ProxyAgent loop on SocketError
+02:42:10 baseline suite at ae3efd442e: 372 files
+02:47:15   305s, 1 failing at base (excluded)
+02:57:16   steps 49, first gold read at 1, gold edited true, success false, regressions 0, tests run by agent 3, $2.795
+02:57:16 445522ba1b file: ProxyAgent loop on SocketError
+03:19:27   steps 48, first gold read at 1, gold edited false, success false, regressions 0, tests run by agent 9, $?
+03:19:27 c5ed787569 none: websocket: handle empty fragments and stream limits
+03:19:31 baseline suite at e114e778de: 368 files
+03:24:43   313s, 1 failing at base (excluded)
+03:37:30   steps 56, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 9, $3.147
+03:37:31 c5ed787569 file: websocket: handle empty fragments and stream limits
+03:48:42   steps 41, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 4, $2.185
+03:48:42 6df53c50da none: fix: preserve h2 queue on out-of-order completion
+03:48:44 baseline suite at 32dbf0b3dd: 367 files
+03:53:49   305s, 1 failing at base (excluded)
+04:13:50   steps 71, first gold read at 53, gold edited true, success true, regressions 0, tests run by agent 11, $?
+04:13:50 6df53c50da file: fix: preserve h2 queue on out-of-order completion
+04:31:14   steps 66, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 16, $4.426
+04:31:14 b4c287b382 none: fix(websocket): enforce max payload size across fragments
+04:31:16 baseline suite at c9fbe9d2ab: 364 files
+04:36:18   302s, 1 failing at base (excluded)
+04:47:05   steps 23, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 6, $1.200
+04:47:05 b4c287b382 file: fix(websocket): enforce max payload size across fragments
+05:00:39   steps 48, first gold read at 3, gold edited true, success true, regressions 0, tests run by agent 10, $2.856
+05:00:39 01e89e95e9 none: AssertionError in ERR_TLS_CERT_ALTNAME_INVALID handler when 
+05:00:42 baseline suite at d03fb2441f: 362 files
+05:05:47   305s, 1 failing at base (excluded)
+05:18:26   steps 42, first gold read at 4, gold edited true, success true, regressions 0, tests run by agent 5, $1.895
+05:18:26 01e89e95e9 file: AssertionError in ERR_TLS_CERT_ALTNAME_INVALID handler when 
+05:26:14   steps 30, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 2, $1.318
+05:26:14 f0497300fa none: fix(core): simplify `addAbortListener` util
+05:26:16 baseline suite at cc793b780c: 357 files
+05:31:19   303s, 1 failing at base (excluded)
+05:45:28   steps 26, first gold read at 2, gold edited true, success -, regressions 2, tests run by agent 5, $1.044
+05:45:29 f0497300fa file: fix(core): simplify `addAbortListener` util
+05:45:30 generating map for 2026-05 at cc793b780c
+05:46:43 map: 283 lines, $0.579
+06:00:06   steps 24, first gold read at 3, gold edited true, success -, regressions 2, tests run by agent 7, $1.123
+06:00:06 01122dafab none: fix: accept unknown-size Content-Range values
+06:00:11 baseline suite at 2b0d4c993d: 355 files
+06:05:30   319s, 3 failing at base (excluded)
+06:12:15   steps 12, first gold read at 2, gold edited true, success true, regressions 0, tests run by agent 2, $0.485
+06:12:15 01122dafab file: fix: accept unknown-size Content-Range values
+06:20:30   steps 21, first gold read at 5, gold edited true, success true, regressions 0, tests run by agent 4, $0.841
+06:20:30 done: bench/results/undici-damage/runs.jsonl

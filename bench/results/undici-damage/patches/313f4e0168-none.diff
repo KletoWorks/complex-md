@@ -1,0 +1,131 @@
+diff --git a/lib/web/fetch/index.js b/lib/web/fetch/index.js
+index 1959f27c..2ef346fe 100644
+--- a/lib/web/fetch/index.js
++++ b/lib/web/fetch/index.js
+@@ -11,7 +11,7 @@ const {
+   getResponseState
+ } = require('./response')
+ const { HeadersList } = require('./headers')
+-const { Request, cloneRequest, getRequestDispatcher, getRequestState } = require('./request')
++const { Request, cloneRequest, getRequestDispatcher, getRequestState, cleanupRequestSignalListener } = require('./request')
+ const zlib = require('node:zlib')
+ const {
+   makePolicyContainer,
+@@ -151,10 +151,6 @@ class Fetch extends EE {
+   }
+ }
+ 
+-function handleFetchDone (response) {
+-  finalizeAndReportTiming(response, 'fetch')
+-}
+-
+ // https://fetch.spec.whatwg.org/#fetch-method
+ function fetch (input, init = undefined) {
+   webidl.argumentLengthCheck(arguments, 1, 'globalThis.fetch')
+@@ -208,7 +204,7 @@ function fetch (input, init = undefined) {
+   let controller = null
+ 
+   // 11. Add the following abort steps to requestObject’s signal:
+-  addAbortListener(
++  const removeAbortListener = addAbortListener(
+     requestObject.signal,
+     () => {
+       // 1. Set locallyAborted to true.
+@@ -230,7 +226,16 @@ function fetch (input, init = undefined) {
+ 
+   // 12. Let handleFetchDone given response response be to finalize and
+   // report timing with response, globalObject, and "fetch".
+-  // see function handleFetchDone
++  const handleFetchDone = (response) => {
++    // The request is done, so aborting the signal can no longer have any
++    // effect. Drop the abort listeners now instead of waiting for the abort
++    // controllers to be garbage collected, otherwise reusing a signal for many
++    // requests piles up listeners on it.
++    removeAbortListener()
++    cleanupRequestSignalListener(requestObject)
++
++    finalizeAndReportTiming(response, 'fetch')
++  }
+ 
+   // 13. Set controller to the result of calling fetch given request,
+   // with processResponseEndOfBody set to handleFetchDone, and processResponse
+diff --git a/lib/web/fetch/request.js b/lib/web/fetch/request.js
+index 6ef40f99..c5befed5 100644
+--- a/lib/web/fetch/request.js
++++ b/lib/web/fetch/request.js
+@@ -97,6 +97,12 @@ class Request {
+ 
+   #state
+ 
++  /**
++   * Removes the "abort" listener added to the signal given to the constructor.
++   * @type {(() => void) | null}
++   */
++  #signalCleanup = null
++
+   // https://fetch.spec.whatwg.org/#dom-request
+   constructor (input, init = undefined) {
+     webidl.util.markAsUncloneable(this)
+@@ -436,12 +442,21 @@ class Request {
+           setMaxListeners(1500, signal)
+         }
+ 
+-        util.addAbortListener(signal, abort)
++        const removeAbortListener = util.addAbortListener(signal, abort)
+         // The third argument must be a registry key to be unregistered.
+         // Without it, you cannot unregister.
+         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/FinalizationRegistry
+         // abort is used as the unregister key. (because it is unique)
+         requestFinalizer.register(ac, { signal, abort }, abort)
++
++        // Relying on the FinalizationRegistry alone means the listener lives
++        // until `ac` is garbage collected, so reusing a signal for many
++        // requests piles up listeners on it. Allow fetch to drop the listener
++        // as soon as the request is done.
++        this.#signalCleanup = () => {
++          requestFinalizer.unregister(abort)
++          removeAbortListener()
++        }
+       }
+     }
+ 
+@@ -838,6 +853,19 @@ class Request {
+     return request.#dispatcher
+   }
+ 
++  /**
++   * Removes the "abort" listener that was added to the signal given to the
++   * constructor, if it is still registered. Called once a fetch with this
++   * request is done, so that the listener is not retained until the request's
++   * AbortController is garbage collected.
++   *
++   * @param {Request} request
++   */
++  static cleanupRequestSignalListener (request) {
++    request.#signalCleanup?.()
++    request.#signalCleanup = null
++  }
++
+   /**
+    * @param {Request} request
+    * @param {import('../../dispatcher/dispatcher')} newDispatcher
+@@ -870,9 +898,10 @@ class Request {
+   }
+ }
+ 
+-const { setRequestSignal, getRequestDispatcher, setRequestDispatcher, setRequestHeaders, getRequestState, setRequestState } = Request
++const { setRequestSignal, getRequestDispatcher, setRequestDispatcher, setRequestHeaders, getRequestState, setRequestState, cleanupRequestSignalListener } = Request
+ Reflect.deleteProperty(Request, 'setRequestSignal')
+ Reflect.deleteProperty(Request, 'getRequestDispatcher')
++Reflect.deleteProperty(Request, 'cleanupRequestSignalListener')
+ Reflect.deleteProperty(Request, 'setRequestDispatcher')
+ Reflect.deleteProperty(Request, 'setRequestHeaders')
+ Reflect.deleteProperty(Request, 'getRequestState')
+@@ -1111,5 +1140,6 @@ module.exports = {
+   fromInnerRequest,
+   cloneRequest,
+   getRequestDispatcher,
+-  getRequestState
++  getRequestState,
++  cleanupRequestSignalListener
+ }

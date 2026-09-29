@@ -1,0 +1,70 @@
+diff --git a/lib/core/util.js b/lib/core/util.js
+index 54346a25..5bef7aee 100644
+--- a/lib/core/util.js
++++ b/lib/core/util.js
+@@ -776,13 +776,13 @@ function isValidHeaderValue (characters) {
+   return !headerCharRegex.test(characters)
+ }
+ 
+-const rangeHeaderRegex = /^bytes (\d+)-(\d+)\/(\d+)?$/
++const rangeHeaderRegex = /^bytes (\d+)-(\d+)\/(\d+|\*)?$/
+ 
+ /**
+  * @typedef {object} RangeHeader
+  * @property {number} start
+  * @property {number | null} end
+- * @property {number | null} size
++ * @property {number | null} size complete length, `null` when unknown (`*`)
+  */
+ 
+ /**
+@@ -799,7 +799,8 @@ function parseRangeHeader (range) {
+     ? {
+         start: parseInt(m[1]),
+         end: m[2] ? parseInt(m[2]) : null,
+-        size: m[3] ? parseInt(m[3]) : null
++        // An unknown complete length is sent as `*`, e.g. `bytes 3-5/*`.
++        size: m[3] && m[3] !== '*' ? parseInt(m[3]) : null
+       }
+     : null
+ }
+diff --git a/test/util.js b/test/util.js
+index b450365f..94bc4280 100644
+--- a/test/util.js
++++ b/test/util.js
+@@ -1,8 +1,8 @@
+ 'use strict'
+ 
+-const { strictEqual, throws, doesNotThrow } = require('node:assert')
++const { strictEqual, throws, doesNotThrow, deepStrictEqual } = require('node:assert')
+ const { test, describe } = require('node:test')
+-const { isBlobLike, parseURL, isHttpOrHttpsPrefixed, isValidPort } = require('../lib/core/util')
++const { isBlobLike, parseURL, isHttpOrHttpsPrefixed, isValidPort, parseRangeHeader } = require('../lib/core/util')
+ const { InvalidArgumentError } = require('../lib/core/errors')
+ 
+ describe('isBlobLike', () => {
+@@ -99,6 +99,24 @@ describe('isValidPort', () => {
+   })
+ })
+ 
++describe('parseRangeHeader', () => {
++  test('returns a zeroed range for an empty value', () => {
++    deepStrictEqual(parseRangeHeader(undefined), { start: 0, end: null, size: null })
++    deepStrictEqual(parseRangeHeader(''), { start: 0, end: null, size: null })
++  })
++  test('parses a known complete length', () => {
++    deepStrictEqual(parseRangeHeader('bytes 3-5/100'), { start: 3, end: 5, size: 100 })
++  })
++  test('parses an unknown complete length as null', () => {
++    deepStrictEqual(parseRangeHeader('bytes 3-5/*'), { start: 3, end: 5, size: null })
++  })
++  test('returns null for invalid values', () => {
++    strictEqual(parseRangeHeader('bytes bad'), null)
++    strictEqual(parseRangeHeader('bytes 3-5/1*'), null)
++    strictEqual(parseRangeHeader('bytes */100'), null)
++  })
++})
++
+ describe('parseURL', () => {
+   test('throws if url is not a string or object', () => {
+     throws(() => { parseURL(null) }, new InvalidArgumentError('Invalid URL: The URL argument must be a non-null object.'))

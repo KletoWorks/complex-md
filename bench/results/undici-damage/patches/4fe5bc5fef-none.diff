@@ -1,0 +1,117 @@
+diff --git a/lib/util/cache.js b/lib/util/cache.js
+index c88db629..a54f6220 100644
+--- a/lib/util/cache.js
++++ b/lib/util/cache.js
+@@ -156,6 +156,42 @@ function assertCacheValue (value) {
+   }
+ }
+ 
++/**
++ * Adds the field names of a qualified `private` or `no-cache` directive (e.g.
++ *  `private="authorization"`) to the parsed directives.
++ *
++ * A qualified directive with an empty argument (e.g. `private=""`) carries no
++ *  field names, so it's handled as if it was unqualified. The same goes for an
++ *  argument that only contains empty field names (e.g. `private=", "`).
++ *
++ * @param {import('../../types/cache-interceptor.d.ts').default.CacheControlDirectives} output
++ * @param {'private' | 'no-cache'} key
++ * @param {string[]} fieldNames
++ */
++function addQualifiedFieldNames (output, key, fieldNames) {
++  const parsedFieldNames = []
++  for (let i = 0; i < fieldNames.length; i++) {
++    const fieldName = fieldNames[i].trim()
++    if (fieldName.length !== 0) {
++      parsedFieldNames.push(fieldName)
++    }
++  }
++
++  if (parsedFieldNames.length === 0) {
++    // Nothing was qualified, treat it as the unqualified directive
++    output[key] = true
++    return
++  }
++
++  const existing = output[key]
++  if (existing === true) {
++    // The unqualified directive already applies to every field name
++    return
++  }
++
++  output[key] = existing === undefined ? parsedFieldNames : existing.concat(parsedFieldNames)
++}
++
+ /**
+  * @see https://www.rfc-editor.org/rfc/rfc9111.html#name-cache-control
+  * @see https://www.iana.org/assignments/http-cache-directives/http-cache-directives.xhtml
+@@ -270,25 +306,11 @@ function parseCacheControlHeader (header) {
+                 headers[headers.length - 1] = lastHeader
+               }
+ 
+-              for (let j = 0; j < headers.length; j++) {
+-                headers[j] = headers[j].trim()
+-              }
+-
+-              if (key in output) {
+-                output[key] = output[key].concat(headers)
+-              } else {
+-                output[key] = headers
+-              }
++              addQualifiedFieldNames(output, key, headers)
+             }
+           } else {
+-            // Something like `no-cache="some-header"`
+-            const fieldName = value.trim()
+-
+-            if (key in output) {
+-              output[key] = output[key].concat(fieldName)
+-            } else {
+-              output[key] = [fieldName]
+-            }
++            // Something like `no-cache=some-header`
++            addQualifiedFieldNames(output, key, [value])
+           }
+ 
+           break
+diff --git a/test/cache-interceptor/utils.js b/test/cache-interceptor/utils.js
+index 103ee569..3760df80 100644
+--- a/test/cache-interceptor/utils.js
++++ b/test/cache-interceptor/utils.js
+@@ -163,6 +163,36 @@ describe('parseCacheControlHeader', () => {
+     })
+   })
+ 
++  test('empty qualified private and no-cache are treated as unqualified', () => {
++    deepStrictEqual(parseCacheControlHeader('private=""'), { private: true })
++    deepStrictEqual(parseCacheControlHeader('private='), { private: true })
++    deepStrictEqual(parseCacheControlHeader('private=" "'), { private: true })
++    deepStrictEqual(parseCacheControlHeader('private=", "'), { private: true })
++    deepStrictEqual(parseCacheControlHeader('no-cache=""'), { 'no-cache': true })
++    deepStrictEqual(parseCacheControlHeader('no-cache='), { 'no-cache': true })
++
++    deepStrictEqual(parseCacheControlHeader('max-age=10, private="", public'), {
++      'max-age': 10,
++      private: true,
++      public: true
++    })
++  })
++
++  test('mixing qualified and unqualified private and no-cache', () => {
++    // The unqualified directive covers every field name, so it wins
++    deepStrictEqual(parseCacheControlHeader('private, private=some-header'), { private: true })
++    deepStrictEqual(parseCacheControlHeader('private=some-header, private'), { private: true })
++    deepStrictEqual(parseCacheControlHeader('private="", private=some-header'), { private: true })
++    deepStrictEqual(parseCacheControlHeader('no-cache, no-cache="some-header"'), { 'no-cache': true })
++
++    deepStrictEqual(parseCacheControlHeader('private=some-header, private="another-one"'), {
++      private: [
++        'some-header',
++        'another-one'
++      ]
++    })
++  })
++
+   test('handles multiple headers correctly', () => {
+     // For requests like
+     //  cache-control: max-stale=1

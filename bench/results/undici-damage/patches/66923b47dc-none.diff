@@ -1,0 +1,124 @@
+diff --git a/lib/core/connect.js b/lib/core/connect.js
+index ad962c31..8b75b672 100644
+--- a/lib/core/connect.js
++++ b/lib/core/connect.js
+@@ -112,6 +112,17 @@ function buildConnector ({ allowH2, preferH2, useH2c, maxCachedSessions, socketP
+         port,
+         host: hostname
+       })
++
++      // The hostname might have already been resolved to an IP address, e.g. by
++      // the dns interceptor, in which case node does not keep track of the
++      // hostname the connection was made for. Expose it so that instrumentation
++      // based on the `net.client.socket` diagnostics channel can attribute the
++      // connection to the original hostname, like `servername` allows for TLS.
++      const originalHostname = servername || options.servername || util.getServerName(host)
++      if (socket._host == null && originalHostname) {
++        socket._host = originalHostname
++      }
++
+       if (useH2c === true) {
+         socket.alpnProtocol = 'h2'
+       }
+diff --git a/lib/dispatcher/client.js b/lib/dispatcher/client.js
+index 705b43b8..1539aa45 100644
+--- a/lib/dispatcher/client.js
++++ b/lib/dispatcher/client.js
+@@ -699,16 +699,24 @@ function _resume (client, sync) {
+       return
+     }
+ 
+-    if (client[kUrl].protocol === 'https:' && client[kServerName] !== request.servername) {
+-      if (client[kRunning] > 0) {
+-        return
+-      }
++    if (client[kServerName] !== request.servername) {
++      if (client[kUrl].protocol === 'https:') {
++        if (client[kRunning] > 0) {
++          return
++        }
+ 
+-      client[kServerName] = request.servername
+-      client[kHTTPContext]?.destroy(new InformationalError('servername changed'), () => {
+-        client[kHTTPContext] = null
+-        resume(client)
+-      })
++        client[kServerName] = request.servername
++        client[kHTTPContext]?.destroy(new InformationalError('servername changed'), () => {
++          client[kHTTPContext] = null
++          resume(client)
++        })
++      } else if (client[kHTTPContext] == null) {
++        // For plain HTTP the servername is not part of the connection setup, it
++        // only carries the hostname the request was made to, e.g. when the dns
++        // interceptor replaced it with the resolved address. Updating it does
++        // not require a new connection.
++        client[kServerName] = request.servername
++      }
+     }
+ 
+     if (client[kConnecting]) {
+diff --git a/test/interceptors/dns.js b/test/interceptors/dns.js
+index 5dada0fb..fb1aa89c 100644
+--- a/test/interceptors/dns.js
++++ b/test/interceptors/dns.js
+@@ -7,6 +7,7 @@ const { lookup } = require('node:dns')
+ const { createServer } = require('node:http')
+ const { createServer: createSecureServer } = require('node:https')
+ const { once } = require('node:events')
++const diagnosticsChannel = require('node:diagnostics_channel')
+ 
+ const { tspl } = require('@matteo.collina/tspl')
+ const pem = require('@metcoder95/https-pem')
+@@ -2339,3 +2340,51 @@ test('#4234 - Should pass Pool requests without origin through', async t => {
+   t.equal(await response.body.text(), 'hello world!')
+   t.equal(lookupCount, 0)
+ })
++
++test('Should keep the original hostname available on the socket for plain HTTP', async t => {
++  t = tspl(t, { plan: 4 })
++
++  const server = createServer({ joinDuplicateHeaders: true })
++  server.on('request', (req, res) => {
++    res.end('hello world!')
++  })
++
++  server.listen(0)
++  await once(server, 'listening')
++
++  const sockets = []
++  const onClientSocket = ({ socket }) => {
++    sockets.push(socket)
++  }
++  diagnosticsChannel.subscribe('net.client.socket', onClientSocket)
++
++  const agent = new Agent().compose(dns({
++    lookup: (_origin, _opts, cb) => {
++      cb(null, [{ address: '127.0.0.1', family: 4, ttl: 60e3 }])
++    }
++  }))
++
++  after(async () => {
++    diagnosticsChannel.unsubscribe('net.client.socket', onClientSocket)
++    await agent.close()
++    server.close()
++    await once(server, 'close')
++  })
++
++  const response = await agent.request({
++    origin: `http://localhost:${server.address().port}`,
++    method: 'GET',
++    path: '/'
++  })
++
++  t.equal(response.statusCode, 200)
++  t.equal(await response.body.text(), 'hello world!')
++  t.equal(sockets.length, 1)
++  t.deepStrictEqual({
++    remoteAddress: sockets[0].remoteAddress,
++    host: sockets[0]._host
++  }, {
++    remoteAddress: '127.0.0.1',
++    host: 'localhost'
++  })
++})

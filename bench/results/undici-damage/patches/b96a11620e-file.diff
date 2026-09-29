@@ -1,0 +1,177 @@
+diff --git a/lib/interceptor/cache.js b/lib/interceptor/cache.js
+index f50c1b7b..01eb7af9 100644
+--- a/lib/interceptor/cache.js
++++ b/lib/interceptor/cache.js
+@@ -6,7 +6,7 @@ const util = require('../core/util')
+ const CacheHandler = require('../handler/cache-handler')
+ const MemoryCacheStore = require('../cache/memory-cache-store')
+ const CacheRevalidationHandler = require('../handler/cache-revalidation-handler')
+-const { assertCacheStore, assertCacheMethods, makeCacheKey, normalizeHeaders, parseCacheControlHeader, isInvalidOrWildcardVaryHeader } = require('../util/cache.js')
++const { assertCacheStore, assertCacheMethods, makeCacheKey, makeDispatcherOrigin, getEffectiveOrigin, normalizeHeaders, parseCacheControlHeader, isInvalidOrWildcardVaryHeader } = require('../util/cache.js')
+ const { AbortError } = require('../core/errors.js')
+ const { parseHttpDate } = require('../util/date.js')
+ 
+@@ -539,15 +539,21 @@ module.exports = (opts = {}) => {
+   }
+ 
+   return dispatch => {
++    // Requests dispatched by a Client or Pool carry no origin; keep one per
++    // composed dispatcher so their entries stay distinct within a shared store.
++    const dispatcherOrigin = makeDispatcherOrigin()
++
+     return (opts, handler) => {
+-      if (!opts.origin || arrayIncludes(safeMethodsToNotCache, opts.method)) {
+-        // Not a method we want to cache or we don't have the origin, skip
++      if (arrayIncludes(safeMethodsToNotCache, opts.method)) {
++        // Not a method we want to cache, skip
+         return dispatch(opts, handler)
+       }
+ 
++      const origin = getEffectiveOrigin(opts, dispatcherOrigin)
++
+       // Check if origin is in whitelist
+       if (origins !== undefined) {
+-        const requestOrigin = opts.origin.toString().toLowerCase()
++        const requestOrigin = origin.toLowerCase()
+         let isAllowed = false
+ 
+         for (let i = 0; i < origins.length; i++) {
+@@ -586,7 +592,7 @@ module.exports = (opts = {}) => {
+       /**
+        * @type {import('../../types/cache-interceptor.d.ts').default.CacheKey}
+        */
+-      const cacheKey = makeCacheKey(opts)
++      const cacheKey = makeCacheKey(opts, origin)
+       const result = store.get(cacheKey)
+ 
+       if (result && typeof result.then === 'function') {
+diff --git a/lib/interceptor/deduplicate.js b/lib/interceptor/deduplicate.js
+index 248a9237..5b438859 100644
+--- a/lib/interceptor/deduplicate.js
++++ b/lib/interceptor/deduplicate.js
+@@ -3,7 +3,7 @@
+ const diagnosticsChannel = require('node:diagnostics_channel')
+ const util = require('../core/util')
+ const DeduplicationHandler = require('../handler/deduplication-handler')
+-const { normalizeHeaders, makeCacheKey, makeDeduplicationKey } = require('../util/cache.js')
++const { normalizeHeaders, makeCacheKey, makeDeduplicationKey, makeDispatcherOrigin, getEffectiveOrigin } = require('../util/cache.js')
+ 
+ const pendingRequestsChannel = diagnosticsChannel.channel('undici:request:pending-requests')
+ 
+@@ -58,8 +58,12 @@ module.exports = (opts = {}) => {
+   const pendingRequests = new Map()
+ 
+   return dispatch => {
++    // Requests dispatched by a Client or Pool carry no origin; keep one per
++    // composed dispatcher so their keys stay distinct.
++    const dispatcherOrigin = makeDispatcherOrigin()
++
+     return (opts, handler) => {
+-      if (!opts.origin || opts.upgrade || methods.includes(opts.method) === false) {
++      if (opts.upgrade || methods.includes(opts.method) === false) {
+         return dispatch(opts, handler)
+       }
+ 
+@@ -77,7 +81,7 @@ module.exports = (opts = {}) => {
+         }
+       }
+ 
+-      const cacheKey = makeCacheKey(opts)
++      const cacheKey = makeCacheKey(opts, getEffectiveOrigin(opts, dispatcherOrigin))
+       const dedupeKey = makeDeduplicationKey(cacheKey, excludeHeaderNamesSet)
+ 
+       // Check if there's already a pending request for this key
+diff --git a/lib/util/cache.js b/lib/util/cache.js
+index d156731d..a17e5de2 100644
+--- a/lib/util/cache.js
++++ b/lib/util/cache.js
+@@ -144,11 +144,55 @@ function getMalformedRestrictiveDirectiveName (key) {
+   }
+ }
+ 
++let dispatcherOriginCounter = 0
++
++/**
++ * Mints the placeholder origin used for requests that reach an interceptor
++ * without one. It is stable for every request made through the same composed
++ * dispatcher — a Client or Pool only ever talks to a single origin — and unique
++ * across dispatchers, so two of them sharing a cache store can never read each
++ * other's entries.
++ *
++ * @returns {string}
++ */
++function makeDispatcherOrigin () {
++  return `http://dispatcher-${++dispatcherOriginCounter}.undici.invalid`
++}
++
++/**
++ * Interceptors only see `opts.origin` when they sit on an Agent; a Client or
++ * Pool applies its own origin after the interceptor chain has already run.
++ * Without an origin every request would collapse onto the same key, so recover
++ * it from an absolute-form path when there is one and use the dispatcher's
++ * placeholder origin otherwise.
++ *
++ * @param {import('../../types/dispatcher.d.ts').default.DispatchOptions} opts
++ * @param {string} [fallbackOrigin] origin to use when `opts` carries none
++ * @returns {string | undefined}
++ */
++function getEffectiveOrigin (opts, fallbackOrigin) {
++  if (opts.origin) {
++    return opts.origin.toString()
++  }
++
++  const path = opts.path
++  if (typeof path === 'string' && (path.startsWith('http://') || path.startsWith('https://'))) {
++    try {
++      return new URL(path).origin
++    } catch {
++      // Not a usable absolute-form path, fall back below.
++    }
++  }
++
++  return fallbackOrigin
++}
++
+ /**
+  * @param {import('../../types/dispatcher.d.ts').default.DispatchOptions} opts
++ * @param {string} [origin] origin to key on, defaults to `opts.origin`
+  */
+-function makeCacheKey (opts) {
+-  if (!opts.origin) {
++function makeCacheKey (opts, origin = opts.origin) {
++  if (!origin) {
+     throw new Error('opts.origin is undefined')
+   }
+ 
+@@ -159,7 +203,7 @@ function makeCacheKey (opts) {
+   }
+ 
+   return {
+-    origin: opts.origin.toString(),
++    origin: origin.toString(),
+     method: opts.method,
+     path: fullPath,
+     headers: opts.headers
+@@ -703,6 +747,8 @@ function makeDeduplicationKey (cacheKey, excludeHeaders) {
+ 
+ module.exports = {
+   makeCacheKey,
++  makeDispatcherOrigin,
++  getEffectiveOrigin,
+   normalizeHeaders,
+   assertCacheKey,
+   assertCacheValue,
+diff --git a/types/cache-interceptor.d.ts b/types/cache-interceptor.d.ts
+index 8588ccdc..882b4e04 100644
+--- a/types/cache-interceptor.d.ts
++++ b/types/cache-interceptor.d.ts
+@@ -42,6 +42,9 @@ declare namespace CacheHandler {
+     /**
+      * Array of origins to cache. Only requests to these origins will be cached.
+      * Supports strings (case insensitive) and RegExp patterns.
++     * Requests dispatched by a Client or Pool do not carry an origin the
++     * interceptor can match against, so nothing is cached for them when this is
++     * set.
+      * @default undefined (cache all origins)
+      */
+     origins?: (string | RegExp)[]

@@ -1,0 +1,76 @@
+diff --git a/lib/core/util.js b/lib/core/util.js
+index 98337c59..889668b6 100644
+--- a/lib/core/util.js
++++ b/lib/core/util.js
+@@ -698,15 +698,14 @@ function isFormDataLike (object) {
+ }
+ 
+ function addAbortListener (signal, listener) {
+-  if (signal instanceof AbortSignal) {
++  // The native helper accepts any signal-like EventTarget, so it also covers
++  // cross-realm AbortSignal instances that fail an `instanceof` check.
++  if (typeof signal.addEventListener === 'function') {
+     const disposable = addAbortListenerNative(signal, listener)
+     return () => disposable[Symbol.dispose]()
+   }
+ 
+-  if (typeof signal.addEventListener === 'function') {
+-    signal.addEventListener('abort', listener, { once: true })
+-    return () => signal.removeEventListener('abort', listener)
+-  }
++  // Legacy support for an EventEmitter emitting an 'abort' event.
+   signal.once('abort', listener)
+   return () => signal.removeListener('abort', listener)
+ }
+diff --git a/test/node-test/util.js b/test/node-test/util.js
+index 772f1a96..9fd0cd60 100644
+--- a/test/node-test/util.js
++++ b/test/node-test/util.js
+@@ -49,6 +49,47 @@ test('addAbortListener removes native AbortSignal listener', async () => {
+   assert.equal(calls, 0)
+ })
+ 
++test('addAbortListener supports a signal that is not an AbortSignal instance', async () => {
++  const ac = new AbortController()
++  // e.g. an AbortSignal coming from another realm, which fails `instanceof`.
++  const signal = {
++    aborted: false,
++    addEventListener: (...args) => ac.signal.addEventListener(...args),
++    removeEventListener: (...args) => ac.signal.removeEventListener(...args)
++  }
++  let calls = 0
++
++  const remove = util.addAbortListener(signal, () => {
++    calls++
++  })
++
++  ac.abort()
++  await new Promise((resolve) => setImmediate(resolve))
++
++  assert.equal(calls, 1)
++  assert.equal(typeof remove, 'function')
++})
++
++test('addAbortListener supports an EventEmitter', async () => {
++  const ee = new EventEmitter()
++  let calls = 0
++
++  const remove = util.addAbortListener(ee, () => {
++    calls++
++  })
++
++  remove()
++  ee.emit('abort')
++  assert.equal(calls, 0)
++
++  util.addAbortListener(ee, () => {
++    calls++
++  })
++
++  ee.emit('abort')
++  assert.equal(calls, 1)
++})
++
+ test('getServerName', () => {
+   assert.equal(util.getServerName('1.1.1.1'), '')
+   assert.equal(util.getServerName('1.1.1.1:443'), '')
