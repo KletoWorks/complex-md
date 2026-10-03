@@ -6,6 +6,13 @@ format.
 
 ## Unreleased
 
+- The generation prompt (0.4.0) writes the prose to the sentence rules of
+  ASD-STE100, the controlled language of aerospace maintenance manuals, with
+  the repository's own vocabulary allowed: one topic per sentence, 25 words
+  for a description and 20 for an instruction, active voice, imperative
+  instructions, one name per thing, no modal hedges. Earlier maps already
+  read this way most of the time; the rules make it the contract, so a
+  paragraph an agent quotes is one it can act on.
 - `wire()` accepts a replacement integration block for one call, keeping the
   heading that marks it. The benchmark uses it (`--skill <file>`) to try
   candidate wordings against the same map and tasks, and `bench/skillopt/`

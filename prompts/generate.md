@@ -1,5 +1,5 @@
 ---
-prompt_version: 0.3.0
+prompt_version: 0.4.0
 spec_version: "0.3"
 ---
 
@@ -160,9 +160,26 @@ Load-bearing files belong here when they exist.
 
 ## Style
 
-Plain, direct prose. Short sentences a search engine or an agent can quote
-whole. No hedging, no marketing, no "this file is important because it is
-important" circularity. No emphasis words (IMPORTANT, MUST, NEVER) anywhere
-in the map: emphasis works only when a single line carries it, and that line
-is already spent in the wiring block that points agents here. Name files by
-their repo relative path. Total prose under 700 words.
+Plain, direct prose, written to the sentence rules of ASD-STE100 (Simplified
+Technical English, the controlled language of aerospace maintenance
+manuals) with the repository's own vocabulary allowed. Short sentences a
+search engine or an agent can quote whole:
+
+- One topic per sentence. A sentence that gives an instruction gives one
+  instruction.
+- A descriptive sentence has 25 words at most; an instruction has 20.
+- Active voice. Present tense for what a file does, simple past for what its
+  history shows, imperative for the instruction.
+- Keep the words that make a sentence complete: articles, "that", the
+  subject. Shorten by splitting, never by omission.
+- One name per thing. The repo relative path on first mention, the same
+  short form after it. No cluster of more than three nouns.
+- No "-ing" verb forms, no "should", "may" or "might". An instruction is an
+  imperative sentence: run, open, preserve.
+- Digits for every number, the unit after it. No idiom, no hedging adverbs.
+
+No marketing, no "this file is important because it is important"
+circularity. No emphasis words (IMPORTANT, MUST, NEVER) anywhere in the map:
+emphasis works only when a single line carries it, and that line is already
+spent in the wiring block that points agents here. Total prose under 700
+words.
