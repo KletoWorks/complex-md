@@ -210,8 +210,9 @@ function holdsOtherProse(root) {
   return loadComplexMd(root)?.front?.prose !== 'template';
 }
 
-/* `approve({ files, fallback, mapText })` sees the file plan before the
-   first write and returns false to stop the run. */
+/* `approve({ files, fallback, mapText, keyed })` sees the file plan before
+   the first write and returns false to stop the run. `keyed` is true when
+   a model call comes first, so the wiring waits for it. */
 export async function generate(root, { model = null, provider = null, agent = false, template = false, via = null, viaTimeoutMs, approve = async () => true, log = () => {} } = {}) {
   const t0 = Date.now();
   const sig = computeSignals(root);
@@ -258,7 +259,7 @@ export async function generate(root, { model = null, provider = null, agent = fa
   const writesMap = mode === 'model' || mode === 'template';
   const mapText = writesMap ? templateMap(root, sig, tool) : null;
   const files = mode === 'model' ? entry('COMPLEX.md') : [...(writesMap ? entry('COMPLEX.md', mapText) : []), ...bundleFiles];
-  if (!(await approve({ files, fallback: mode === 'model' ? bundleFiles : [], mapText }))) {
+  if (!(await approve({ files, fallback: mode === 'model' ? bundleFiles : [], mapText, keyed: mode === 'model' }))) {
     log('Nothing written.');
     return { sig, written: false, declined: true };
   }

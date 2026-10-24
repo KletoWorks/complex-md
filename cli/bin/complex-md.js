@@ -212,11 +212,13 @@ async function main() {
     const wireOpts = { hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(',') };
     // The file plan goes out before the first write; a terminal gets one
     // question, and --yes or a non terminal stdin never waits.
-    const approve = async ({ files, fallback, mapText }) => {
+    // On a keyed run the wiring follows the model call, so the plan says so.
+    const approve = async ({ files, fallback, mapText, keyed }) => {
       const wiring = mapText && !flag('--no-wire') ? planWire(root, mapText, wireOpts) : [];
-      const all = [...files, ...wiring];
-      log(formatPlan(all, fallback));
-      return confirmPlan({ yes: flag('--yes') || (!all.length && !fallback.length) });
+      const now = keyed ? files : [...files, ...wiring];
+      const after = keyed ? wiring : [];
+      log(formatPlan(now, fallback, after));
+      return confirmPlan({ yes: flag('--yes') || (!now.length && !after.length && !fallback.length) });
     };
     // A bare --via must not fall through to a provider call with a set key.
     const via = opt('--via');

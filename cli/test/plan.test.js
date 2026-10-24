@@ -103,6 +103,11 @@ test('formatPlan lists one file per line with its action', () => {
   assert.equal(text, 'File plan:\n  create  COMPLEX.md\n  change  .gitignore\nOnly if the model call fails:\n  create  .complex-md/prompt.md');
 });
 
+test('formatPlan puts the wiring of a keyed run under "After the model call"', () => {
+  const text = formatPlan([{ path: 'COMPLEX.md', action: 'create' }], [{ path: '.complex-md/prompt.md', action: 'create' }], [{ path: 'AGENTS.md', action: 'change' }]);
+  assert.equal(text, 'File plan:\n  create  COMPLEX.md\nAfter the model call:\n  change  AGENTS.md\nOnly if the model call fails:\n  create  .complex-md/prompt.md');
+});
+
 test('confirmPlan never reads input with --yes or when stdin is not a terminal', async () => {
   const input = new PassThrough();
   assert.equal(await confirmPlan({ yes: true, isTTY: true, input, output: new PassThrough() }), true);

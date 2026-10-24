@@ -129,6 +129,16 @@ test('generate: a failed call warns with the stop reason and lands template pros
   assert.ok(logs.some((l) => /^warning: model call failed \(.*stop_reason max_tokens.*\); wrote COMPLEX\.md with template prose instead/.test(l)), logs.join('\n'));
 });
 
+test('generate: a keyed run tells approve that the map waits for the model call', async () => {
+  const dir = makeRepo();
+  let seen = null;
+  await withFetch(async () => { throw new Error('no call expected'); }, () => generate(dir, { provider: 'anthropic', approve: async (plan) => { seen = plan; return false; } }));
+  assert.equal(seen.keyed, true);
+  let local = null;
+  await generate(dir, { template: true, approve: async (plan) => { local = plan; return false; } });
+  assert.equal(local.keyed, false);
+});
+
 test('generate: a failed call replaces a map that a template wrote, never one a model wrote', async () => {
   const dir = makeRepo();
   await withFetch(async () => { throw new TypeError('fetch failed'); }, () => generate(dir, { provider: 'anthropic' }));
