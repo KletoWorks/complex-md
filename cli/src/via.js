@@ -169,10 +169,22 @@ function run(file, args, { cwd, env, input, timeoutMs, label }) {
         else child.kill(sig);
       } catch {}
     };
+    // The CLI's own process group does not get the terminal's Ctrl-C. Pass
+    // the signal on, so the agent stops with complex-md and spends no more.
+    const signals = posix ? ['SIGINT', 'SIGTERM', 'SIGHUP'] : [];
+    const onSignal = (sig) => {
+      stop(sig);
+      finish(() => {
+        const e = new Error(`${label} stopped: complex-md received ${sig}`);
+        e.signal = sig;
+        reject(e);
+      });
+    };
     const finish = (fn) => {
       if (done) return;
       done = true;
       clearTimeout(timer);
+      for (const s of signals) process.off(s, onSignal);
       fn();
     };
     const timer = setTimeout(() => {
@@ -180,6 +192,7 @@ function run(file, args, { cwd, env, input, timeoutMs, label }) {
       setTimeout(() => stop('SIGKILL'), 3000).unref();
       finish(() => reject(new Error(`${label} did not finish within ${timeoutMs / 1000} s; pass --via-timeout <seconds> for a longer run`)));
     }, timeoutMs);
+    for (const s of signals) process.on(s, onSignal);
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
     child.stdout.on('data', (d) => {
@@ -224,8 +237,12 @@ export async function runVia(name, { root, bundle, fm, model = null, timeoutMs =
   const status = porcelain(root);
   log(`via: ${name} (${file}), ${input === 'stdin' ? 'bundle on stdin' : `bundle in ${PROMPT_REL}`}`);
   let stdout;
+  let stoppedBy = null;
   try {
     stdout = await run(file, args, { cwd: root, env, input: input === 'stdin' ? `${bundle}\n\n---\n\n${STDIN_RULE}\n` : '', timeoutMs, label: name });
+  } catch (e) {
+    stoppedBy = e.signal || null;
+    throw e;
   } finally {
     const now = existsSync(mapPath) ? readFileSync(mapPath) : null;
     if (before === null ? now !== null : now === null || !before.equals(now)) {
@@ -235,6 +252,9 @@ export async function runVia(name, { root, bundle, fm, model = null, timeoutMs =
     }
     const changed = [...porcelain(root)].filter((l) => !status.has(l) && !/ \.complex-md\//.test(l) && !/ COMPLEX\.md$/.test(l));
     if (changed.length) log(`note: ${name} changed ${changed.length} other path${changed.length === 1 ? '' : 's'} during the run (${changed.slice(0, 5).map((l) => l.slice(3)).join(', ')}); complex-md left them as they are. Review them with git status.`);
+    // Interrupted: COMPLEX.md is restored, so exit by the same signal, with
+    // no fallback bundle and no wire step after it.
+    if (stoppedBy) process.kill(process.pid, stoppedBy);
   }
   const r = checkMap(extractMap(stdout), fm, trackedFiles(root));
   if (!r.frontMatterKept) log(`note: ${name} changed the front matter; complex-md writes the computed one.`);

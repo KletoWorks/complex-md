@@ -197,3 +197,50 @@ test('a CLI that writes COMPLEX.md itself has the file put back', { skip: !posix
   await runVia('goose', { root, bundle: 'B', fm: FM, env: s.env, timeoutMs: 20000 });
   assert.ok(!existsSync(join(root, 'COMPLEX.md')), 'a map the agent created is removed; the caller writes the checked one');
 });
+
+test('Ctrl-C on complex-md stops the agent CLI and puts COMPLEX.md back', { skip: !posix }, async () => {
+  // The CLI runs in its own process group, so the terminal's SIGINT reaches
+  // only complex-md. Without a handler the agent would keep running, and
+  // keep spending, after complex-md exits.
+  const root = makeRepo();
+  writeFileSync(join(root, 'COMPLEX.md'), 'the reviewed map\n');
+  const s = stubEnv([]);
+  const pidFile = join(s.bin, 'pid');
+  writeFileSync(join(s.bin, 'claude'), `#!/usr/bin/env node
+const fs = require('fs');
+fs.writeFileSync('COMPLEX.md', 'clobbered by the agent\\n');
+fs.writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));
+setTimeout(() => {}, 60000);
+`);
+  chmodSync(join(s.bin, 'claude'), 0o755);
+  const driver = join(s.bin, 'driver.mjs');
+  const viaUrl = new URL('../src/via.js', import.meta.url).href;
+  writeFileSync(driver, `import { runVia } from ${JSON.stringify(viaUrl)};
+await runVia('claude', { root: ${JSON.stringify(root)}, bundle: 'B', fm: ${JSON.stringify(FM)}, env: { ...process.env, PATH: ${JSON.stringify(s.bin)} }, timeoutMs: 60000 }).catch(() => {});
+console.log('runVia returned');
+`);
+  const { spawn } = await import('node:child_process');
+  const child = spawn(process.execPath, [driver], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let out = '';
+  child.stdout.on('data', (d) => (out += d));
+  const t0 = Date.now();
+  while (!existsSync(pidFile) && Date.now() - t0 < 10000) await new Promise((r) => setTimeout(r, 50));
+  assert.ok(existsSync(pidFile), 'the stub started');
+  const agentPid = Number(readFileSync(pidFile, 'utf8'));
+  child.kill('SIGINT');
+  const [code, signal] = await new Promise((r) => child.on('close', (c, sg) => r([c, sg])));
+  assert.equal(signal, 'SIGINT', `complex-md exits by the signal it got (code ${code}, stdout ${out})`);
+  assert.ok(!out.includes('runVia returned'), 'the run does not go on to the fallback');
+  let alive = true;
+  for (let i = 0; i < 40 && alive; i++) {
+    try {
+      process.kill(agentPid, 0);
+      await new Promise((r) => setTimeout(r, 50));
+    } catch {
+      alive = false;
+    }
+  }
+  if (alive) process.kill(agentPid, 'SIGKILL');
+  assert.equal(alive, false, 'the agent CLI was stopped with complex-md');
+  assert.equal(readFileSync(join(root, 'COMPLEX.md'), 'utf8'), 'the reviewed map\n');
+});
