@@ -74,3 +74,18 @@ test('an agent that ignores the stop request is killed after the grace period an
     assert.deepEqual(r.edited, ['lib/a.js']);
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });
+
+test('a file the agent creates is part of its patch, and prepared inputs are not', () => {
+  const fx = buildBenchRepo();
+  try {
+    const { status, stderr, rows, out } = runHarness(fx, ['--agent', 'mock', '--arms', 'none', '--stop-at', 'none'], { env: { CX_MOCK_NEWFILE: 'lib/strings.js' } });
+    assert.equal(status, 0, stderr);
+    const [r] = rows;
+    assert.deepEqual(r.edited.sort(), ['lib/a.js', 'lib/strings.js']);
+    assert.equal(r.diff_files, 2);
+    assert.equal(r.diff_lines, 2 + 3, 'two appended lines plus the three lines of the new file');
+    const patch = readFileSync(join(out, 'patches', `${fx.task.id}-none.diff`), 'utf8');
+    assert.match(patch, /\+\+\+ b\/lib\/strings\.js/);
+    assert.doesNotMatch(patch, /key\.pem/);
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});

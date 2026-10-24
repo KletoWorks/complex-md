@@ -65,6 +65,7 @@ export function buildBenchRepo() {
   git(repo, ['pack-refs', '--all']);
   const task = { id: fix.slice(0, 10), repo: 'fixture/bench', base, fix, date: '2026-07-10', title: 'a() fails on numeric strings', text: 'Calling a with the string "1" returns "11" instead of 2. It should treat numeric strings as numbers.', source: 'commit', gold: ['lib/a.js'], tests: ['test/fix.test.js'], names_gold: false };
   const datasetPath = join(dir, 'dataset.json');
-  writeFileSync(datasetPath, JSON.stringify({ repo: 'fixture/bench', path: repo, tasks: [task] }, null, 2) + '\n');
+  // prepare: a generated input the suite needs, untracked in the worktree, as undici's test certificates are.
+  writeFileSync(datasetPath, JSON.stringify({ repo: 'fixture/bench', path: repo, prepare: ['mkdir -p test/certs && echo key > test/certs/key.pem'], tasks: [task] }, null, 2) + '\n');
   return { dir, repo, base, fix, datasetPath, task };
 }

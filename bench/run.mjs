@@ -68,6 +68,7 @@ const sh = (cmd, a, cwd) => {
   if (r.status !== 0) throw new Error(`${cmd} ${a.join(' ')}: ${r.stderr}`);
   return r.stdout;
 };
+const untracked = (wt) => sh('git', ['ls-files', '--others', '--exclude-standard', '-z'], wt).split('\0').filter(Boolean);
 const log = (s) => process.stderr.write(`${new Date().toISOString().slice(11, 19)} ${s}\n`);
 
 /** COMPLEX.md as of the task's base commit. One map per calendar month of base dates: maps are regenerated periodically, not per commit. */
@@ -297,13 +298,22 @@ for (const task of tasks) {
       /* A failure setting up or driving one run is that run's error, recorded
          as a row, and the pass continues. Before this, a transient exception
          here ended the whole pass. */
-      let m, baseline;
+      let m, baseline, before = null;
       try {
         baseline = await baselineFor(task, wt);
         await armSetup(task, arm, wt);
+        before = new Set(untracked(wt));
         m = await runAgent(task, arm, wt);
       } catch (e) {
         m = { ...newMetrics(), error: `harness: ${String(e.message || e).slice(0, 200)}` };
+      }
+      /* git diff HEAD leaves out untracked files, so a file the agent created
+         was missing from `edited`, the patch and diff_lines. Intent to add
+         puts it in the diff. Files untracked before the agent started (the
+         dataset's prepared inputs) stay out. */
+      if (before) {
+        const fresh = untracked(wt).filter((f) => !before.has(f));
+        if (fresh.length) sh('git', ['add', '-N', '--', ...fresh], wt);
       }
       const edited = sh('git', ['diff', '--name-only', 'HEAD'], wt).split('\n').filter(Boolean);
       /* The patch itself is kept: a regression count is checkable only with

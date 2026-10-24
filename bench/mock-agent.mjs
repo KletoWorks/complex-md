@@ -1,6 +1,6 @@
 // A fake agent that speaks Claude Code's stream-json, for testing the harness
 // without spending anything. Reads the map when present, so the arms differ.
-import { existsSync, appendFileSync } from 'node:fs';
+import { existsSync, appendFileSync, writeFileSync } from 'node:fs';
 const gold = process.env.CX_GOLD.split(',');
 const hasMap = existsSync('COMPLEX.md');
 const emit = (o) => process.stdout.write(JSON.stringify(o) + '\n');
@@ -10,6 +10,7 @@ if (hasMap) use('Read', { file_path: `${process.cwd()}/COMPLEX.md` });
 else for (const f of ['README.md', 'lib/hooks.js', 'lib/route.js']) use('Read', { file_path: `${process.cwd()}/${f}` });
 use('Read', { file_path: `${process.cwd()}/${gold[0]}` });
 appendFileSync(gold[0], '\n// mock fix\n');
+if (process.env.CX_MOCK_NEWFILE) { writeFileSync(process.env.CX_MOCK_NEWFILE, 'export const s = 1;\nexport const t = 2;\nexport const u = 3;\n'); use('Write', { file_path: `${process.cwd()}/${process.env.CX_MOCK_NEWFILE}`, content: '' }); }
 use('Edit', { file_path: `${process.cwd()}/${gold[0]}`, old_string: 'a', new_string: 'b' });
 const end = process.env.CX_MOCK_END;
 if (end === 'hang' || end === 'hang-hard') {
