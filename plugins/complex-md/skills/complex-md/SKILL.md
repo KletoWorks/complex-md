@@ -22,15 +22,17 @@ writes the front matter itself so no number passes through a model. Prefer
 it whenever Node 18 or newer is available:
 
 ```sh
-npx -y complex-md generate --agent --no-wire
+npx -y complex-md generate --agent --no-wire --yes
 ```
 
 This runs locally, calls no model, and writes two files: `.complex-md/prompt.md`,
 the generation prompt with every input filled in (front matter, signals
 table, load-bearing files, co-change pairs and seams, the profile and blind
 spots, the text of the top hotspot files with their dependents and covering
-tests), and `.complex-md/front-matter.yaml`. Read `.complex-md/prompt.md`
-and go to Stage 2. Set `tool` to `complex-md-skill/0.4.0`.
+tests), and `.complex-md/front-matter.yaml`. It adds `.complex-md/*` to
+`.gitignore` when the entry is missing. It prints its file plan first, and
+`--yes` keeps it from waiting for an answer when your shell is a terminal.
+Read `.complex-md/prompt.md` and go to Stage 2. Set `tool` to `complex-md-skill/0.4.0`.
 
 ### Fallback without Node
 
