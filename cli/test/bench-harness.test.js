@@ -2,22 +2,9 @@
    in place of a model. No network and no model call. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { readFileSync, rmSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildBenchRepo } from './fixtures/bench-repo.mjs';
-
-const RUN = join(import.meta.dirname, '..', '..', 'bench', 'run.mjs');
-
-export function runHarness(fx, extra = [], { env = {} } = {}) {
-  const out = join(fx.dir, `out-${Math.random().toString(36).slice(2, 8)}`);
-  const work = join(fx.dir, 'work');
-  mkdirSync(work, { recursive: true });
-  const r = spawnSync(process.execPath, [RUN, ...extra, '--dataset', fx.datasetPath, '--out', out, '--work', work, '--timeout', '60'], { encoding: 'utf8', env: { ...process.env, ...env }, timeout: 180000 });
-  const runsPath = join(out, 'runs.jsonl');
-  const rows = existsSync(runsPath) ? readFileSync(runsPath, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
-  return { status: r.status, stderr: r.stderr, rows, out };
-}
+import { buildBenchRepo, runHarness } from './fixtures/bench-repo.mjs';
 
 test('a mock run records one row per arm with the edit the agent made', () => {
   const fx = buildBenchRepo();
@@ -87,5 +74,24 @@ test('a file the agent creates is part of its patch, and prepared inputs are not
     const patch = readFileSync(join(out, 'patches', `${fx.task.id}-none.diff`), 'utf8');
     assert.match(patch, /\+\+\+ b\/lib\/strings\.js/);
     assert.doesNotMatch(patch, /key\.pem/);
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
+
+test('an unknown agent name is refused instead of running a model', () => {
+  const fx = buildBenchRepo();
+  try {
+    const { status, stderr, rows } = runHarness(fx, ['--agent', 'nosuch', '--arms', 'none']);
+    assert.equal(status, 2);
+    assert.match(stderr, /unknown --agent nosuch/);
+    assert.deepEqual(rows, []);
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
+
+test('CX_BENCH_NO_MODEL=1 turns a real agent run into a recorded harness error', () => {
+  const fx = buildBenchRepo();
+  try {
+    const { status, stderr, rows } = runHarness(fx, ['--agent', 'claude', '--arms', 'none', '--no-sandbox']);
+    assert.equal(status, 0, stderr);
+    assert.match(rows[0].error, /model call was refused/);
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });

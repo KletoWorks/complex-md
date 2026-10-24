@@ -40,6 +40,12 @@ const flag = (k) => args.includes(k);
 const dataset = JSON.parse(readFileSync(opt('--dataset', 'bench/data/fastify.json'), 'utf8'));
 const arms = opt('--arms', 'none,file').split(',');
 const agent = opt('--agent', 'claude');
+/* Scripted agents stand in for a model when the harness itself is tested.
+   Any other name is refused: an unknown name used to fall through to a real
+   Claude Code run. CX_BENCH_NO_MODEL=1 refuses every model call outright. */
+const SCRIPTED = { mock: 'mock-agent.mjs' };
+if (agent !== 'claude' && !SCRIPTED[agent]) { console.error(`unknown --agent ${agent}: claude, ${Object.keys(SCRIPTED).join(', ')}`); process.exit(2); }
+const noModel = () => { if (process.env.CX_BENCH_NO_MODEL === '1') throw new Error('a model call was refused: CX_BENCH_NO_MODEL=1'); };
 const budget = Number(opt('--budget', 0.6));
 const timeoutS = Number(opt('--timeout', 420));
 /* Seconds a timed out agent gets, after SIGINT, to print its result event (cost, turns) before SIGKILL. */
@@ -80,10 +86,11 @@ async function mapFor(task, wt) {
   const sig = computeSignals(wt);
   const { bundle, frontMatter } = buildBundle(wt, sig, 'complex-md/bench');
   let text;
-  if (agent === 'mock') {
+  if (SCRIPTED[agent]) {
     text = `${frontMatter}\n## Where the risk lives\n\n${sig.hotspots.slice(0, 3).map((h) => `${h.path} (${h.fixes} fixes)`).join(', ')} carry the fix history. Fixing a bug you have not located: start there.\n`;
   } else {
     // The prose model call goes through the same Claude Code login the agent runs use; no tools, one turn.
+    noModel();
     const r = spawnSync('claude', ['-p', '--output-format', 'json', '--tools', '', '--setting-sources', '', ...(model ? ['--model', model] : [])], { cwd: wt, input: bundle, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     let j; try { j = JSON.parse(r.stdout); } catch { throw new Error(`map generation failed: ${(r.stderr || r.stdout).trim().slice(0, 300)}`); }
     if (j.is_error) throw new Error(`map generation failed: ${j.result}`); // the harness reports the agent's own error text
@@ -180,7 +187,8 @@ async function armSetup(task, arm, wt) {
 const PROMPT = (t) => `Fix this issue in the repository. Find the code responsible and change it. Do not commit.\n\n# ${t.title}\n\n${t.text}`;
 
 function agentCommand(task, arm, wt) {
-  if (agent === 'mock') return ['node', [join(here, 'mock-agent.mjs')], { CX_GOLD: task.gold.join(',') }];
+  if (SCRIPTED[agent]) return [process.execPath, [join(here, SCRIPTED[agent])], { CX_GOLD: task.gold.join(',') }];
+  noModel();
   const a = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'acceptEdits', '--setting-sources', 'project', '--max-budget-usd', String(budget),
     '--tools', 'Read,Edit,Write,MultiEdit,Grep,Glob,Bash', '--allowedTools', 'Bash(git diff:*) Bash(git log:*) Bash(git grep:*) Bash(git show:*) Bash(node:*) Bash(npm test:*) Bash(ls:*) Bash(cat:*) Bash(rg:*) Bash(grep:*) Bash(find:*)'];
   if (arm === 'mcp') a.push('--mcp-config', join(wt, '.mcp.json'), '--strict-mcp-config');
@@ -192,7 +200,7 @@ function runAgent(task, arm, wt) {
   return new Promise((resolvePromise) => {
     const [cmd, a, env] = agentCommand(task, arm, wt);
     const child = spawn(cmd, a, { cwd: wt, env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
-    child.stdin.end(agent === 'mock' ? '' : PROMPT(task));
+    child.stdin.end(SCRIPTED[agent] ? '' : PROMPT(task));
     const transcript = [];
     const { m, onEvent } = createMeter({ wt, gold: task.gold, stopAt });
     let buf = '';

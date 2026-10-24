@@ -8,7 +8,7 @@
    ref, a stash and a note, and refs are packed, because each is a separate
    path to it. */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 
@@ -44,6 +44,7 @@ export function buildBenchRepo() {
   git(repo, ['init', '-q', '-b', 'main']);
   commit(repo, 'feat: add a', {
     'package.json': JSON.stringify({ name: 'fixture', scripts: { test: 'node --test test/*.test.js' } }, null, 2) + '\n',
+    '.gitignore': 'node_modules\n',
     'lib/a.js': 'export const a = (x) => x + 1;\n',
     'lib/b.js': "import { a } from './a.js';\nexport const b = (x) => a(x) * 2;\n",
     'test/a.test.js': "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { a } from '../lib/a.js';\ntest('a', () => assert.equal(a(1), 2));\n",
@@ -63,9 +64,25 @@ export function buildBenchRepo() {
   writeFileSync(join(repo, 'lib', 'b.js'), `// stashed ${MARKER}\n`);
   git(repo, ['stash', 'push', '-q', '-m', `wip ${MARKER}`]);
   git(repo, ['pack-refs', '--all']);
+  // An install the harness links into each checkout, as it does with the dataset clone's node_modules.
+  write(repo, { 'node_modules/dep/index.js': 'module.exports = 1;\n' });
   const task = { id: fix.slice(0, 10), repo: 'fixture/bench', base, fix, date: '2026-07-10', title: 'a() fails on numeric strings', text: 'Calling a with the string "1" returns "11" instead of 2. It should treat numeric strings as numbers.', source: 'commit', gold: ['lib/a.js'], tests: ['test/fix.test.js'], names_gold: false };
   const datasetPath = join(dir, 'dataset.json');
   // prepare: a generated input the suite needs, untracked in the worktree, as undici's test certificates are.
   writeFileSync(datasetPath, JSON.stringify({ repo: 'fixture/bench', path: repo, prepare: ['mkdir -p test/certs && echo key > test/certs/key.pem'], tasks: [task] }, null, 2) + '\n');
   return { dir, repo, base, fix, datasetPath, task };
 }
+
+/** Runs bench/run.mjs on the fixture dataset. Returns { status, stderr, rows, out }. */
+const RUN = join(import.meta.dirname, '..', '..', '..', 'bench', 'run.mjs');
+
+export function runHarness(fx, extra = [], { env = {} } = {}) {
+  const out = join(fx.dir, `out-${Math.random().toString(36).slice(2, 8)}`);
+  const work = join(fx.dir, 'work');
+  mkdirSync(work, { recursive: true });
+  const r = spawnSync(process.execPath, [RUN, ...extra, '--dataset', fx.datasetPath, '--out', out, '--work', work, '--timeout', '60'], { encoding: 'utf8', env: { ...process.env, CX_BENCH_NO_MODEL: '1', ...env }, timeout: 180000 });
+  const runsPath = join(out, 'runs.jsonl');
+  const rows = existsSync(runsPath) ? readFileSync(runsPath, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+  return { status: r.status, stderr: r.stderr, rows, out };
+}
+
