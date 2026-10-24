@@ -10,6 +10,7 @@
 // clone, and no pointer back to it.
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync } from 'node:fs';
+import { TEST_FILE_RE } from '../cli/src/signals.js';
 
 function git(cwd, args, { input } = {}) {
   const r = spawnSync('git', args, { cwd, input, encoding: 'utf8', maxBuffer: 1 << 30 });
@@ -48,4 +49,15 @@ export function assertNoFuture(repo, base) {
 export function fileAt(src, rev, path) {
   const r = spawnSync('git', ['show', `${rev}:${path}`], { cwd: src, maxBuffer: 1 << 30 });
   return r.status === 0 ? r.stdout : null;
+}
+
+/** The real fix as a patch from `base` to `fix`, without test files: the change an agent is asked to make. */
+export function fixSourceDiff(src, base, fix) {
+  const files = git(src, ['diff', '--name-only', base, fix]).split('\n').filter((f) => f && !TEST_FILE_RE.test(f));
+  return files.length ? git(src, ['diff', '--binary', base, fix, '--', ...files]) : '';
+}
+
+/** Applies a patch to the working tree of `wt`. */
+export function applyPatch(wt, patch) {
+  if (patch) git(wt, ['apply', '--whitespace=nowarn', '-'], { input: patch });
 }

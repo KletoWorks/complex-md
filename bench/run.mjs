@@ -15,6 +15,7 @@
 //        file   COMPLEX.md at the task's base commit, wired (CLAUDE.md, path-scoped rule)
 //        hooks  file + the PreToolUse/Stop hooks
 //        mcp    hooks + the MCP server
+//        gold   no agent: the real fix's source diff, judged like a patch (an oracle)
 // --stop-at edit kills the run at the agent's first edit: localization only, cheapest.
 // --stop-at none runs to completion, which is what regressions, wall clock,
 // diff size and success rate need, and the only way the hooks arm can be
@@ -30,7 +31,7 @@ import { buildBundle, normalizeOutput } from '../cli/src/generate.js';
 import { wire } from '../cli/src/wire.js';
 import { detectRunner, listTestFiles, runSuite, confirm, goldTestFiles } from './suite.mjs';
 import { createMeter, newMetrics, behaviour } from './agent-events.mjs';
-import { isolatedCheckout, fileAt } from './isolate.mjs';
+import { isolatedCheckout, fileAt, fixSourceDiff, applyPatch } from './isolate.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '../cli/bin/complex-md.js');
@@ -187,7 +188,7 @@ function frontMatterOnly(text) {
 }
 
 async function armSetup(task, arm, wt) {
-  if (arm === 'none') return;
+  if (arm === 'none' || arm === 'gold') return;
   const full = await mapFor(task, wt);
   writeFileSync(join(wt, 'COMPLEX.md'), arm === 'front' ? frontMatterOnly(full) : full);
   wire(wt, { agents: ['claude'], hooks: arm === 'hooks' || arm === 'mcp', mcp: arm === 'mcp', block: skillText });
@@ -261,6 +262,14 @@ function runAgent(task, arm, wt) {
   });
 }
 
+/* The oracle arm: the real fix's source change, applied with no agent and
+   no model, then judged like any agent's patch. It separates a regression
+   the agent caused from a test the real fix breaks too, or a flaky one. */
+function goldRun(task, wt) {
+  applyPatch(wt, fixSourceDiff(dataset.path, task.base, task.fix));
+  return { ...newMetrics(), cost_usd: 0 };
+}
+
 /* Success rate, the 2602.11988 metric: does the agent's patch pass the tests
    the real fix was verified by. The dataset records those test files. A fix
    often ADDS its test, so the file may not exist at the base commit; it is
@@ -317,7 +326,7 @@ for (const task of tasks) {
         baseline = await baselineFor(task, wt);
         await armSetup(task, arm, wt);
         before = new Set(untracked(wt));
-        m = await runAgent(task, arm, wt);
+        m = arm === 'gold' ? goldRun(task, wt) : await runAgent(task, arm, wt);
       } catch (e) {
         m = { ...newMetrics(), error: `harness: ${String(e.message || e).slice(0, 200)}` };
       }

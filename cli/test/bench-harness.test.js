@@ -77,6 +77,22 @@ test('a file the agent creates is part of its patch, and prepared inputs are not
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });
 
+test('the gold arm applies the real fix without an agent and is judged the same way', () => {
+  const fx = buildBenchRepo();
+  try {
+    const { status, stderr, rows } = runHarness(fx, ['--agent', 'claude', '--arms', 'gold', '--stop-at', 'none', '--no-sandbox']);
+    assert.equal(status, 0, stderr);
+    const [r] = rows;
+    assert.equal(r.arm, 'gold');
+    assert.equal(r.error, null, r.error);
+    assert.deepEqual(r.edited, ['lib/a.js'], 'the source change only; the fix test is the gold test');
+    assert.equal(r.success, true, 'the real fix passes its own test');
+    assert.equal(r.regressed_tests, 0, 'the suite ran: no model, so CX_BENCH_NO_MODEL did not stop it');
+    assert.equal(r.steps, 0);
+    assert.equal(r.cost_usd, 0);
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
+
 test('an unknown agent name is refused instead of running a model', () => {
   const fx = buildBenchRepo();
   try {
