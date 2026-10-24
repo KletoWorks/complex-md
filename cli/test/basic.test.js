@@ -438,3 +438,25 @@ test('wire takes a replacement integration block and keeps the heading that mark
   const second = wire(dir, { agents: ['claude'], block: 'Read COMPLEX.md before any edit to a listed file.' });
   assert.deepEqual(second.primary, [], 'the heading makes the block recognisable on a second run');
 });
+
+/* The log marks each commit header with a prefix. A top level folder such
+   as @types/ or @scope/ starts a file line with @, and a header prefix of
+   @ read that line as a new commit with no files. */
+test('a top level path that starts with @ counts as a file, not a commit header', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-at-'));
+  const g = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' } });
+  g('init', '-q');
+  mkdirSync(join(dir, '@scope'));
+  for (let i = 0; i < 3; i++) {
+    writeFileSync(join(dir, '@scope/lib.js'), `export const v = ${i};\n`);
+    writeFileSync(join(dir, 'main.js'), `import { v } from './@scope/lib.js';\nexport const w = v + ${i};\n`);
+    g('add', '.');
+    g('commit', '-q', '-m', i ? `fix: step ${i}` : 'feat: start');
+  }
+  const s = computeSignals(dir);
+  assert.equal(s.window_commits, 3, 'three commits, no extra header per @ line');
+  const row = s.table.find((r) => r.path === '@scope/lib.js');
+  assert.ok(row, '@scope/lib.js is in the table');
+  assert.equal(row.churn, 3);
+  assert.equal(row.fixes, 2);
+});

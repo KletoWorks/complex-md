@@ -64,11 +64,13 @@ export function isBotIdentity(name, email = '') {
 
 /** The most recent N non-merge commits, oldest last, with fix labels matched like `git log --grep`. */
 function readCommits(cwd, n) {
-  const out = git(['log', `-n${n}`, '--no-merges', '--name-only', '--date=unix', '--pretty=format:@%ct\t%ae\t%H\t%an\t%cn\t%ce'], { cwd });
+  /* A header line starts with a NUL, which no path can hold. A file line
+     may start with any other character: @types/x.d.ts is a top level path. */
+  const out = git(['log', `-n${n}`, '--no-merges', '--name-only', '--date=unix', '--pretty=format:%x00%ct\t%ae\t%H\t%an\t%cn\t%ce'], { cwd });
   const commits = [];
   let cur = null;
   for (const line of out.split('\n')) {
-    if (line.startsWith('@')) {
+    if (line.startsWith('\0')) {
       const [ts, author, hash, authorName, committerName, committerEmail] = line.slice(1).split('\t');
       const bot = isBotIdentity(authorName, author) || isBotIdentity(committerName, committerEmail);
       cur = { ts: Number(ts), author, hash, bot, isFix: false, files: [] };
