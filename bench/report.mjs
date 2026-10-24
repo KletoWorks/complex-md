@@ -3,6 +3,7 @@
 //   node bench/report.mjs bench/results/pilot/runs.jsonl
 import { readFileSync } from 'node:fs';
 import { summarise, pairsNeeded, mcnemar } from './stats.mjs';
+import { usd } from './format.mjs';
 
 const path = process.argv[2] || 'bench/results/run/runs.jsonl';
 const runs = readFileSync(path, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
@@ -27,7 +28,7 @@ for (const arm of arms) {
   const cost = rs.map((r) => r.cost_usd).filter((c) => c != null);
   const judged = rs.filter((r) => r.success === true || r.success === false);
   const succ = judged.length ? pct(judged.filter((r) => r.success).length / judged.length) + ` (n=${judged.length})` : '-';
-  console.log(`| ${arm} | ${rs.length} | ${pct(found.length / rs.length)} | ${f1(median(steps))} / ${f1(mean(steps))} | ${f1(mean(rs.map((r) => r.wasted_reads)))} | ${pct(rs.filter((r) => r.gold_edited).length / rs.length)} | ${succ} | ${rs.filter((r) => r.gate_fired).length} | ${rs.reduce((a, r) => a + (r.mcp_calls || 0), 0)} | ${cost.length ? '$' + f1(mean(cost) * 100) + 'c' : '-'} |`);
+  console.log(`| ${arm} | ${rs.length} | ${pct(found.length / rs.length)} | ${f1(median(steps))} / ${f1(mean(steps))} | ${f1(mean(rs.map((r) => r.wasted_reads)))} | ${pct(rs.filter((r) => r.gold_edited).length / rs.length)} | ${succ} | ${rs.filter((r) => r.gate_fired).length} | ${rs.reduce((a, r) => a + (r.mcp_calls || 0), 0)} | ${cost.length ? usd(mean(cost)) : '-'} |`);
 }
 
 // Paired: the same task under each arm versus `none`. Sign test on steps to first gold read.
