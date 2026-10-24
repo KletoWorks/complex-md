@@ -1,15 +1,15 @@
 // Stage 3: wire COMPLEX.md into the repository's agent files so it gets
-// read, and install the enforcement the research says in-context rules
-// cannot provide on their own: path-scoped rules, hooks, and the MCP
-// server. Per-harness knowledge lives in targets.js; this file decides
-// which targets are active and what invocation they get.
+// read: the block, and a path scoped brief per listed file. The hooks and
+// the MCP server are written only when asked for. Per-harness knowledge
+// lives in targets.js; this file decides which targets are active and what
+// invocation they get.
 import { readFileSync, writeFileSync, existsSync, appendFileSync, realpathSync } from 'node:fs';
 import { join, dirname, relative, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { integrationBlock, BLOCK_HEADING } from './prompts.js';
 import { loadComplexMd } from './complexmd.js';
 import { pathBriefs } from './brief.js';
-import { TARGETS, TARGET_NAMES } from './targets.js';
+import { TARGETS, TARGET_NAMES, holdsOurHooks } from './targets.js';
 import { registryInvocation } from './invoke.js';
 
 const PRIMARY = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.github/copilot-instructions.md'];
@@ -60,10 +60,16 @@ the section below; complex-md appends to this file rather than rewriting it.
    by construction and the agent takes the offer. The server stays available
    for anyone who measures it earning its calls on their own repository; it is
    no longer installed on the strength of an assumption. */
+/* hooks defaults to FALSE as well. On the fastify benchmark runs the hooks
+   arm cost about 50% more per run at the median and took 62% to 100% more
+   wall clock (p < 0.01), and passed no more of the real fixes' tests than
+   the briefs alone (bench/RESULTS.md). A default wire therefore writes no
+   hook into any file. `hooks: true` writes the committed settings, as
+   before; `hooks: 'local'` writes Claude Code's per user settings file. */
 /* `block` replaces the integration text for this call only: the benchmark
    uses it to try candidate wordings against the same map. The heading is
    kept so a second wire() still recognises the block as present. */
-export function wire(root, { hooks = true, mcp = false, rules = true, agents = null, block: blockText = null, log = () => {} } = {}) {
+export function wire(root, { hooks = false, mcp = false, rules = true, agents = null, block: blockText = null, log = () => {} } = {}) {
   const map = loadComplexMd(root);
   if (!map) throw new Error('No COMPLEX.md at the repository root; generate it first.');
   for (const name of agents || []) if (!TARGETS[name]) throw new Error(`unknown wiring target "${name}"; one of: ${TARGET_NAMES.join(', ')}`);
@@ -136,7 +142,10 @@ export function wire(root, { hooks = true, mcp = false, rules = true, agents = n
     const tinv = t.global ? { shell: inv.absShell, command: inv.absCommand, args: inv.absArgs } : inv;
     const ctx = { root, inv: tinv, block, paths, briefs, report, log, carried };
     if (rules && t.rules) t.rules(ctx);
-    if (hooks && t.hooks) t.hooks(ctx);
+    if (hooks && t.hooks) t.hooks({ ...ctx, local: hooks === 'local' });
+    else if (!hooks && t.hookFile && holdsOurHooks(root, t.hookFile)) {
+      log(`${t.hookFile} holds complex-md hooks from an earlier wire, left as they are: run wire --hooks to update them, or delete those entries.`);
+    }
     if (mcp && t.mcp) t.mcp(ctx);
   }
 

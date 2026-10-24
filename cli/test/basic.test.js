@@ -181,8 +181,8 @@ test('wire is idempotent for hooks and MCP under both invocations', async () => 
   mkdirSync(join(dir, '.claude'));
   // A pre-existing entry in the registry form must be recognized as ours.
   writeFileSync(join(dir, '.cursor/hooks.json'), JSON.stringify({ version: 1, hooks: { preToolUse: [{ command: 'npx -y complex-md hook cursor-pre', matcher: 'Write' }] } }));
-  wire(dir, { agents: ['claude', 'cursor'] });
-  wire(dir, { agents: ['claude', 'cursor'] });
+  wire(dir, { agents: ['claude', 'cursor'], hooks: true });
+  wire(dir, { agents: ['claude', 'cursor'], hooks: true });
   const cursor = JSON.parse(readFileSync(join(dir, '.cursor/hooks.json'), 'utf8'));
   const claude = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
   assert.equal(cursor.hooks.preToolUse.filter((h) => /hook cursor-pre/.test(h.command)).length, 1);

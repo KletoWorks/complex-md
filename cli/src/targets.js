@@ -6,8 +6,9 @@
 // their MCP registry is configured through their own CLI, never by
 // editing another tool's global file behind the user's back.
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync, rmSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { git } from './git.js';
 import { hookCommand } from './invoke.js';
 import { BLOCK_HEADING } from './prompts.js';
 
@@ -104,8 +105,33 @@ export function readJson(p, fallback) {
   try {
     return JSON.parse(readFileSync(p, 'utf8'));
   } catch (e) {
-    throw new Error(`${p} is not valid JSON; fix it, or run with --no-hooks and without --mcp. (${e.message})`);
+    throw new Error(`${p} is not valid JSON; fix it, or run without --hooks and --mcp. (${e.message})`);
   }
+}
+
+/* Whether a settings file holds a complex-md hook entry, in any form an
+   earlier version wrote. A default wire writes no hooks, and uses this to
+   say so when it leaves such entries in place. */
+export function holdsOurHooks(root, rel) {
+  try {
+    return /complex-md(@\S+)?(\.js)?\s+hook\s/.test(readFileSync(join(root, rel), 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
+/* A per user settings file must stay out of the repository. Claude Code
+   ignores .claude/settings.local.json when it creates the file itself; when
+   wire creates it, the path goes into .git/info/exclude, which is local to
+   this clone, so the committed .gitignore is not edited. */
+function keepOutOfGit(root, rel) {
+  if (git(['check-ignore', rel], { cwd: root, allowFail: true }).trim()) return;
+  const ex = git(['rev-parse', '--git-path', 'info/exclude'], { cwd: root, allowFail: true }).trim();
+  if (!ex) return;
+  const p = isAbsolute(ex) ? ex : join(root, ex);
+  const cur = existsSync(p) ? readFileSync(p, 'utf8') : '';
+  mkdirSync(dirname(p), { recursive: true });
+  appendFileSync(p, `${cur && !cur.endsWith('\n') ? '\n' : ''}/${rel}\n`);
 }
 
 export function writeJson(p, obj) {
@@ -246,22 +272,27 @@ export const TARGETS = {
       dropBlockCopy(root, '.claude/rules/complex-md.md', report);
       writeSpec(root, BRIEF_SPECS.claude, briefs, report);
     },
-    hooks({ root, inv, report }) {
-      const p = join(root, '.claude/settings.json');
+    hookFile: '.claude/settings.json',
+    /* `local`: the per user .claude/settings.local.json, which Claude Code
+       merges over the committed settings. */
+    hooks({ root, inv, report, local }) {
+      const rel = local ? '.claude/settings.local.json' : '.claude/settings.json';
+      const p = join(root, rel);
       const s = readJson(p, {});
       s.hooks ||= {};
       const inner = (list) => (list || []).flatMap((g) => g.hooks || []);
-      if (pinLegacy(inner(s.hooks.PreToolUse), 'hook pre', inv)) report.hooks.push('.claude/settings.json PreToolUse (pinned)');
-      if (pinLegacy(inner(s.hooks.Stop), 'hook stop', inv)) report.hooks.push('.claude/settings.json Stop (pinned)');
+      if (pinLegacy(inner(s.hooks.PreToolUse), 'hook pre', inv)) report.hooks.push(`${rel} PreToolUse (pinned)`);
+      if (pinLegacy(inner(s.hooks.Stop), 'hook stop', inv)) report.hooks.push(`${rel} Stop (pinned)`);
       if (!hasHook(s.hooks.PreToolUse, 'hook pre')) {
         (s.hooks.PreToolUse ||= []).push({ matcher: 'Edit|Write|MultiEdit|NotebookEdit', hooks: [{ type: 'command', command: hookCommand(inv, 'hook pre'), timeout: 30 }] });
-        report.hooks.push('.claude/settings.json PreToolUse');
+        report.hooks.push(`${rel} PreToolUse`);
       }
       if (!hasHook(s.hooks.Stop, 'hook stop')) {
         (s.hooks.Stop ||= []).push({ hooks: [{ type: 'command', command: hookCommand(inv, 'hook stop'), timeout: 60 }] });
-        report.hooks.push('.claude/settings.json Stop');
+        report.hooks.push(`${rel} Stop`);
       }
       writeJson(p, s);
+      if (local) keepOutOfGit(root, rel);
     },
     mcp({ root, inv, report }) {
       addMcpJson(join(root, '.mcp.json'), { command: inv.command, args: [...inv.args, 'mcp'] }, report, '.mcp.json');
@@ -274,7 +305,11 @@ export const TARGETS = {
       blockRule(root, '.cursor/rules/complex-md.mdc', `---\ndescription: COMPLEX.md structural risk map\nglobs: ${paths.map(literalGlob).join(', ')}\nalwaysApply: false\n---\n${block}`, carried, report);
       writeSpec(root, BRIEF_SPECS.cursor, briefs, report);
     },
-    hooks({ root, inv, report }) {
+    hookFile: '.cursor/hooks.json',
+    hooks({ root, inv, report, local }) {
+      // Cursor reads hooks from the project file or the user's home, and
+      // has no per user file inside the project.
+      if (local) return void report.skipped.push('.cursor/hooks.json (Cursor has no per user project hooks file; --hooks without --local writes it)');
       const p = join(root, '.cursor/hooks.json');
       const h = readJson(p, { version: 1, hooks: {} });
       h.version ||= 1;

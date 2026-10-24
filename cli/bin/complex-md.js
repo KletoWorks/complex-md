@@ -10,14 +10,25 @@ const opt = (name) => {
   return i >= 0 ? args[i + 1] : null;
 };
 const log = (s) => process.stderr.write(s + '\n');
+/* Hooks are written only on request: --hooks to the committed settings,
+   --hooks --local to Claude Code's per user settings file. */
+const hooksOption = () => {
+  if (!flag('--hooks')) {
+    if (flag('--local')) log('complex-md: --local applies to --hooks; no hooks written.');
+    return false;
+  }
+  return flag('--local') ? 'local' : true;
+};
 
 const HELP = `complex-md ${pkg.version}  https://complex.md
 
-  npx complex-md                 generate COMPLEX.md, then wire it in (rules per hot path, hooks)
+  npx complex-md                 generate COMPLEX.md, then wire it in (a brief per hot path)
   npx complex-md generate        same; --agent writes the prompt bundle for your agent instead of calling a model
-                                 --model <id>  --provider <name>  --no-wire  --no-hooks
+                                 --model <id>  --provider <name>  --no-wire  --hooks  --local
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
-                                 --no-hooks  --for {targets}
+                                 --hooks also writes the edit hooks: .claude/settings.json, .cursor/hooks.json
+                                 --hooks --local writes them to .claude/settings.local.json only, kept out of git
+                                 --for {targets}
                                  (default: detect repo-local targets; openclaw/hermes are opt-in only and get
                                   .agents/skills/complex-md/SKILL.md)
                                  --mcp also registers the MCP server; openclaw/hermes are global
@@ -163,7 +174,7 @@ async function main() {
 
   if (cmd === 'wire') {
     const { wire } = await import('../src/wire.js');
-    wire(root, { hooks: !flag('--no-hooks'), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
+    wire(root, { hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
     return;
   }
 
@@ -172,7 +183,7 @@ async function main() {
     const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), log });
     if (r.written && !flag('--no-wire')) {
       const { wire } = await import('../src/wire.js');
-      wire(root, { hooks: !flag('--no-hooks'), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
+      wire(root, { hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
     }
     return;
   }

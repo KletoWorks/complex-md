@@ -49,9 +49,9 @@ the agent at it: "follow complex-md.skill.md to generate COMPLEX.md".
    each risky file that ends with one instruction to follow before editing
    it.
 6. Connects the file to your agents: a short note in AGENTS.md or CLAUDE.md,
-   rules that switch on when a risky file is opened, and, where the agent
-   supports it, a hook that pauses the first edit of a risky file until the
-   agent has read why it is risky.
+   and rules that switch on when a risky file is opened. When you ask for
+   it, and the agent supports it, it also adds a hook that pauses the first
+   edit of a risky file until the agent has read why it is risky.
 
 The analysis runs on your machine, inside the agent's shell, and the skill
 calls no model of its own. Your agent reads the inputs and writes the file

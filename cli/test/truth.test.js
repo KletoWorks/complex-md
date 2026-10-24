@@ -71,6 +71,8 @@ const BANNED = [
   { re: /score is recency-weighted churn multiplied by lines of code/i, why: 'the 0.3 score also multiplies in fan-in (spec, Hotspot score)' },
   { re: /list form does not load/i, why: 'Claude Code reads paths as a YAML list or a comma separated string' },
   { re: /--no-mcp/, why: 'there is no such flag; the MCP server is off unless --mcp asks for it' },
+  { re: /--no-hooks/, why: 'there is no such flag; the hooks are off unless --hooks asks for them' },
+  { re: /get rules and hooks|Install the hooks \(next section\) where|complex-md wire`: it performs steps 1 to 5 idempotently and adds the hooks|rules per hot path, hooks\)|adds an? <code>@COMPLEX\.md<\/code> line to a <code>REVIEW\.md<\/code> that exists, and <code>complex-md hook<\/code>/, files: PUBLIC.filter((f) => f !== 'README.md'), why: 'hooks are opt in: a default wire writes none, and wire --hooks adds them' },
   { re: /query it mid-task|agents query mid-task/i, why: 'the MCP server is opt in, not the headline' },
   { re: /\bRoo\b|cline,roo/, files: ['README.md', 'cli/README.md', 'cli/bin/complex-md.js', ...WIRING], why: 'Roo reads AGENTS.md; its block-only rule file adds nothing and is not offered' },
   { re: /\.roo\/rules|\.claude\/rules\/complex-md\.md/, files: ['README.md', 'cli/README.md', 'cli/bin/complex-md.js', 'content/index.html', ...WIRING], why: 'wire writes neither file now, and a rewire removes the copies earlier versions wrote' },
@@ -98,19 +100,20 @@ for (const rule of BANNED) {
 }
 
 /* A message that names a flag the CLI does not parse sends the reader to a
-   dead end. The bin parses --no-hooks, --no-wire and --mcp; there is no
-   --no-mcp, because the MCP server is off unless --mcp asks for it. */
+   dead end. The bin parses --hooks, --local, --no-wire and --mcp; there is
+   no --no-mcp or --no-hooks, because the MCP server and the hooks are off
+   unless --mcp or --hooks asks for them. */
 test('the invalid JSON message names only flags the CLI parses', () => {
   const d = mkdtempSync(join(tmpdir(), 'cx-json-'));
   const p = join(d, 'settings.json');
   writeFileSync(p, '{ not json');
   assert.throws(() => readJson(p, {}), (e) => {
-    assert.doesNotMatch(e.message, /--no-mcp/);
-    assert.match(e.message, /--no-hooks/);
+    assert.doesNotMatch(e.message, /--no-mcp|--no-hooks/);
+    assert.match(e.message, /--hooks/);
     return true;
   });
   const bin = readFileSync(join(import.meta.dirname, '..', 'bin', 'complex-md.js'), 'utf8');
-  for (const f of ['--no-hooks', '--mcp']) assert.ok(bin.includes(`flag('${f}')`), `the bin parses ${f}`);
+  for (const f of ['--hooks', '--local', '--no-wire', '--mcp']) assert.ok(bin.includes(`flag('${f}')`), `the bin parses ${f}`);
 });
 
 /* The root README features `impact`; a reader who runs --help to find it
@@ -150,7 +153,7 @@ test('the agent marquee is captioned and lists only agents that read the map', (
   if (!inCheckout) return t.skip('not a repository checkout');
   const home = readFileSync(join(ROOT, 'content/index.html'), 'utf8').replace(/\s+/g, ' ');
   const section = /id="compatibility">([\s\S]*?)\{\{AGENT_MARQUEE\}\}/.exec(home)?.[1] || '';
-  assert.match(section, /Claude Code and Cursor get rules and hooks/);
+  assert.match(section, /Claude Code and Cursor get rules, and hooks on request/);
   assert.match(section, /through AGENTS\.md/);
   const agents = JSON.parse(readFileSync(join(ROOT, 'site/logos/agents.json'), 'utf8'));
   const slugs = agents.map((a) => a.slug);

@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -25,7 +25,7 @@ function wiredRepo(opts = {}) {
   writeFileSync(join(dir, 'COMPLEX.md'), MAP);
   mkdirSync(join(dir, '.claude'));
   mkdirSync(join(dir, '.cursor'));
-  wire(dir, { agents: ['claude', 'cursor'], ...opts });
+  wire(dir, { agents: ['claude', 'cursor'], hooks: true, ...opts });
   const claude = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
   const cursor = JSON.parse(readFileSync(join(dir, '.cursor/hooks.json'), 'utf8'));
   return {
@@ -89,7 +89,7 @@ test('the pinned forms are recognised as ours, so a second wire adds nothing', (
   assert.ok(isOurs(w.cursorPre, 'hook cursor-pre'));
   assert.ok(!isOurs(w.cursorPre, 'hook pre'));
   assert.ok(isOurs(`npx -y complex-md@${VERSION} hook stop`, 'hook stop'));
-  wire(w.dir, { agents: ['claude', 'cursor'] });
+  wire(w.dir, { agents: ['claude', 'cursor'], hooks: true });
   const claude = JSON.parse(readFileSync(join(w.dir, '.claude/settings.json'), 'utf8'));
   assert.equal(claude.hooks.PreToolUse.length, 1);
   assert.equal(claude.hooks.Stop.length, 1);
@@ -106,7 +106,7 @@ test('a second wire rewrites the unpinned commands an earlier version wrote, and
     Stop: [{ hooks: [{ type: 'command', command: custom, timeout: 60 }] }],
   } }));
   writeFileSync(join(dir, '.cursor/hooks.json'), JSON.stringify({ version: 1, hooks: { preToolUse: [{ command: 'npx -y complex-md hook cursor-pre', matcher: 'Write' }] } }));
-  const report = wire(dir, { agents: ['claude', 'cursor'] });
+  const report = wire(dir, { agents: ['claude', 'cursor'], hooks: true });
   const claude = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
   const cursor = JSON.parse(readFileSync(join(dir, '.cursor/hooks.json'), 'utf8'));
   const pre = claude.hooks.PreToolUse[0].hooks[0].command;
@@ -119,7 +119,7 @@ test('a second wire rewrites the unpinned commands an earlier version wrote, and
   assert.ok(cursor.hooks.preToolUse[0].command.includes(`complex-md@${VERSION} hook cursor-pre`));
   assert.ok(report.hooks.includes('.claude/settings.json PreToolUse (pinned)'), report.hooks.join(', '));
   assert.ok(report.hooks.includes('.cursor/hooks.json preToolUse (pinned)'), report.hooks.join(', '));
-  const again = wire(dir, { agents: ['claude', 'cursor'] });
+  const again = wire(dir, { agents: ['claude', 'cursor'], hooks: true });
   assert.deepEqual(again.hooks, [], 'a third run changes nothing');
 });
 
@@ -128,4 +128,55 @@ test('the MCP entry runs the pinned package through npx with the cache first', (
   const entry = JSON.parse(readFileSync(join(w.dir, '.mcp.json'), 'utf8')).mcpServers['complex-md'];
   assert.equal(entry.command, 'npx');
   assert.deepEqual(entry.args, ['-y', '--prefer-offline', `complex-md@${VERSION}`, 'mcp']);
+});
+
+/* Hooks are opt in. A default wire writes no hook into any file, so a
+   repository that commits its agent settings carries none. */
+function bareRepo() {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-inv-opt-'));
+  spawnSync('git', ['init', '-q'], { cwd: dir });
+  writeFileSync(join(dir, 'COMPLEX.md'), MAP);
+  mkdirSync(join(dir, '.claude'));
+  mkdirSync(join(dir, '.cursor'));
+  return dir;
+}
+
+test('a default wire writes no hooks', () => {
+  const dir = bareRepo();
+  const report = wire(dir, { agents: ['claude', 'cursor'] });
+  assert.deepEqual(report.hooks, []);
+  assert.ok(!existsSync(join(dir, '.claude/settings.json')), 'no .claude/settings.json');
+  assert.ok(!existsSync(join(dir, '.claude/settings.local.json')), 'no .claude/settings.local.json');
+  assert.ok(!existsSync(join(dir, '.cursor/hooks.json')), 'no .cursor/hooks.json');
+  assert.ok(report.rules.length > 0, 'the briefs are still written');
+});
+
+test('a default wire leaves hooks an earlier version wrote untouched, and says how to update them', () => {
+  const dir = bareRepo();
+  const before = JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: 'npx -y complex-md hook pre', timeout: 30 }] }] } });
+  writeFileSync(join(dir, '.claude/settings.json'), before);
+  const lines = [];
+  const report = wire(dir, { agents: ['claude', 'cursor'], log: (s) => lines.push(s) });
+  assert.equal(readFileSync(join(dir, '.claude/settings.json'), 'utf8'), before);
+  assert.deepEqual(report.hooks, []);
+  assert.ok(lines.some((l) => /\.claude\/settings\.json/.test(l) && /--hooks/.test(l)), lines.join('\n'));
+});
+
+test('--hooks --local writes the Claude Code hooks to settings.local.json, keeps it out of git, and skips Cursor', () => {
+  const dir = bareRepo();
+  const report = wire(dir, { agents: ['claude', 'cursor'], hooks: 'local' });
+  assert.ok(!existsSync(join(dir, '.claude/settings.json')), 'nothing in the committed settings');
+  assert.ok(!existsSync(join(dir, '.cursor/hooks.json')), 'Cursor has no per user project file');
+  const local = JSON.parse(readFileSync(join(dir, '.claude/settings.local.json'), 'utf8'));
+  assert.ok(local.hooks.PreToolUse[0].hooks[0].command.includes(`complex-md@${VERSION} hook pre`));
+  assert.ok(local.hooks.Stop[0].hooks[0].command.includes(`complex-md@${VERSION} hook stop`));
+  assert.ok(report.hooks.includes('.claude/settings.local.json PreToolUse'), report.hooks.join(', '));
+  assert.ok(report.skipped.some((s) => s.startsWith('.cursor/hooks.json')), report.skipped.join(', '));
+  const ignored = spawnSync('git', ['check-ignore', '-q', '.claude/settings.local.json'], { cwd: dir });
+  assert.equal(ignored.status, 0, 'git ignores the per user settings file');
+  assert.ok(!/settings\.local/.test(existsSync(join(dir, '.gitignore')) ? readFileSync(join(dir, '.gitignore'), 'utf8') : ''), 'the committed .gitignore is not edited');
+  const again = wire(dir, { agents: ['claude', 'cursor'], hooks: 'local' });
+  assert.deepEqual(again.hooks, [], 'a second run adds nothing');
+  const exclude = readFileSync(join(dir, '.git/info/exclude'), 'utf8');
+  assert.equal(exclude.split('\n').filter((l) => l === '/.claude/settings.local.json').length, 1);
 });

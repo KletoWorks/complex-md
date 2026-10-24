@@ -262,12 +262,15 @@ alwaysApply: false
    that line on its own at the end, so Claude Code Review includes the map.
    Never create `REVIEW.md`.
 
-6. Hooks. Rules are advisory; the research puts
-   compliance near half when an agent edits existing code late in a session.
-   Hooks make the two rules that matter deterministic.
-   `npx -y complex-md wire`: it performs steps 1 to 5 idempotently and adds
-   the hooks below. Otherwise write them by hand,
-   merging into any existing file rather than replacing it:
+6. Hooks, only when the user asks for them. Skip this step otherwise.
+   Rules are advisory; the research puts compliance near half when an
+   agent edits existing code late in a session. Hooks make the two rules
+   that matter deterministic, and they cost more per run.
+   `npx -y complex-md wire --hooks` performs steps 1 to 5 idempotently and
+   adds the hooks below. Otherwise write them by hand, merging into any
+   existing file rather than replacing it. For one user only, write the
+   Claude Code hooks to `.claude/settings.local.json` instead
+   (`wire --hooks --local`):
 
    `.claude/settings.json` (when `.claude/` or `CLAUDE.md` exists):
 
