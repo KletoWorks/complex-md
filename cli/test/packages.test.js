@@ -110,3 +110,31 @@ test('the repository marketplace lists the plugin by a relative path', (t) => {
     assert.ok(!('version' in e), 'plugin.json carries the version; an entry version only warns');
   }
 });
+
+// ---------------------------------------------- Agent Plugins 1.0.0 (Codex)
+// The portable manifest at the plugin root, read by Codex and other clients
+// of the Agent Plugins format. Rules from
+// https://agent-plugins.org/schemas/1.0.0/plugin.schema.json.
+const AP_SCHEMA = 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json';
+const AP_KEYS = new Set(['$schema', 'name', 'version', 'description', 'author', 'homepage', 'repository', 'license', 'keywords', 'extensions']);
+const AP_NAME = /^(?!.*(?:--|\.\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
+
+test('the portable plugin.json meets the Agent Plugins 1.0.0 schema', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const m = readJson(`${PLUGIN_ROOT}/plugin.json`);
+  assert.equal(m.$schema, AP_SCHEMA);
+  for (const k of Object.keys(m)) assert.ok(AP_KEYS.has(k), `field ${k} is not in the schema`);
+  assert.ok(m.name.length <= 64);
+  assert.match(m.name, AP_NAME);
+  assert.equal(m.name, readJson(`${PLUGIN_ROOT}/.claude-plugin/plugin.json`).name, 'one name in both manifests');
+  assert.equal(m.version, CLI_VERSION(), 'plugin version follows cli/package.json; run npm run build');
+  for (const k of ['description', 'homepage', 'repository', 'license']) assert.equal(typeof m[k], 'string', k);
+  for (const k of Object.keys(m.author ?? {})) assert.ok(['name', 'email', 'url'].includes(k), `author.${k}`);
+  assert.ok(Array.isArray(m.keywords) && m.keywords.every((k) => typeof k === 'string'));
+  for (const [ns, v] of Object.entries(m.extensions ?? {})) {
+    assert.match(ns, /^[a-z0-9-]+(\.[a-z0-9-]+)+$/, `extension namespace ${ns}`);
+    assert.equal(typeof v, 'object');
+  }
+  // Codex reads hooks from extensions["com.openai"].hooks; none may ship.
+  assert.ok(!('hooks' in (m.extensions?.['com.openai'] ?? {})), 'no hooks for Codex either');
+});
