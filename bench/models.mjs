@@ -103,15 +103,21 @@ export function buildInputs(repos, { workDir, prepare = prepareRepo }) {
 
 const num = (s) => Number(s || 0) || 0;
 
+/* A model is priced only when its prompt and completion prices are numbers
+   of 0 or more. The list marks a router whose price depends on the model it
+   picks with "-1"; counting that as a price would lower the total. */
+const priced = (p) => ['prompt', 'completion'].every((k) => p.pricing?.[k] !== undefined && p.pricing[k] !== '' && Number(p.pricing[k]) >= 0);
+
 /** Price every call at its input estimate plus its full output cap. */
 export function priceRun({ models, inputs, prices, maxTokens = MAX_TOKENS }) {
   const byId = new Map(prices.map((p) => [p.id, p]));
   const missing = models.filter((m) => !byId.has(m));
+  const unpriced = models.filter((m) => byId.has(m) && !priced(byId.get(m)));
   const rows = [];
   let total = 0;
   for (const model of models) {
     const p = byId.get(model);
-    if (!p) continue;
+    if (!p || !priced(p)) continue;
     const completion = Math.max(num(p.pricing?.completion), num(p.pricing?.internal_reasoning));
     for (const input of inputs) {
       const inputTokens = Math.ceil(input.bundle.length / CHARS_PER_TOKEN);
@@ -120,7 +126,7 @@ export function priceRun({ models, inputs, prices, maxTokens = MAX_TOKENS }) {
       total += usd;
     }
   }
-  return { rows, total, missing };
+  return { rows, total, missing, unpriced };
 }
 
 async function readJson(res, what) {
@@ -179,15 +185,20 @@ export function summaryTable(rows) {
 
 /**
  * Plan, price and, unless dryRun, run the matrix. Refuses before any call
- * when a model is not in the price list, the estimate is above the budget,
- * or the key is not set.
+ * when the budget or the output cap is not a positive number, a model is
+ * not in the price list or has no fixed price, the estimate is above the
+ * budget, or the key is not set.
  */
 export async function runMatrix({ models = DEFAULT_MODELS, repos = REPOS, budget = BUDGET_USD, maxTokens = MAX_TOKENS, dryRun = false, env = process.env, fetchImpl = fetch, workDir = join(tmpdir(), 'complex-md-models'), outDir, prepare = prepareRepo, log = console.log, now = new Date() }) {
+  // A NaN budget is never below a total, so it would let any run start.
+  if (!(Number.isFinite(budget) && budget > 0)) throw new Error(`--budget needs a positive number of USD, got ${budget}`);
+  if (!(Number.isInteger(maxTokens) && maxTokens > 0)) throw new Error(`--max-tokens needs a positive whole number, got ${maxTokens}`);
   const inputs = buildInputs(repos, { workDir, prepare });
   for (const i of inputs) log(`${i.name} @ ${i.commit.slice(0, 10)}: bundle ${i.bundle.length} characters, about ${Math.ceil(i.bundle.length / CHARS_PER_TOKEN)} tokens; ${i.hot.length} hot files shown`);
   const prices = await fetchPrices(fetchImpl);
   const plan = priceRun({ models, inputs, prices, maxTokens });
   if (plan.missing.length) throw new Error(`not in the OpenRouter model list: ${plan.missing.join(', ')}`);
+  if (plan.unpriced.length) throw new Error(`no fixed price in the OpenRouter model list, so the run cannot be priced: ${plan.unpriced.join(', ')}`);
   const perModel = new Map();
   for (const r of plan.rows) perModel.set(r.model, (perModel.get(r.model) || 0) + r.usd);
   for (const [m, v] of perModel) log(`  ${usd(v).padStart(7)}  ${m}`);

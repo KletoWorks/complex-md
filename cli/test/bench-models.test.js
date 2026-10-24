@@ -147,3 +147,30 @@ test('a run scores each map, records a failed call and never writes the key', as
     assert.ok(!text.includes(KEY), 'the key appears in no output');
   }
 });
+
+test('a budget or an output cap that is not a positive number is refused before any call', async (t) => {
+  if (!existsSync(BENCH)) return t.skip('not a repository checkout');
+  const { runMatrix } = await load();
+  const s = setup();
+  const f = stubFetch();
+  const env = { OPENROUTER_API_KEY_COMPLEXMD: KEY };
+  // "--budget abc" and a bare "--budget" both arrive as NaN, and NaN is never above a total.
+  await assert.rejects(runMatrix({ models: ['closed/model-b'], repos: s.repos, budget: NaN, env, fetchImpl: f.impl, workDir: s.work, outDir: s.out, log: s.log }), /--budget needs a positive number/);
+  await assert.rejects(runMatrix({ models: ['closed/model-b'], repos: s.repos, maxTokens: NaN, env, fetchImpl: f.impl, workDir: s.work, outDir: s.out, log: s.log }), /--max-tokens needs a positive whole number/);
+  await assert.rejects(runMatrix({ models: ['closed/model-b'], repos: s.repos, budget: -1, env, fetchImpl: f.impl, workDir: s.work, outDir: s.out, log: s.log }), /--budget needs a positive number/);
+  assert.equal(f.calls.length, 0);
+});
+
+test('a model with no price, or a negative price, is refused: it cannot be priced', async (t) => {
+  if (!existsSync(BENCH)) return t.skip('not a repository checkout');
+  const { priceRun } = await load();
+  const prices = [
+    { id: 'router/auto', pricing: { prompt: '-1', completion: '-1' } },
+    { id: 'no/pricing' },
+    { id: 'open/model-a', pricing: { prompt: '0.000001', completion: '0.000002' } },
+  ];
+  const p = priceRun({ models: ['router/auto', 'no/pricing', 'open/model-a'], inputs: [{ name: 'r', bundle: 'x'.repeat(3000) }], prices, maxTokens: 1000 });
+  assert.deepEqual(p.unpriced, ['router/auto', 'no/pricing']);
+  assert.deepEqual(p.rows.map((r) => r.model), ['open/model-a']);
+  assert.ok(p.total > 0);
+});
