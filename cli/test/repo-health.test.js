@@ -85,3 +85,14 @@ test('the issue forms ask for the fields a fix needs, and questions go to Discus
   assert.match(config, /^contact_links:/m);
   assert.match(config, /https:\/\/github\.com\/KletoWorks\/complex-md\/discussions/);
 });
+
+/* The pull request template asks for the change, the test and an AI
+   disclosure, and the disclosure links to a section that exists. */
+test('the pull request template asks for the change, the test and an AI disclosure', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const s = read('.github/PULL_REQUEST_TEMPLATE.md');
+  for (const h of ['What changed', 'How it was tested', 'AI assistance']) assert.match(s, new RegExp(`^## ${h}$`, 'm'), `asks: ${h}`);
+  assert.match(s, /^- \[ \] /m, 'has a disclosure checkbox');
+  assert.match(s, /CONTRIBUTING\.md#ai-assistance/);
+  assert.match(read('CONTRIBUTING.md'), /^## AI assistance$/m, 'CONTRIBUTING.md has the section the template links to');
+});
