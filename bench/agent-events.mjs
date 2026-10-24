@@ -54,6 +54,10 @@ export function createMeter({ wt, gold, stopAt }) {
     if (ev.type === 'system' && ev.subtype === 'init') {
       m.agent_model = ev.model ?? null;
       m.agent_version = ev.claude_code_version ?? null;
+      // What the agent loaded besides the task: a clean run has its own tools and no connectors.
+      m.agent_tools = Array.isArray(ev.tools) ? ev.tools.length : null;
+      m.agent_mcp = Array.isArray(ev.mcp_servers) ? ev.mcp_servers.map((s) => s.name) : null;
+      m.agent_skills = Array.isArray(ev.skills) ? ev.skills.length : null;
     } else if (ev.type === 'assistant') {
       m.turns++;
       const u = ev.message?.usage;

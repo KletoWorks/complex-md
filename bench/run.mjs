@@ -32,6 +32,7 @@ import { buildBundle, normalizeOutput } from '../cli/src/generate.js';
 import { wire } from '../cli/src/wire.js';
 import { detectRunner, listTestFiles, runSuite, confirm, goldTestFiles } from './suite.mjs';
 import { createMeter, newMetrics, behaviour } from './agent-events.mjs';
+import { claudeCommand } from './claude-args.mjs';
 import { isolatedCheckout, fileAt, fixSourceDiff, applyPatch } from './isolate.mjs';
 import { mapAnchor, assertMapUsable, commitTime } from './maps.mjs';
 import { sandboxSupport, sandboxCommand, startProxy, innerPid, which, DEFAULT_ROOTS, DEFAULT_ALLOW } from './sandbox.mjs';
@@ -242,11 +243,7 @@ const PROMPT = (t) => `Fix this issue in the repository. Find the code responsib
 function agentCommand(task, arm, wt) {
   if (SCRIPTED[agent]) return [process.execPath, [join(here, SCRIPTED[agent])], { CX_GOLD: task.gold.join(',') }];
   noModel();
-  const a = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'acceptEdits', '--setting-sources', 'project', '--max-budget-usd', String(budget),
-    '--tools', 'Read,Edit,Write,MultiEdit,Grep,Glob,Bash', '--allowedTools', 'Bash(git diff:*) Bash(git log:*) Bash(git grep:*) Bash(git show:*) Bash(node:*) Bash(npm test:*) Bash(ls:*) Bash(cat:*) Bash(rg:*) Bash(grep:*) Bash(find:*)'];
-  if (arm === 'mcp') a.push('--mcp-config', join(wt, '.mcp.json'), '--strict-mcp-config');
-  if (model) a.push('--model', model);
-  return ['claude', a, {}];
+  return claudeCommand({ arm, wt, budget, model });
 }
 
 /* What the agent may see: its checkout, the dependency copy, the Node
