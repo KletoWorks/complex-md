@@ -1,0 +1,92 @@
+/* The benchmark report: what it prints for a known set of runs. */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { usd } from '../../bench/format.mjs';
+
+const REPORT = join(import.meta.dirname, '..', '..', 'bench', 'report.mjs');
+
+function report(rows) {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-report-'));
+  try {
+    const p = join(dir, 'runs.jsonl');
+    writeFileSync(p, rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    const r = spawnSync(process.execPath, [REPORT, p], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    return r.stdout;
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
+const row = (task, arm, extra = {}) => ({ task, arm, first_gold_read: 2, steps: 5, wasted_reads: 0, gold_edited: true, error: null, ...extra });
+
+test('usd prints dollars with cents, and three places under ten cents', () => {
+  assert.equal(usd(1.894), '$1.89');
+  assert.equal(usd(5.0310175), '$5.03');
+  assert.equal(usd(0.0123), '$0.012');
+  assert.equal(usd(null), '-');
+  assert.equal(usd(Number.NaN), '-');
+});
+
+test('the per arm table prints cost per run in dollars, not a dollar sign with a cents suffix', () => {
+  const out = report([row('a', 'none', { cost_usd: 1.894 }), row('a', 'file', { cost_usd: 2.5 })]);
+  assert.match(out, /\| none \|.*\| \$1\.89 \|/);
+  assert.match(out, /\| file \|.*\| \$2\.50 \|/);
+  assert.doesNotMatch(out, /\$\d+(\.\d+)?c\b/);
+});
+
+test('capped runs stay in the pairs and get their own column', () => {
+  const rows = [
+    row('a', 'none', { success: true, regressed_tests: 0, stopped: 'budget' }),
+    row('a', 'file', { success: true, regressed_tests: 0 }),
+    // A row recorded before caps were stops: the cap sat in `error`.
+    row('b', 'none', { success: false, error: 'error_max_budget_usd' }),
+    row('b', 'file', { success: true, stopped: 'timeout' }),
+  ];
+  const out = report(rows);
+  assert.match(out, /\| arm \| n \| capped \|/);
+  assert.match(out, /\| none \| 2 \| 2 \|/);
+  assert.match(out, /\| file \| 2 \| 1 \|/);
+  // Both tasks are judged pairs for success; the legacy capped row is not an error.
+  assert.match(out, /\| file \| 2 \| 1 \| 2 \|/);
+  assert.doesNotMatch(out, /runs with errors/);
+});
+
+test('wall clock pairs use the harness clock, so timed out runs are not left out', () => {
+  const rows = [];
+  for (const t of ['a', 'b', 'c', 'd', 'e']) {
+    rows.push(row(t, 'none', { wall_ms: 1000, duration_ms: 900, tokens_out: 1, diff_lines: 1, tokens_cache_read: 1 }));
+    // A timeout never gets a result event, so it has no duration_ms.
+    rows.push(row(t, 'file', { wall_ms: 2000, stopped: t === 'a' ? 'timeout' : null, ...(t === 'a' ? {} : { duration_ms: 1900 }), tokens_out: 1, diff_lines: 1, tokens_cache_read: 1 }));
+  }
+  const out = report(rows);
+  assert.match(out, /\| file \| wall clock ms \| 5 \|/);
+  assert.match(out, /Cost is unknown for 10 runs/);
+});
+
+test('the report says how many agent runs had no isolation', () => {
+  const out = report([
+    row('a', 'none', { sandbox: true }),
+    row('a', 'file', { sandbox: false }),
+    row('b', 'none'), // recorded before the sandbox existed
+    row('b', 'gold'), // no agent ran
+  ]);
+  assert.match(out, /2 agent runs ran without the sandbox/);
+  const clean = report([row('a', 'none', { sandbox: true }), row('a', 'gold')]);
+  assert.doesNotMatch(clean, /without the sandbox/);
+});
+
+test('conduct in the damage table is the named test check, with the old flag as a fallback', () => {
+  const d = (task, arm, extra) => row(task, arm, { regressed_tests: 0, regressed_files: 0, edited_risky: ['lib/a.js'], partners_missed: [], agent_test_runs: 3, ...extra });
+  const out = report([
+    d('a', 'none', { risky_edit_untested: false, risky_edit_unverified: true }),
+    d('a', 'file', { risky_edit_untested: false, risky_edit_unverified: false }),
+    d('b', 'none', { risky_edit_untested: true }),
+    d('b', 'file', { risky_edit_untested: false }),
+  ]);
+  assert.match(out, /named tests not run after it/);
+  assert.match(out, /\| none \| 2 \| 0 \(0%\) \| 0\.0 \| 0\.0 \| 2 \| 2 \|/);
+  assert.match(out, /\| file \| 2 \| 0 \(0%\) \| 0\.0 \| 0\.0 \| 2 \| 0 \|/);
+});

@@ -6,6 +6,7 @@ import { join, basename } from 'node:path';
 import { git } from './git.js';
 import { loadComplexMd } from './complexmd.js';
 import { renderReport } from './render.js';
+import { ignoreWorkDir, WORK_DIR } from './gitignore.js';
 
 export const REPORT_PATH = join('.complex-md', 'report.html');
 
@@ -26,12 +27,14 @@ export function repoName(root) {
  * Write the report for the map at root. Returns the absolute path written,
  * or null when root has no COMPLEX.md.
  */
-export function writeReport(root, { version } = {}) {
+export function writeReport(root, { version, log = () => {} } = {}) {
   const map = loadComplexMd(root);
   if (!map) return null;
   const html = renderReport(map, { repo: repoName(root), version });
   const out = join(root, REPORT_PATH);
   mkdirSync(join(root, '.complex-md'), { recursive: true });
   writeFileSync(out, html);
+  // The page belongs to no commit, like the prompt bundle beside it.
+  if (ignoreWorkDir(root)) log(`added ${WORK_DIR}/* to .gitignore, so its working files stay out of commits; ${WORK_DIR}/bounds.json stays committable.`);
   return out;
 }

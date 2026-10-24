@@ -108,7 +108,7 @@
    "suite": 357,
    "caught": {
     "a": 0,
-    "b": 1,
+    "b": 2,
     "c": 2,
     "d": 1,
     "e": 2,
@@ -124,10 +124,11 @@
      "caught": []
     },
     "b": {
-     "size": 52,
-     "share": 0.1457,
+     "size": 305,
+     "share": 0.8543,
      "caught": [
-      "test/issue-4880.js"
+      "test/issue-4880.js",
+      "test/issue-803.js"
      ]
     },
     "c": {

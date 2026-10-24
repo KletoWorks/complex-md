@@ -3,23 +3,29 @@
 //   node bench/report.mjs bench/results/pilot/runs.jsonl
 import { readFileSync } from 'node:fs';
 import { summarise, pairsNeeded, mcnemar } from './stats.mjs';
+import { usd } from './format.mjs';
+import { CAPS } from './agent-events.mjs';
 
 const path = process.argv[2] || 'bench/results/run/runs.jsonl';
 const runs = readFileSync(path, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
   // Runs the harness stopped at the first edit end with Claude reporting error_during_execution; that is the stop, not a failure.
-  .map((r) => (r.stopped && r.error === 'error_during_execution' ? { ...r, error: null } : r));
+  .map((r) => (r.stopped && r.error === 'error_during_execution' ? { ...r, error: null } : r))
+  // Rows recorded before caps were stops carry the cap as their error. A cap is an outcome, so the pair stays.
+  .map((r) => (CAPS[r.error] ? { ...r, error: null, stopped: CAPS[r.error] } : r));
 const arms = [...new Set(runs.map((r) => r.arm))];
 const byTask = new Map();
 for (const r of runs) (byTask.get(r.task) || byTask.set(r.task, {}).get(r.task))[r.arm] = r;
 
+/* Stops at a limit the harness set, as opposed to the first-edit stop of a localization run. */
+const CAPPED = new Set(['budget', 'timeout', 'max-turns']);
 const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
 const median = (xs) => { if (!xs.length) return NaN; const s = [...xs].sort((a, b) => a - b); const h = s.length >> 1; return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2; };
 const f1 = (x) => (Number.isNaN(x) ? '-' : x.toFixed(1));
 const pct = (x) => (Number.isNaN(x) ? '-' : `${Math.round(x * 100)}%`);
 
 console.log(`## Per arm (n = runs)\n`);
-console.log('| arm | n | found gold | steps to first gold read (median / mean) | wasted reads before it (mean) | gold edited | success | gate fired | MCP calls | cost/run |');
-console.log('|---|---|---|---|---|---|---|---|---|---|');
+console.log('| arm | n | capped | found gold | steps to first gold read (median / mean) | wasted reads before it (mean) | gold edited | success | gate fired | MCP calls | cost/run |');
+console.log('|---|---|---|---|---|---|---|---|---|---|---|');
 for (const arm of arms) {
   const rs = runs.filter((r) => r.arm === arm && !r.error);
   const found = rs.filter((r) => r.first_gold_read !== null);
@@ -27,8 +33,11 @@ for (const arm of arms) {
   const cost = rs.map((r) => r.cost_usd).filter((c) => c != null);
   const judged = rs.filter((r) => r.success === true || r.success === false);
   const succ = judged.length ? pct(judged.filter((r) => r.success).length / judged.length) + ` (n=${judged.length})` : '-';
-  console.log(`| ${arm} | ${rs.length} | ${pct(found.length / rs.length)} | ${f1(median(steps))} / ${f1(mean(steps))} | ${f1(mean(rs.map((r) => r.wasted_reads)))} | ${pct(rs.filter((r) => r.gold_edited).length / rs.length)} | ${succ} | ${rs.filter((r) => r.gate_fired).length} | ${rs.reduce((a, r) => a + (r.mcp_calls || 0), 0)} | ${cost.length ? '$' + f1(mean(cost) * 100) + 'c' : '-'} |`);
+  console.log(`| ${arm} | ${rs.length} | ${rs.filter((r) => CAPPED.has(r.stopped)).length} | ${pct(found.length / rs.length)} | ${f1(median(steps))} / ${f1(mean(steps))} | ${f1(mean(rs.map((r) => r.wasted_reads)))} | ${pct(rs.filter((r) => r.gold_edited).length / rs.length)} | ${succ} | ${rs.filter((r) => r.gate_fired).length} | ${rs.reduce((a, r) => a + (r.mcp_calls || 0), 0)} | ${cost.length ? usd(mean(cost)) : '-'} |`);
 }
+
+const noCost = runs.filter((r) => !r.error && r.cost_usd == null);
+if (noCost.length) console.log(`\nCost is unknown for ${noCost.length} runs (no result event): ${noCost.map((r) => `${r.task}/${r.arm}`).join(', ')}`);
 
 // Paired: the same task under each arm versus `none`. Sign test on steps to first gold read.
 if (arms.includes('none')) {
@@ -66,7 +75,8 @@ if (arms.includes('none')) {
   const METRICS = [
     ['steps to first gold read', (r) => r.first_gold_read ?? (r.steps + 1)],
     ['output tokens', (r) => r.tokens_out],
-    ['wall clock ms', (r) => r.duration_ms],
+    // The harness clock where recorded: a timed out run has no duration_ms of its own.
+    ['wall clock ms', (r) => r.wall_ms ?? r.duration_ms],
     ['cost usd', (r) => r.cost_usd],
     ['diff lines', (r) => r.diff_lines],
     ['cache read tokens', (r) => r.tokens_cache_read],
@@ -113,19 +123,22 @@ if (arms.includes('none')) {
    is paired by McNemar like success; the count by Wilcoxon. Conduct is
    whether the agent did what the map asks: a test run before finishing an
    edit to a risky file, and the other side of a co-change pair opened. */
+/* The named tests for a risky file did not all run after its last edit.
+   Rows recorded before that field fall back to "no test run at all". */
+const untested = (r) => Boolean(r.risky_edit_unverified ?? r.risky_edit_untested);
 const damaged = runs.filter((r) => !r.error && typeof r.regressed_tests === 'number');
 if (damaged.length) {
   console.log('\n## Collateral damage (tests broken that the task did not touch)\n');
-  console.log('| arm | judged | runs with any regression | regressed tests (mean) | regressed files (mean) | risky file edited | risky edit, no test run | co-change partner missed | agent test runs (mean) |');
+  console.log('| arm | judged | runs with any regression | regressed tests (mean) | regressed files (mean) | risky file edited | risky edit, named tests not run after it | co-change partner missed | agent test runs (mean) |');
   console.log('|---|---|---|---|---|---|---|---|---|');
   for (const arm of arms) {
     const rs = damaged.filter((r) => r.arm === arm);
     if (!rs.length) continue;
     const risky = rs.filter((r) => r.edited_risky?.length);
-    console.log(`| ${arm} | ${rs.length} | ${rs.filter((r) => r.regressed_tests > 0).length} (${pct(rs.filter((r) => r.regressed_tests > 0).length / rs.length)}) | ${f1(mean(rs.map((r) => r.regressed_tests)))} | ${f1(mean(rs.map((r) => r.regressed_files)))} | ${risky.length} | ${risky.filter((r) => r.risky_edit_untested).length} | ${rs.filter((r) => r.partners_missed?.length).length} | ${f1(mean(rs.map((r) => r.agent_test_runs || 0)))} |`);
+    console.log(`| ${arm} | ${rs.length} | ${rs.filter((r) => r.regressed_tests > 0).length} (${pct(rs.filter((r) => r.regressed_tests > 0).length / rs.length)}) | ${f1(mean(rs.map((r) => r.regressed_tests)))} | ${f1(mean(rs.map((r) => r.regressed_files)))} | ${risky.length} | ${risky.filter(untested).length} | ${rs.filter((r) => r.partners_missed?.length).length} | ${f1(mean(rs.map((r) => r.agent_test_runs || 0)))} |`);
   }
   if (arms.includes('none')) {
-    console.log('\n| arm | pairs | none regressed | arm regressed | arm-only clean | none-only clean | McNemar p | Δ regressed tests (Wilcoxon p) | risky edit untested: none / arm | McNemar p |');
+    console.log('\n| arm | pairs | none regressed | arm regressed | arm-only clean | none-only clean | McNemar p | Δ regressed tests (Wilcoxon p) | risky edit, named tests not run: none / arm | McNemar p |');
     console.log('|---|---|---|---|---|---|---|---|---|---|');
     for (const arm of arms.filter((a) => a !== 'none')) {
       const pairs = [...byTask.values()].filter((t) => t.none && t[arm] && !t.none.error && !t[arm].error && typeof t.none.regressed_tests === 'number' && typeof t[arm].regressed_tests === 'number');
@@ -133,12 +146,17 @@ if (damaged.length) {
       /* "clean" is the pass: McNemar on no-regression, so arm-only clean is the map's win column. */
       const m = mcnemar(pairs.map((t) => [t.none.regressed_tests === 0, t[arm].regressed_tests === 0]));
       const q = summarise(pairs.map((t) => [t.none.regressed_tests, t[arm].regressed_tests]));
-      const u = mcnemar(pairs.map((t) => [!t.none.risky_edit_untested, !t[arm].risky_edit_untested]));
+      const u = mcnemar(pairs.map((t) => [!untested(t.none), !untested(t[arm])]));
       const pv = (x) => (Number.isNaN(x) ? '-' : x.toFixed(3));
-      console.log(`| ${arm} | ${m.n} | ${pairs.filter((t) => t.none.regressed_tests > 0).length} | ${pairs.filter((t) => t[arm].regressed_tests > 0).length} | ${m.c} | ${m.b} | ${pv(m.p)} | ${f1(q.trimmed_delta)} (${pv(q.wilcoxon.p)}) | ${pairs.filter((t) => t.none.risky_edit_untested).length} / ${pairs.filter((t) => t[arm].risky_edit_untested).length} | ${pv(u.p)} |`);
+      console.log(`| ${arm} | ${m.n} | ${pairs.filter((t) => t.none.regressed_tests > 0).length} | ${pairs.filter((t) => t[arm].regressed_tests > 0).length} | ${m.c} | ${m.b} | ${pv(m.p)} | ${f1(q.trimmed_delta)} (${pv(q.wilcoxon.p)}) | ${pairs.filter((t) => untested(t.none)).length} / ${pairs.filter((t) => untested(t[arm])).length} | ${pv(u.p)} |`);
     }
   }
 }
+
+/* A run without the sandbox could reach later history through git, the
+   network or the disk. Rows recorded before the sandbox have no field. */
+const exposed = runs.filter((r) => r.arm !== 'gold' && r.sandbox !== true);
+if (exposed.length) console.log(`\n${exposed.length} agent runs ran without the sandbox, so later history was within their reach: ${exposed.map((r) => `${r.task}/${r.arm}`).join(', ')}`);
 
 const errs = runs.filter((r) => r.error);
 if (errs.length) console.log(`\n${errs.length} runs with errors: ${errs.map((r) => `${r.task}/${r.arm}`).join(', ')}`);

@@ -1,0 +1,14 @@
+# Weekly pull requests for the pinned workflow actions and for the CLI's
+# dependencies. The root package.json has no dependencies.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "npm"
+    directory: "/cli"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

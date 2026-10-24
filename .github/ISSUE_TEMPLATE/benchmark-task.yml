@@ -1,0 +1,44 @@
+name: A benchmark task
+description: Propose a real fix commit for the benchmark in bench/.
+labels: [bench]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Each benchmark task is a real fix commit. The issue text is the prompt, the parent commit is the start, and the tests that verified the fix judge the result. bench/README.md describes the method.
+        The task is useful when the fix touched a file that a later fix had to touch again, or one side of a pair of files that change together.
+  - type: input
+    id: repository
+    attributes:
+      label: Repository URL
+      description: A public repository with a test suite that runs on Linux.
+      placeholder: https://github.com/OWNER/REPO
+    validations:
+      required: true
+  - type: input
+    id: fix_commit
+    attributes:
+      label: Fix commit
+      description: The full SHA of the commit that fixed the bug.
+    validations:
+      required: true
+  - type: input
+    id: issue
+    attributes:
+      label: Issue or pull request
+      description: The link whose text describes the bug. The agent gets this text as its prompt.
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Tests that verify the fix
+      description: The test files or test names that fail before the fix and pass after it, and the command that runs them.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this edit is risky
+      description: For example, a file that many files import, or a later fix to the same code within 90 days.

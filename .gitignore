@@ -4,3 +4,4 @@ analytics/
 .env
 .env.*
 .complex-md/
+plugins/complex-md/evals/results/

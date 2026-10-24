@@ -10,7 +10,7 @@
 // degraded twin and says so in `tool`.
 import { readFileSync, existsSync } from 'node:fs';
 import { join, posix } from 'node:path';
-import { git, trackedFiles, shortSha } from './git.js';
+import { git, trackedFiles, shortSha, partialCloneFilter, historyRenameArgs } from './git.js';
 import { buildGraph, submodulePaths, RANKED_KINDS, TEST_FILE_RE, BINARY_RE } from './graph.js';
 import { rankScaled } from './rank.js';
 import { isSecretPath } from './secrets.js';
@@ -64,11 +64,13 @@ export function isBotIdentity(name, email = '') {
 
 /** The most recent N non-merge commits, oldest last, with fix labels matched like `git log --grep`. */
 function readCommits(cwd, n) {
-  const out = git(['log', `-n${n}`, '--no-merges', '--name-only', '--date=unix', '--pretty=format:@%ct\t%ae\t%H\t%an\t%cn\t%ce'], { cwd });
+  /* A header line starts with a NUL, which no path can hold. A file line
+     may start with any other character: @types/x.d.ts is a top level path. */
+  const out = git(['log', `-n${n}`, '--no-merges', ...historyRenameArgs(cwd), '--name-only', '--date=unix', '--pretty=format:%x00%ct\t%ae\t%H\t%an\t%cn\t%ce'], { cwd });
   const commits = [];
   let cur = null;
   for (const line of out.split('\n')) {
-    if (line.startsWith('@')) {
+    if (line.startsWith('\0')) {
       const [ts, author, hash, authorName, committerName, committerEmail] = line.slice(1).split('\t');
       const bot = isBotIdentity(authorName, author) || isBotIdentity(committerName, committerEmail);
       cur = { ts: Number(ts), author, hash, bot, isFix: false, files: [] };
@@ -83,6 +85,17 @@ function readCommits(cwd, n) {
   const fixSet = new Set(git(['log', range, '--no-merges', '-i', '-E', `--grep=${FIX_GREP}`, '--pretty=format:%H'], { cwd }).split('\n').filter(Boolean));
   for (const c of commits) c.isFix = fixSet.has(c.hash);
   return commits;
+}
+
+/* A treeless clone (--filter=tree:0) has the commits but not their trees.
+   Listing the files of each commit then fetches its trees one round trip at
+   a time: 76 s for 200 commits of flask. The probe asks whether the oldest
+   commit in the window has its trees, and fetches nothing to find out. */
+function treesMissing(cwd, n) {
+  if (!partialCloneFilter(cwd)) return false;
+  const oldest = git(['rev-list', '--no-merges', `--skip=${n - 1}`, '-n1', 'HEAD'], { cwd, allowFail: true }).trim();
+  if (!oldest) return false;
+  return /^\?/m.test(git(['rev-list', '--objects', '--missing=print', '--filter=blob:none', '--no-walk', oldest], { cwd, allowFail: true }));
 }
 
 const graphCache = new Map();
@@ -113,8 +126,11 @@ export function computeSignals(cwd, opts = {}) {
   const n = Math.min(commitsTotal, o.windowCommitsMax);
   /* Bot commits are not evidence about the code: a dependency bot edits the
      same manifest pair every week and labels it "fix". They leave churn,
-     fixes, authors and co-change, and the count is stated below. */
-  const read = n ? readCommits(cwd, n) : [];
+     fixes, authors and co-change, and the count is stated below. A treeless
+     clone would fetch each commit's tree one at a time, so its history is
+     not read at all. */
+  const treeless = n > 0 && treesMissing(cwd, n);
+  const read = n && !treeless ? readCommits(cwd, n) : [];
   const commits = read.filter((c) => !c.bot);
   const botCommits = read.length - commits.length;
   const halfLife = Math.max(50, Math.round(commits.length / 4));
@@ -248,13 +264,17 @@ export function computeSignals(cwd, opts = {}) {
   // the teens and is already excluded as a convention.
   const N = counted || 1;
   const pairMin = Math.min(10, Math.max(3, Math.round(N / 150)));
+  /* `pairFloor` lowers the shared commit cut for a caller that needs the
+     candidates under it (verify compares a listed pair that slipped under
+     the cut). pair_min in the profile stays the cut a map is written with. */
+  const pairFloor = o.pairFloor ?? pairMin;
   const conf = (count, ca, cb) => Math.round((100 * count) / Math.max(Math.min(ca || count, cb || count), count));
   const coChange = [...pairs.entries()]
     .map(([k, count]) => {
       const [a, b] = k.split('\t');
       return { files: [a, b], count, coupling: conf(count, perFile.get(a), perFile.get(b)) };
     })
-    .filter((p) => p.count >= pairMin && p.coupling >= o.minCoupling)
+    .filter((p) => p.count >= pairFloor && p.coupling >= o.minCoupling)
     .sort((a, b) => b.count - a.count || b.coupling - a.coupling || a.files[0].localeCompare(b.files[0]))
     .slice(0, o.pairRows);
   const seams = [...dirPairs.entries()]
@@ -262,7 +282,7 @@ export function computeSignals(cwd, opts = {}) {
       const [a, b] = k.split('\t');
       return { dirs: [a, b], count, coupling: conf(count, perDir.get(a), perDir.get(b)) };
     })
-    .filter((p) => p.count >= pairMin && p.coupling >= o.minCoupling)
+    .filter((p) => p.count >= pairFloor && p.coupling >= o.minCoupling)
     .sort((a, b) => b.count - a.count || b.coupling - a.coupling || a.dirs[0].localeCompare(b.dirs[0]))
     .slice(0, o.seamRows);
 
@@ -300,6 +320,7 @@ export function computeSignals(cwd, opts = {}) {
   }
   if (botCommits) blind.push(`${botCommits} commit${botCommits > 1 ? 's' : ''} by bots (author or committer) left out of churn, fixes, authors and co-change`);
   if (git(['rev-parse', '--is-shallow-repository'], { cwd, allowFail: true }).trim() === 'true') blind.push('shallow clone: history is truncated');
+  if (treeless) blind.push('treeless clone: the commit trees are not local, and reading history would fetch them one commit at a time, so history was not read. Fetch them once with git fetch --refetch --filter=blob:none, then run again');
   if (thin) blind.push(`${counted} commits of usable history: ranking rests on structure and size; churn, fixes and ownership carry little weight yet`);
   if (allAuthors.size <= 1) blind.push('one committer identity: authors and owner_share carry no information on this repository');
   // The graph resolves some languages and not others. Say which files it

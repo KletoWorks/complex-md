@@ -17,6 +17,7 @@ import { spawnSync } from 'node:child_process';
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { FIX_RE, EXCLUDE_RE, TEST_FILE_RE as TEST_RE, BINARY_RE, computeSignals } from '../cli/src/signals.js';
+import { isRunnableTest } from './suite.mjs';
 
 const args = process.argv.slice(2);
 const repoPath = args.find((a) => !a.startsWith('--')) || process.cwd();
@@ -49,7 +50,7 @@ for (const rec of log.split('\x1e').slice(1)) {
   if (parents.split(' ').length !== 1) continue;
   if (NOT_A_FIX.test(subject)) continue;
   const gold = files.filter(isSource);
-  const tests = files.filter((f) => TEST_RE.test(f));
+  const tests = files.filter((f) => TEST_RE.test(f) && isRunnableTest(f));
   if (gold.length === 0 || gold.length > maxGold) continue;
   // A fix that only touched dependency manifests is not a localization task.
   if (gold.every((f) => /package(-lock)?\.json$|\.lock$|\.ya?ml$/.test(f))) continue;

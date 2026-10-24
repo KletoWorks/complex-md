@@ -17,11 +17,33 @@ Spec, research and the downloadable skill: https://complex.md
 2. Writes the front matter itself (numbers verbatim) and makes one model call
    for the prose. The first configured provider wins: `ANTHROPIC_API_KEY`,
    `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`,
-   `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `TOGETHER_API_KEY`;
-   local Ollama and any OpenAI-compatible endpoint (`COMPLEX_MD_BASE_URL`)
-   via `--provider`. Pick explicitly with `--provider <name>` or
-   `--model <provider>/<id>`. Without any key it writes
-   `.complex-md/prompt.md` for the agent you are already using.
+   `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `TOGETHER_API_KEY`,
+   `MOONSHOT_API_KEY` (Kimi), `DASHSCOPE_API_KEY` (Qwen), `ZAI_API_KEY`
+   (GLM), `MINIMAX_API_KEY`, `FIREWORKS_API_KEY`, `CEREBRAS_API_KEY`. These
+   work only with `--provider`: `huggingface` (`HF_TOKEN`), `ollama`,
+   `lmstudio` (LM Studio on localhost:1234), and any OpenAI-compatible
+   endpoint (`COMPLEX_MD_BASE_URL`). Pick explicitly with `--provider <name>`
+   or `--model <provider>/<id>`. The Anthropic default is
+   `claude-sonnet-5-5`. Qwen uses the international DashScope endpoint. For
+   another endpoint, set `COMPLEX_MD_BASE_URL` and `COMPLEX_MD_API_KEY` and
+   pass `--provider custom --model <id>`.
+
+   Without any key, it writes COMPLEX.md with template prose built from the
+   computed numbers, marked `prose: template` in the front matter, and wires
+   it. It also writes `.complex-md/prompt.md`, so the agent you are already
+   using can replace the prose. Template prose never replaces prose that a
+   model or a person wrote; `--template` does. A keyed call that fails (a
+   network error, a non 2xx status, a stop at the output cap, a refusal, or
+   a reply that is not a map) also lands template prose. The run then exits
+   0 and prints one warning line with the reason. The reply itself is never
+   written.
+
+   Before the first write, the run prints every file it will create or
+   change. On a keyed run, the wiring lines come under "After the model
+   call". In a terminal it asks once, and `--yes` skips the question. A
+   stdin that is not a terminal never blocks the run. `.complex-md/*` goes
+   into `.gitignore` when a run writes there, and `.complex-md/bounds.json`
+   stays committable.
 3. Wires the map in, idempotently:
    - appends the integration block to `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`,
      `.github/copilot-instructions.md` where they exist, plus an
@@ -35,7 +57,9 @@ Spec, research and the downloadable skill: https://complex.md
      (`.windsurf/rules/`), Kiro (`.kiro/steering/`), Cline (`.clinerules/`);
    - an `@COMPLEX.md` line in an existing `REVIEW.md`, for Claude Code
      Review; wire never creates `REVIEW.md`;
-   - hooks: Claude Code `PreToolUse` and `Stop`, Cursor `preToolUse` and `stop`;
+   - with `--hooks` only: Claude Code `PreToolUse` and `Stop` in
+     `.claude/settings.json`, Cursor `preToolUse` and `stop` in
+     `.cursor/hooks.json`;
    - OpenClaw and Hermes are wired only when asked (`--for openclaw,hermes`):
      they get the portable skill `.agents/skills/complex-md/SKILL.md`, and
      `--mcp` also registers the server through their own CLIs.
@@ -44,13 +68,49 @@ A rule file that would only repeat the block is not written while
 `AGENTS.md` carries it, and a rewire removes the copies earlier versions
 wrote.
 
-`--no-wire` writes only COMPLEX.md. `--no-hooks` skips the hooks.
+`--no-wire` writes only COMPLEX.md. A default run writes no hooks.
+`--hooks` writes them to the committed settings files. `--hooks --local`
+writes the Claude Code hooks to `.claude/settings.local.json` and adds that
+path to `.git/info/exclude`. Cursor has no per user hooks file in the
+project, so `--local` skips it.
+
+## Use the agent CLI you already run
+
+No API key? Pass `--via` with the agent CLI you already have:
+
+    npx complex-md --via claude
+    npx complex-md --via codex --model <id>   # --model is passed to the CLI
+
+complex-md computes the front matter, then runs that CLI once in its print
+mode, in this repository. It runs your own, unmodified binary under your
+own login and plan, and it reads none of the CLI's credentials. The bundle
+goes on stdin, or in `.complex-md/prompt.md` for opencode, kimi and
+cursor-agent; for those three the file plan lists the bundle files too.
+Supported: claude, codex, gemini, opencode, qwen, kimi, crush, goose,
+cursor-agent, copilot, hermes, openclaw.
+
+complex-md starts each CLI with an argument array and no shell, and uses a
+read only or plan mode where the CLI has one. goose, kimi, crush, hermes and
+openclaw document no read only mode. hermes runs with `--source tool`, so
+the run stays out of your hermes session list. If a CLI writes COMPLEX.md
+itself, complex-md puts the previous file back, and it lists any other path
+the CLI changed.
+
+complex-md writes the reply only if it keeps the computed front matter, has
+the four sections and names no file the repository lacks. Otherwise the
+run lands template prose, or keeps a map that a model or a person wrote.
+The run stops after 600 s; change this with `--via-timeout <seconds>`.
+Ctrl-C stops the agent CLI too. Limit: on Windows, a CLI installed as a
+`.cmd` shim cannot start without a shell, so use its native `.exe` or WSL.
 
 ## The hooks
 
 In-context instructions are followed roughly half the time when an agent is
 editing existing code late in a session, which is exactly when a hotspot gets
-edited. Hooks make the two rules that matter deterministic.
+edited. Hooks make the two rules that matter deterministic. They are opt
+in: on the fastify benchmark runs the hooks arm cost about 50% more per run
+at the median and passed no more of the real fixes' tests than the briefs
+alone (`bench/RESULTS.md`).
 
 - **PreToolUse gate.** The first edit of a hotspot file in a session is
   denied, and the denial reason is the file's paragraph from COMPLEX.md: what
@@ -73,7 +133,19 @@ when there is one. Otherwise it runs a `complex-md` found on PATH, and
 otherwise `npx -y --prefer-offline complex-md@<version>`, pinned to the
 version that wired it. With a local install, a hook takes about 80 ms per
 edit. Hooks written by 0.9.2 and earlier ran an unpinned `npx -y complex-md`;
-run `npx complex-md wire` again to rewrite them in the pinned form.
+run `npx complex-md wire --hooks` again to rewrite them in the pinned form.
+A run without `--hooks` leaves them as they are and says so.
+
+## Is the map still current?
+
+    npx complex-md verify [--json]
+
+`verify` recomputes the signals with no model call and compares them with
+the committed front matter. Exit 0 means fresh, 1 means drift past
+tolerance, and 2 means there is no map or the clone is shallow. A file joins
+a list only at 125% of the fresh cut and drops off only under 75%, so two
+files that trade the last place never flip the result. In CI, check out the
+full history (`fetch-depth: 0`) and run `npx complex-md verify`.
 
 ## Optional: the MCP server (`--mcp`)
 
@@ -98,9 +170,11 @@ runs it on stdio. Six tools:
     npx complex-md signals [--json | --tsv]
     npx complex-md impact <path> [--json] [--strict]
     npx complex-md report                # write .complex-md/report.html, a page of the map
-    npx complex-md wire [--no-hooks] [--mcp]
+    npx complex-md wire [--hooks [--local]] [--mcp]
                         [--for claude,cursor,openhands,antigravity,codex,copilot,review,devin,windsurf,kiro,cline,openclaw,hermes]
     npx complex-md generate --agent      # write the prompt bundle, no model call
+    npx complex-md generate --template   # template prose from the numbers, no model call
+    npx complex-md generate --yes        # skip the question after the file plan
 
 `check --strict` exits 1 on findings, for pre-commit and CI.
 `check --base <ref>` exits 2 when the ref is not in the checkout. In GitHub
@@ -147,4 +221,9 @@ pairs, the repository profile) and excerpts of up to ten hotspot files:
 about 14,000 characters each and 60,000 in all. On undici the request held
 five excerpts and 80,000 characters, about 20,000 tokens. `generate --agent`
 writes the same request to `.complex-md/prompt.md` and sends nothing, so you
-can read it first.
+can read it first. With `--via`, the same bundle goes to the agent CLI you
+named, which sends it to the model it uses.
+
+The CLI sends no telemetry. Its only network request is the optional model
+call that a provider key or `--provider` selects, and
+`cli/test/telemetry.test.js` fails on any other request.

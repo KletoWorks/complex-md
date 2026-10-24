@@ -2,6 +2,22 @@
 
 Issues and pull requests are welcome. The spec changes by evidence: a new signal or rule needs a citation or a benchmark run in `bench/`, and a line in `CHANGELOG.md` saying why. Plain prose, no emphasis words, numbers over adjectives; read the spec for the register.
 
+## AI assistance
+
+You may use AI tools to write a contribution. Three rules apply.
+
+1. Disclose it. When an AI tool helped, say so in the pull request
+   description: name the tool and the part it wrote. Tick the box in the
+   pull request template.
+2. Mark the commits. Add an `Assisted-by:` or a `Co-Authored-By:` trailer
+   to each commit the tool helped write. Either form is accepted, for
+   example `Assisted-by: <tool and model>`.
+3. A person stands behind it. A person reads the whole diff before the pull
+   request opens, and the same person answers the review comments. A pull
+   request that no person has read is closed.
+
+The same rules hold for a coding agent. `AGENTS.md` sends agents here.
+
 ## Releasing
 
 Three things carry a version. The spec version (`complex_md` in every

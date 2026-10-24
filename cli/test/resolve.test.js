@@ -3,12 +3,68 @@
 // git; buildGraph takes the tracked list directly.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { buildGraph } from '../src/graph.js';
 
 const CASES = [
+  {
+    name: "require('..') and require('.') resolve the directory: package.json main first, then index",
+    files: {
+      'package.json': '{ "name": "pkg", "main": "lib/main.js" }',
+      'lib/main.js': 'module.exports = 1;\n',
+      'lib/index.js': 'module.exports = 2;\n',
+      'lib/sub/x.js': "const lib = require('..');\n",
+      'test/a.test.js': "const pkg = require('..');\n",
+      'bin.js': "const pkg = require('.');\nconst up = require('../..');\n",
+      'pkgs/x/package.json': '{ "main": "dist/x.js" }',
+      'pkgs/x/dist/x.js': 'module.exports = 1;\n',
+      'use.js': "const x = require('./pkgs/x');\n",
+    },
+    edges: [
+      ['test/a.test.js', 'lib/main.js'],
+      ['bin.js', 'lib/main.js'],
+      ['lib/sub/x.js', 'lib/index.js'],
+      ['use.js', 'pkgs/x/dist/x.js'],
+    ],
+  },
+  {
+    name: 'a trailing slash specifier resolves the directory only, never a same named file',
+    files: {
+      'lib.js': 'export default 0;\n',
+      'lib/index.js': 'export default 1;\n',
+      'src/util/index.ts': 'export default 1;\n',
+      'src/app.js': "import x from '../lib/';\nconst u = require('./util/');\n",
+      'src/index.js': 'export default 1;\n',
+      'src/util/deep.js': "import s from '../';\n",
+    },
+    edges: [
+      ['src/app.js', 'lib/index.js'],
+      ['src/app.js', 'src/util/index.ts'],
+      ['src/util/deep.js', 'src/index.js'],
+    ],
+    notEdges: [['src/app.js', 'lib.js']],
+  },
+  {
+    name: 'workspace globs: ** matches nested package dirs, * matches one level only',
+    files: {
+      'package.json': '{ "workspaces": ["apps/**", "libs/*"] }',
+      'apps/web/admin/package.json': '{ "name": "admin", "main": "index.js" }',
+      'apps/web/admin/index.js': 'export default 1;\n',
+      'libs/a/package.json': '{ "name": "liba", "main": "index.js" }',
+      'libs/a/index.js': 'export default 1;\n',
+      'libs/a/deep/package.json': '{ "name": "deep", "main": "index.js" }',
+      'libs/a/deep/index.js': 'export default 1;\n',
+      'main.js': "import a from 'admin';\nimport b from 'liba';\nimport d from 'deep';\n",
+    },
+    edges: [
+      ['main.js', 'apps/web/admin/index.js'],
+      ['main.js', 'libs/a/index.js'],
+    ],
+    notEdges: [['main.js', 'libs/a/deep/index.js']],
+  },
   {
     name: 'npm workspaces: bare package name and subpath resolve via main and dir',
     files: {
@@ -127,10 +183,8 @@ const CASES = [
       'src/mypkg/core.py': 'X = 1\n',
       'scripts/tool.py': 'import mypkg.core\nfrom mypkg import core\n',
     },
-    edges: [
-      ['scripts/tool.py', 'src/mypkg/core.py'],
-      ['scripts/tool.py', 'src/mypkg/__init__.py'],
-    ],
+    edges: [['scripts/tool.py', 'src/mypkg/core.py']],
+    notEdges: [['scripts/tool.py', 'src/mypkg/__init__.py']],
   },
   {
     name: 'python nested root: a deeper parent of a top-level package is also a root',
@@ -183,6 +237,52 @@ const CASES = [
       ['src/app.js', 'src/@scoped.thing/index.js'],
     ],
   },
+  {
+    name: 'python from-import: imported names that are submodules resolve to the submodule, not __init__.py',
+    files: {
+      'src/pkg/__init__.py': 'from .app import App\n',
+      'src/pkg/app.py': 'from . import cli\nfrom . import typing as ft\nfrom .helpers import (\n    get_debug,\n    sub as s,\n)\nfrom .. import top\n',
+      'src/pkg/cli.py': 'X = 1\n',
+      'src/pkg/typing.py': 'T = 1\n',
+      'src/pkg/helpers.py': 'def get_debug(): pass\n',
+      'src/pkg/blueprints.py': 'from pkg import cli, App\nfrom pkg.sansio import scaffold\n',
+      'src/pkg/sansio/__init__.py': '',
+      'src/pkg/sansio/scaffold.py': 'S = 1\n',
+      'src/top.py': 'TOP = 1\n',
+    },
+    edges: [
+      ['src/pkg/app.py', 'src/pkg/cli.py'],
+      ['src/pkg/app.py', 'src/pkg/typing.py'],
+      ['src/pkg/app.py', 'src/pkg/helpers.py'],
+      ['src/pkg/app.py', 'src/top.py'],
+      ['src/pkg/blueprints.py', 'src/pkg/cli.py'],
+      ['src/pkg/blueprints.py', 'src/pkg/__init__.py'],
+      ['src/pkg/blueprints.py', 'src/pkg/sansio/scaffold.py'],
+      ['src/pkg/__init__.py', 'src/pkg/app.py'],
+    ],
+    notEdges: [
+      ['src/pkg/app.py', 'src/pkg/__init__.py'],
+      ['src/pkg/blueprints.py', 'src/pkg/sansio/__init__.py'],
+    ],
+  },
+  {
+    name: 'python from-import: comments in a name list and backslash continuations keep every submodule',
+    files: {
+      'pkg/__init__.py': '',
+      'pkg/a.py': 'from . import (  # the views\n    b,  # first\n    c,\n)\nfrom . import d, \\\n    e\n',
+      'pkg/b.py': '',
+      'pkg/c.py': '',
+      'pkg/d.py': '',
+      'pkg/e.py': '',
+    },
+    edges: [
+      ['pkg/a.py', 'pkg/b.py'],
+      ['pkg/a.py', 'pkg/c.py'],
+      ['pkg/a.py', 'pkg/d.py'],
+      ['pkg/a.py', 'pkg/e.py'],
+    ],
+    notEdges: [['pkg/a.py', 'pkg/__init__.py']],
+  },
 ];
 
 for (const c of CASES) {
@@ -201,3 +301,8 @@ for (const c of CASES) {
     }
   });
 }
+
+test('resolve.js holds no NUL byte, so ripgrep and grep read it as text', () => {
+  const src = readFileSync(fileURLToPath(new URL('../src/resolve.js', import.meta.url)));
+  assert.equal(src.indexOf(0), -1, 'a literal NUL byte makes ripgrep skip the file; write it as an escape');
+});

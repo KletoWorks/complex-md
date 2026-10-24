@@ -461,9 +461,10 @@ Three ways to produce a conforming COMPLEX.md:
 1. **The CLI**, the reference implementation. `npx complex-md` builds the
    dependency graph and reads the history locally, writes the front
    matter itself so no number
-   passes through a model, and makes one model call for the prose (or hands
-   the prompt bundle to the agent you are already using when no API key is
-   set). Without a key it sends nothing. With a key, the one call carries
+   passes through a model, and makes one model call for the prose (or, when
+   no API key is set, writes template prose from the computed numbers and
+   hands the prompt bundle to the agent you are already using). Without a
+   key it sends nothing. With a key, the one call carries
    the signals and excerpts of up to ten hotspot files, about 60,000
    characters in all. The same package provides the hooks described
    under "Enforcement and runtime".
@@ -541,7 +542,8 @@ Stage 3 of generation, in full:
    Code never gets one, because `CLAUDE.md` carries the block.
 5. If `REVIEW.md` exists, add the line `@COMPLEX.md` to it, so Claude Code
    Review includes the map. Never create `REVIEW.md`.
-6. Install the hooks (next section) where the tool directories exist.
+6. Install the hooks (next section) only when asked. A default wiring
+   writes no hook into any file.
 7. OpenClaw and Hermes are wired only on request: they get the portable
    skill `.agents/skills/complex-md/SKILL.md`, which both load from the
    project.
@@ -562,11 +564,17 @@ Where step 3 writes the briefs:
 | Kiro | `.kiro/` | `.kiro/steering/complex-md-*.md` | `inclusion: fileMatch`, `fileMatchPattern` |
 | Cline | a `.clinerules/` folder | `.clinerules/complex-md-*.md` | `paths` list |
 
+Each scope key reads a glob, and a brief matches its one path only. Write
+each `[`, `]`, `{`, `}`, `*` and `?` in the path as a one character class
+(`[[]`, `[]]`, `[{]`, `[}]`, `[*]`, `[?]`), and each comma as `?`, because
+a comma splits the glob list in several of these keys. `app/[id]/page.tsx`
+becomes `app/[[]id[]]/page.tsx`.
+
 A `.agents/` folder that holds only `.agents/skills/complex-md/` does not
 count as OpenHands.
 
-`npx complex-md wire` does steps 1 to 8 idempotently, and step 7 only with
-`--for openclaw,hermes`. When `npx` is unavailable, the skill writes the
+`npx complex-md wire` does steps 1 to 8 idempotently, step 6 only with
+`--hooks`, and step 7 only with `--for openclaw,hermes`. When `npx` is unavailable, the skill writes the
 same files by hand for Claude Code and Cursor.
 
 ## Enforcement and runtime
@@ -576,7 +584,8 @@ in-context instruction is low exactly where COMPLEX.md matters: about 45
 percent compliance when editing existing code, decaying through a session.
 The long-context benchmark authors are explicit that anything critical
 belongs in deterministic enforcement outside the model. The spec therefore
-defines two mechanisms that the CLI installs and the skill wires by hand.
+defines two mechanisms that the CLI installs and the skill wires by hand,
+both on request.
 
 ### Hooks
 
@@ -595,11 +604,13 @@ Two rules become deterministic:
   partners with commit counts, tests to run. This is rule 2, enforced, plus
   the test the paragraph named.
 
-Claude Code: `PreToolUse` on `Edit|Write|MultiEdit|NotebookEdit` and `Stop`
-in `.claude/settings.json`. Cursor: `preToolUse` and `stop` in
-`.cursor/hooks.json`. Both hooks are once per session per file, keyed by the
-tool's session id, and take `--mode gate | warn | off`. `warn` lets the edit
-through with the paragraph attached, for teams that find the gate too firm.
+The hooks are opt in. Claude Code: `PreToolUse` on
+`Edit|Write|MultiEdit|NotebookEdit` and `Stop` in `.claude/settings.json`,
+or in the per user `.claude/settings.local.json`, which stays out of git.
+Cursor: `preToolUse` and `stop` in `.cursor/hooks.json`. Both hooks are
+once per session per file, keyed by the tool's session id, and take
+`--mode gate | warn | off`. `warn` lets the edit through with the paragraph
+attached, for teams that find the gate too firm.
 
 ### Diff check
 

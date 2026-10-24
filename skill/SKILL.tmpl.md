@@ -7,8 +7,8 @@ description: Generate COMPLEX.md for the current repository. Computes hotspot si
 
 You are inside a git repository. Produce a `COMPLEX.md` at the repository root
 that conforms to spec {{SPEC_VERSION}} (https://complex.md/spec). Work in
-three stages: compute the signals with the shell, write the file with the
-generation prompt at the end of this document, then wire the file into the
+three stages: compute the signals with the shell, write the file with
+{{PROMPT_REF}}, then wire the file into the
 repository's agent context files. All three stages are one job; do not stop
 after the file is written.
 
@@ -22,15 +22,17 @@ writes the front matter itself so no number passes through a model. Prefer
 it whenever Node 18 or newer is available:
 
 ```sh
-npx -y complex-md generate --agent --no-wire
+npx -y complex-md generate --agent --no-wire --yes
 ```
 
 This runs locally, calls no model, and writes two files: `.complex-md/prompt.md`,
 the generation prompt with every input filled in (front matter, signals
 table, load-bearing files, co-change pairs and seams, the profile and blind
 spots, the text of the top hotspot files with their dependents and covering
-tests), and `.complex-md/front-matter.yaml`. Read `.complex-md/prompt.md`
-and go to Stage 2. Set `tool` to `complex-md-skill/{{PROMPT_VERSION}}`.
+tests), and `.complex-md/front-matter.yaml`. It adds `.complex-md/*` to
+`.gitignore` when the entry is missing. It prints its file plan first, and
+`--yes` keeps it from waiting for an answer when your shell is a terminal.
+Read `.complex-md/prompt.md` and go to Stage 2. Set `tool` to `complex-md-skill/{{PROMPT_VERSION}}`.
 
 ### Fallback without Node
 
@@ -164,7 +166,7 @@ awk -F'\t' 'function l2(x) { return log(x) / log(2) }
 
 ## Stage 2: write the file
 
-Follow the generation prompt below exactly, using `.complex-md/prompt.md`
+Read {{PROMPT_REF}} and follow it exactly, using `.complex-md/prompt.md`
 (or the signals and file text you computed by hand) as its inputs, and
 write the result to `COMPLEX.md` in the repository root. The front matter is
 copied verbatim from the tool's output; only `tool` changes, to
@@ -234,6 +236,12 @@ alwaysApply: false
 ---
 ```
 
+   `paths` and `globs` read a glob. Write each `[`, `]`, `{`, `}`, `*` and
+   `?` in the path as a one character class (`[[]`, `[]]`, `[{]`, `[}]`,
+   `[*]`, `[?]`) and each comma as `?`, so `app/[id]/page.tsx` becomes
+   `app/[[]id[]]/page.tsx`. Put a `paths` value that then starts with `[`
+   in double quotes.
+
    `npx -y complex-md wire` also writes briefs for OpenHands, Antigravity,
    Copilot code review, Devin Desktop, Windsurf, Kiro and Cline, each in
    its own folder.
@@ -256,12 +264,15 @@ alwaysApply: false
    that line on its own at the end, so Claude Code Review includes the map.
    Never create `REVIEW.md`.
 
-6. Hooks. Rules are advisory; the research puts
-   compliance near half when an agent edits existing code late in a session.
-   Hooks make the two rules that matter deterministic.
-   `npx -y complex-md wire`: it performs steps 1 to 5 idempotently and adds
-   the hooks below. Otherwise write them by hand,
-   merging into any existing file rather than replacing it:
+6. Hooks, only when the user asks for them. Skip this step otherwise.
+   Rules are advisory; the research puts compliance near half when an
+   agent edits existing code late in a session. Hooks make the two rules
+   that matter deterministic, and they cost more per run.
+   `npx -y complex-md wire --hooks` performs steps 1 to 5 idempotently and
+   adds the hooks below. Otherwise write them by hand, merging into any
+   existing file rather than replacing it. For one user only, write the
+   Claude Code hooks to `.claude/settings.local.json` instead
+   (`wire --hooks --local`):
 
    `.claude/settings.json` (when `.claude/` or `CLAUDE.md` exists):
 

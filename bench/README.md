@@ -9,7 +9,8 @@ it. Results: [RESULTS.md](RESULTS.md).
 Each task is a real fix commit: the issue (or PR) text is the prompt, the
 commit's parent is the starting point, the source files the fix touched are
 the answer, and the tests the fix was verified by are the gold tests. The
-agent runs from a clean worktree at the parent commit under two or more arms:
+agent runs from a fresh repository at the parent commit under two or more
+arms:
 
 | arm | what the agent gets |
 |---|---|
@@ -17,7 +18,11 @@ agent runs from a clean worktree at the parent commit under two or more arms:
 | `front` | COMPLEX.md front matter only: the computed numbers, no prose |
 | `file` | COMPLEX.md computed as of that commit, wired (`CLAUDE.md`, path-scoped rule) |
 | `hooks` | `file` plus the PreToolUse gate and Stop check |
-| `mcp` | `hooks` plus the MCP server |
+| `gold` | no agent: the real fix's source change, judged like a patch |
+
+`gold` is an oracle. It shows which regressions the fix itself causes and
+which tests are flaky. The `mcp` arm (`hooks` plus the MCP server) is retired. Its published rows
+stay readable, and `run.mjs` refuses the arm name.
 
 An arm gets what this checkout's `wire` writes. The published runs were
 wired when `wire` also wrote `.claude/rules/complex-md.md`: the
@@ -26,11 +31,64 @@ integration block again, loaded when the agent touched a listed path.
 those runs measured. Each new row records `cli_version` and `cli_commit`,
 the CLI that wired it. Compare a rerun with rows wired the same way.
 
-One map serves each calendar month of fix dates, which is how often a map
-gets regenerated in practice. It is computed at the base commit of the first
-task the harness runs in that month, with the history window anchored there.
-When a later run task in the same month has an earlier fix, that fix is
-inside the map's history.
+The harness fetches the parent commit from the dataset clone into a new
+repository, so the agent sees the parent's history and nothing after it: no
+other branches, no tags, no remote refs and no reflog. The harness checks
+the object store and every ref against the base commit, and it refuses a
+run if anything else is there.
+
+The map is computed as of the task's month, which is how often a map gets
+regenerated in practice. Each calendar month of task dates gets one map,
+built at the oldest base commit among that month's tasks. A map serves a
+task only when the map's commit is the task's base or an ancestor of it.
+The harness refuses the task otherwise, so the fix under test never enters
+its own map.
+
+**Isolation.** Each agent runs in its own Linux network, mount and PID
+namespaces with all capabilities dropped (`bench/sandbox.mjs`):
+
+- Network: the only way out is a CONNECT proxy that admits
+  `api.anthropic.com` and `platform.claude.com`. `--allow-host` adds hosts.
+- Files: /tmp, /root, /home, /run and the other mask roots are hidden behind
+  empty mounts, and so are the dataset clone, the results and this
+  directory. The agent sees its checkout, a copy of the dependencies, the
+  Node install, and its own install and credentials. `--mask` hides more
+  directories.
+- Context and tools: every arm passes `--strict-mcp-config` with an empty
+  server list, claude.ai connectors are off, and `--disallowedTools
+  WebFetch,WebSearch` keeps web reads out. A web search runs on the model
+  provider's side, past the proxy.
+
+The sandbox needs root and util-linux, so campaigns run as root on Linux.
+`--no-sandbox` runs without it, and the report lists every run that ran
+unisolated, which includes all 246 runs recorded before the sandbox. Before
+a campaign, run the probe agent on the real dataset:
+
+```sh
+CX_PROBE_MARKER=<a string from a later commit> node bench/run.mjs --agent probe --stop-at none ...
+```
+
+Every `probe` event in the transcripts must say `leaked: false`.
+
+Known gaps in the isolation:
+
+- The Node install stays visible, and Node ships its own copy of undici
+  (Node 24.22.1 has undici 7.30.1, and npm carries another). An agent with
+  `Bash(node:*)` can read that copy, which can hold the real fix of an
+  undici task. Treat undici results with this in mind, or run them on a
+  Node whose built in undici is older than the earliest task.
+- The dependency copy comes from the clone's `node_modules` at HEAD. A newer
+  published copy of the package under test could hold the fix.
+- The OAuth credentials are readable inside the sandbox, so an agent could
+  call the model API itself through the allowed host.
+- Paths outside the mask roots stay visible, and masked file names are
+  visible with empty contents.
+
+**Caps.** A run that hits the budget, the turn cap or the timeout is judged
+like any other run. It is recorded in `stopped` and shown in the report's
+`capped` column. A timeout sends SIGINT, then SIGKILL after `--grace`
+seconds (30 by default), so the agent's result event and its cost are kept.
+Every row records `wall_ms` from the harness clock.
 
 **Task selection.** `make-dataset.mjs --danger` keeps the fixes that touched
 a file the map calls risky (a hotspot, a load-bearing file, one side of a
@@ -96,7 +154,9 @@ without the regression suite.
 Runs use the local `claude` login by default; set `ANTHROPIC_API_KEY` to
 bill the API directly instead. `--setting-sources project` keeps the user's
 own CLAUDE.md and hooks out of every arm. The hooks arm points at this
-checkout's `cli/bin/complex-md.js`.
+checkout's `cli/bin/complex-md.js`. An unknown `--agent` or `--arms` name
+exits 2 before any run. With `CX_BENCH_NO_MODEL=1` the harness refuses every
+model call, which is how its own tests run.
 
 ## Training the integration block
 
@@ -142,6 +202,24 @@ These scripts read committed runs and fix history. They spend nothing.
   selectors on the tests agents broke in recorded runs, and `--summary
   bench/results/selectors` pools the repositories. Method and tables:
   [SELECTORS.md](SELECTORS.md).
+
+## Which models write a usable map
+
+These scripts call models through OpenRouter, so they spend money. Each
+prices its run before the first call.
+
+- `node bench/models.mjs`: the model matrix. It writes a map for ky,
+  itsdangerous and pflag, each pinned by commit, with each model on
+  OpenRouter. It scores each map with `mapcheck.mjs` and writes pass or fail
+  per check per model, with no ranking. `--dry-run` prices the run and calls
+  nothing, and `--budget` (default 10 USD) refuses a larger run. A model with
+  no fixed price is refused. The key comes from
+  `OPENROUTER_API_KEY_COMPLEXMD` only. The default matrix of 15 models, 12
+  of them open weights, prices at 2.02 USD at most for 45 calls.
+- `bench/mapcheck.mjs`: six string checks on one map: the front matter is
+  byte identical, the four sections are present, every named path exists,
+  there is one directive per hot file, the sentences are within the length
+  limit, and there are no em dashes.
 
 ## Caveats
 

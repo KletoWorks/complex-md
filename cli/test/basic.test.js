@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { parseComplexMd, parseFrontMatter } from '../src/complexmd.js';
@@ -128,6 +128,15 @@ test('signals on a synthetic repo: churn, fixes, pairs, fan-in, covering tests, 
   assert.equal(s.window_commits, 6);
 });
 
+test('pairFloor lists the pairs under the shared commit cut and leaves pair_min alone', () => {
+  const dir = makeRepo();
+  const plain = computeSignals(dir);
+  const all = computeSignals(dir, { pairFloor: 1 });
+  assert.deepEqual(plain.co_change.map((c) => c.files.join('+')), ['src/a.js+src/b.js']);
+  assert.ok(all.co_change.some((c) => c.count === 1 && c.files.join('+') === 'README.md+src/a.js'), 'the first commit pairs every file once');
+  assert.equal(all.profile.pair_min, plain.profile.pair_min);
+});
+
 test('file kinds: tests, docs, manifests, generated, vendored, config, style, markup, data, source', async () => {
   const { classify } = await import('../src/graph.js');
   assert.equal(classify('src/app.test.js'), 'test');
@@ -181,8 +190,8 @@ test('wire is idempotent for hooks and MCP under both invocations', async () => 
   mkdirSync(join(dir, '.claude'));
   // A pre-existing entry in the registry form must be recognized as ours.
   writeFileSync(join(dir, '.cursor/hooks.json'), JSON.stringify({ version: 1, hooks: { preToolUse: [{ command: 'npx -y complex-md hook cursor-pre', matcher: 'Write' }] } }));
-  wire(dir, { agents: ['claude', 'cursor'] });
-  wire(dir, { agents: ['claude', 'cursor'] });
+  wire(dir, { agents: ['claude', 'cursor'], hooks: true });
+  wire(dir, { agents: ['claude', 'cursor'], hooks: true });
   const cursor = JSON.parse(readFileSync(join(dir, '.cursor/hooks.json'), 'utf8'));
   const claude = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
   assert.equal(cursor.hooks.preToolUse.filter((h) => /hook cursor-pre/.test(h.command)).length, 1);
@@ -312,8 +321,8 @@ test('blind spots name source files that a NUL byte hides from ripgrep and grep'
   assert.match(note, /ripgrep/);
   assert.match(note, /Claude Code's Grep tool/);
   assert.match(note, /GNU grep prints a binary file notice/);
-  // A double quote would reach the front matter escaped and read back with
-  // its backslash, so the note carries none.
+  // A double quote reaches the front matter escaped, and a reader with a
+  // simpler YAML parser may keep the backslash, so the note carries none.
   assert.doesNotMatch(note, /"/);
   assert.doesNotMatch(note, /grep treats/);
   // The file list reads as its own clause after the colon.
@@ -347,6 +356,35 @@ test('the NUL blind spot ignores binary formats and fixture or data paths', () =
   assert.match(note, /src\/late\.js/);
   assert.match(note, /tests\/test_parse\.py/);
   for (const f of ['sherlock', 'django.mo', 'archive.tar', 'payload.py', 'input.go', '__mocks__']) assert.ok(!note.includes(f), `${f} is not a source file to fix`);
+});
+
+/* A data/ folder outside a test tree is application code: src/data/ holds
+   loaders and schemas, not fixtures. Only data folders inside a test tree
+   are exempt. */
+test('the NUL blind spot exempts data folders inside test trees only', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-nul-data-'));
+  const g = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' } });
+  g('init', '-q');
+  const files = {
+    'src/data/x.ts': 'export const s = "a\0b";\n',
+    'lib/datasets/load.py': 'S = "a\0b"\n',
+    'app/seed-data/seed.js': 'export const s = "\0";\n',
+    'tests/data/blob.py': 'B = "\0"\n',
+    'test/unit/data/case.js': 'export const b = "\0";\n',
+    'spec/datasets/rows.rb': 'R = "\0"\n',
+  };
+  for (const [p, s] of Object.entries(files)) {
+    mkdirSync(join(dir, dirname(p)), { recursive: true });
+    writeFileSync(join(dir, p), s);
+  }
+  g('add', '.');
+  g('commit', '-q', '-m', 'init');
+
+  const note = computeSignals(dir).blind_spots.find((b) => /NUL byte/.test(b));
+  assert.ok(note, 'source under a data folder outside tests is reported');
+  assert.match(note, /3 source files contain/);
+  for (const f of ['src/data/x.ts', 'lib/datasets/load.py', 'app/seed-data/seed.js']) assert.ok(note.includes(f), `${f} is application code`);
+  for (const f of ['tests/data/blob.py', 'test/unit/data/case.js', 'spec/datasets/rows.rb']) assert.ok(!note.includes(f), `${f} is a test fixture`);
 });
 
 /* Wiring must never look like it owns the repository's conventions. Two
@@ -408,4 +446,26 @@ test('wire takes a replacement integration block and keeps the heading that mark
   assert.doesNotMatch(agents, /past fixes predict where the next one lands/, 'the default text is not there');
   const second = wire(dir, { agents: ['claude'], block: 'Read COMPLEX.md before any edit to a listed file.' });
   assert.deepEqual(second.primary, [], 'the heading makes the block recognisable on a second run');
+});
+
+/* The log marks each commit header with a prefix. A top level folder such
+   as @types/ or @scope/ starts a file line with @, and a header prefix of
+   @ read that line as a new commit with no files. */
+test('a top level path that starts with @ counts as a file, not a commit header', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-at-'));
+  const g = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' } });
+  g('init', '-q');
+  mkdirSync(join(dir, '@scope'));
+  for (let i = 0; i < 3; i++) {
+    writeFileSync(join(dir, '@scope/lib.js'), `export const v = ${i};\n`);
+    writeFileSync(join(dir, 'main.js'), `import { v } from './@scope/lib.js';\nexport const w = v + ${i};\n`);
+    g('add', '.');
+    g('commit', '-q', '-m', i ? `fix: step ${i}` : 'feat: start');
+  }
+  const s = computeSignals(dir);
+  assert.equal(s.window_commits, 3, 'three commits, no extra header per @ line');
+  const row = s.table.find((r) => r.path === '@scope/lib.js');
+  assert.ok(row, '@scope/lib.js is in the table');
+  assert.equal(row.churn, 3);
+  assert.equal(row.fixes, 2);
 });

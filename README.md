@@ -13,20 +13,57 @@ npx complex-md
 ```
 
 One run computes the signals, writes COMPLEX.md, and wires it in: the
-integration block in the agent files, a rule per hot path carrying that
-file's own brief, and the PreToolUse and Stop hooks. The briefs go where
-each agent or review bot the repository uses reads them: Claude Code,
-Cursor, Copilot code review and cloud agent, OpenHands, Antigravity, Devin
-Desktop, Windsurf, Kiro and Cline. A `REVIEW.md` that exists gets an
-`@COMPLEX.md` line for Claude Code Review. The package lives in `cli/`. Without `npx`,
-the skill does the same by hand: download https://complex.md/complex-md.skill.md
-and run it with any coding agent inside the repo.
+integration block in the agent files and a rule per hot path carrying that
+file's own brief. `--hooks` adds the PreToolUse and Stop hooks. The briefs
+go where each agent or review bot the repository uses reads them: Claude
+Code, Cursor, Copilot code review and cloud agent, OpenHands, Antigravity,
+Devin Desktop, Windsurf, Kiro and Cline. A `REVIEW.md` that exists gets an
+`@COMPLEX.md` line for Claude Code Review. Before the first write, the run
+prints every file it will create or change, and in a terminal it asks once.
+
+With a provider key, one model call writes the prose. Without a key, the run
+writes template prose built from the computed numbers, so it still ends with
+a wired map. `npx complex-md --via claude` writes the prose with an agent
+CLI you already run, under your own login. The package lives in `cli/`.
+Without `npx`, the skill does the same by hand: download
+https://complex.md/complex-md.skill.md and run it with any coding agent
+inside the repo.
 
 If npm answers `No versions available for complex-md`, the repository's
 `.npmrc` (or your user config) sets `min-release-age`, npm's guard against
 packages published within the last few days. Run
 `npm_config_min_release_age=0 npx -y complex-md` once, or wait for the
 release to age past the threshold.
+
+## Install the skill as a package
+
+Claude Code:
+
+```sh
+claude plugin marketplace add KletoWorks/complex-md
+claude plugin install complex-md@complex-md
+```
+
+In a session: `/plugin install complex-md --marketplace KletoWorks/complex-md`.
+
+Codex:
+
+```sh
+codex plugin marketplace add KletoWorks/complex-md
+codex plugin add complex-md@complex-md
+```
+
+Gemini CLI:
+
+```sh
+gemini extensions install https://github.com/KletoWorks/complex-md
+```
+
+Each package carries one skill. The package adds no hooks and no MCP
+server. When it runs, the skill can wire hooks into your repository. At
+session start each tool loads 74 to 141 tokens: the skill's name and
+description, plus a 4 sentence context file for Gemini CLI. The rest of the
+skill loads only when it runs.
 
 
 ## Why not just let the agent search?
@@ -122,6 +159,18 @@ can attach it to an issue or open it offline. It reads the map and the origin
 remote only, never the history. Without a COMPLEX.md, the command tells you how
 to make one and exits 2.
 
+## Check that the map is current
+
+```sh
+npx complex-md verify
+```
+
+`verify` recomputes the signals with no model call and compares them with
+the committed front matter. Exit 0 means fresh, 1 means drift past
+tolerance, and 2 means there is no map or the clone is shallow. A file that
+sits at the edge of a list does not flip the result on every commit, so the
+command can run in CI on each push.
+
 ## Measured, not asserted
 
 Agents follow it. On two repositories with no shared tasks, agents ran the
@@ -139,7 +188,10 @@ base commit. Tables, method
 and raw runs: [bench/RESULTS.md](bench/RESULTS.md).
 
 The map is computed on your machine by `npx complex-md`. The one model call
-is the optional prose step at generation time.
+is the optional prose step at generation time. The CLI sends no telemetry.
+Its only network request is that model call, which a provider key or
+`--provider` selects, and `cli/test/telemetry.test.js` fails on any other
+request.
 
 ## Layout
 
@@ -147,7 +199,8 @@ is the optional prose step at generation time.
 | --- | --- |
 | `prompts/generate.md` | The versioned generation prompt. Single source of truth for the CLI and the skill. |
 | `prompts/integration.md` | The normative wiring block appended to AGENTS.md, CLAUDE.md and friends. Served at /integration.md. |
-| `cli/` | The `complex-md` npm package: signals engine, generator, wiring, hooks, diff check, impact, and an opt in MCP server. `npm test` here or inside it. |
+| `cli/` | The `complex-md` npm package: signals engine, generator, wiring, hooks, diff check, drift check, impact, and an opt in MCP server. `npm test` here or inside it. |
+| `plugins/complex-md/`, `skills/`, `gemini-extension.json` | The skill as a package for Claude Code, Codex, Gemini CLI and any Agent Skills reader. The build renders each copy from the template. |
 | `examples/` | Reference COMPLEX.md files, starting with fastify. This repository carries its own at the root. |
 | `bench/` | Collateral damage benchmark on real fix commits, paired arms: does the agent run the tests the map names, pass the fix's tests, and leave the rest of the suite green? `bench/repro/` holds standalone reproductions. |
 | `docs/` | Research behind the spec: signal verdicts, agent context-file evidence, wiring mechanics. |

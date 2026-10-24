@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { registryInvocation, hookCommand } from '../cli/src/invoke.js';
+import { renderSkill, renderReference, SKILL_COPIES, stampVersions } from './skill.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
@@ -295,15 +295,16 @@ if (existsSync(artDir)) {
 
 // The downloadable skill: template + the generation prompt + the canonical
 // integration block, all verbatim from their single sources in prompts/.
-const skill = readFileSync(join(ROOT, 'skill/SKILL.tmpl.md'), 'utf8')
-  .replaceAll('{{PROMPT_VERSION}}', promptVersion)
-  .replaceAll('{{SPEC_VERSION}}', specVersion)
-  .replace('{{INTEGRATION_BLOCK}}', integrationBlock)
-  // Hook entries an agent writes by hand: the exact command wire writes,
-  // pinned to this CLI version, so the two never drift apart.
-  .replace(/\{\{HOOK:([a-z -]+)\}\}/g, (_, sub) => hookCommand(registryInvocation(), sub))
-  .replace('{{GENERATE_PROMPT}}', genPrompt.replace(/^---[\s\S]*?---\n\n/, ''));
+// Each agent package gets the same text split in two: SKILL.md, and the
+// generation prompt in references/generate.md beside it.
+const skill = renderSkill(ROOT);
 writeFileSync(join(DIST, 'complex-md.skill.md'), skill);
+for (const p of SKILL_COPIES) {
+  mkdirSync(join(dirname(join(ROOT, p)), 'references'), { recursive: true });
+  writeFileSync(join(ROOT, p), renderSkill(ROOT, { split: true }));
+  writeFileSync(join(dirname(join(ROOT, p)), 'references', 'generate.md'), renderReference(ROOT));
+}
+stampVersions(ROOT);
 writeFileSync(join(DIST, 'integration.md'), integrationBlock + '\n');
 
 // The CLI package ships the same two prompts; keep its copies in lockstep.

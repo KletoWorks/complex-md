@@ -1,0 +1,37 @@
+# Unlisted. GitHub offers only the forms in .github/ISSUE_TEMPLATE/, and no
+# hosted page exists yet. Move this file there when hosted pages ship.
+name: A hosted page removal request
+description: Ask to remove a page on complex.md that shows a map of your repository.
+labels: [removal]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A maintainer of a repository can ask to remove its page on complex.md. The page is removed within 24 hours of a confirmed request.
+        Open this issue from an account with write access to the repository. If you cannot, say in "Anything else" how the maintainer can confirm that you maintain it.
+  - type: input
+    id: page
+    attributes:
+      label: Page URL
+      placeholder: https://complex.md/OWNER/REPO
+    validations:
+      required: true
+  - type: input
+    id: repository
+    attributes:
+      label: Repository URL
+      placeholder: https://github.com/OWNER/REPO
+    validations:
+      required: true
+  - type: checkboxes
+    id: maintainer
+    attributes:
+      label: Maintainer
+      options:
+        - label: I maintain this repository or act for its owner.
+          required: true
+  - type: textarea
+    id: other
+    attributes:
+      label: Anything else
+      description: Optional. A reason helps improve the pages, but a request needs no reason.

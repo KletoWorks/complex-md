@@ -3,22 +3,43 @@ import { createRequire } from 'node:module';
 import { repoRoot, hasCommits, resolvesCommit } from '../src/git.js';
 
 const pkg = createRequire(import.meta.url)('../package.json');
-const [, , cmd = 'generate', ...args] = process.argv;
+/* `npx complex-md --no-wire` is the default command with a flag, so a first
+   argument that is a flag, other than --version and --help, means generate. */
+const argv = process.argv.slice(2);
+const bare = /^-/.test(argv[0] || '') && !['--version', '-v', '--help', '-h'].includes(argv[0]);
+const [cmd = 'generate', ...args] = bare ? ['generate', ...argv] : argv;
 const flag = (name) => args.includes(name);
 const opt = (name) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : null;
 };
 const log = (s) => process.stderr.write(s + '\n');
+const SITE_URL = 'https://complex.md/?utm_source=cli';
+/* Hooks are written only on request: --hooks to the committed settings,
+   --hooks --local to Claude Code's per user settings file. */
+const hooksOption = () => {
+  if (!flag('--hooks')) {
+    if (flag('--local')) log('complex-md: --local applies to --hooks; no hooks written.');
+    return false;
+  }
+  return flag('--local') ? 'local' : true;
+};
 
 const HELP = `complex-md ${pkg.version}  https://complex.md
 
-  npx complex-md                 generate COMPLEX.md, then wire it in (rules per hot path, hooks)
+  npx complex-md                 generate COMPLEX.md, then wire it in (a brief per hot path)
   npx complex-md generate        same; --agent writes the prompt bundle for your agent instead of calling a model
-                                 --model <id>  --provider <name>  --no-wire  --no-hooks
+                                 --template writes template prose from the computed numbers, with no model call
+                                 --model <id>  --provider <name>  --no-wire  --hooks  --local
+                                 prints the file plan first; asks once in a terminal, --yes skips the question
+                                 --via <cli> writes the prose with an agent CLI you already run, in its print
+                                 mode, under your own login: claude, codex, gemini, opencode, qwen, kimi, crush,
+                                 goose, cursor-agent, copilot, hermes, openclaw (--model is passed to it;
+                                 --via-timeout <s>, default 600)
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
-                                 --no-hooks  --for claude,cursor,openhands,antigravity,codex,copilot,review,devin,
-                                 windsurf,kiro,cline,openclaw,hermes
+                                 --hooks also writes the edit hooks: .claude/settings.json, .cursor/hooks.json
+                                 --hooks --local writes them to .claude/settings.local.json only, kept out of git
+                                 --for {targets}
                                  (default: detect repo-local targets; openclaw/hermes are opt-in only and get
                                   .agents/skills/complex-md/SKILL.md)
                                  --mcp also registers the MCP server; openclaw/hermes are global
@@ -27,6 +48,8 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  --json | --strict (exit 1 when a declared bound is exceeded)
   npx complex-md check           report hotspots, untouched co-change partners and hand edited briefs in the change
                                  --staged | --base <ref> | --json | --strict (exit 1 on findings)
+  npx complex-md verify          recompute the signals and compare them with COMPLEX.md, no model call
+                                 exit 0 fresh, 1 drift past tolerance, 2 cannot verify  (--json)
   npx complex-md signals         print the signals table  (--json | --tsv)
   npx complex-md report          render COMPLEX.md as a page: .complex-md/report.html (treemap, directives,
                                  co-change, blind spots); one self contained file, no network
@@ -34,15 +57,37 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
 
 Model call: the first configured provider wins, or pick one with --provider / --model provider/id.
 Keys: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, XAI_API_KEY,
-DEEPSEEK_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, TOGETHER_API_KEY; local Ollama via OLLAMA_HOST;
-any OpenAI-compatible endpoint via COMPLEX_MD_BASE_URL (+ COMPLEX_MD_API_KEY).
-Without any of them the prompt bundle goes to .complex-md/prompt.md for the agent you already run.
+DEEPSEEK_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, TOGETHER_API_KEY, MOONSHOT_API_KEY (Kimi),
+DASHSCOPE_API_KEY (Qwen), ZAI_API_KEY (GLM), MINIMAX_API_KEY, FIREWORKS_API_KEY, CEREBRAS_API_KEY.
+Named only with --provider: huggingface (HF_TOKEN), ollama (OLLAMA_HOST), lmstudio (LM Studio on
+localhost:1234). Any OpenAI-compatible endpoint via COMPLEX_MD_BASE_URL (+ COMPLEX_MD_API_KEY).
+Without any of them, COMPLEX.md gets template prose built from the computed numbers, and the
+prompt bundle goes to .complex-md/prompt.md for the agent you already run. Template prose never
+replaces prose that a model or a person wrote; --template does.
 Without a key nothing is sent. With one, that call sends the signals and excerpts of up to ten
-hotspot files, about 60,000 characters of code at most, to the provider you chose.`;
+hotspot files, about 60,000 characters of code at most, to the provider you chose.
+With --via, the same bundle goes to the agent CLI you named, which sends it to the model it uses.`;
+
+/* The --for names come from the target table, so the list in --help
+   cannot drift from what wire accepts. targets.js loads only when help
+   prints, so a hook run does not pay for it. */
+async function help() {
+  const { OFFERED_TARGETS } = await import('../src/targets.js');
+  return HELP.replace(/^(.*)\{targets\}$/m, (_, lead) => {
+    const indent = ' '.repeat(lead.length - lead.trimStart().length);
+    const lines = [lead];
+    OFFERED_TARGETS.forEach((name, i) => {
+      const piece = name + (i < OFFERED_TARGETS.length - 1 ? ',' : '');
+      if (lines.at(-1).length + piece.length > 115) lines.push(indent);
+      lines[lines.length - 1] += piece;
+    });
+    return lines.join('\n');
+  });
+}
 
 async function main() {
   if (cmd === '--version' || cmd === '-v') return console.log(pkg.version);
-  if (cmd === 'help' || cmd === '--help' || cmd === '-h') return console.log(HELP);
+  if (cmd === 'help' || cmd === '--help' || cmd === '-h') return console.log(await help());
 
   if (cmd === 'hook') {
     const { runHook } = await import('../src/hook.js');
@@ -63,7 +108,7 @@ async function main() {
     const { join } = await import('node:path');
     const { writeReport } = await import('../src/report.js');
     const dir = repoRoot(process.cwd()) || process.cwd();
-    const out = writeReport(dir, { version: pkg.version });
+    const out = writeReport(dir, { version: pkg.version, log });
     if (!out) {
       log(existsSync(join(dir, 'COMPLEX.md'))
         ? `complex-md: ${join(dir, 'COMPLEX.md')} has no front matter block to read. Regenerate it with npx complex-md, then run npx complex-md report again.`
@@ -119,6 +164,16 @@ async function main() {
     return;
   }
 
+  if (cmd === 'verify') {
+    const { verifyMap, formatVerify } = await import('../src/verify.js');
+    const r = verifyMap(root);
+    if (flag('--json')) console.log(JSON.stringify(r, null, 2));
+    else if (r.status === 'error') log(formatVerify(r));
+    else console.log(formatVerify(r));
+    process.exitCode = r.status === 'fresh' ? 0 : r.status === 'drift' ? 1 : 2;
+    return;
+  }
+
   if (cmd === 'impact') {
     const target = args.find((a) => !a.startsWith('-') && a !== 'impact');
     if (!target) { console.error('usage: complex-md impact <path>'); process.exit(2); }
@@ -147,22 +202,51 @@ async function main() {
 
   if (cmd === 'wire') {
     const { wire } = await import('../src/wire.js');
-    wire(root, { hooks: !flag('--no-hooks'), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
+    wire(root, { hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
     return;
   }
 
   if (cmd === 'generate') {
     const { generate } = await import('../src/generate.js');
-    const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), log });
+    const { planWire, formatPlan, confirmPlan } = await import('../src/plan.js');
+    const wireOpts = { hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(',') };
+    // The file plan goes out before the first write; a terminal gets one
+    // question, and --yes or a non terminal stdin never waits.
+    // On a keyed run the wiring follows the model call, so the plan says so.
+    const approve = async ({ files, fallback, mapText, keyed }) => {
+      const wiring = mapText && !flag('--no-wire') ? planWire(root, mapText, wireOpts) : [];
+      const now = keyed ? files : [...files, ...wiring];
+      const after = keyed ? wiring : [];
+      log(formatPlan(now, fallback, after));
+      return confirmPlan({ yes: flag('--yes') || (!now.length && !after.length && !fallback.length) });
+    };
+    // A bare --via must not fall through to a provider call with a set key.
+    const via = opt('--via');
+    if (flag('--via') && (!via || via.startsWith('-'))) {
+      const { VIA_NAMES } = await import('../src/via.js');
+      log(`complex-md: --via needs the name of an agent CLI: ${VIA_NAMES.join(', ')}.`);
+      process.exit(2);
+    }
+    const viaTimeout = opt('--via-timeout');
+    if (flag('--via-timeout') && !(Number(viaTimeout) > 0)) {
+      log('complex-md: --via-timeout needs a number of seconds, for example --via-timeout 900.');
+      process.exit(2);
+    }
+    const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), template: flag('--template'), via, viaTimeoutMs: viaTimeout ? Number(viaTimeout) * 1000 : undefined, approve, log });
     if (r.written && !flag('--no-wire')) {
       const { wire } = await import('../src/wire.js');
-      wire(root, { hooks: !flag('--no-hooks'), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
+      wire(root, { ...wireOpts, log });
+    }
+    if (!r.declined) {
+      const { repositoryFact } = await import('../src/template.js');
+      log(`Fact: ${repositoryFact(r.sig)}`);
+      log(SITE_URL);
     }
     return;
   }
 
   log(`unknown command: ${cmd}\n`);
-  console.log(HELP);
+  console.log(await help());
   process.exit(2);
 }
 

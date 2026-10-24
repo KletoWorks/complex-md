@@ -1,11 +1,15 @@
 // Generate COMPLEX.md: signals from git, front matter written by the tool
 // (numbers verbatim, never by a model), prose from one model call or from
 // the agent the user is already talking to.
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { computeSignals, TABLE_HEAD, rowToArray } from './signals.js';
+import { computeSignals, graphFor, detectTestCommand, TABLE_HEAD, rowToArray } from './signals.js';
+import { templateProse, packageRoots, reachableFrom } from './template.js';
+import { loadComplexMd } from './complexmd.js';
+import { ignoreWorkDir, gitignoreAction, WORK_DIR } from './gitignore.js';
 import { generatePrompt, promptVersion } from './prompts.js';
 import { resolveProvider, PROVIDERS } from './providers.js';
+import { runVia, viaSelection, viaInvocation } from './via.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json');
@@ -14,9 +18,13 @@ const PER_FILE_CHARS = 14000; // so five hotspots fit, not two
 
 const yamlStr = (s) => (/^[\w./@-]+$/.test(s) ? s : JSON.stringify(s));
 
-export function frontMatter(sig, tool) {
+/* `prose` names the source of the prose when a template wrote it. The bundle
+   and a model reply carry no such line, so both stay as they were. */
+export function frontMatter(sig, tool, { prose = null } = {}) {
   const p = sig.profile;
-  const lines = ['---', `complex_md: "${sig.spec}"`, `generated: ${sig.generated}`, `commit: ${sig.commit}`, `tool: ${tool}`, `window_commits: ${sig.window_commits}`, `files_analyzed: ${sig.files_analyzed}`];
+  const lines = ['---', `complex_md: "${sig.spec}"`, `generated: ${sig.generated}`, `commit: ${sig.commit}`, `tool: ${tool}`];
+  if (prose) lines.push(`prose: ${prose}`);
+  lines.push(`window_commits: ${sig.window_commits}`, `files_analyzed: ${sig.files_analyzed}`);
   lines.push('profile:');
   for (const [k, v] of Object.entries(p)) if (v !== null && v !== undefined) lines.push(`  ${k}: ${typeof v === 'string' ? yamlStr(v) : v}`);
   lines.push('hotspots:');
@@ -119,8 +127,22 @@ export function normalizeOutput(text, fm) {
   return fm + '\n' + prose + '\n';
 }
 
-// One model call has two minutes; a hung socket must not hang the run.
-const CALL_TIMEOUT_MS = 120000;
+/* The output cap for the Anthropic call. A whole trpc map was 12.1 KB,
+   about 3.5k tokens, and the prompt asks the model to echo the front
+   matter, which is 10 KB on django. Thinking, on by default for current
+   models, counts against the same cap. The old 4,000 cut big repositories.
+   Current models accept up to 128,000, but only with streaming; 16,000 is
+   the cap Anthropic recommends for a request without streaming. */
+export const MAX_OUTPUT_TOKENS = 16000;
+
+// One model call has five minutes, enough for a full 16,000 token reply at
+// about 60 tokens a second; a hung socket must not hang the run.
+const CALL_TIMEOUT_MS = 300000;
+
+// Stop reasons that mean the reply is complete. Anything else (max_tokens,
+// refusal, a context window limit) is a reply that must not become a map.
+const ANTHROPIC_DONE = new Set([undefined, null, 'end_turn', 'stop_sequence']);
+const OPENAI_DONE = new Set([undefined, null, 'stop']);
 
 async function readJson(res, label) {
   try {
@@ -134,12 +156,16 @@ async function callAnthropic(prompt, model) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model, max_tokens: 4000, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({ model, max_tokens: MAX_OUTPUT_TOKENS, messages: [{ role: 'user', content: prompt }] }),
     signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
   });
   const j = await readJson(res, 'Anthropic');
   if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${j.error?.message || JSON.stringify(j)}`);
   if (!Array.isArray(j.content)) throw new Error(`Anthropic API ${res.status}: malformed response, no content array (${JSON.stringify(j).slice(0, 200)})`);
+  if (!ANTHROPIC_DONE.has(j.stop_reason)) {
+    const why = j.stop_reason === 'max_tokens' ? `reply stopped at the ${MAX_OUTPUT_TOKENS} token output cap` : 'reply did not finish';
+    throw new Error(`Anthropic API: ${why} (stop_reason ${j.stop_reason}, ${j.usage?.output_tokens ?? '?'} output tokens); COMPLEX.md not written`);
+  }
   return { text: j.content.map((c) => c.text || '').join(''), usage: { input: j.usage?.input_tokens, output: j.usage?.output_tokens } };
 }
 
@@ -158,10 +184,36 @@ async function callOpenAICompat(prompt, p) {
   if (!res.ok) throw new Error(`${p.name} API ${res.status}: ${j.error?.message || JSON.stringify(j)}`);
   const content = j.choices?.[0]?.message?.content;
   if (typeof content !== 'string') throw new Error(`${p.name} API ${res.status}: malformed response, no choices[0].message.content (${JSON.stringify(j).slice(0, 200)})`);
+  // No max_tokens is sent here (OpenAI rejects it on current models), so
+  // the provider's own default caps the reply; finish_reason says if it hit.
+  const finish = j.choices[0].finish_reason;
+  if (!OPENAI_DONE.has(finish)) {
+    const why = finish === 'length' ? "reply stopped at the provider's output limit" : 'reply did not finish';
+    throw new Error(`${p.name} API: ${why} (finish_reason ${finish}, ${j.usage?.completion_tokens ?? '?'} output tokens); COMPLEX.md not written`);
+  }
   return { text: content, usage: { input: j.usage?.prompt_tokens, output: j.usage?.completion_tokens } };
 }
 
-export async function generate(root, { model = null, provider = null, agent = false, log = () => {} } = {}) {
+/** COMPLEX.md with template prose (template.js): the computed front matter, marked `prose: template`, and prose from the same signals. */
+export function templateMap(root, sig, tool) {
+  const g = graphFor(root);
+  const roots = packageRoots(root, g.kinds);
+  const prose = templateProse(sig, { reachable: reachableFrom(roots, g.edges), roots, testCommand: detectTestCommand(root) });
+  return frontMatter(sig, tool, { prose: 'template' }) + '\n' + prose;
+}
+
+/* Template prose never replaces prose a model or a person wrote: a run with
+   no key would otherwise turn a reviewed map into a generic one. A map that
+   a template wrote is refreshed, and --template replaces any map. */
+function holdsOtherProse(root) {
+  if (!existsSync(join(root, 'COMPLEX.md'))) return false;
+  return loadComplexMd(root)?.front?.prose !== 'template';
+}
+
+/* `approve({ files, fallback, mapText, keyed })` sees the file plan before
+   the first write and returns false to stop the run. `keyed` is true when
+   a model call comes first, so the wiring waits for it. */
+export async function generate(root, { model = null, provider = null, agent = false, template = false, via = null, viaTimeoutMs, approve = async () => true, log = () => {} } = {}) {
   const t0 = Date.now();
   const sig = computeSignals(root);
   log(`signals: ${sig.files_analyzed} files in scope, ${sig.profile.dependency_edges} dependency edges, ${sig.commits_analyzed} commits (${sig.fix_commits} fixes), ${sig.hotspots.length} hotspots, ${sig.co_change.length} pairs, confidence ${sig.profile.confidence}, ${Date.now() - t0} ms`);
@@ -171,36 +223,95 @@ export async function generate(root, { model = null, provider = null, agent = fa
 
   // The bundle is the fallback for every path that does not end in a
   // written COMPLEX.md: no key, --agent, or a model call that failed.
-  const writeBundle = (why) => {
+  const TELL = 'Tell your agent: "Write COMPLEX.md by following .complex-md/prompt.md exactly, then run npx complex-md wire."';
+  const saveBundle = () => {
     const dir = join(root, '.complex-md');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'prompt.md'), bundle);
     writeFileSync(join(dir, 'front-matter.yaml'), fm);
-    log(`${why}: wrote .complex-md/prompt.md (${Math.round(bundle.length / 4)} tokens approx).`);
-    log('Tell your agent: "Write COMPLEX.md by following .complex-md/prompt.md exactly, then run npx complex-md wire."');
+    if (ignoreWorkDir(root)) log(`added ${WORK_DIR}/* to .gitignore, so its working files stay out of commits; ${WORK_DIR}/bounds.json stays committable.`);
     return join(dir, 'prompt.md');
   };
+  const writeBundle = (why) => {
+    const path = saveBundle();
+    log(`${why}: wrote .complex-md/prompt.md (${Math.round(bundle.length / 4)} tokens approx).`);
+    log(TELL);
+    return path;
+  };
 
-  const sel = agent ? null : resolveProvider({ model, provider });
-  if (!sel) {
-    const promptPath = writeBundle(`no API key${agent ? ' requested' : ' found'}`);
-    log(`Or set a provider key (${PROVIDERS.filter((p) => p.env).map((p) => p.env).join(', ')}) and rerun to make the model call from here.`);
+  const keys = PROVIDERS.filter((p) => p.env).map((p) => p.env).join(', ');
+  // --via names an agent CLI on this machine; it replaces the provider call.
+  const sel = agent || template ? null : via ? viaSelection(via, model) : resolveProvider({ model, provider });
+  const mode = agent ? 'agent' : sel ? 'model' : !template && holdsOtherProse(root) ? 'keep' : 'template';
+
+  /* The file plan, before the first write. `mapText` is the map the wiring
+     will read: the template map stands in for a model reply. The front
+     matter is the same in both, so the set of wired files is the same. A
+     brief also carries its file's paragraph, so with a model reply a brief
+     can change where the plan predicts no change. */
+  // A file whose content stays the same is not in the plan.
+  const entry = (path, content = null) => {
+    const p = join(root, path);
+    if (!existsSync(p)) return [{ path, action: 'create' }];
+    return content !== null && readFileSync(p, 'utf8') === content ? [] : [{ path, action: 'change' }];
+  };
+  const bundleFiles = [...entry(`${WORK_DIR}/prompt.md`, bundle), ...entry(`${WORK_DIR}/front-matter.yaml`, fm)];
+  const ignore = gitignoreAction(root);
+  if (ignore) bundleFiles.push({ path: '.gitignore', action: ignore });
+  const writesMap = mode === 'model' || mode === 'template';
+  const mapText = writesMap ? templateMap(root, sig, tool) : null;
+  // A --via CLI that reads the bundle from a file gets it before the call.
+  const bundleFirst = Boolean(sel?.via) && viaInvocation(sel.via).input === 'file';
+  const files = mode === 'model' ? [...entry('COMPLEX.md'), ...(bundleFirst ? bundleFiles : [])] : [...(writesMap ? entry('COMPLEX.md', mapText) : []), ...bundleFiles];
+  const fallback = mode === 'model' && !bundleFirst ? bundleFiles : [];
+  if (!(await approve({ files, fallback, mapText, keyed: mode === 'model' }))) {
+    log('Nothing written.');
+    return { sig, written: false, declined: true };
+  }
+
+  if (mode === 'agent') {
+    const promptPath = writeBundle('no API key requested');
+    log(`Or set a provider key (${keys}) and rerun to make the model call from here.`);
     return { sig, written: false, promptPath };
+  }
+  if (mode === 'keep') {
+    const promptPath = writeBundle('no API key found');
+    log('COMPLEX.md exists and a template did not write its prose, so this run keeps it as it is. Pass --template to replace it with template prose.');
+    return { sig, written: false, promptPath };
+  }
+  if (mode === 'template') {
+    const out = mapText;
+    const promptPath = saveBundle();
+    writeFileSync(join(root, 'COMPLEX.md'), out);
+    log(`${template ? 'template prose requested' : 'no API key found'}: wrote COMPLEX.md (${out.split('\n').length} lines) with template prose from the computed numbers; ${Date.now() - t0} ms`);
+    log(`To replace the template prose, set a provider key (${keys}) and rerun.`);
+    log(`Or use the agent you already run. ${TELL}`);
+    return { sig, written: true, prose: 'template', promptPath };
   }
 
   log(`model: ${sel.name}/${sel.model}, prompt ${Math.round(bundle.length / 4)} tokens approx`);
   let out;
   let r;
+  if (bundleFirst) saveBundle();
   try {
-    r = sel.name === 'anthropic' ? await callAnthropic(bundle, sel.model) : await callOpenAICompat(bundle, sel);
+    r = sel.via ? await runVia(sel.via, { root, bundle, fm, model, timeoutMs: viaTimeoutMs, log }) : sel.name === 'anthropic' ? await callAnthropic(bundle, sel.model) : await callOpenAICompat(bundle, sel);
     out = normalizeOutput(r.text, fm);
   } catch (e) {
-    // Network error, non-2xx, malformed body, or prose that is not a map:
-    // the existing COMPLEX.md stays as it is and the bundle goes to the agent.
+    /* Network error, non-2xx, a stop at the cap, a malformed body, or prose
+       that is not a map: the reply is never written. A map whose prose a
+       model or a person wrote stays as it is. Otherwise the run lands
+       template prose, so a keyed run also ends with a map to wire. */
     const reason = e?.name === 'TimeoutError' ? `model call timed out after ${CALL_TIMEOUT_MS / 1000} s` : String(e?.message || e);
-    log(`model call failed: ${reason}`);
-    const promptPath = writeBundle('falling back to the prompt bundle');
-    return { sig, written: false, fallback: reason, promptPath };
+    if (holdsOtherProse(root)) {
+      log(`model call failed: ${reason}`);
+      const promptPath = writeBundle('falling back to the prompt bundle');
+      return { sig, written: false, fallback: reason, promptPath };
+    }
+    const promptPath = saveBundle();
+    writeFileSync(join(root, 'COMPLEX.md'), mapText);
+    log(`warning: model call failed (${reason}); wrote COMPLEX.md with template prose instead.`);
+    log(`Rerun to try the model call again. Or use the agent you already run. ${TELL}`);
+    return { sig, written: true, prose: 'template', fallback: reason, promptPath };
   }
   writeFileSync(join(root, 'COMPLEX.md'), out);
   log(`wrote COMPLEX.md (${out.split('\n').length} lines); tokens in ${r.usage.input ?? '?'} out ${r.usage.output ?? '?'}; prompt ${promptVersion()}; ${Date.now() - t0} ms`);

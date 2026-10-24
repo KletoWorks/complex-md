@@ -1,0 +1,21 @@
+{
+  "name": "complex-md",
+  "description": "The complex-md plugin: one skill that writes and refreshes COMPLEX.md.",
+  "owner": {
+    "name": "James L. Cowan Jr.",
+    "url": "https://github.com/KletoWorks"
+  },
+  "plugins": [
+    {
+      "name": "complex-md",
+      "source": "./plugins/complex-md",
+      "description": "Write COMPLEX.md, a computed map of where edits are risky, and wire it into the agent context files.",
+      "category": "development",
+      "tags": [
+        "git",
+        "hotspots",
+        "agent-context"
+      ]
+    }
+  ]
+}

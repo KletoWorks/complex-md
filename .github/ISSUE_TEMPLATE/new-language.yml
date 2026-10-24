@@ -1,0 +1,50 @@
+name: A new language
+description: Ask for dependency edges in a language the map does not read yet, or offer to add them.
+labels: [enhancement, language]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The dependency graph reads imports with one pattern per language. A language without a pattern still gets churn, fixes and co-change from git. Its import statements add no dependency edges, so fan-in and `load_bearing` undercount its files.
+        A request with a real import example and a public repository to test against can become a test fixture with expected edges.
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      placeholder: Rust
+    validations:
+      required: true
+  - type: input
+    id: extensions
+    attributes:
+      label: File extensions
+      placeholder: .rs
+    validations:
+      required: true
+  - type: textarea
+    id: imports
+    attributes:
+      label: How a file imports another file
+      description: Paste 3 to 10 real import lines, and say which file each one resolves to. Include the forms that are easy to miss, such as relative paths, package aliases and re-exports.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: resolution
+    attributes:
+      label: How an import becomes a path
+      description: The rule that turns an import into a file, for example a module root in a manifest file or a directory index file.
+  - type: input
+    id: fixture
+    attributes:
+      label: A public repository to test against
+      description: A repository of 50 to 2,000 files in this language, with a commit SHA.
+      placeholder: https://github.com/OWNER/REPO at <sha>
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I can send a pull request with the pattern and a fixture test.
