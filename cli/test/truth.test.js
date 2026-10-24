@@ -57,6 +57,8 @@ const BANNED = [
   { re: /never leaks into its own/i, why: 'a month\'s map can include a later run task\'s fix' },
   { re: /fewer regressions|breaks? less|reduces? (collateral )?damage/i, why: 'no run shows fewer regressions yet' },
   { re: /gets safer/i, why: 'no run shows fewer regressions yet; state what agents do with the map' },
+  { re: /over the last twelve months|halves every year/i, why: 'history is indexed by commit: the last 2,000 commits, half-life a quarter of the window' },
+  { re: /score is recency-weighted churn multiplied by lines of code/i, why: 'the 0.3 score also multiplies in fan-in (spec, Hotspot score)' },
 ];
 
 for (const rule of BANNED) {
