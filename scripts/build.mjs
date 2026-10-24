@@ -3,12 +3,19 @@
 // markdown renderer plus a shared page shell. deploy-site.sh runs `npm run
 // build` and rsyncs dist/ to the webroot, then fingerprints assets.
 import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
+import { parseMeta as meta, readArticles, faqItems, llmsFull } from './content.mjs';
 import { fileURLToPath } from 'node:url';
 import { renderSkill, renderReference, SKILL_COPIES, stampVersions } from './skill.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const DIST = join(ROOT, 'dist');
+// --out <dir> builds somewhere other than dist/. --drafts also renders the
+// draft articles, unlisted and marked noindex, for a local preview.
+// --articles <dir> reads the articles from another folder.
+const argv = process.argv.slice(2);
+const opt = (name) => { const i = argv.indexOf(name); return i === -1 ? undefined : argv[i + 1]; };
+const DIST = opt('--out') ? resolve(opt('--out')) : join(ROOT, 'dist');
+const WITH_DRAFTS = argv.includes('--drafts');
 const ORIGIN = 'https://complex.md';
 const AUTHOR = 'James L. Cowan Jr.';
 const AUTHOR_URL = 'https://jameslcowan.com';
@@ -168,7 +175,7 @@ function techArticleJsonLd(title, description, canonical) {
   return JSON.stringify({ '@context': 'https://schema.org', '@type': 'TechArticle', headline: title, description, url: canonical, author: { '@type': 'Person', name: AUTHOR, url: AUTHOR_URL }, license: 'https://opensource.org/license/mit/', isPartOf: { '@type': 'WebSite', name: 'complex.md', url: ORIGIN } });
 }
 
-function shell({ title, description, path, body, article, layout, toc }) {
+function shell({ title, description, path, body, article, layout, toc, noindex }) {
   const canonical = ORIGIN + (path === '/' ? '/' : path + '/');
   const blocks = article ? [articleJsonLd(article, canonical)] : [siteJsonLd];
   if (path === '/') { blocks.push(softwareJsonLd); const f = faqJsonLd(body); if (f) blocks.push(f); }
@@ -180,7 +187,7 @@ function shell({ title, description, path, body, article, layout, toc }) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
-<meta name="description" content="${description}">
+<meta name="description" content="${description}">${noindex ? '\n<meta name="robots" content="noindex">' : ''}
 <meta name="author" content="${AUTHOR}">
 <link rel="canonical" href="${canonical}">
 <link rel="author" href="${AUTHOR_URL}">
@@ -234,16 +241,6 @@ ${mark('mark foot-mark', 18)}
 `;
 }
 
-function meta(src) {
-  const m = /<!-- meta\n([\s\S]*?)-->/.exec(src);
-  const o = {};
-  for (const line of (m?.[1] ?? '').trim().split('\n')) {
-    const idx = line.indexOf(':');
-    if (idx > 0) o[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-  }
-  return { meta: o, body: src.replace(/<!-- meta\n[\s\S]*?-->\n*/, '') };
-}
-
 function emit(path, html) {
   const dir = path === '/' ? DIST : join(DIST, path.slice(1));
   mkdirSync(dir, { recursive: true });
@@ -254,7 +251,10 @@ function emit(path, html) {
 rmSync(DIST, { recursive: true, force: true });
 mkdirSync(DIST, { recursive: true });
 
-// Top level pages: .md rendered, .html wrapped as is.
+// Top level pages: .md rendered, .html wrapped as is. llms-full.txt takes
+// the markdown pages' text and the home page's FAQ.
+const fullDocs = [];
+let faq = [];
 for (const file of readdirSync(join(ROOT, 'content'))) {
   if (!/\.(md|html)$/.test(file)) continue;
   const { meta: m, body } = meta(readFileSync(join(ROOT, 'content', file), 'utf8').replaceAll('{{INTEGRATION_BLOCK}}', integrationBlock));
@@ -263,26 +263,29 @@ for (const file of readdirSync(join(ROOT, 'content'))) {
   const doc = file.endsWith('.md') ? docify(markdown(body), { kicker }) : { body: body.replace('{{AGENT_MARQUEE}}', agentMarquee()), toc: false };
   emit(path, shell({ title: m.title, description: m.description, path, layout: m.layout, ...doc }));
   if (file === 'spec.md') writeFileSync(join(DIST, 'spec.md'), body);
+  if (file.endsWith('.md')) fullDocs.push({ url: ORIGIN + path + '/', body, order: file === 'spec.md' ? 0 : 1 });
+  if (path === '/') faq = faqItems(body);
 }
+fullDocs.sort((a, b) => a.order - b.order);
 
 // Articles: content/articles/<slug>.md -> /articles/<slug>/ plus the index.
 const articles = [];
-const artDir = join(ROOT, 'content/articles');
+const artDir = opt('--articles') ? resolve(opt('--articles')) : join(ROOT, 'content/articles');
 if (existsSync(artDir)) {
-  for (const file of readdirSync(artDir)) {
-    if (!file.endsWith('.md')) continue;
-    const { meta: m, body } = meta(readFileSync(join(artDir, file), 'utf8'));
-    const slug = file.replace(/\.md$/, '');
+  // A draft (draft: true) gets a page only with --drafts, and never a place
+  // in the index, the sitemap or llms-full.txt.
+  for (const { slug, meta: m, body, draft } of readArticles(artDir, { drafts: WITH_DRAFTS })) {
     const path = `/articles/${slug}`;
     const dateline = `<a href="${AUTHOR_URL}" rel="author">${AUTHOR}</a> &middot; <time datetime="${m.date}">${m.date}</time>`;
     emit(path, shell({
       title: `${m.title} | complex.md`, description: m.description, path,
       ...docify(markdown(body), { dateline }),
-      article: m,
+      article: m, noindex: draft,
     }));
+    if (draft) continue;
     articles.push({ slug, ...m });
+    fullDocs.push({ url: `${ORIGIN}${path}/`, body });
   }
-  articles.sort((a, b) => (a.date < b.date ? 1 : -1));
   const list = articles.map((a) =>
     `<li><a href="/articles/${a.slug}/">${a.title}</a><br><span class="dim">${a.description}</span> <time datetime="${a.date}">${a.date}</time></li>`).join('\n');
   emit('/articles', shell({
@@ -330,6 +333,13 @@ writeFileSync(join(DIST, 'llms.txt'), `# complex.md
 - [The spec (raw markdown)](${ORIGIN}/spec.md)
 - [The skill: generate COMPLEX.md with any coding agent](${ORIGIN}/complex-md.skill.md)
 - [Articles](${ORIGIN}/articles/)
+- [All of the above in one file](${ORIGIN}/llms-full.txt)
 `);
+writeFileSync(join(DIST, 'llms-full.txt'), llmsFull({
+  origin: ORIGIN,
+  summary: `COMPLEX.md is a markdown file at the root of a repository, computed from git history, that tells a coding agent where the structural risk in a codebase lives. Spec ${specVersion}.`,
+  docs: fullDocs,
+  faq,
+}));
 
 console.log(`built dist/ (spec ${specVersion}, prompt ${promptVersion}, ${articles.length} articles)`);
