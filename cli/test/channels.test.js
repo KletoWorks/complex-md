@@ -86,6 +86,28 @@ test('roo gets no rule file, and the one an earlier version wrote is removed', (
   assert.deepEqual(again.removed, []);
 });
 
+/* OpenClaw and Hermes Agent both load project skills from
+   .agents/skills/<name>/SKILL.md. Without --mcp these targets used to do
+   nothing at all. */
+test('--for openclaw,hermes writes the portable skill without --mcp', () => {
+  const dir = repo();
+  const logs = [];
+  const r = wire(dir, { agents: ['openclaw', 'hermes'], log: (s) => logs.push(s) });
+  const p = '.agents/skills/complex-md/SKILL.md';
+  assert.ok(existsSync(join(dir, p)), 'the skill is written');
+  assert.deepEqual(r.rules.filter((x) => x === p), [p], 'reported once for both targets');
+  assert.deepEqual(r.mcp, [], 'no registry is touched without --mcp');
+  const skill = read(dir, p);
+  const front = /^---\n([\s\S]*?)\n---\n/.exec(skill)[1];
+  assert.match(front, /^name: complex-md$/m, 'the name matches the directory');
+  const description = /^description: (.*)$/m.exec(front)[1];
+  assert.ok(description.length > 0 && description.length <= 1024, 'Agent Skills caps the description at 1024 characters');
+  assert.ok(skill.includes(HEADING), 'the skill carries the block');
+  assert.match(skill, /npx -y complex-md check/);
+  assert.ok(logs.some((l) => /hermes skills trust/.test(l)), 'Hermes needs the repository trusted first');
+  assert.deepEqual(wire(dir, { agents: ['openclaw'] }).rules, [p], 'a rewire rewrites the same file');
+});
+
 test('a block only rule file is still written when no AGENTS.md carries the block', () => {
   const dir = repo({ 'GEMINI.md': '# Gemini\n', '.cursor': null });
   const r = wire(dir, { agents: ['cursor'] });

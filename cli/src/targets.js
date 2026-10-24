@@ -2,7 +2,8 @@
 // COMPLEX.md gets wired into it (path-scoped rules, hooks, MCP). Repo-local
 // targets auto-detect from their config directories; global-config targets
 // (openclaw, hermes) keep their MCP registry per machine, so they are
-// opt-in only via --for and configured through their own CLI, never by
+// opt-in only via --for. In the repository they get the portable skill;
+// their MCP registry is configured through their own CLI, never by
 // editing another tool's global file behind the user's back.
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -98,6 +99,36 @@ function addMcpJson(p, entry, report, label) {
     writeJson(p, m);
     report.mcp.push(label);
   }
+}
+
+/* The portable skill, in the Agent Skills layout: a folder whose name is the
+   skill's `name`, holding SKILL.md. OpenClaw and Hermes Agent both load
+   project skills from .agents/skills/<name>/SKILL.md, and only the
+   description sits in context until the skill is used. */
+export const SKILL_PATH = '.agents/skills/complex-md/SKILL.md';
+
+export function portableSkill(block) {
+  return `---
+name: complex-md
+description: Read COMPLEX.md, this repository's computed map of where edits are risky, before you edit a file it lists, and check a change against it before you finish. Use before an edit to a hotspot, load bearing or co-change file, and before you end a task that changed files.
+---
+
+# complex-md
+
+${block.trim()}
+
+## Commands
+
+- \`npx -y complex-md check\` lists the hotspots this change touched, the
+  co-change partners it left unchanged and the tests that cover them.
+- \`npx -y complex-md wire\` rewrites the per file briefs from the current map.
+- \`npx -y complex-md\` regenerates COMPLEX.md, then wires it in again.
+`;
+}
+
+function writeSkill({ root, block, report }) {
+  write(join(root, SKILL_PATH), portableSkill(block));
+  if (!report.rules.includes(SKILL_PATH)) report.rules.push(SKILL_PATH);
 }
 
 function cliAvailable(bin) {
@@ -247,6 +278,7 @@ export const TARGETS = {
   // the server does not depend on the launch cwd.
   openclaw: {
     global: true,
+    rules: writeSkill,
     mcp({ root, inv, report, log }) {
       const args = ['mcp', 'add', 'complex-md', '--command', inv.command, ...[...inv.args, 'mcp', '--root', root].flatMap((a) => ['--arg', a])];
       if (cliAvailable('openclaw')) {
@@ -266,6 +298,10 @@ export const TARGETS = {
 
   hermes: {
     global: true,
+    rules(ctx) {
+      writeSkill(ctx);
+      ctx.log('hermes loads project skills once the repository is trusted: run `hermes skills trust` in it.');
+    },
     mcp({ root, inv, report, log }) {
       const command = `${inv.shell} mcp --root ${root}`;
       if (cliAvailable('hermes')) {
