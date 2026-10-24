@@ -186,53 +186,75 @@ hotspot paths so the directives reappear at the moment a hotspot is touched.
    `.github/copilot-instructions.md`. For every one that exists and does not
    already contain the heading "COMPLEX.md: the structural risk map", append
    the block below at the end, separated by one blank line. Change nothing
-   else in those files. If none exist, create `AGENTS.md` containing only the
-   block.
+   else in those files. Skip a `CLAUDE.md` or `GEMINI.md` that holds an
+   `@AGENTS.md` line while `AGENTS.md` exists: that import already loads the
+   block. If none exist, create `AGENTS.md` containing only the block.
 2. Claude Code import. In `CLAUDE.md` only, if the file does not already
    contain a line `@COMPLEX.md`, add that line on its own directly after the
-   block. This loads the whole map at session start.
-3. Claude Code rule. If `.claude/` exists, write `.claude/rules/complex-md.md`
-   (create the directory if needed), overwriting any previous version:
+   block. This loads the whole map at session start. If `.claude/` exists
+   and `CLAUDE.md` does not, create `CLAUDE.md` with the two lines
+   `@AGENTS.md` and `@COMPLEX.md`.
+3. Per path briefs. Write one brief for each path under `hotspots`,
+   `load_bearing` and `co_change`, scoped to that one path, so the file's
+   paragraph arrives when the agent touches the file. If `.claude/` exists,
+   write `.claude/rules/complex-md/<name>.md`. Make `<name>` from the path:
+   replace each character other than a letter, digit, `.`, `_` or `-` with
+   `-`. Clear the folder first, because hot paths move between runs:
 
 ```markdown
 ---
 alwaysApply: false
-paths: <every hotspot, load_bearing and co_change path, deduplicated, comma separated, unquoted, on this one line>
+paths: <the one path>
 ---
-<the block>
+# <the path>
+
+    churn <n>  fixes <n>  fan_in <n>  tests <n>  loc <n>  score <n>
+
+<the file's paragraph from "Why these files are hot", when it has one>
+
+Moves with:
+- <partner> (<coupling>% of this file's commits, <count> together)
+
+Open the partner and say in the change description whether it needed a change too.
+
+**<the paragraph's "Before editing this file" sentence>**
 ```
 
-   Write `paths` as a single unquoted comma separated line, the form
-   `npx complex-md wire` writes.
+   Leave out each part the map does not carry for that path: the numbers
+   for a path with no row, and the "Moves with" lines for a path with no
+   co-change partner.
+   If `.cursor/` exists, write the same briefs to
+   `.cursor/rules/complex-md/<name>.mdc`, with this front matter instead:
 
-4. Cursor rule. If `.cursor/` exists, write `.cursor/rules/complex-md.mdc`
-   (create the directory if needed), overwriting any previous version:
+```markdown
+---
+description: COMPLEX.md brief for <the one path>
+globs: <the one path>
+alwaysApply: false
+---
+```
+
+   `npx -y complex-md wire` also writes briefs for OpenHands, Antigravity,
+   Copilot code review, Devin Desktop, Windsurf, Kiro and Cline, each in
+   its own folder.
+
+4. Block copies. Write no rule file that holds only the block while
+   `AGENTS.md` carries it: Cursor reads `AGENTS.md`, and a copy loads the
+   block twice. Only when `AGENTS.md` does not carry the block and
+   `.cursor/` exists, write `.cursor/rules/complex-md.mdc`:
 
 ```markdown
 ---
 description: COMPLEX.md structural risk map
-globs: <the same paths, comma separated>
+globs: <every hotspot, load_bearing and co_change path, comma separated>
 alwaysApply: false
 ---
 <the block>
 ```
 
-5. OpenHands rule. If `.openhands/` or `.agents/` exists, write
-   `.agents/skills/complex-md.md` (create the directory if needed),
-   overwriting any previous version. OpenHands injects it the first time the
-   agent touches a matching file, at zero baseline cost:
-
-```markdown
----
-name: complex-md
-paths:
-  - "<one hotspot, load_bearing or co_change path per line, quoted>"
----
-<the block>
-```
-
-   Windsurf (`.windsurf/`) and Cline (`.clinerules/`) rule files are
-   written by the CLI only: run `npx -y complex-md wire`.
+5. Code review. If `REVIEW.md` exists and has no `@COMPLEX.md` line, add
+   that line on its own at the end, so Claude Code Review includes the map.
+   Never create `REVIEW.md`.
 
 6. Hooks. Rules are advisory; the research puts
    compliance near half when an agent edits existing code late in a session.

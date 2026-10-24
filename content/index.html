@@ -90,9 +90,9 @@ where you cannot see.</p>
 <section class="section" id="compatibility">
 <div class="inner narrow">
 <h2>Works with the agents you already use.</h2>
-<p class="lede">Claude Code and Cursor get rules and hooks. OpenHands, Windsurf
-and Cline get rules. Every other agent here reads COMPLEX.md through AGENTS.md
-or its own instructions file.</p>
+<p class="lede">Claude Code and Cursor get rules and hooks. GitHub Copilot,
+OpenHands, Windsurf and Cline get a rule per hot file. Every other agent here
+reads COMPLEX.md through AGENTS.md or its own instructions file.</p>
 </div>
 {{AGENT_MARQUEE}}
 </section>
@@ -193,7 +193,7 @@ name the model and every run.</p>
 <details class="faq-item"><summary>What if a search cannot read a file?</summary><p>A single NUL byte makes ripgrep, which Claude Code's Grep tool runs, treat a source file as binary and skip it with no match and no warning. GNU grep prints "binary file matches" and not the line. Those files are named under <code>blind_spots</code>, with <code>git grep -I --text</code> as the way to read them.</p></details>
 <details class="faq-item"><summary>Can I write one by hand?</summary><p>Yes. Plain markdown with a YAML header. The <a href="/articles/write-complex-md-by-hand/">walkthrough</a> takes seven git commands.</p></details>
 <details class="faq-item"><summary>npx says "No versions available". Why?</summary><p>Your npm config sets <code>min-release-age</code>, which refuses packages published this week. Run <code>npm_config_min_release_age=0 npx -y complex-md</code> once.</p></details>
-<details class="faq-item"><summary>How do I keep it out of my agent's way?</summary><p><code>--no-hooks</code> skips the edit pause. <code>--no-wire</code> only writes the file. A full run appends one section, headed "COMPLEX.md: the structural risk map", to <code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>GEMINI.md</code> and <code>.github/copilot-instructions.md</code> where they exist, and an <code>@COMPLEX.md</code> line to <code>CLAUDE.md</code>. It creates <code>AGENTS.md</code> when none of them exists, and <code>CLAUDE.md</code> when <code>.claude/</code> exists without one. For each agent it finds, it writes rule files named <code>complex-md</code> in <code>.claude/rules/</code>, <code>.cursor/rules/</code>, <code>.agents/skills/</code>, <code>.windsurf/rules/</code>, <code>.clinerules/</code> or <code>.roo/rules/</code>, and <code>complex-md hook</code> entries in <code>.claude/settings.json</code> and <code>.cursor/hooks.json</code>. To remove it, delete those.</p></details>
+<details class="faq-item"><summary>How do I keep it out of my agent's way?</summary><p><code>--no-hooks</code> skips the edit pause. <code>--no-wire</code> only writes the file. A full run appends one section, headed "COMPLEX.md: the structural risk map", to <code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>GEMINI.md</code> and <code>.github/copilot-instructions.md</code> where they exist, and an <code>@COMPLEX.md</code> line to <code>CLAUDE.md</code>. It creates <code>AGENTS.md</code> when none of them exists, and <code>CLAUDE.md</code> when <code>.claude/</code> exists without one. For each agent it finds, it writes one brief per hot file: in <code>.claude/rules/complex-md/</code>, <code>.cursor/rules/complex-md/</code> and <code>.github/instructions/complex-md/</code>, and as <code>complex-md-*</code> files in <code>.agents/skills/</code>, <code>.agents/rules/</code>, <code>.devin/rules/</code>, <code>.windsurf/rules/</code>, <code>.kiro/steering/</code> and <code>.clinerules/</code>. When <code>AGENTS.md</code> does not carry the section, it also writes the section as a <code>complex-md</code> rule for Cursor, OpenHands, Windsurf and Cline. It adds an <code>@COMPLEX.md</code> line to a <code>REVIEW.md</code> that exists, and <code>complex-md hook</code> entries to <code>.claude/settings.json</code> and <code>.cursor/hooks.json</code>. <code>--for openclaw,hermes</code> adds <code>.agents/skills/complex-md/SKILL.md</code>. To remove it, delete those.</p></details>
 </div>
 </div>
 </section>

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { readJson } from '../src/targets.js';
+import { readJson, BRIEF_SPECS } from '../src/targets.js';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const inCheckout = existsSync(join(ROOT, 'scripts/build.mjs'));
@@ -70,6 +70,7 @@ const BANNED = [
   { re: /--no-mcp/, why: 'there is no such flag; the MCP server is off unless --mcp asks for it' },
   { re: /query it mid-task|agents query mid-task/i, why: 'the MCP server is opt in, not the headline' },
   { re: /\bRoo\b|cline,roo/, files: ['README.md', 'cli/README.md', 'cli/bin/complex-md.js', ...WIRING], why: 'Roo reads AGENTS.md; its block-only rule file adds nothing and is not offered' },
+  { re: /\.roo\/rules|\.claude\/rules\/complex-md\.md/, why: 'wire writes neither file now, and a rewire removes the copies earlier versions wrote' },
   { re: /\.mcp\.json|mcpServers|complex-md mcp|--mcp\b|MCP server/i, files: WIRING, why: 'the spec and the skill do not tell agents to wire the MCP server' },
   { re: /"mcp"/, files: ['cli/package.json'], why: 'the npm keywords do not lead with MCP' },
   { re: /names a directory is not counted/i, why: 'the scorer counts a test directory the map names, as in the fastify-damage edits to lib/reply.js' },
@@ -122,6 +123,20 @@ test('--help and the CLI README name every command the bin runs', () => {
     if (c !== 'hook') assert.match(readme, new RegExp(`complex-md ${c}\\b`), `the CLI README names ${c}`);
   }
   assert.match(help, /impact <path>[\s\S]*--strict/);
+});
+
+/* Every folder wire writes per file briefs to is named where a reader
+   looks for what wire writes: the spec's Stage 3, the CLI README and the
+   home page's list of files to delete. A new channel that is missing from
+   one of them fails here. */
+test('the spec, the CLI README and the home page name every brief folder', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  for (const f of ['content/spec.md', 'cli/README.md', 'content/index.html']) {
+    const text = readFileSync(join(ROOT, f), 'utf8');
+    for (const [name, spec] of Object.entries(BRIEF_SPECS)) {
+      assert.ok(text.includes(spec.dir), `${f} names ${spec.dir} (${name})`);
+    }
+  }
 });
 
 /* The marquee shows every agent that can read the map, and most of them read

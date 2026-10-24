@@ -26,11 +26,23 @@ Spec, research and the downloadable skill: https://complex.md
    - appends the integration block to `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`,
      `.github/copilot-instructions.md` where they exist, plus an
      `@COMPLEX.md` import in `CLAUDE.md`;
-   - path-scoped rules keyed to the hotspot files for Claude Code
-     (`.claude/rules/`), Cursor (`.cursor/rules/`), OpenHands
-     (`.agents/skills/`) and Windsurf (`.windsurf/rules/`), and the block
-     for Cline (`.clinerules/`);
-   - hooks: Claude Code `PreToolUse` and `Stop`, Cursor `preToolUse` and `stop`.
+   - one brief per hot path, scoped to that path, where each agent or
+     review bot looks: Claude Code (`.claude/rules/complex-md/`), Cursor
+     (`.cursor/rules/complex-md/`), Copilot code review and cloud agent
+     (`.github/instructions/complex-md/`, when `.github/copilot-instructions.md`
+     or `.github/instructions/` exists), OpenHands (`.agents/skills/`),
+     Antigravity (`.agents/rules/`), Devin Desktop (`.devin/rules/`), Windsurf
+     (`.windsurf/rules/`), Kiro (`.kiro/steering/`), Cline (`.clinerules/`);
+   - an `@COMPLEX.md` line in an existing `REVIEW.md`, for Claude Code
+     Review; wire never creates `REVIEW.md`;
+   - hooks: Claude Code `PreToolUse` and `Stop`, Cursor `preToolUse` and `stop`;
+   - OpenClaw and Hermes are wired only when asked (`--for openclaw,hermes`):
+     they get the portable skill `.agents/skills/complex-md/SKILL.md`, and
+     `--mcp` also registers the server through their own CLIs.
+
+A rule file that would only repeat the block is not written while
+`AGENTS.md` carries it, and a rewire removes the copies earlier versions
+wrote.
 
 `--no-wire` writes only COMPLEX.md. `--no-hooks` skips the hooks.
 
@@ -80,10 +92,12 @@ runs it on stdio. Six tools:
     npx complex-md impact <path> [--json] [--strict]
     npx complex-md report                # write .complex-md/report.html, a page of the map
     npx complex-md wire [--no-hooks] [--mcp]
-                        [--for claude,cursor,openhands,codex,windsurf,cline,openclaw,hermes]
+                        [--for claude,cursor,openhands,antigravity,codex,copilot,review,devin,windsurf,kiro,cline,openclaw,hermes]
     npx complex-md generate --agent      # write the prompt bundle, no model call
 
-`check --strict` exits 1 on findings, for pre-commit and CI. `impact --strict`
+`check --strict` exits 1 on findings, for pre-commit and CI. `check` also
+names a generated brief that differs from what `wire` writes, since review
+bots read those files from the pull request. `impact --strict`
 exits 1 when a bound in `.complex-md/bounds.json` is exceeded. `wire` detects
 which agents a repository already uses from its config directories; `--for`
 overrides that. Wiring for Claude Code creates a `CLAUDE.md` that imports
