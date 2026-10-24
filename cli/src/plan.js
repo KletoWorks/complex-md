@@ -84,6 +84,7 @@ const line = (e) => `  ${e.action.padEnd(6)}  ${e.path}${e.note ? `: ${e.note}` 
 
 /** The plan as text: one line per file, then the files written only when a model call fails. */
 export function formatPlan(files, fallback = []) {
+  if (!files.length && !fallback.length) return 'File plan: no file changes.';
   const out = ['File plan:', ...files.map(line)];
   if (fallback.length) out.push('Only if the model call fails:', ...fallback.map(line));
   return out.join('\n');

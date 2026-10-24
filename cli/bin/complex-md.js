@@ -130,8 +130,9 @@ async function main() {
     // question, and --yes or a non terminal stdin never waits.
     const approve = async ({ files, fallback, mapText }) => {
       const wiring = mapText && !flag('--no-wire') ? planWire(root, mapText, wireOpts) : [];
-      log(formatPlan([...files, ...wiring], fallback));
-      return confirmPlan({ yes: flag('--yes') });
+      const all = [...files, ...wiring];
+      log(formatPlan(all, fallback));
+      return confirmPlan({ yes: flag('--yes') || (!all.length && !fallback.length) });
     };
     const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), template: flag('--template'), approve, log });
     if (r.written && !flag('--no-wire')) {

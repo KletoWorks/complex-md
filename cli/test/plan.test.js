@@ -114,3 +114,12 @@ test('generate prints the plan before the first write, and writes nothing when t
   assert.match(seen.mapText, /^prose: template$/m);
   assert.equal(execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: dir, encoding: 'utf8' }), before);
 });
+
+test('a rerun on the same commit plans no file, because no content changes', async () => {
+  const dir = buildRegressionRepo();
+  await generate(dir, { template: true });
+  let seen = null;
+  await generate(dir, { template: true, approve: async (plan) => { seen = plan; return false; } });
+  assert.deepEqual(seen.files, []);
+  assert.equal(formatPlan([]), 'File plan: no file changes.');
+});

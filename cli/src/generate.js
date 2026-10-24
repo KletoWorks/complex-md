@@ -219,13 +219,18 @@ export async function generate(root, { model = null, provider = null, agent = fa
   /* The file plan, before the first write. `mapText` is the map the wiring
      will read: the template map stands in for a model reply, because the
      wiring depends only on the front matter, which is the same in both. */
-  const entry = (path) => ({ path, action: existsSync(join(root, path)) ? 'change' : 'create' });
-  const bundleFiles = [entry(`${WORK_DIR}/prompt.md`), entry(`${WORK_DIR}/front-matter.yaml`)];
+  // A file whose content stays the same is not in the plan.
+  const entry = (path, content = null) => {
+    const p = join(root, path);
+    if (!existsSync(p)) return [{ path, action: 'create' }];
+    return content !== null && readFileSync(p, 'utf8') === content ? [] : [{ path, action: 'change' }];
+  };
+  const bundleFiles = [...entry(`${WORK_DIR}/prompt.md`, bundle), ...entry(`${WORK_DIR}/front-matter.yaml`, fm)];
   const ignore = gitignoreAction(root);
   if (ignore) bundleFiles.push({ path: '.gitignore', action: ignore });
   const writesMap = mode === 'model' || mode === 'template';
   const mapText = writesMap ? templateMap(root, sig, tool) : null;
-  const files = mode === 'model' ? [entry('COMPLEX.md')] : [...(writesMap ? [entry('COMPLEX.md')] : []), ...bundleFiles];
+  const files = mode === 'model' ? entry('COMPLEX.md') : [...(writesMap ? entry('COMPLEX.md', mapText) : []), ...bundleFiles];
   if (!(await approve({ files, fallback: mode === 'model' ? bundleFiles : [], mapText }))) {
     log('Nothing written.');
     return { sig, written: false, declined: true };
