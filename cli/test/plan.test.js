@@ -10,6 +10,7 @@ import { PassThrough } from 'node:stream';
 import { execFileSync } from 'node:child_process';
 import { planWire, formatPlan, confirmPlan } from '../src/plan.js';
 import { wire } from '../src/wire.js';
+import { TARGETS } from '../src/targets.js';
 import { generate } from '../src/generate.js';
 import { buildRegressionRepo } from './fixtures/regression-repo.mjs';
 
@@ -87,7 +88,30 @@ test('the dry run sees the repository as wire does, so a file where wire expects
 test('a global registry target is planned as a registration, never run', () => {
   const dir = repoWith({ 'COMPLEX.md': MAP });
   assert.deepEqual(planWire(dir, MAP, { agents: ['openclaw'], mcp: true }).at(-1), { path: 'openclaw MCP registry', action: 'register' });
-  assert.deepEqual(planWire(dir, MAP, { agents: ['openclaw'] }), [{ path: 'AGENTS.md', action: 'create' }], 'without --mcp a global target does nothing');
+  assert.ok(!planWire(dir, MAP, { agents: ['openclaw'] }).some((e) => e.action === 'register'), 'without --mcp a global target registers nothing');
+});
+
+test('the plan lists the repository files a global registry target writes', () => {
+  // A global target can write into the repository as well as call its
+  // registry. The stub stands in for such a rule, so the test holds the plan
+  // to wire for whatever the global targets write.
+  const original = TARGETS.openclaw.rules;
+  TARGETS.openclaw.rules = (ctx) => {
+    original?.(ctx);
+    mkdirSync(join(ctx.root, '.agents', 'skills', 'complex-md-probe'), { recursive: true });
+    writeFileSync(join(ctx.root, '.agents', 'skills', 'complex-md-probe', 'SKILL.md'), 'probe\n');
+  };
+  try {
+    const opts = { agents: ['openclaw', 'hermes'] };
+    const dir = repoWith({ 'COMPLEX.md': MAP });
+    const plan = planWire(dir, MAP, opts);
+    const before = snapshot(dir);
+    wire(dir, opts);
+    assert.deepEqual(plan, diff(before, snapshot(dir)));
+    assert.ok(plan.some((e) => e.path === '.agents/skills/complex-md-probe/SKILL.md'), JSON.stringify(plan));
+  } finally {
+    TARGETS.openclaw.rules = original;
+  }
 });
 
 test('formatPlan lists one file per line with its action', () => {
