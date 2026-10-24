@@ -40,7 +40,8 @@ file is a test file whose import, path literal or exact name points at it.
 
 A test that imports `..` or a directory such as `../lib/` reaches that
 package's entry file or the directory's index file. The map's graph
-resolves those edges, so every selector uses them. A barrel is a source file in which at least 80% of the code
+resolves those edges, so the four import based selectors, a, b, c and e,
+use them. A barrel is a source file in which at least 80% of the code
 lines are imports, re-exports or object keys.
 
 The decision bar is a recall at a suite share, and only a ranked list can be
