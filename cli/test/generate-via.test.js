@@ -117,3 +117,17 @@ test('the bin passes --via and --via-timeout, and names every CLI in --help', { 
   // this keeps its hand written list equal to the table.
   for (const n of VIA_NAMES) assert.ok(help.includes(n), `--help names ${n}`);
 });
+
+test('a bare --via is refused before any provider is picked', { skip: !posix }, () => {
+  // Without the guard, "generate --via" with no name fell through to the
+  // provider call and sent the bundle with whatever key was set. The key
+  // here points at a closed local port, so a regression reaches no network.
+  const root = makeRepo();
+  const env = { PATH: stubPath(), HOME: root, COMPLEX_MD_BASE_URL: 'http://127.0.0.1:9/v1', COMPLEX_MD_API_KEY: 'k', COMPLEX_MD_MODEL: 'm' };
+  for (const argv of [['generate', '--via'], ['generate', '--via', '--no-wire']]) {
+    const r = spawnSync(process.execPath, [BIN, ...argv], { cwd: root, env, encoding: 'utf8' });
+    assert.equal(r.status, 2, r.stderr);
+    assert.match(r.stderr, /--via needs the name of an agent CLI: claude, codex/);
+    assert.doesNotMatch(r.stderr, /model: custom/);
+  }
+});

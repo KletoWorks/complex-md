@@ -160,12 +160,19 @@ async function main() {
 
   if (cmd === 'generate') {
     const { generate } = await import('../src/generate.js');
+    // A bare --via must not fall through to a provider call with a set key.
+    const via = opt('--via');
+    if (flag('--via') && (!via || via.startsWith('-'))) {
+      const { VIA_NAMES } = await import('../src/via.js');
+      log(`complex-md: --via needs the name of an agent CLI: ${VIA_NAMES.join(', ')}.`);
+      process.exit(2);
+    }
     const viaTimeout = opt('--via-timeout');
     if (flag('--via-timeout') && !(Number(viaTimeout) > 0)) {
       log('complex-md: --via-timeout needs a number of seconds, for example --via-timeout 900.');
       process.exit(2);
     }
-    const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), via: opt('--via'), viaTimeoutMs: viaTimeout ? Number(viaTimeout) * 1000 : undefined, log });
+    const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), via, viaTimeoutMs: viaTimeout ? Number(viaTimeout) * 1000 : undefined, log });
     if (r.written && !flag('--no-wire')) {
       const { wire } = await import('../src/wire.js');
       wire(root, { hooks: !flag('--no-hooks'), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
