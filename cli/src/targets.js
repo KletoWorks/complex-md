@@ -144,6 +144,44 @@ function cliAvailable(bin) {
   }
 }
 
+/* Where each target puts its per path briefs: the folder, the file
+ * extension, the prefix that marks a file as ours in a shared folder, and
+ * the front matter that scopes a brief to its path. wire writes from this
+ * table and check reads it back, so a hand edit is measured against
+ * exactly what wire would write.
+ */
+export const BRIEF_SPECS = {
+  claude: { dir: '.claude/rules/complex-md', ext: '.md', header: (b) => `---\nalwaysApply: false\npaths: ${b.path}\n---\n` },
+  cursor: { dir: '.cursor/rules/complex-md', ext: '.mdc', header: (b) => `---\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${b.path}\nalwaysApply: false\n---\n` },
+  openhands: { dir: '.agents/skills', ext: '.md', prefix: 'complex-md-', header: (b) => `---\nname: complex-md-${b.slug}\ndescription: COMPLEX.md brief for ${b.path}\npaths:\n  - "${b.path}"\n---\n` },
+  antigravity: { dir: '.agents/rules', ext: '.md', prefix: 'complex-md-', header: (b) => `---\ntrigger: glob\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${JSON.stringify(b.path)}\n---\n` },
+  copilot: { dir: '.github/instructions/complex-md', ext: '.instructions.md', header: (b) => `---\napplyTo: ${JSON.stringify(b.path)}\n---\n` },
+  devin: { dir: '.devin/rules', ext: '.md', prefix: 'complex-md-', header: globRule },
+  kiro: { dir: '.kiro/steering', ext: '.md', prefix: 'complex-md-', header: (b) => `---\ninclusion: fileMatch\nfileMatchPattern: ${JSON.stringify(b.path)}\n---\n` },
+  windsurf: { dir: '.windsurf/rules', ext: '.md', prefix: 'complex-md-', header: globRule },
+  cline: { dir: '.clinerules', ext: '.md', prefix: 'complex-md-', header: (b) => `---\npaths:\n  - ${JSON.stringify(b.path)}\n---\n` },
+};
+
+/* The files one spec produces for these briefs, as relative path to
+   content. Pure, so check can compute it without writing anything. */
+export function briefFiles(spec, briefs) {
+  const out = new Map();
+  for (const b of briefs) out.set(`${spec.dir}/${spec.prefix || ''}${b.slug}${spec.ext}`, spec.header(b) + b.text);
+  return out;
+}
+
+/* Whether a relative path is one this spec owns: directly in its folder,
+   with its prefix and extension. */
+export function specOwns(spec, rel) {
+  const head = `${spec.dir}/${spec.prefix || ''}`;
+  return rel.startsWith(head) && rel.endsWith(spec.ext) && !rel.slice(spec.dir.length + 1).includes('/');
+}
+
+function writeSpec(root, spec, briefs, report) {
+  const name = spec.prefix ? `${spec.dir}/${spec.prefix}*` : `${spec.dir}/`;
+  writeBriefs(join(root, spec.dir), briefs, spec.header, report, { name, ext: spec.ext, prefix: spec.prefix });
+}
+
 /**
  * The target table. Each target may implement:
  *   detect(root)      repo markers that opt it in when --for is not given
@@ -160,13 +198,7 @@ export const TARGETS = {
       // CLAUDE.md always carries the block once wire has run: appended,
       // imported from AGENTS.md, or written when CLAUDE.md is created.
       dropBlockCopy(root, '.claude/rules/complex-md.md', report);
-      writeBriefs(
-        join(root, '.claude/rules/complex-md'),
-        briefs,
-        (b) => `---\nalwaysApply: false\npaths: ${b.path}\n---\n`,
-        report,
-        { name: '.claude/rules/complex-md/', ext: '.md' },
-      );
+      writeSpec(root, BRIEF_SPECS.claude, briefs, report);
     },
     hooks({ root, inv, report }) {
       const p = join(root, '.claude/settings.json');
@@ -191,13 +223,7 @@ export const TARGETS = {
     detect: (root) => existsSync(join(root, '.cursor')),
     rules({ root, block, paths, briefs, report, carried }) {
       blockRule(root, '.cursor/rules/complex-md.mdc', `---\ndescription: COMPLEX.md structural risk map\nglobs: ${paths.join(', ')}\nalwaysApply: false\n---\n${block}`, carried, report);
-      writeBriefs(
-        join(root, '.cursor/rules/complex-md'),
-        briefs,
-        (b) => `---\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${b.path}\nalwaysApply: false\n---\n`,
-        report,
-        { name: '.cursor/rules/complex-md/', ext: '.mdc' },
-      );
+      writeSpec(root, BRIEF_SPECS.cursor, briefs, report);
     },
     hooks({ root, inv, report }) {
       const p = join(root, '.cursor/hooks.json');
@@ -230,13 +256,7 @@ export const TARGETS = {
     detect: (root) => existsSync(join(root, '.openhands')) || existsSync(join(root, '.agents')),
     rules({ root, block, paths, briefs, report, carried }) {
       blockRule(root, '.agents/skills/complex-md.md', `---\nname: complex-md\npaths:\n${paths.map((p) => `  - "${p}"`).join('\n')}\n---\n${block}`, carried, report);
-      writeBriefs(
-        join(root, '.agents/skills'),
-        briefs,
-        (b) => `---\nname: complex-md-${b.slug}\ndescription: COMPLEX.md brief for ${b.path}\npaths:\n  - "${b.path}"\n---\n`,
-        report,
-        { name: '.agents/skills/complex-md-*', ext: '.md', prefix: 'complex-md-' },
-      );
+      writeSpec(root, BRIEF_SPECS.openhands, briefs, report);
     },
   },
 
@@ -250,13 +270,7 @@ export const TARGETS = {
   antigravity: {
     detect: (root) => existsSync(join(root, '.agents/rules')),
     rules({ root, briefs, report }) {
-      writeBriefs(
-        join(root, '.agents/rules'),
-        briefs,
-        (b) => `---\ntrigger: glob\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${JSON.stringify(b.path)}\n---\n`,
-        report,
-        { name: '.agents/rules/complex-md-*', ext: '.md', prefix: 'complex-md-' },
-      );
+      writeSpec(root, BRIEF_SPECS.antigravity, briefs, report);
     },
   },
 
@@ -285,13 +299,7 @@ export const TARGETS = {
   copilot: {
     detect: (root) => existsSync(join(root, '.github/copilot-instructions.md')) || existsSync(join(root, '.github/instructions')),
     rules({ root, briefs, report }) {
-      writeBriefs(
-        join(root, '.github/instructions/complex-md'),
-        briefs,
-        (b) => `---\napplyTo: ${JSON.stringify(b.path)}\n---\n`,
-        report,
-        { name: '.github/instructions/complex-md/', ext: '.instructions.md' },
-      );
+      writeSpec(root, BRIEF_SPECS.copilot, briefs, report);
     },
   },
 
@@ -326,7 +334,7 @@ export const TARGETS = {
   devin: {
     detect: (root) => existsSync(join(root, '.devin')),
     rules({ root, briefs, report }) {
-      writeBriefs(join(root, '.devin/rules'), briefs, globRule, report, { name: '.devin/rules/complex-md-*', ext: '.md', prefix: 'complex-md-' });
+      writeSpec(root, BRIEF_SPECS.devin, briefs, report);
     },
   },
 
@@ -338,13 +346,7 @@ export const TARGETS = {
   kiro: {
     detect: (root) => existsSync(join(root, '.kiro')),
     rules({ root, briefs, report }) {
-      writeBriefs(
-        join(root, '.kiro/steering'),
-        briefs,
-        (b) => `---\ninclusion: fileMatch\nfileMatchPattern: ${JSON.stringify(b.path)}\n---\n`,
-        report,
-        { name: '.kiro/steering/complex-md-*', ext: '.md', prefix: 'complex-md-' },
-      );
+      writeSpec(root, BRIEF_SPECS.kiro, briefs, report);
     },
   },
 
@@ -352,7 +354,7 @@ export const TARGETS = {
     detect: (root) => existsSync(join(root, '.windsurf')),
     rules({ root, block, paths, briefs, report, carried }) {
       blockRule(root, '.windsurf/rules/complex-md.md', `---\ntrigger: glob\nglobs: ${paths.join(', ')}\n---\n${block}`, carried, report);
-      writeBriefs(join(root, '.windsurf/rules'), briefs, globRule, report, { name: '.windsurf/rules/complex-md-*', ext: '.md', prefix: 'complex-md-' });
+      writeSpec(root, BRIEF_SPECS.windsurf, briefs, report);
     },
   },
 
@@ -369,13 +371,7 @@ export const TARGETS = {
         return void report.skipped.push('.clinerules (a file, not a folder)');
       }
       blockRule(root, '.clinerules/complex-md.md', block, carried, report);
-      writeBriefs(
-        join(root, '.clinerules'),
-        briefs,
-        (b) => `---\npaths:\n  - ${JSON.stringify(b.path)}\n---\n`,
-        report,
-        { name: '.clinerules/complex-md-*', ext: '.md', prefix: 'complex-md-' },
-      );
+      writeSpec(root, BRIEF_SPECS.cline, briefs, report);
     },
   },
 
