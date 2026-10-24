@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: generates-the-map
+description: In a small git repository with history, the skill runs the CLI and writes a COMPLEX.md with computed front matter.
+tags: [full]
+context:
+  scaffold_script: fixture.sh
