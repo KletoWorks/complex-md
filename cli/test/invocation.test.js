@@ -95,6 +95,34 @@ test('the pinned forms are recognised as ours, so a second wire adds nothing', (
   assert.equal(claude.hooks.Stop.length, 1);
 });
 
+test('a second wire rewrites the unpinned commands an earlier version wrote, and keeps their flags', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-inv-legacy-'));
+  writeFileSync(join(dir, 'COMPLEX.md'), MAP);
+  mkdirSync(join(dir, '.claude'));
+  mkdirSync(join(dir, '.cursor'));
+  const custom = 'node tools/complex-md.js hook stop';
+  writeFileSync(join(dir, '.claude/settings.json'), JSON.stringify({ hooks: {
+    PreToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: 'npx -y complex-md hook pre --mode warn', timeout: 30 }] }],
+    Stop: [{ hooks: [{ type: 'command', command: custom, timeout: 60 }] }],
+  } }));
+  writeFileSync(join(dir, '.cursor/hooks.json'), JSON.stringify({ version: 1, hooks: { preToolUse: [{ command: 'npx -y complex-md hook cursor-pre', matcher: 'Write' }] } }));
+  const report = wire(dir, { agents: ['claude', 'cursor'] });
+  const claude = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
+  const cursor = JSON.parse(readFileSync(join(dir, '.cursor/hooks.json'), 'utf8'));
+  const pre = claude.hooks.PreToolUse[0].hooks[0].command;
+  assert.equal(claude.hooks.PreToolUse.length, 1);
+  assert.ok(pre.includes(`complex-md@${VERSION} hook pre --mode warn`), pre);
+  assert.ok(pre.includes('node_modules/.bin/complex-md hook pre --mode warn'), pre);
+  assert.equal(claude.hooks.Stop.length, 1);
+  assert.equal(claude.hooks.Stop[0].hooks[0].command, custom, 'a command the user wrote is left alone');
+  assert.equal(cursor.hooks.preToolUse.length, 1);
+  assert.ok(cursor.hooks.preToolUse[0].command.includes(`complex-md@${VERSION} hook cursor-pre`));
+  assert.ok(report.hooks.includes('.claude/settings.json PreToolUse (pinned)'), report.hooks.join(', '));
+  assert.ok(report.hooks.includes('.cursor/hooks.json preToolUse (pinned)'), report.hooks.join(', '));
+  const again = wire(dir, { agents: ['claude', 'cursor'] });
+  assert.deepEqual(again.hooks, [], 'a third run changes nothing');
+});
+
 test('the MCP entry runs the pinned package through npx with the cache first', () => {
   const w = wiredRepo({ mcp: true });
   const entry = JSON.parse(readFileSync(join(w.dir, '.mcp.json'), 'utf8')).mcpServers['complex-md'];

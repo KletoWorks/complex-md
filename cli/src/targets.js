@@ -70,6 +70,23 @@ function hasHook(list, sub) {
   return (list || []).some((g) => (g.hooks || []).some((h) => isOurs(h.command, sub)));
 }
 
+/* Versions up to 0.9.2 wrote an unpinned `npx -y complex-md hook <kind>`.
+   Such an entry is rewritten to the current command, with any flags after
+   the kind kept. Any other command, including one a user wrote, stays. */
+const LEGACY_HOOK = /^npx -y complex-md (hook [\w-]+)(\s.*)?$/;
+
+function pinLegacy(entries, sub, inv) {
+  let n = 0;
+  for (const e of entries) {
+    const m = LEGACY_HOOK.exec(String(e?.command || ''));
+    if (m && m[1] === sub) {
+      e.command = hookCommand(inv, sub + (m[2] || ''));
+      n++;
+    }
+  }
+  return n;
+}
+
 function addMcpJson(p, entry, report, label) {
   const m = readJson(p, {});
   m.mcpServers ||= {};
@@ -116,6 +133,9 @@ export const TARGETS = {
       const p = join(root, '.claude/settings.json');
       const s = readJson(p, {});
       s.hooks ||= {};
+      const inner = (list) => (list || []).flatMap((g) => g.hooks || []);
+      if (pinLegacy(inner(s.hooks.PreToolUse), 'hook pre', inv)) report.hooks.push('.claude/settings.json PreToolUse (pinned)');
+      if (pinLegacy(inner(s.hooks.Stop), 'hook stop', inv)) report.hooks.push('.claude/settings.json Stop (pinned)');
       if (!hasHook(s.hooks.PreToolUse, 'hook pre')) {
         (s.hooks.PreToolUse ||= []).push({ matcher: 'Edit|Write|MultiEdit|NotebookEdit', hooks: [{ type: 'command', command: hookCommand(inv, 'hook pre'), timeout: 30 }] });
         report.hooks.push('.claude/settings.json PreToolUse');
@@ -149,6 +169,8 @@ export const TARGETS = {
       const h = readJson(p, { version: 1, hooks: {} });
       h.version ||= 1;
       h.hooks ||= {};
+      if (pinLegacy(h.hooks.preToolUse || [], 'hook cursor-pre', inv)) report.hooks.push('.cursor/hooks.json preToolUse (pinned)');
+      if (pinLegacy(h.hooks.stop || [], 'hook cursor-stop', inv)) report.hooks.push('.cursor/hooks.json stop (pinned)');
       if (!(h.hooks.preToolUse || []).some((x) => isOurs(x.command, 'hook cursor-pre'))) {
         (h.hooks.preToolUse ||= []).push({ command: hookCommand(inv, 'hook cursor-pre'), matcher: 'Write|StrReplace|Edit|MultiEdit|SearchReplace|Delete', timeout: 30 });
         report.hooks.push('.cursor/hooks.json preToolUse');
