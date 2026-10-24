@@ -101,9 +101,10 @@ export function findExecutable(bins, { env = process.env, platform = process.pla
 }
 
 /**
- * The map inside a CLI's stdout: terminal colors removed, then everything
- * from the front matter on, or from the first section when the reply has no
- * front matter. An outer markdown fence is left for normalizeOutput.
+ * The map inside a CLI's stdout: terminal colors removed, then the body of
+ * a markdown fence that wraps the map, or everything from the front matter
+ * on, or from the first section when the reply has no front matter. Text
+ * the CLI prints before the map is dropped.
  */
 export function extractMap(stdout) {
   const t = String(stdout || '').replace(/\r\n/g, '\n').replace(/\u001b\[[0-9;?]*[A-Za-z]/g, '');
