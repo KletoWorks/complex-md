@@ -238,6 +238,30 @@ test('kiro: one fileMatch steering file per brief', () => {
   assert.ok(r.rules.includes('.kiro/steering/complex-md-* (4 paths)'));
 });
 
+/* Cline conditional rules: a file in .clinerules/ whose front matter has a
+   `paths:` list of globs applies when the agent works on a matching file. */
+test('cline: one conditional rule per brief, scoped with a paths list', () => {
+  const dir = repo({ '.clinerules/house.md': 'mine\n' });
+  const r = wire(dir, {});
+  const ours = Object.entries(briefsIn(dir, '.clinerules', '.md', 'complex-md-'));
+  assert.equal(ours.length, BRIEFED.length);
+  assert.deepEqual(ours.map(([, b]) => b.front.paths).sort(), BRIEFED.map((p) => `\n  - "${p}"`));
+  assert.equal(read(dir, '.clinerules/house.md'), 'mine\n');
+  assert.ok(r.rules.includes('.clinerules/complex-md-* (4 paths)'));
+});
+
+/* An older Cline layout is a single .clinerules FILE. Writing
+   .clinerules/<name> into it would fail the whole wire. */
+test('cline: a .clinerules file is left alone, not treated as a folder', () => {
+  const dir = repo({ '.clinerules': 'one file of rules\n' });
+  const r = wire(dir, {});
+  assert.equal(read(dir, '.clinerules'), 'one file of rules\n');
+  const forced = wire(dir, { agents: ['cline'] });
+  assert.equal(read(dir, '.clinerules'), 'one file of rules\n');
+  assert.ok(forced.skipped.includes('.clinerules (a file, not a folder)'));
+  assert.ok(!r.skipped.includes('.clinerules (a file, not a folder)'), 'a file is not detected as Cline rules');
+});
+
 test('a block only rule file is still written when no AGENTS.md carries the block', () => {
   const dir = repo({ 'GEMINI.md': '# Gemini\n', '.cursor': null });
   const r = wire(dir, { agents: ['cursor'] });

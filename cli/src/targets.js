@@ -5,7 +5,7 @@
 // opt-in only via --for. In the repository they get the portable skill;
 // their MCP registry is configured through their own CLI, never by
 // editing another tool's global file behind the user's back.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { BLOCK_HEADING } from './prompts.js';
@@ -62,6 +62,8 @@ export function dropBlockCopy(root, rel, report) {
     report.removed.push(rel);
   }
 }
+
+const isDir = (p) => existsSync(p) && statSync(p).isDirectory();
 
 const globRule = (b) => `---\ntrigger: glob\nglobs: ${b.path}\n---\n`;
 
@@ -354,10 +356,26 @@ export const TARGETS = {
     },
   },
 
+  /* Cline conditional rules (docs.cline.bot, Cline rules). A file in
+     .clinerules/ whose front matter carries a `paths:` list of globs
+     applies when the agent works on a matching file. The folder is the
+     user's too, so the briefs carry the complex-md- prefix. An older Cline
+     layout is a single .clinerules FILE; that is not a folder to write
+     into, so it is neither detected nor touched. */
   cline: {
-    detect: (root) => existsSync(join(root, '.clinerules')),
-    rules({ root, block, report, carried }) {
+    detect: (root) => isDir(join(root, '.clinerules')),
+    rules({ root, block, briefs, report, carried }) {
+      if (existsSync(join(root, '.clinerules')) && !isDir(join(root, '.clinerules'))) {
+        return void report.skipped.push('.clinerules (a file, not a folder)');
+      }
       blockRule(root, '.clinerules/complex-md.md', block, carried, report);
+      writeBriefs(
+        join(root, '.clinerules'),
+        briefs,
+        (b) => `---\npaths:\n  - ${JSON.stringify(b.path)}\n---\n`,
+        report,
+        { name: '.clinerules/complex-md-*', ext: '.md', prefix: 'complex-md-' },
+      );
     },
   },
 
