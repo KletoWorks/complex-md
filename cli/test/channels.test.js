@@ -313,3 +313,17 @@ test('a block only rule file is still written when no AGENTS.md carries the bloc
   assert.ok(r.rules.includes('.cursor/rules/complex-md.mdc'), 'Cursor does not read GEMINI.md');
   assert.match(read(dir, '.cursor/rules/complex-md.mdc'), new RegExp(HEADING));
 });
+
+/* The portable skill creates .agents/, and .agents/ is how OpenHands is
+   detected. A folder that holds only that skill is ours, so a later
+   default wire must not read it as an OpenHands setup. */
+test('the portable skill alone does not opt a later default wire into OpenHands', () => {
+  const dir = repo();
+  wire(dir, { agents: ['openclaw'] });
+  const r = wire(dir, {});
+  assert.ok(!r.rules.some((x) => x.startsWith('.agents/skills/complex-md-')), 'no OpenHands briefs');
+  assert.deepEqual(readdirSync(join(dir, '.agents/skills')), ['complex-md']);
+  const user = repo({ '.agents/skills/mine/SKILL.md': '---\nname: mine\n---\nmine\n' });
+  wire(user, { agents: ['openclaw'] });
+  assert.ok(wire(user, {}).rules.includes('.agents/skills/complex-md-* (4 paths)'), 'a skill of the user\'s still opts in');
+});

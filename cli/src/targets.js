@@ -65,6 +65,15 @@ export function dropBlockCopy(root, rel, report) {
 
 const isDir = (p) => existsSync(p) && statSync(p).isDirectory();
 
+/* Whether .agents/ holds anything but the portable skill. The openclaw and
+   hermes targets create .agents/skills/complex-md/ themselves, and that
+   folder alone is no sign of another agent's setup. */
+function agentsInUse(root) {
+  const d = join(root, '.agents');
+  if (!isDir(d)) return existsSync(d);
+  return readdirSync(d).some((e) => e !== 'skills' || !isDir(join(d, e)) || readdirSync(join(d, e)).some((s) => s !== 'complex-md'));
+}
+
 const globRule = (b) => `---\ntrigger: glob\nglobs: ${b.path}\n---\n`;
 
 export function write(p, content) {
@@ -253,7 +262,7 @@ export const TARGETS = {
      The files are prefixed complex-md- because .agents/skills/ is the user's
      directory too and only ours may be cleared. */
   openhands: {
-    detect: (root) => existsSync(join(root, '.openhands')) || existsSync(join(root, '.agents')),
+    detect: (root) => existsSync(join(root, '.openhands')) || agentsInUse(root),
     rules({ root, block, paths, briefs, report, carried }) {
       blockRule(root, '.agents/skills/complex-md.md', `---\nname: complex-md\npaths:\n${paths.map((p) => `  - "${p}"`).join('\n')}\n---\n${block}`, carried, report);
       writeSpec(root, BRIEF_SPECS.openhands, briefs, report);
