@@ -1,9 +1,12 @@
 // Generate COMPLEX.md: signals from git, front matter written by the tool
 // (numbers verbatim, never by a model), prose from one model call or from
 // the agent the user is already talking to.
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { computeSignals, TABLE_HEAD, rowToArray } from './signals.js';
+import { computeSignals, graphFor, detectTestCommand, TABLE_HEAD, rowToArray } from './signals.js';
+import { templateProse, packageRoots, reachableFrom } from './template.js';
+import { loadComplexMd } from './complexmd.js';
+import { ignoreWorkDir, gitignoreAction, WORK_DIR } from './gitignore.js';
 import { generatePrompt, promptVersion } from './prompts.js';
 import { resolveProvider, PROVIDERS } from './providers.js';
 import { createRequire } from 'node:module';
@@ -14,9 +17,13 @@ const PER_FILE_CHARS = 14000; // so five hotspots fit, not two
 
 const yamlStr = (s) => (/^[\w./@-]+$/.test(s) ? s : JSON.stringify(s));
 
-export function frontMatter(sig, tool) {
+/* `prose` names the source of the prose when a template wrote it. The bundle
+   and a model reply carry no such line, so both stay as they were. */
+export function frontMatter(sig, tool, { prose = null } = {}) {
   const p = sig.profile;
-  const lines = ['---', `complex_md: "${sig.spec}"`, `generated: ${sig.generated}`, `commit: ${sig.commit}`, `tool: ${tool}`, `window_commits: ${sig.window_commits}`, `files_analyzed: ${sig.files_analyzed}`];
+  const lines = ['---', `complex_md: "${sig.spec}"`, `generated: ${sig.generated}`, `commit: ${sig.commit}`, `tool: ${tool}`];
+  if (prose) lines.push(`prose: ${prose}`);
+  lines.push(`window_commits: ${sig.window_commits}`, `files_analyzed: ${sig.files_analyzed}`);
   lines.push('profile:');
   for (const [k, v] of Object.entries(p)) if (v !== null && v !== undefined) lines.push(`  ${k}: ${typeof v === 'string' ? yamlStr(v) : v}`);
   lines.push('hotspots:');
@@ -186,7 +193,25 @@ async function callOpenAICompat(prompt, p) {
   return { text: content, usage: { input: j.usage?.prompt_tokens, output: j.usage?.completion_tokens } };
 }
 
-export async function generate(root, { model = null, provider = null, agent = false, log = () => {} } = {}) {
+/** COMPLEX.md with template prose (template.js): the computed front matter, marked `prose: template`, and prose from the same signals. */
+export function templateMap(root, sig, tool) {
+  const g = graphFor(root);
+  const roots = packageRoots(root, g.kinds);
+  const prose = templateProse(sig, { reachable: reachableFrom(roots, g.edges), roots, testCommand: detectTestCommand(root) });
+  return frontMatter(sig, tool, { prose: 'template' }) + '\n' + prose;
+}
+
+/* Template prose never replaces prose a model or a person wrote: a run with
+   no key would otherwise turn a reviewed map into a generic one. A map that
+   a template wrote is refreshed, and --template replaces any map. */
+function holdsOtherProse(root) {
+  if (!existsSync(join(root, 'COMPLEX.md'))) return false;
+  return loadComplexMd(root)?.front?.prose !== 'template';
+}
+
+/* `approve({ files, fallback, mapText })` sees the file plan before the
+   first write and returns false to stop the run. */
+export async function generate(root, { model = null, provider = null, agent = false, template = false, approve = async () => true, log = () => {} } = {}) {
   const t0 = Date.now();
   const sig = computeSignals(root);
   log(`signals: ${sig.files_analyzed} files in scope, ${sig.profile.dependency_edges} dependency edges, ${sig.commits_analyzed} commits (${sig.fix_commits} fixes), ${sig.hotspots.length} hotspots, ${sig.co_change.length} pairs, confidence ${sig.profile.confidence}, ${Date.now() - t0} ms`);
@@ -196,21 +221,64 @@ export async function generate(root, { model = null, provider = null, agent = fa
 
   // The bundle is the fallback for every path that does not end in a
   // written COMPLEX.md: no key, --agent, or a model call that failed.
-  const writeBundle = (why) => {
+  const TELL = 'Tell your agent: "Write COMPLEX.md by following .complex-md/prompt.md exactly, then run npx complex-md wire."';
+  const saveBundle = () => {
     const dir = join(root, '.complex-md');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'prompt.md'), bundle);
     writeFileSync(join(dir, 'front-matter.yaml'), fm);
-    log(`${why}: wrote .complex-md/prompt.md (${Math.round(bundle.length / 4)} tokens approx).`);
-    log('Tell your agent: "Write COMPLEX.md by following .complex-md/prompt.md exactly, then run npx complex-md wire."');
+    if (ignoreWorkDir(root)) log(`added ${WORK_DIR}/* to .gitignore, so its working files stay out of commits; ${WORK_DIR}/bounds.json stays committable.`);
     return join(dir, 'prompt.md');
   };
+  const writeBundle = (why) => {
+    const path = saveBundle();
+    log(`${why}: wrote .complex-md/prompt.md (${Math.round(bundle.length / 4)} tokens approx).`);
+    log(TELL);
+    return path;
+  };
 
-  const sel = agent ? null : resolveProvider({ model, provider });
-  if (!sel) {
-    const promptPath = writeBundle(`no API key${agent ? ' requested' : ' found'}`);
-    log(`Or set a provider key (${PROVIDERS.filter((p) => p.env).map((p) => p.env).join(', ')}) and rerun to make the model call from here.`);
+  const keys = PROVIDERS.filter((p) => p.env).map((p) => p.env).join(', ');
+  const sel = agent || template ? null : resolveProvider({ model, provider });
+  const mode = agent ? 'agent' : sel ? 'model' : !template && holdsOtherProse(root) ? 'keep' : 'template';
+
+  /* The file plan, before the first write. `mapText` is the map the wiring
+     will read: the template map stands in for a model reply, because the
+     wiring depends only on the front matter, which is the same in both. */
+  // A file whose content stays the same is not in the plan.
+  const entry = (path, content = null) => {
+    const p = join(root, path);
+    if (!existsSync(p)) return [{ path, action: 'create' }];
+    return content !== null && readFileSync(p, 'utf8') === content ? [] : [{ path, action: 'change' }];
+  };
+  const bundleFiles = [...entry(`${WORK_DIR}/prompt.md`, bundle), ...entry(`${WORK_DIR}/front-matter.yaml`, fm)];
+  const ignore = gitignoreAction(root);
+  if (ignore) bundleFiles.push({ path: '.gitignore', action: ignore });
+  const writesMap = mode === 'model' || mode === 'template';
+  const mapText = writesMap ? templateMap(root, sig, tool) : null;
+  const files = mode === 'model' ? entry('COMPLEX.md') : [...(writesMap ? entry('COMPLEX.md', mapText) : []), ...bundleFiles];
+  if (!(await approve({ files, fallback: mode === 'model' ? bundleFiles : [], mapText }))) {
+    log('Nothing written.');
+    return { sig, written: false, declined: true };
+  }
+
+  if (mode === 'agent') {
+    const promptPath = writeBundle('no API key requested');
+    log(`Or set a provider key (${keys}) and rerun to make the model call from here.`);
     return { sig, written: false, promptPath };
+  }
+  if (mode === 'keep') {
+    const promptPath = writeBundle('no API key found');
+    log('COMPLEX.md exists and a template did not write its prose, so this run keeps it as it is. Pass --template to replace it with template prose.');
+    return { sig, written: false, promptPath };
+  }
+  if (mode === 'template') {
+    const out = mapText;
+    const promptPath = saveBundle();
+    writeFileSync(join(root, 'COMPLEX.md'), out);
+    log(`${template ? 'template prose requested' : 'no API key found'}: wrote COMPLEX.md (${out.split('\n').length} lines) with template prose from the computed numbers; ${Date.now() - t0} ms`);
+    log(`To replace the template prose, set a provider key (${keys}) and rerun.`);
+    log(`Or use the agent you already run. ${TELL}`);
+    return { sig, written: true, prose: 'template', promptPath };
   }
 
   log(`model: ${sel.name}/${sel.model}, prompt ${Math.round(bundle.length / 4)} tokens approx`);

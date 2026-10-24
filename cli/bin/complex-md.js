@@ -3,13 +3,18 @@ import { createRequire } from 'node:module';
 import { repoRoot, hasCommits, resolvesCommit } from '../src/git.js';
 
 const pkg = createRequire(import.meta.url)('../package.json');
-const [, , cmd = 'generate', ...args] = process.argv;
+/* `npx complex-md --no-wire` is the default command with a flag, so a first
+   argument that is a flag, other than --version and --help, means generate. */
+const argv = process.argv.slice(2);
+const bare = /^-/.test(argv[0] || '') && !['--version', '-v', '--help', '-h'].includes(argv[0]);
+const [cmd = 'generate', ...args] = bare ? ['generate', ...argv] : argv;
 const flag = (name) => args.includes(name);
 const opt = (name) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : null;
 };
 const log = (s) => process.stderr.write(s + '\n');
+const SITE_URL = 'https://complex.md/?utm_source=cli';
 /* Hooks are written only on request: --hooks to the committed settings,
    --hooks --local to Claude Code's per user settings file. */
 const hooksOption = () => {
@@ -24,7 +29,9 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
 
   npx complex-md                 generate COMPLEX.md, then wire it in (a brief per hot path)
   npx complex-md generate        same; --agent writes the prompt bundle for your agent instead of calling a model
+                                 --template writes template prose from the computed numbers, with no model call
                                  --model <id>  --provider <name>  --no-wire  --hooks  --local
+                                 prints the file plan first; asks once in a terminal, --yes skips the question
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
                                  --hooks also writes the edit hooks: .claude/settings.json, .cursor/hooks.json
                                  --hooks --local writes them to .claude/settings.local.json only, kept out of git
@@ -46,7 +53,9 @@ Model call: the first configured provider wins, or pick one with --provider / --
 Keys: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, XAI_API_KEY,
 DEEPSEEK_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, TOGETHER_API_KEY; local Ollama via OLLAMA_HOST;
 any OpenAI-compatible endpoint via COMPLEX_MD_BASE_URL (+ COMPLEX_MD_API_KEY).
-Without any of them the prompt bundle goes to .complex-md/prompt.md for the agent you already run.
+Without any of them, COMPLEX.md gets template prose built from the computed numbers, and the
+prompt bundle goes to .complex-md/prompt.md for the agent you already run. Template prose never
+replaces prose that a model or a person wrote; --template does.
 Without a key nothing is sent. With one, that call sends the signals and excerpts of up to ten
 hotspot files, about 60,000 characters of code at most, to the provider you chose.`;
 
@@ -180,10 +189,25 @@ async function main() {
 
   if (cmd === 'generate') {
     const { generate } = await import('../src/generate.js');
-    const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), log });
+    const { planWire, formatPlan, confirmPlan } = await import('../src/plan.js');
+    const wireOpts = { hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(',') };
+    // The file plan goes out before the first write; a terminal gets one
+    // question, and --yes or a non terminal stdin never waits.
+    const approve = async ({ files, fallback, mapText }) => {
+      const wiring = mapText && !flag('--no-wire') ? planWire(root, mapText, wireOpts) : [];
+      const all = [...files, ...wiring];
+      log(formatPlan(all, fallback));
+      return confirmPlan({ yes: flag('--yes') || (!all.length && !fallback.length) });
+    };
+    const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), template: flag('--template'), approve, log });
     if (r.written && !flag('--no-wire')) {
       const { wire } = await import('../src/wire.js');
-      wire(root, { hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
+      wire(root, { ...wireOpts, log });
+    }
+    if (!r.declined) {
+      const { repositoryFact } = await import('../src/template.js');
+      log(`Fact: ${repositoryFact(r.sig)}`);
+      log(SITE_URL);
     }
     return;
   }

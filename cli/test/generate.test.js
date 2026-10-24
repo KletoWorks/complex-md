@@ -165,3 +165,78 @@ test('generate: an OpenAI-compatible reply with finish_reason length is never wr
     else process.env.OPENAI_API_KEY = realKey;
   }
 });
+
+/* Every provider key the resolver reads, cleared for one call, so a key in
+   the developer's own shell cannot turn a no-key test into a model call. */
+const KEY_ENV = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'XAI_API_KEY', 'DEEPSEEK_API_KEY', 'MISTRAL_API_KEY', 'GROQ_API_KEY', 'TOGETHER_API_KEY', 'COMPLEX_MD_API_KEY', 'COMPLEX_MD_BASE_URL', 'COMPLEX_MD_PROVIDER', 'COMPLEX_MD_MODEL'];
+async function withoutKeys(fn) {
+  const saved = Object.fromEntries(KEY_ENV.map((k) => [k, process.env[k]]));
+  const realFetch = globalThis.fetch;
+  for (const k of KEY_ENV) delete process.env[k];
+  globalThis.fetch = async () => { throw new Error('a no-key run called fetch'); };
+  try {
+    return await fn();
+  } finally {
+    globalThis.fetch = realFetch;
+    for (const [k, v] of Object.entries(saved)) if (v === undefined) delete process.env[k]; else process.env[k] = v;
+  }
+}
+
+test('generate with no key writes COMPLEX.md with the computed front matter and template prose', async () => {
+  const dir = makeRepo();
+  const r = await withoutKeys(() => generate(dir));
+  assert.equal(r.written, true);
+  assert.equal(r.prose, 'template');
+  const out = readFileSync(join(dir, 'COMPLEX.md'), 'utf8');
+  const fm = readFileSync(join(dir, '.complex-md/front-matter.yaml'), 'utf8');
+  assert.equal(out.slice(0, out.indexOf('\n---\n') + 5), fm.replace(/^(tool: .*\n)/m, '$1prose: template\n'));
+  assert.deepEqual(validateOutput(out), []);
+  assert.match(out, /Before editing this file, /);
+});
+
+test('generate with no key gives byte identical output for the same commit', async () => {
+  const dir = makeRepo();
+  await withoutKeys(() => generate(dir));
+  const first = readFileSync(join(dir, 'COMPLEX.md'));
+  await withoutKeys(() => generate(dir));
+  assert.ok(first.equals(readFileSync(join(dir, 'COMPLEX.md'))));
+});
+
+test('generate with no key keeps a COMPLEX.md whose prose did not come from the template', async () => {
+  const dir = makeRepo();
+  writeFileSync(join(dir, 'COMPLEX.md'), FM + '\n' + FULL + '\n');
+  const logs = [];
+  const r = await withoutKeys(() => generate(dir, { log: (s) => logs.push(s) }));
+  assert.equal(r.written, false);
+  assert.equal(readFileSync(join(dir, 'COMPLEX.md'), 'utf8'), FM + '\n' + FULL + '\n');
+  assert.ok(existsSync(join(dir, '.complex-md/prompt.md')));
+  assert.ok(logs.some((l) => /--template/.test(l)));
+});
+
+test('generate --template replaces any prose, and makes no model call with a key set', async () => {
+  const dir = makeRepo();
+  writeFileSync(join(dir, 'COMPLEX.md'), FM + '\n' + FULL + '\n');
+  let calls = 0;
+  const r = await withFetch(async () => { calls++; return jsonResponse(500, {}); }, () => generate(dir, { template: true }));
+  assert.equal(calls, 0);
+  assert.equal(r.written, true);
+  assert.match(readFileSync(join(dir, 'COMPLEX.md'), 'utf8'), /^prose: template$/m);
+});
+
+test('a run that writes .complex-md/ adds it to .gitignore once', async () => {
+  const dir = makeRepo();
+  writeFileSync(join(dir, '.gitignore'), 'node_modules/\n');
+  await withoutKeys(() => generate(dir));
+  await withoutKeys(() => generate(dir, { agent: true }));
+  const text = readFileSync(join(dir, '.gitignore'), 'utf8');
+  assert.equal(text.match(/^\.complex-md\/\*$/gm)?.length, 1);
+  assert.equal(execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: dir, encoding: 'utf8' }).includes('.complex-md/'), false);
+});
+
+test('generate --agent still writes only the prompt bundle', async () => {
+  const dir = makeRepo();
+  const r = await withoutKeys(() => generate(dir, { agent: true }));
+  assert.equal(r.written, false);
+  assert.ok(!existsSync(join(dir, 'COMPLEX.md')));
+  assert.ok(existsSync(join(dir, '.complex-md/prompt.md')));
+});
