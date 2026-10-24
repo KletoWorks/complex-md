@@ -161,7 +161,8 @@ function hotParagraph(sig, h, { mapped, reachable, roots, testCommand }) {
   const importers = (sig.importers[h.path] || []).filter((p) => !mapped.has(p));
   if (h.fan_in > 0) {
     const sample = importers.slice(0, 3).map(code);
-    s.push(`${plural(h.fan_in, 'file')} ${h.fan_in === 1 ? 'depends' : 'depend'} on it${sample.length ? `, for example ${list(sample)}` : ''}.`);
+    const named = !sample.length ? '' : sample.length === h.fan_in ? `: ${list(sample)}` : `, for example ${list(sample)}`;
+    s.push(`${plural(h.fan_in, 'file')} ${h.fan_in === 1 ? 'depends' : 'depend'} on it${named}.`);
   } else {
     s.push('No other file depends on it through an import or a path reference.');
   }

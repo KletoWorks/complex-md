@@ -51,6 +51,11 @@ test('the directive names the covering tests when the file is not reachable from
   assert.match(map.paragraphFor('src/core.js'), /5 files depend on it, for example `src\/a\.js`, `src\/b\.js` and `src\/c\.js`\./);
 });
 
+test('importers are named in full when all of them fit, and as examples otherwise', () => {
+  const s = { ...sig, hotspots: [{ ...sig.hotspots[0], fan_in: 2 }], importers: { 'src/core.js': ['src/a.js', 'src/b.js'] } };
+  assert.match(templateProse(s), /2 files depend on it: `src\/a\.js` and `src\/b\.js`\./);
+});
+
 test('a hotspot with no tests and no importers gets a directive to plan the verification', () => {
   assert.match(map.directive('src/render.css'), /^Before editing this file, .*no test covers it\.$/);
 });
