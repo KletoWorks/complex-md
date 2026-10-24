@@ -231,8 +231,8 @@ paths:
 <the block>
 ```
 
-   Windsurf (`.windsurf/`), Cline (`.clinerules/`) and Roo (`.roo/`) rule
-   files are written by the CLI only: run `npx -y complex-md wire`.
+   Windsurf (`.windsurf/`) and Cline (`.clinerules/`) rule files are
+   written by the CLI only: run `npx -y complex-md wire`.
 
 6. Hooks. Rules are advisory; the research puts
    compliance near half when an agent edits existing code late in a session.

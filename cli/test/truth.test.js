@@ -62,6 +62,11 @@ const BANNED = [
   { re: /over the last twelve months|halves every year/i, why: 'history is indexed by commit: the last 2,000 commits, half-life a quarter of the window' },
   { re: /score is recency-weighted churn multiplied by lines of code/i, why: 'the 0.3 score also multiplies in fan-in (spec, Hotspot score)' },
   { re: /list form does not load/i, why: 'Claude Code reads paths as a YAML list or a comma separated string' },
+  { re: /--no-mcp/, why: 'there is no such flag; the MCP server is off unless --mcp asks for it' },
+  { re: /query it mid-task|agents query mid-task/i, why: 'the MCP server is opt in, not the headline' },
+  { re: /\bRoo\b|cline,roo/, files: ['README.md', 'cli/README.md', 'cli/bin/complex-md.js', ...WIRING], why: 'Roo reads AGENTS.md; its block-only rule file adds nothing and is not offered' },
+  { re: /\.mcp\.json|mcpServers|complex-md mcp|--mcp\b|MCP server/i, files: WIRING, why: 'the spec and the skill do not tell agents to wire the MCP server' },
+  { re: /"mcp"/, files: ['cli/package.json'], why: 'the npm keywords do not lead with MCP' },
 ];
 
 for (const rule of BANNED) {

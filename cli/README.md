@@ -2,7 +2,8 @@
 
 `COMPLEX.md` is a computed map of where edits are risky and where bugs get
 fixed, generated from a repository's git history for coding agents. This
-package generates it, enforces it, and lets agents query it mid-task.
+package generates it, wires it into your agents, and checks each change
+against it.
 
     npx complex-md
 
@@ -27,15 +28,11 @@ Spec, research and the downloadable skill: https://complex.md
      `@COMPLEX.md` import in `CLAUDE.md`;
    - path-scoped rules keyed to the hotspot files for Claude Code
      (`.claude/rules/`), Cursor (`.cursor/rules/`), OpenHands
-     (`.agents/skills/`), Windsurf (`.windsurf/rules/`), Cline
-     (`.clinerules/`), Roo (`.roo/rules/`);
-   - hooks: Claude Code `PreToolUse` and `Stop`, Cursor `preToolUse` and `stop`;
-   - the MCP server in `.mcp.json`, `.cursor/mcp.json`, `.codex/config.toml`;
-     OpenClaw and Hermes keep a machine-level MCP registry, so they are
-     wired only when asked (`--for openclaw,hermes`), through their own
-     CLIs, with `mcp --root <repo>` pinning the server to this repository.
+     (`.agents/skills/`) and Windsurf (`.windsurf/rules/`), and the block
+     for Cline (`.clinerules/`);
+   - hooks: Claude Code `PreToolUse` and `Stop`, Cursor `preToolUse` and `stop`.
 
-Skip any part with `--no-wire`, `--no-hooks`, `--no-mcp`.
+`--no-wire` writes only COMPLEX.md. `--no-hooks` skips the hooks.
 
 ## The hooks
 
@@ -59,9 +56,13 @@ Modes: `--mode gate` (default), `--mode warn` (let the edit through with the
 paragraph attached), `--mode off`. Edit the command in `.claude/settings.json`
 or `.cursor/hooks.json`, or set `COMPLEX_MD_GATE`.
 
-## The MCP server
+## Optional: the MCP server (`--mcp`)
 
-`npx complex-md mcp` on stdio. Six tools:
+Off by default. `wire --mcp` registers it in `.mcp.json`, `.cursor/mcp.json`
+and `.codex/config.toml`. OpenClaw and Hermes keep a machine-level registry,
+so `wire --mcp --for openclaw,hermes` registers it through their own CLIs,
+with `mcp --root <repo>` pinning it to this repository. `npx complex-md mcp`
+runs it on stdio. Six tools:
 
 | Tool | Use it when |
 | --- | --- |
@@ -76,14 +77,14 @@ or `.cursor/hooks.json`, or set `COMPLEX_MD_GATE`.
 
     npx complex-md check [--staged | --base main] [--json] [--strict]
     npx complex-md signals [--json | --tsv]
-    npx complex-md wire [--no-hooks] [--no-mcp]
-                        [--for claude,cursor,openhands,codex,windsurf,cline,roo,openclaw,hermes]
+    npx complex-md wire [--no-hooks] [--mcp]
+                        [--for claude,cursor,openhands,codex,windsurf,cline,openclaw,hermes]
     npx complex-md generate --agent      # write the prompt bundle, no model call
 
 `check --strict` exits 1 on findings, for pre-commit and CI. `wire` detects
 which agents a repository already uses from its config directories; `--for`
-overrides that. Wiring for Claude Code creates a `CLAUDE.md` when there is
-none, because Claude Code does not read AGENTS.md.
+overrides that. Wiring for Claude Code creates a `CLAUDE.md` that imports
+COMPLEX.md when there is none.
 
 Run at an old commit and the window anchors to that commit's date, so a map
 regenerated for a past release describes the history that existed then.

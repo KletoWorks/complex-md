@@ -123,7 +123,7 @@ is the optional prose step at generation time.
 | --- | --- |
 | `prompts/generate.md` | The versioned generation prompt. Single source of truth for the CLI and the skill. |
 | `prompts/integration.md` | The normative wiring block appended to AGENTS.md, CLAUDE.md and friends. Served at /integration.md. |
-| `cli/` | The `complex-md` npm package: signals engine, generator, wiring, hooks, MCP server, diff check. `npm test` here or inside it. |
+| `cli/` | The `complex-md` npm package: signals engine, generator, wiring, hooks, diff check, impact, and an opt in MCP server. `npm test` here or inside it. |
 | `examples/` | Reference COMPLEX.md files, starting with fastify. This repository carries its own at the root. |
 | `bench/` | Collateral damage benchmark on real fix commits, paired arms: does the agent run the tests the map names, pass the fix's tests, and leave the rest of the suite green? `bench/repro/` holds standalone reproductions. |
 | `docs/` | Research behind the spec: signal verdicts, agent context-file evidence, wiring mechanics. |
