@@ -40,6 +40,9 @@ export function newMetrics() {
    whether the harness already ended the run itself. */
 export function createMeter({ wt, gold, stopAt }) {
   const m = newMetrics();
+  /* Every tool call in order, for the conduct checks. Not enumerable, so it
+     stays out of the row: the transcript keeps the full record. */
+  Object.defineProperty(m, 'log', { value: [], enumerable: false });
   const goldSet = new Set(gold);
   const isGold = (p) => p && (goldSet.has(p) || gold.some((g) => p.endsWith('/' + g)));
   let firstEdit = false;
@@ -67,6 +70,7 @@ export function createMeter({ wt, gold, stopAt }) {
         if (c.name?.startsWith('mcp__complex-md')) m.mcp_calls++;
         if (c.name === 'Bash' && isTestCommand(c.input?.command)) m.agent_test_runs++;
         const p = rel(pathOf(c.input), wt);
+        m.log.push({ step: m.steps, name: c.name, path: p, command: c.name === 'Bash' ? String(c.input?.command || '') : null });
         if (c.name === 'Read' || EDIT_TOOLS.has(c.name)) {
           if (isGold(p)) { m.first_gold_read ??= m.steps; if (EDIT_TOOLS.has(c.name)) m.first_gold_edit ??= m.steps; }
           else if (c.name === 'Read' && m.first_gold_read === null && p && !/COMPLEX\.md$/.test(p)) m.wasted_reads++;
@@ -90,4 +94,39 @@ export function createMeter({ wt, gold, stopAt }) {
     return action;
   }
   return { m, onEvent };
+}
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/* Paths the agent looked at: opened with Read, searched with Grep, or named
+   in a Bash command (cat, sed, head, grep, rg). With Read alone, a partner
+   the agent viewed with cat or grep counted as missed. */
+function viewed(m, edited) {
+  const log = m.log || [];
+  const paths = new Set([...edited, ...m.reads, ...log.filter((e) => e.name === 'Grep' && e.path).map((e) => e.path)]);
+  const commands = log.filter((e) => e.name === 'Bash').map((e) => e.command);
+  return (f) => paths.has(f) || commands.some((c) => new RegExp(`(^|[\\s"'=/])${escapeRe(f)}($|[\\s"':;|&)<>])`).test(c));
+}
+
+/* Did the agent behave the way the map asks: when it edits a file the map
+   calls risky, did it run any test, and when it edits one side of a
+   co-change pair, did it look at the other. Judged against the computed
+   risky set from the baseline, the same for every arm. */
+export function behaviour(edited, m, risky) {
+  const riskySet = new Set([...risky.hotspots, ...risky.load_bearing]);
+  const editedRisky = edited.filter((f) => riskySet.has(f));
+  const seen = viewed(m, edited);
+  const missed = [];
+  /* Source partners only: a docs page that co-changes with a module is a
+     real pairing, but not opening it while fixing a bug is not a risk. */
+  const source = (f) => !/\.(md|mdx|txt|rst)$/i.test(f);
+  for (const [a, b] of risky.co_change.filter((pair) => pair.every(source))) {
+    if (edited.includes(a) && !seen(b)) missed.push(b);
+    if (edited.includes(b) && !seen(a)) missed.push(a);
+  }
+  return {
+    edited_risky: editedRisky,
+    risky_edit_untested: editedRisky.length > 0 && m.agent_test_runs === 0,
+    partners_missed: [...new Set(missed)],
+  };
 }

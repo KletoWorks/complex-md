@@ -29,7 +29,7 @@ import { computeSignals } from '../cli/src/signals.js';
 import { buildBundle, normalizeOutput } from '../cli/src/generate.js';
 import { wire } from '../cli/src/wire.js';
 import { detectRunner, listTestFiles, runSuite, confirm, goldTestFiles } from './suite.mjs';
-import { createMeter, newMetrics } from './agent-events.mjs';
+import { createMeter, newMetrics, behaviour } from './agent-events.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '../cli/bin/complex-md.js');
@@ -263,29 +263,6 @@ async function runDamage(task, wt, baseline) {
     regressions: keys,
     regressed_tests: keys.length,
     regressed_files: new Set(keys.map((k) => k.split(' :: ')[0])).size,
-  };
-}
-
-/* Did the agent behave the way the map asks: when it edits a file the map
-   calls risky, did it run any test, and when it edits one side of a
-   co-change pair, did it open the other. Judged against the computed risky
-   set from the baseline, the same for every arm. */
-function behaviour(edited, m, risky) {
-  const riskySet = new Set([...risky.hotspots, ...risky.load_bearing]);
-  const editedRisky = edited.filter((f) => riskySet.has(f));
-  const touched = new Set([...edited, ...m.reads]);
-  const missed = [];
-  /* Source partners only: a docs page that co-changes with a module is a
-     real pairing, but not opening it while fixing a bug is not a risk. */
-  const source = (f) => !/\.(md|mdx|txt|rst)$/i.test(f);
-  for (const [a, b] of risky.co_change.filter((pair) => pair.every(source))) {
-    if (edited.includes(a) && !touched.has(b)) missed.push(b);
-    if (edited.includes(b) && !touched.has(a)) missed.push(a);
-  }
-  return {
-    edited_risky: editedRisky,
-    risky_edit_untested: editedRisky.length > 0 && m.agent_test_runs === 0,
-    partners_missed: [...new Set(missed)],
   };
 }
 
