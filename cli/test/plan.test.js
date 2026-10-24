@@ -73,6 +73,17 @@ test('the wiring plan matches what wire then writes, for every repo local target
   assert.deepEqual(planWire(dir, MAP, opts), [], 'a second wire changes nothing, and the plan says so');
 });
 
+test('the dry run sees the repository as wire does, so a file where wire expects a folder fails in the plan too', () => {
+  const files = { 'COMPLEX.md': MAP, '.clinerules': 'my own rules\n' };
+  const plan = planWire(repoWith(files), MAP, {});
+  const dir = repoWith(files);
+  const before = snapshot(dir);
+  let failed = false;
+  try { wire(dir, {}); } catch { failed = true; }
+  if (failed) assert.equal(plan.at(-1)?.action, 'error', JSON.stringify(plan));
+  else assert.deepEqual(plan, diff(before, snapshot(dir)));
+});
+
 test('a global registry target is planned as a registration, never run', () => {
   const dir = repoWith({ 'COMPLEX.md': MAP });
   assert.deepEqual(planWire(dir, MAP, { agents: ['openclaw'], mcp: true }).at(-1), { path: 'openclaw MCP registry', action: 'register' });

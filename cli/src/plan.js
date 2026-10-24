@@ -1,30 +1,49 @@
 // The file plan: what a run will create, change or remove, shown before the
 // first write. The wiring part is not predicted by a second copy of the
 // wiring rules. It comes from a dry run of wire() itself, in a scratch
-// directory that holds a copy of every file wire reads, so the plan and the
-// real run cannot disagree.
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, existsSync, copyFileSync, rmSync } from 'node:fs';
-import { join, dirname, relative } from 'node:path';
+// directory that mirrors every place wire reads or writes: the files at the
+// repository root and the dot directories, where agent configuration lives.
+// No list of target paths is kept here, so a new target needs no change.
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, copyFileSync, rmSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createInterface } from 'node:readline';
 import { wire } from './wire.js';
 import { TARGETS } from './targets.js';
 
-/* Files wire reads before it writes them: the primary agent files and the
-   per target rule, hook and MCP files. */
-const WIRE_FILES = [
-  'AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.github/copilot-instructions.md', '.mcp.json',
-  '.claude/settings.json', '.claude/rules/complex-md.md',
-  '.cursor/hooks.json', '.cursor/mcp.json', '.cursor/rules/complex-md.mdc',
-  '.codex/config.toml', '.windsurf/rules/complex-md.md', '.clinerules/complex-md.md',
-  '.roo/rules/complex-md.md', '.agents/skills/complex-md.md',
-];
-/* Brief directories wire clears before it writes, with the name prefix it
-   owns in each. */
-const BRIEF_DIRS = [['.claude/rules/complex-md', ''], ['.cursor/rules/complex-md', ''], ['.agents/skills', 'complex-md-']];
-/* Directories whose presence selects a target. Only their presence is
-   copied, never their content. */
-const MARKERS = ['.claude', '.cursor', '.openhands', '.agents', '.codex', '.windsurf', '.clinerules', '.roo'];
+/* Never mirrored: git itself, dependencies, nested worktrees, the CLI's own
+   working directory, the map (the plan supplies it), and dot directories
+   that hold caches or environments, never agent configuration. A file over
+   1 MB is no agent configuration either. The deepest path wire writes is
+   three folders down (.github/instructions/complex-md/), so the mirror stops
+   there, which also bounds a symbolic link loop. */
+const SKIP = new Set([
+  '.git', 'node_modules', 'worktrees', '.complex-md', 'COMPLEX.md',
+  '.venv', '.tox', '.nox', '.cache', '.yarn', '.pnpm-store', '.next', '.nuxt', '.svelte-kit', '.turbo',
+  '.gradle', '.terraform', '.mypy_cache', '.pytest_cache', '.ruff_cache', '.hg', '.svn', '.direnv',
+]);
+const MAX_BYTES = 1 << 20;
+const MAX_DEPTH = 3;
+
+function mirror(src, dest, depth = 0) {
+  for (const name of readdirSync(src)) {
+    if (SKIP.has(name)) continue;
+    const from = join(src, name);
+    let st;
+    try {
+      st = statSync(from);
+    } catch {
+      continue;
+    }
+    if (st.isFile() && st.size <= MAX_BYTES) {
+      mkdirSync(dest, { recursive: true });
+      copyFileSync(from, join(dest, name));
+    } else if (st.isDirectory() && depth < MAX_DEPTH && (depth > 0 || name.startsWith('.'))) {
+      mkdirSync(join(dest, name), { recursive: true });
+      mirror(from, join(dest, name), depth + 1);
+    }
+  }
+}
 
 function snapshot(dir) {
   const out = new Map();
@@ -47,16 +66,7 @@ function snapshot(dir) {
 export function planWire(root, mapText, { hooks = true, mcp = false, agents = null } = {}) {
   const scratch = mkdtempSync(join(tmpdir(), 'complex-md-plan-'));
   try {
-    for (const m of MARKERS) if (existsSync(join(root, m))) mkdirSync(join(scratch, m), { recursive: true });
-    const copy = (rel) => {
-      mkdirSync(dirname(join(scratch, rel)), { recursive: true });
-      copyFileSync(join(root, rel), join(scratch, rel));
-    };
-    for (const f of WIRE_FILES) if (existsSync(join(root, f)) && statSync(join(root, f)).isFile()) copy(f);
-    for (const [d, prefix] of BRIEF_DIRS) {
-      if (!existsSync(join(root, d))) continue;
-      for (const f of readdirSync(join(root, d))) if ((f.endsWith('.md') || f.endsWith('.mdc')) && f.startsWith(prefix) && statSync(join(root, d, f)).isFile()) copy(`${d}/${f}`);
-    }
+    mirror(root, scratch);
     writeFileSync(join(scratch, 'COMPLEX.md'), mapText);
     const before = snapshot(scratch);
     const local = agents ? agents.filter((a) => !TARGETS[a]?.global) : null;
