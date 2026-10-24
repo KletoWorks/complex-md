@@ -1,3 +1,5 @@
+# Unlisted. GitHub offers only the forms in .github/ISSUE_TEMPLATE/, and no
+# hosted page exists yet. Move this file there when hosted pages ship.
 name: A hosted page removal request
 description: Ask to remove a page on complex.md that shows a map of your repository.
 body:

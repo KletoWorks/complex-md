@@ -41,6 +41,7 @@ const PUBLIC = [
   'SECURITY.md',
   '.github/PULL_REQUEST_TEMPLATE.md',
   ...dir('.github/ISSUE_TEMPLATE', '.yml'),
+  ...dir('.github/unlisted', '.yml'),
   'docs/RESEARCH-signals-and-wiring.md',
   // The build writes llms.txt, the JSON-LD and the footer from this file.
   'scripts/build.mjs',

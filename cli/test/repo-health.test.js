@@ -65,22 +65,23 @@ test('CODE_OF_CONDUCT.md is Contributor Covenant 2.1 with a real contact', (t) =
    commit, the line and the truth. The other forms do the same for their
    case. Questions go to Discussions, not issues. */
 const FORMS = {
-  'map-wrong.yml': ['repository', 'commit', 'wrong_line', 'truth'],
-  'new-language.yml': ['language', 'extensions', 'imports', 'fixture'],
-  'benchmark-task.yml': ['repository', 'fix_commit', 'issue', 'tests'],
-  'page-removal.yml': ['page', 'repository', 'maintainer'],
+  '.github/ISSUE_TEMPLATE/map-wrong.yml': ['repository', 'commit', 'wrong_line', 'truth'],
+  '.github/ISSUE_TEMPLATE/new-language.yml': ['language', 'extensions', 'imports', 'fixture'],
+  '.github/ISSUE_TEMPLATE/benchmark-task.yml': ['repository', 'fix_commit', 'issue', 'tests'],
+  '.github/unlisted/page-removal.yml': ['page', 'repository', 'maintainer'],
 };
 
 test('the issue forms ask for the fields a fix needs, and questions go to Discussions', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
-  for (const [f, ids] of Object.entries(FORMS)) {
-    const p = `.github/ISSUE_TEMPLATE/${f}`;
+  for (const [p, ids] of Object.entries(FORMS)) {
     assert.ok(existsSync(join(ROOT, p)), `${p} exists`);
     const s = read(p);
     for (const key of ['name', 'description', 'body']) assert.match(s, new RegExp(`^${key}:`, 'm'), `${p} has ${key}`);
     for (const id of ids) assert.match(s, new RegExp(`^\\s+id: ${id}$`, 'm'), `${p} asks for ${id}`);
     assert.match(s, /required: true/, `${p} requires at least one field`);
   }
+  // No hosted page exists yet, so the chooser offers no form to remove one.
+  assert.ok(!existsSync(join(ROOT, '.github/ISSUE_TEMPLATE/page-removal.yml')), 'the removal form stays out of the chooser');
   const config = read('.github/ISSUE_TEMPLATE/config.yml');
   assert.match(config, /^contact_links:/m);
   assert.match(config, /https:\/\/github\.com\/KletoWorks\/complex-md\/discussions/);
