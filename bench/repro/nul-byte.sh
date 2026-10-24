@@ -47,6 +47,11 @@
 #     stdout: (empty)
 #     stderr: (empty)
 #
+#   $ grep -rn /api/widgets .     (ugrep 7.8.4, as Claude Code's shell runs grep)
+#     exit:   0
+#     stdout: (empty)
+#     stderr: (empty)
+#
 #   $ rg -n /api/widgets          (ripgrep 15.2.0 (rev e89fff89ac), the rg on Codex's PATH)
 #     exit:   0
 #     stdout: (empty)
@@ -72,6 +77,8 @@
 # - ripgrep names the binary file only when the file is named explicitly,
 #   and then prints no line.
 # - GNU grep prints no line either. It writes one notice to stderr.
+# - grep in Claude Code's Bash tool is a shell function that runs the
+#   ugrep built into claude.exe with -I. It prints nothing for the file.
 # - git grep prints the line, with and without -I --text. Git looks for a NUL
 #   in the first 8000 bytes only, and this NUL sits at offset 53248.
 set -u
@@ -133,6 +140,17 @@ if [ -n "${CLAUDE_BIN:-}" ] && [ -x "$CLAUDE_BIN" ]; then
         bash -c 'exec -a rg "$0" --no-config -n /api/widgets' "$CLAUDE_BIN"
       ;;
     *) echo "CLAUDE_BIN does not answer as ripgrep; skipped" ;;
+  esac
+  # In Claude Code's Bash tool, grep is a shell function. It starts the same
+  # binary under the name ugrep, with -I among its flags, so binary files
+  # are skipped. `type grep` in that shell prints the function.
+  version=$( (exec -a ugrep "$CLAUDE_BIN" --version) 2>/dev/null | head -n 1 | cut -d ' ' -f 1-2)
+  case "$version" in
+    ugrep*)
+      search "grep -rn /api/widgets .     ($version, as Claude Code's shell runs grep)" \
+        bash -c 'exec -a ugrep "$0" -G --ignore-files --hidden -I --exclude-dir=.git -rn /api/widgets .' "$CLAUDE_BIN"
+      ;;
+    *) echo "CLAUDE_BIN does not answer as ugrep; grep line skipped" ;;
   esac
 fi
 
