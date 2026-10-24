@@ -13,7 +13,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, isAbsolute, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { repoRoot, changedFiles, git } from './git.js';
+import { repoRoot, changedFiles, git, historyRenameArgs } from './git.js';
 import { loadComplexMd } from './complexmd.js';
 import { runCheck, formatCheck } from './check.js';
 
@@ -116,7 +116,7 @@ export function adviseEdit(root, rel, state, mode) {
 function sessionFiles(root, state) {
   const set = new Set(changedFiles(root));
   if (state.started) {
-    const out = git(['log', `--since=${state.started}`, '--name-only', '--pretty=format:'], { cwd: root, allowFail: true });
+    const out = git(['log', `--since=${state.started}`, ...historyRenameArgs(root), '--name-only', '--pretty=format:'], { cwd: root, allowFail: true });
     out.split('\n').filter(Boolean).forEach((f) => set.add(f));
   }
   return [...set];

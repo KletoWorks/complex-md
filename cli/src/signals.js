@@ -10,7 +10,7 @@
 // degraded twin and says so in `tool`.
 import { readFileSync, existsSync } from 'node:fs';
 import { join, posix } from 'node:path';
-import { git, trackedFiles, shortSha } from './git.js';
+import { git, trackedFiles, shortSha, partialCloneFilter, historyRenameArgs } from './git.js';
 import { buildGraph, submodulePaths, RANKED_KINDS, TEST_FILE_RE, BINARY_RE } from './graph.js';
 import { rankScaled } from './rank.js';
 import { isSecretPath } from './secrets.js';
@@ -54,7 +54,7 @@ export const DEFAULTS = {
 
 /** The most recent N non-merge commits, oldest last, with fix labels matched like `git log --grep`. */
 function readCommits(cwd, n) {
-  const out = git(['log', `-n${n}`, '--no-merges', '--name-only', '--date=unix', '--pretty=format:@%ct\t%ae\t%H'], { cwd });
+  const out = git(['log', `-n${n}`, '--no-merges', ...historyRenameArgs(cwd), '--name-only', '--date=unix', '--pretty=format:@%ct\t%ae\t%H'], { cwd });
   const commits = [];
   let cur = null;
   for (const line of out.split('\n')) {
@@ -72,6 +72,17 @@ function readCommits(cwd, n) {
   const fixSet = new Set(git(['log', range, '--no-merges', '-i', '-E', `--grep=${FIX_GREP}`, '--pretty=format:%H'], { cwd }).split('\n').filter(Boolean));
   for (const c of commits) c.isFix = fixSet.has(c.hash);
   return commits;
+}
+
+/* A treeless clone (--filter=tree:0) has the commits but not their trees.
+   Listing the files of each commit then fetches its trees one round trip at
+   a time: 76 s for 200 commits of flask. The probe asks whether the oldest
+   commit in the window has its trees, and fetches nothing to find out. */
+function treesMissing(cwd, n) {
+  if (!partialCloneFilter(cwd)) return false;
+  const oldest = git(['rev-list', '--no-merges', `--skip=${n - 1}`, '-n1', 'HEAD'], { cwd, allowFail: true }).trim();
+  if (!oldest) return false;
+  return /^\?/m.test(git(['rev-list', '--objects', '--missing=print', '--filter=blob:none', '--no-walk', oldest], { cwd, allowFail: true }));
 }
 
 const graphCache = new Map();
@@ -100,7 +111,8 @@ export function computeSignals(cwd, opts = {}) {
   // 1. History window, by commit count.
   const commitsTotal = Number(git(['rev-list', '--count', '--no-merges', 'HEAD'], { cwd }).trim()) || 0;
   const n = Math.min(commitsTotal, o.windowCommitsMax);
-  const commits = n ? readCommits(cwd, n) : [];
+  const treeless = n > 0 && treesMissing(cwd, n);
+  const commits = n && !treeless ? readCommits(cwd, n) : [];
   const halfLife = Math.max(50, Math.round(commits.length / 4));
   const churn = new Map(); // path -> { c, cw, fixes, fw, authors: Map, last }
   const pairs = new Map();
@@ -282,6 +294,7 @@ export function computeSignals(cwd, opts = {}) {
     blind.push(`${n} source file${many ? 's' : ''} ${many ? 'contain' : 'contains'} a NUL byte, so grep treats ${many ? 'them' : 'it'} as binary and skips ${many ? 'them' : 'it'} in silence: ${graph.grepBlind.join(', ')}. Search with git grep -I --text, and fix the byte: it is almost always a separator that should have been written as an escape.`);
   }
   if (git(['rev-parse', '--is-shallow-repository'], { cwd, allowFail: true }).trim() === 'true') blind.push('shallow clone: history is truncated');
+  if (treeless) blind.push('treeless clone: the commit trees are not local, and reading history would fetch them one commit at a time, so history was not read. Fetch them once with git fetch --refetch --filter=blob:none, then run again');
   if (thin) blind.push(`${counted} commits of usable history: ranking rests on structure and size; churn, fixes and ownership carry little weight yet`);
   if (allAuthors.size <= 1) blind.push('one committer identity: authors and owner_share carry no information on this repository');
   // The graph resolves some languages and not others. Say which files it
