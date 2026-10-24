@@ -118,6 +118,22 @@ test('--help and the CLI README name every command the bin runs', () => {
   assert.match(help, /impact <path>[\s\S]*--strict/);
 });
 
+/* The marquee shows every agent that can read the map, and most of them read
+   it through AGENTS.md rather than a file of their own. The caption says
+   which is which. MCP is a protocol, not an agent, and Aider reads neither
+   AGENTS.md nor COMPLEX.md unless its own config names the file. */
+test('the agent marquee is captioned and lists only agents that read the map', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const home = readFileSync(join(ROOT, 'content/index.html'), 'utf8').replace(/\s+/g, ' ');
+  const section = /id="compatibility">([\s\S]*?)\{\{AGENT_MARQUEE\}\}/.exec(home)?.[1] || '';
+  assert.match(section, /Claude Code and Cursor get rules and hooks/);
+  assert.match(section, /through AGENTS\.md/);
+  const agents = JSON.parse(readFileSync(join(ROOT, 'site/logos/agents.json'), 'utf8'));
+  const slugs = agents.map((a) => a.slug);
+  for (const s of ['modelcontextprotocol', 'aider']) assert.ok(!slugs.includes(s), `${s} is not in the marquee`);
+  for (const s of slugs) assert.ok(existsSync(join(ROOT, 'site/logos', `${s}.svg`)), `${s}.svg exists`);
+});
+
 test('every listed public text exists', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const missing = [...PUBLIC, ...WIRING].filter((f) => !existsSync(join(ROOT, f)));
