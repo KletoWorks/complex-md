@@ -98,6 +98,26 @@ Visual Studio Code* (CMU SEI, DOI 10.58012/4c2e-xd64), whose warning this
 follows: without that first row, a clean and analyzable model can still answer
 the wrong question.
 
+## See the map as a page
+
+```sh
+npx complex-md report
+```
+
+This command reads COMPLEX.md at the repository root and writes
+`.complex-md/report.html`. Then it prints the path. Open the file in any
+browser. The page shows:
+
+- a treemap of the hotspots. Tile area is lines of code, and color is bug fixes in the commit window. A table view holds the same rows.
+- each hot or load bearing file with the "Before editing this file" sentence from its paragraph, and the files that change with it.
+- the co-change pairs and the directories that move together.
+- the blind spots, including each file that text search tools skip because it holds a NUL byte.
+
+The page is one HTML file with no external fonts, scripts or requests, so you
+can attach it to an issue or open it offline. It reads the map and the origin
+remote only, never the history. Without a COMPLEX.md, the command tells you how
+to make one and exits 2.
+
 ## Measured, not asserted
 
 Agents follow it. On two repositories with no shared tasks, agents ran the
