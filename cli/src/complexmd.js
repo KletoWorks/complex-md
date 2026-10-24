@@ -11,6 +11,7 @@ export function loadComplexMd(cwd) {
 }
 
 export function parseComplexMd(text) {
+  text = normalizeNewlines(text);
   const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text);
   if (!m) return null;
   const fm = parseFrontMatter(m[1]);
@@ -25,10 +26,8 @@ export function parseComplexMd(text) {
   const sections = splitSections(prose);
   const hotspotParas = paragraphs(sections['Why these files are hot'] || '');
   const couplingParas = paragraphs(sections['Change coupling'] || '');
-  const paragraphFor = (path) => {
-    const hits = hotspotParas.filter((para) => mentions(para, path));
-    return hits.length ? hits[0] : null;
-  };
+  const mentions = mentionMatcher(fm);
+  const paragraphFor = (path) => hotspotParas.find((para) => mentions(para, path)) || null;
   const couplingFor = (path) => couplingParas.filter((para) => mentions(para, path));
   return {
     front: fm,
@@ -61,10 +60,59 @@ export function parseComplexMd(text) {
   };
 }
 
-function mentions(para, path) {
-  if (para.includes(path)) return true;
-  const base = path.split('/').pop();
-  return base.length > 6 && para.includes(base);
+/* Does a paragraph name this path? A paragraph names a path with the full
+   path, or with a shorter suffix such as its basename. A suffix counts only
+   when the path is in the map and no other mapped path ends with the same
+   suffix. A monorepo maps several index.ts or __init__.py files, and a plain
+   substring test gave every one of them the paragraph of the first. A name
+   counts only with a boundary on each side, so src/index.ts is not found
+   inside packages/a/src/index.ts. The search looks for the path itself
+   rather than splitting prose into words, because route files carry
+   brackets, parentheses and plus signs (app/[slug]/page.tsx). */
+function mentionMatcher(fm) {
+  const mapped = new Set([
+    ...(fm.hotspots || []).map((h) => h.path),
+    ...(fm.load_bearing || []).map((h) => h.path),
+    ...(fm.co_change || []).flatMap((c) => c.files || []),
+  ].filter((p) => typeof p === 'string'));
+  const endsWith = (p, suffix) => p === suffix || p.endsWith('/' + suffix);
+  const sharedSuffix = (path, suffix) => [...mapped].some((p) => p !== path && endsWith(p, suffix));
+  return (para, path) => {
+    if (names(para, path)) return true;
+    if (!mapped.has(path)) return false;
+    const parts = path.split('/');
+    for (let k = 1; k < parts.length; k++) {
+      const suffix = parts.slice(k).join('/');
+      if (!suffix.includes('/') && suffix.length <= 6) continue;
+      if (!sharedSuffix(path, suffix) && names(para, suffix)) return true;
+    }
+    return false;
+  };
+}
+
+/* True when para holds name with no path character joined to either end.
+   A leading ./ is allowed, and so is a full stop that ends a sentence. */
+function names(para, name) {
+  if (!name) return false;
+  for (let i = para.indexOf(name); i !== -1; i = para.indexOf(name, i + 1)) {
+    let start = i;
+    if (para.slice(i - 2, i) === './') start = i - 2;
+    const before = para[start - 1];
+    const end = i + name.length;
+    const after = para[end];
+    if (before !== undefined && /[\w@.\/+~$-]/.test(before)) continue;
+    if (after !== undefined && /[\w@\/+~$-]/.test(after)) continue;
+    if (after === '.' && /\w/.test(para[end + 1] || '')) continue;
+    return true;
+  }
+  return false;
+}
+
+/* A Windows checkout has CRLF line ends by default (core.autocrlf=true),
+   and some editors write a byte order mark. Either one made the map parse
+   to null, and every hook then went silent on that machine. */
+function normalizeNewlines(text) {
+  return text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
 }
 
 function lastSentence(para) {
@@ -97,7 +145,7 @@ function paragraphs(text) {
 /** Minimal parser for the spec's front matter shape: scalars, `hotspots` list of maps, `co_change` list with inline arrays. */
 export function parseFrontMatter(src) {
   const out = {};
-  const lines = src.split('\n');
+  const lines = normalizeNewlines(src).split('\n');
   let i = 0;
   const scalar = (v) => {
     v = v.trim();

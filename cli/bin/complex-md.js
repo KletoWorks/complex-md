@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
-import { repoRoot, hasCommits } from '../src/git.js';
+import { repoRoot, hasCommits, resolvesCommit } from '../src/git.js';
 
 const pkg = createRequire(import.meta.url)('../package.json');
 const [, , cmd = 'generate', ...args] = process.argv;
@@ -77,8 +77,20 @@ async function main() {
   }
 
   if (cmd === 'check') {
+    const base = opt('--base');
+    if (flag('--base') && (!base || base.startsWith('-'))) {
+      log('complex-md: --base needs a ref, for example --base origin/main.');
+      process.exit(2);
+    }
+    /* A diff against a ref that does not exist is empty, and an empty diff
+       reads as a clean change. A shallow CI checkout has no other branch, so
+       the gate passed on every pull request without running. */
+    if (base && !resolvesCommit(root, base)) {
+      log(`complex-md: the base ref ${base} does not exist in this checkout, so there is no change to check. A shallow CI checkout fetches one commit and no other branch: fetch the history first (actions/checkout with fetch-depth: 0, or git fetch origin).`);
+      process.exit(2);
+    }
     const { runCheck, formatCheck } = await import('../src/check.js');
-    const f = runCheck(root, { base: opt('--base'), staged: flag('--staged') });
+    const f = runCheck(root, { base, staged: flag('--staged') });
     if (flag('--json')) console.log(JSON.stringify(f, null, 2));
     else console.log(formatCheck(f));
     if (flag('--strict') && !f.clean) process.exit(1);

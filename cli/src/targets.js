@@ -7,6 +7,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { hookCommand } from './invoke.js';
 
 /* One rule file per briefed path, in a directory of their own.
  *
@@ -57,14 +58,33 @@ export function writeJson(p, obj) {
   write(p, JSON.stringify(obj, null, 2) + '\n');
 }
 
-// Ours whether installed as `npx -y complex-md hook pre` or as
-// `node path/to/complex-md.js hook pre`; the subcommand is the identity.
+// Ours whether installed as `npx -y complex-md hook pre`, pinned as
+// `complex-md@0.9.2 hook pre`, inside the fallback chain of invoke.js
+// (`complex-md hook pre;`), or as `node path/to/complex-md.js hook pre`;
+// the subcommand is the identity.
 export function isOurs(command, sub) {
-  return new RegExp(`complex-md(\\.js)?\\s+${sub}(\\s|$)`).test(String(command || ''));
+  return new RegExp(`complex-md(@\\S+)?(\\.js)?\\s+${sub}([\\s;]|$)`).test(String(command || ''));
 }
 
 function hasHook(list, sub) {
   return (list || []).some((g) => (g.hooks || []).some((h) => isOurs(h.command, sub)));
+}
+
+/* Versions up to 0.9.2 wrote an unpinned `npx -y complex-md hook <kind>`.
+   Such an entry is rewritten to the current command, with any flags after
+   the kind kept. Any other command, including one a user wrote, stays. */
+const LEGACY_HOOK = /^npx -y complex-md (hook [\w-]+)(\s.*)?$/;
+
+function pinLegacy(entries, sub, inv) {
+  let n = 0;
+  for (const e of entries) {
+    const m = LEGACY_HOOK.exec(String(e?.command || ''));
+    if (m && m[1] === sub) {
+      e.command = hookCommand(inv, sub + (m[2] || ''));
+      n++;
+    }
+  }
+  return n;
 }
 
 function addMcpJson(p, entry, report, label) {
@@ -113,12 +133,15 @@ export const TARGETS = {
       const p = join(root, '.claude/settings.json');
       const s = readJson(p, {});
       s.hooks ||= {};
+      const inner = (list) => (list || []).flatMap((g) => g.hooks || []);
+      if (pinLegacy(inner(s.hooks.PreToolUse), 'hook pre', inv)) report.hooks.push('.claude/settings.json PreToolUse (pinned)');
+      if (pinLegacy(inner(s.hooks.Stop), 'hook stop', inv)) report.hooks.push('.claude/settings.json Stop (pinned)');
       if (!hasHook(s.hooks.PreToolUse, 'hook pre')) {
-        (s.hooks.PreToolUse ||= []).push({ matcher: 'Edit|Write|MultiEdit|NotebookEdit', hooks: [{ type: 'command', command: `${inv.shell} hook pre`, timeout: 30 }] });
+        (s.hooks.PreToolUse ||= []).push({ matcher: 'Edit|Write|MultiEdit|NotebookEdit', hooks: [{ type: 'command', command: hookCommand(inv, 'hook pre'), timeout: 30 }] });
         report.hooks.push('.claude/settings.json PreToolUse');
       }
       if (!hasHook(s.hooks.Stop, 'hook stop')) {
-        (s.hooks.Stop ||= []).push({ hooks: [{ type: 'command', command: `${inv.shell} hook stop`, timeout: 60 }] });
+        (s.hooks.Stop ||= []).push({ hooks: [{ type: 'command', command: hookCommand(inv, 'hook stop'), timeout: 60 }] });
         report.hooks.push('.claude/settings.json Stop');
       }
       writeJson(p, s);
@@ -146,12 +169,14 @@ export const TARGETS = {
       const h = readJson(p, { version: 1, hooks: {} });
       h.version ||= 1;
       h.hooks ||= {};
+      if (pinLegacy(h.hooks.preToolUse || [], 'hook cursor-pre', inv)) report.hooks.push('.cursor/hooks.json preToolUse (pinned)');
+      if (pinLegacy(h.hooks.stop || [], 'hook cursor-stop', inv)) report.hooks.push('.cursor/hooks.json stop (pinned)');
       if (!(h.hooks.preToolUse || []).some((x) => isOurs(x.command, 'hook cursor-pre'))) {
-        (h.hooks.preToolUse ||= []).push({ command: `${inv.shell} hook cursor-pre`, matcher: 'Write|StrReplace|Edit|MultiEdit|SearchReplace|Delete', timeout: 30 });
+        (h.hooks.preToolUse ||= []).push({ command: hookCommand(inv, 'hook cursor-pre'), matcher: 'Write|StrReplace|Edit|MultiEdit|SearchReplace|Delete', timeout: 30 });
         report.hooks.push('.cursor/hooks.json preToolUse');
       }
       if (!(h.hooks.stop || []).some((x) => isOurs(x.command, 'hook cursor-stop'))) {
-        (h.hooks.stop ||= []).push({ command: `${inv.shell} hook cursor-stop`, timeout: 60, loop_limit: 1 });
+        (h.hooks.stop ||= []).push({ command: hookCommand(inv, 'hook cursor-stop'), timeout: 60, loop_limit: 1 });
         report.hooks.push('.cursor/hooks.json stop');
       }
       writeJson(p, h);

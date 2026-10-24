@@ -310,6 +310,35 @@ test('blind spots name source files that a NUL byte hides from ripgrep and grep'
   assert.match(note, /no line: \S/);
 });
 
+/* A binary test fixture carries NUL bytes by design. A compressed corpus
+   under tests/, a compiled .mo catalog or a fixture module with an
+   embedded NUL is not a source file someone needs to grep. Listing them
+   advised the reader to "fix the byte" in files that must keep it. */
+test('the NUL blind spot ignores binary formats and fixture or data paths', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-nul-fixture-'));
+  const g = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' } });
+  g('init', '-q');
+  for (const d of ['src', 'tests/data', 'tests/fixtures', 'tests/locale/fr', 'testdata', 'src/__mocks__']) mkdirSync(join(dir, d), { recursive: true });
+  writeFileSync(join(dir, 'src/late.js'), `// ${'x'.repeat(9000)}\nconst k = \`a\0b\`;\n`);
+  writeFileSync(join(dir, 'tests/test_parse.py'), 'X = "a\0b"\n');
+  writeFileSync(join(dir, 'tests/data/sherlock.bz2'), Buffer.from([0x42, 0x5a, 0x68, 0, 1, 2]));
+  writeFileSync(join(dir, 'tests/data/sherlock.lz4'), Buffer.from([4, 0x22, 0x4d, 0x18, 0]));
+  writeFileSync(join(dir, 'tests/locale/fr/django.mo'), Buffer.from([0xde, 0x12, 0x04, 0x95, 0, 0]));
+  writeFileSync(join(dir, 'tests/archive.tar'), Buffer.from([0x61, 0, 0, 0]));
+  writeFileSync(join(dir, 'tests/fixtures/payload.py'), 'BLOB = "\0"\n');
+  writeFileSync(join(dir, 'testdata/input.go'), 'package x // \0\n');
+  writeFileSync(join(dir, 'src/__mocks__/fs.js'), 'export const b = "\0";\n');
+  g('add', '.');
+  g('commit', '-q', '-m', 'init');
+
+  const note = computeSignals(dir).blind_spots.find((b) => /NUL byte/.test(b));
+  assert.ok(note, 'the real source files are still reported');
+  assert.match(note, /2 source files contain/);
+  assert.match(note, /src\/late\.js/);
+  assert.match(note, /tests\/test_parse\.py/);
+  for (const f of ['sherlock', 'django.mo', 'archive.tar', 'payload.py', 'input.go', '__mocks__']) assert.ok(!note.includes(f), `${f} is not a source file to fix`);
+});
+
 /* Wiring must never look like it owns the repository's conventions. Two
    cases, and they are opposite: appending to a contract that already exists
    leaves every line of it alone, and creating one from nothing says in the

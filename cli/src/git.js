@@ -24,6 +24,12 @@ export function hasCommits(cwd) {
   return r.status === 0;
 }
 
+/** True when ref names a commit in this checkout. */
+export function resolvesCommit(cwd, ref) {
+  const r = spawnSync('git', ['rev-parse', '--verify', '-q', '--end-of-options', `${ref}^{commit}`], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  return r.status === 0;
+}
+
 export function shortSha(cwd) {
   return git(['rev-parse', '--short', 'HEAD'], { cwd }).trim();
 }

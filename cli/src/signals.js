@@ -52,15 +52,26 @@ export const DEFAULTS = {
   thinHistory: 50, // fewer analyzed commits than this: structure carries the ranking
 };
 
+/* Bot identities. GitHub Apps commit as "<app>[bot]" with a
+   "<id>+<app>[bot]@users.noreply.github.com" address; a few bots use a plain
+   name. The web UI commits as "GitHub <noreply@github.com>" on behalf of a
+   person, so that committer is not a bot. */
+const BOT_NAME_RE = /\[bot\]$|^(dependabot|renovate|github[ -]actions|greenkeeper|snyk[ -]bot|mergify|pre-commit-ci|imgbot|allcontributors|semantic-release-bot|depfu|pyup-bot|codecov|whitesource)\b/i;
+
+export function isBotIdentity(name, email = '') {
+  return BOT_NAME_RE.test(String(name || '').trim()) || /\[bot\]@/i.test(String(email || ''));
+}
+
 /** The most recent N non-merge commits, oldest last, with fix labels matched like `git log --grep`. */
 function readCommits(cwd, n) {
-  const out = git(['log', `-n${n}`, '--no-merges', '--name-only', '--date=unix', '--pretty=format:@%ct\t%ae\t%H'], { cwd });
+  const out = git(['log', `-n${n}`, '--no-merges', '--name-only', '--date=unix', '--pretty=format:@%ct\t%ae\t%H\t%an\t%cn\t%ce'], { cwd });
   const commits = [];
   let cur = null;
   for (const line of out.split('\n')) {
     if (line.startsWith('@')) {
-      const [ts, author, hash] = line.slice(1).split('\t');
-      cur = { ts: Number(ts), author, hash, isFix: false, files: [] };
+      const [ts, author, hash, authorName, committerName, committerEmail] = line.slice(1).split('\t');
+      const bot = isBotIdentity(authorName, author) || isBotIdentity(committerName, committerEmail);
+      cur = { ts: Number(ts), author, hash, bot, isFix: false, files: [] };
       commits.push(cur);
     } else if (line && cur) {
       cur.files.push(line);
@@ -100,7 +111,12 @@ export function computeSignals(cwd, opts = {}) {
   // 1. History window, by commit count.
   const commitsTotal = Number(git(['rev-list', '--count', '--no-merges', 'HEAD'], { cwd }).trim()) || 0;
   const n = Math.min(commitsTotal, o.windowCommitsMax);
-  const commits = n ? readCommits(cwd, n) : [];
+  /* Bot commits are not evidence about the code: a dependency bot edits the
+     same manifest pair every week and labels it "fix". They leave churn,
+     fixes, authors and co-change, and the count is stated below. */
+  const read = n ? readCommits(cwd, n) : [];
+  const commits = read.filter((c) => !c.bot);
+  const botCommits = read.length - commits.length;
   const halfLife = Math.max(50, Math.round(commits.length / 4));
   const churn = new Map(); // path -> { c, cw, fixes, fw, authors: Map, last }
   const pairs = new Map();
@@ -282,6 +298,7 @@ export function computeSignals(cwd, opts = {}) {
     // What each tool does is recorded in bench/repro/nul-byte.sh.
     blind.push(`${n} source file${many ? 's' : ''} ${many ? 'contain' : 'contains'} a NUL byte, so ripgrep, which Claude Code's Grep tool runs, skips ${many ? 'them' : 'it'} with no match and no warning, and GNU grep prints a binary file notice and no line: ${graph.grepBlind.join(', ')}. Search with git grep -I --text, and fix the byte: it is almost always a separator that should have been written as an escape.`);
   }
+  if (botCommits) blind.push(`${botCommits} commit${botCommits > 1 ? 's' : ''} by bots (author or committer) left out of churn, fixes, authors and co-change`);
   if (git(['rev-parse', '--is-shallow-repository'], { cwd, allowFail: true }).trim() === 'true') blind.push('shallow clone: history is truncated');
   if (thin) blind.push(`${counted} commits of usable history: ranking rests on structure and size; churn, fixes and ownership carry little weight yet`);
   if (allAuthors.size <= 1) blind.push('one committer identity: authors and owner_share carry no information on this repository');
