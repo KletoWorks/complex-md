@@ -16,6 +16,10 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
   npx complex-md                 generate COMPLEX.md, then wire it in (rules per hot path, hooks)
   npx complex-md generate        same; --agent writes the prompt bundle for your agent instead of calling a model
                                  --model <id>  --provider <name>  --no-wire  --no-hooks
+                                 --via <cli> writes the prose with an agent CLI you already run, in its print
+                                 mode, under your own login: claude, codex, gemini, opencode, qwen, kimi, crush,
+                                 goose, cursor-agent, copilot, hermes, openclaw (--model is passed to it;
+                                 --via-timeout <s>, default 600)
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
                                  --no-hooks  --for claude,cursor,openhands,antigravity,codex,copilot,review,devin,
                                  windsurf,kiro,cline,openclaw,hermes
@@ -38,7 +42,8 @@ DEEPSEEK_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, TOGETHER_API_KEY; local Ollama 
 any OpenAI-compatible endpoint via COMPLEX_MD_BASE_URL (+ COMPLEX_MD_API_KEY).
 Without any of them the prompt bundle goes to .complex-md/prompt.md for the agent you already run.
 Without a key nothing is sent. With one, that call sends the signals and excerpts of up to ten
-hotspot files, about 60,000 characters of code at most, to the provider you chose.`;
+hotspot files, about 60,000 characters of code at most, to the provider you chose.
+With --via, the same bundle goes to the agent CLI you named, which sends it to the model it uses.`;
 
 async function main() {
   if (cmd === '--version' || cmd === '-v') return console.log(pkg.version);
@@ -153,7 +158,12 @@ async function main() {
 
   if (cmd === 'generate') {
     const { generate } = await import('../src/generate.js');
-    const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), log });
+    const viaTimeout = opt('--via-timeout');
+    if (flag('--via-timeout') && !(Number(viaTimeout) > 0)) {
+      log('complex-md: --via-timeout needs a number of seconds, for example --via-timeout 900.');
+      process.exit(2);
+    }
+    const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), via: opt('--via'), viaTimeoutMs: viaTimeout ? Number(viaTimeout) * 1000 : undefined, log });
     if (r.written && !flag('--no-wire')) {
       const { wire } = await import('../src/wire.js');
       wire(root, { hooks: !flag('--no-hooks'), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });

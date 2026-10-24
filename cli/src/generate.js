@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { computeSignals, TABLE_HEAD, rowToArray } from './signals.js';
 import { generatePrompt, promptVersion } from './prompts.js';
 import { resolveProvider, PROVIDERS } from './providers.js';
+import { runVia, viaSelection } from './via.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json');
@@ -161,7 +162,7 @@ async function callOpenAICompat(prompt, p) {
   return { text: content, usage: { input: j.usage?.prompt_tokens, output: j.usage?.completion_tokens } };
 }
 
-export async function generate(root, { model = null, provider = null, agent = false, log = () => {} } = {}) {
+export async function generate(root, { model = null, provider = null, agent = false, via = null, viaTimeoutMs, log = () => {} } = {}) {
   const t0 = Date.now();
   const sig = computeSignals(root);
   log(`signals: ${sig.files_analyzed} files in scope, ${sig.profile.dependency_edges} dependency edges, ${sig.commits_analyzed} commits (${sig.fix_commits} fixes), ${sig.hotspots.length} hotspots, ${sig.co_change.length} pairs, confidence ${sig.profile.confidence}, ${Date.now() - t0} ms`);
@@ -181,7 +182,8 @@ export async function generate(root, { model = null, provider = null, agent = fa
     return join(dir, 'prompt.md');
   };
 
-  const sel = agent ? null : resolveProvider({ model, provider });
+  // --via names an agent CLI on this machine; it replaces the provider call.
+  const sel = agent ? null : via ? viaSelection(via, model) : resolveProvider({ model, provider });
   if (!sel) {
     const promptPath = writeBundle(`no API key${agent ? ' requested' : ' found'}`);
     log(`Or set a provider key (${PROVIDERS.filter((p) => p.env).map((p) => p.env).join(', ')}) and rerun to make the model call from here.`);
@@ -192,7 +194,7 @@ export async function generate(root, { model = null, provider = null, agent = fa
   let out;
   let r;
   try {
-    r = sel.name === 'anthropic' ? await callAnthropic(bundle, sel.model) : await callOpenAICompat(bundle, sel);
+    r = sel.via ? await runVia(sel.via, { root, bundle, fm, model, timeoutMs: viaTimeoutMs, log }) : sel.name === 'anthropic' ? await callAnthropic(bundle, sel.model) : await callOpenAICompat(bundle, sel);
     out = normalizeOutput(r.text, fm);
   } catch (e) {
     // Network error, non-2xx, malformed body, or prose that is not a map:
