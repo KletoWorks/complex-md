@@ -25,9 +25,18 @@ export function parseComplexMd(text) {
   const sections = splitSections(prose);
   const hotspotParas = paragraphs(sections['Why these files are hot'] || '');
   const couplingParas = paragraphs(sections['Change coupling'] || '');
+  /* A file's own paragraph opens with its name; other paragraphs name it
+     later, as a partner to keep in step. Taking the first paragraph that
+     mentioned the path handed one file another file's directive, so the
+     paragraph that names the path earliest wins, and ties keep map order. */
   const paragraphFor = (path) => {
-    const hits = hotspotParas.filter((para) => mentions(para, path));
-    return hits.length ? hits[0] : null;
+    let best = null;
+    let bestAt = Infinity;
+    for (const para of hotspotParas) {
+      const at = mentionAt(para, path);
+      if (at >= 0 && at < bestAt) { best = para; bestAt = at; }
+    }
+    return best;
   };
   const couplingFor = (path) => couplingParas.filter((para) => mentions(para, path));
   return {
@@ -62,9 +71,15 @@ export function parseComplexMd(text) {
 }
 
 function mentions(para, path) {
-  if (para.includes(path)) return true;
+  return mentionAt(para, path) >= 0;
+}
+
+/** Index of the first mention of path (or of a distinctive basename), or -1. */
+function mentionAt(para, path) {
+  const at = para.indexOf(path);
+  if (at >= 0) return at;
   const base = path.split('/').pop();
-  return base.length > 6 && para.includes(base);
+  return base.length > 6 ? para.indexOf(base) : -1;
 }
 
 function lastSentence(para) {
