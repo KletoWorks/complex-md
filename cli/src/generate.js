@@ -217,8 +217,10 @@ export async function generate(root, { model = null, provider = null, agent = fa
   const mode = agent ? 'agent' : sel ? 'model' : !template && holdsOtherProse(root) ? 'keep' : 'template';
 
   /* The file plan, before the first write. `mapText` is the map the wiring
-     will read: the template map stands in for a model reply, because the
-     wiring depends only on the front matter, which is the same in both. */
+     will read: the template map stands in for a model reply. The front
+     matter is the same in both, so the set of wired files is the same. A
+     brief also carries its file's paragraph, so with a model reply a brief
+     can change where the plan predicts no change. */
   // A file whose content stays the same is not in the plan.
   const entry = (path, content = null) => {
     const p = join(root, path);
