@@ -126,7 +126,7 @@ export function renderReport(map, opts = {}) {
       `${plural(r.churn, 'commit')}, ${plural(fixes, 'fix', 'fixes')}`,
       `${plural(r.fan_in, 'importer')}, ${plural(r.tests, 'test')}`,
     ];
-    if (isBlind) lines.push('grep skips this file');
+    if (isBlind) lines.push('search tools skip this file');
     const style = `--x:${pct((a.x / 2) * 100)};--y:${pct(a.y * 100)};--w:${pct((a.w / 2) * 100)};--h:${pct(a.h * 100)};`
       + `--nx:${pct((b.x / 4) * 100)};--ny:${pct((b.y / 5) * 100)};--nw:${pct((b.w / 4) * 100)};--nh:${pct((b.h / 5) * 100)}`;
     return `<a class="tile h${heat(fixes, maxFix)}${isBlind ? ' blind' : ''}" href="#f-${i}" style="${style}" data-path="${esc(path)}" data-fixes="${fixes}" data-tip="${esc(lines.join('\n'))}" aria-label="${esc(`${path}: ${lines.join('; ')}`)}"><span class="lbl">${esc(base)}</span><span class="sub">${esc(plural(fixes, 'fix', 'fixes'))}</span></a>`;
@@ -142,7 +142,7 @@ export function renderReport(map, opts = {}) {
       label = lo === hi ? plural(lo, 'fix', 'fixes') : `${lo} to ${hi} fixes`;
     }
     return `<li><span class="sw h${s}" aria-hidden="true"></span>${esc(label)}</li>`;
-  }).join('') + (hot.some((r) => grepBlind.has(String(r.path))) ? '<li><span class="sw h0 blind" aria-hidden="true"></span>hatched: grep skips the file</li>' : '');
+  }).join('') + (hot.some((r) => grepBlind.has(String(r.path))) ? '<li><span class="sw h0 blind" aria-hidden="true"></span>hatched: search tools skip the file</li>' : '');
 
   const table = `<table>
 <caption>Hotspots, ranked as in the map</caption>
@@ -163,7 +163,7 @@ ${hot.map((r, i) => `<tr><th scope="row"><a href="#f-${i}"><code>${esc(r.path)}<
     const tags = isLb
       ? [`load bearing`, plural(r.fan_in, 'importer'), plural(r.tests, 'test')]
       : [plural(r.fixes, 'fix', 'fixes'), plural(r.churn, 'commit'), plural(r.fan_in, 'importer'), plural(r.tests, 'test')];
-    if (grepBlind.has(path)) tags.push('grep skips it');
+    if (grepBlind.has(path)) tags.push('search tools skip it');
     return `<article class="card${isLb ? ' lb' : ''}" id="f-${id}">
 <h3><code>${esc(path)}</code></h3>
 <p class="tags">${tags.map((t) => `<span>${esc(t)}</span>`).join('')}</p>
@@ -185,7 +185,7 @@ ${context ? `<details><summary>Why this file is hot</summary><p>${inline(context
     ? `<ul class="blind-list">${blind.map((b) => `<li>${inline(b)}</li>`).join('')}</ul>`
     : '<p class="empty">No blind spots recorded in this map.</p>';
   const grepList = grepBlind.size
-    ? `<h3>Files grep skips</h3><p>These files hold a NUL byte. <code>grep</code> treats them as binary and prints nothing for them. Search them with <code>git grep -I --text</code>.</p><ul class="grep">${[...grepBlind].map((f) => `<li><code>${esc(f)}</code></li>`).join('')}</ul>`
+    ? `<h3>Files search tools skip</h3><p>These files hold a NUL byte. Text search tools treat them as binary, so a search shows no matching line from them. Search them with <code>git grep -I --text</code>.</p><ul class="grep">${[...grepBlind].map((f) => `<li><code>${esc(f)}</code></li>`).join('')}</ul>`
     : '';
 
   const readFirst = String(map.readFirst || '')

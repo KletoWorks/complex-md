@@ -63,12 +63,14 @@ test('co-change pairs and seams are listed with count and coupling', () => {
   assert.match(sec, /src\/core[\s\S]*src\/net/);
 });
 
-test('blind spots are listed, and files grep skips are named one by one', () => {
+test('blind spots are listed, and files search tools skip are named one by one', () => {
   const sec = html.slice(html.indexOf('id="blind-spots"'));
   assert.match(sec, /2 generated or lock files excluded/);
   assert.match(sec, /<li><code>src\/net\/parser\.js<\/code><\/li>/);
-  // The tile of a file grep skips is marked as such, and the legend says so.
-  assert.match(html, /hatched: grep skips the file/);
+  // The tile of a file search tools skip is marked as such, and the legend says so.
+  assert.match(html, /hatched: search tools skip the file/);
+  // GNU grep prints a notice for a binary file, so the page never says grep prints nothing.
+  assert.doesNotMatch(html, /prints nothing/);
   assert.match(html, /<a class="tile[^"]*\bblind\b[^"]*"[^>]*data-path="src\/net\/parser\.js"/);
 });
 
