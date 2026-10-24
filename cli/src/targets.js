@@ -232,11 +232,13 @@ export const TARGETS = {
     },
   },
 
+  /* Roo Code reads AGENTS.md and offers no path scoped rule, so a file here
+     could only repeat the block. The target stays so `--for roo` keeps
+     working and a rewire removes the copy earlier versions wrote. */
   roo: {
     detect: (root) => existsSync(join(root, '.roo')),
-    rules({ root, block, report }) {
-      write(join(root, '.roo/rules/complex-md.md'), block);
-      report.rules.push('.roo/rules/complex-md.md');
+    rules({ root, report }) {
+      dropBlockCopy(root, '.roo/rules/complex-md.md', report);
     },
   },
 

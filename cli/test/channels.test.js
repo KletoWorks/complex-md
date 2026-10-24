@@ -72,6 +72,20 @@ test('no block only rule files when AGENTS.md carries the block, and old copies 
   assert.ok(readdirSync(join(dir, '.cursor/rules/complex-md')).length > 0, 'the briefs stay');
 });
 
+/* Roo Code reads AGENTS.md and has no path scoped rules, so a rule file
+   there could only repeat the block. Wire removes the one it used to write. */
+test('roo gets no rule file, and the one an earlier version wrote is removed', () => {
+  const dir = repo({ '.roo/rules/complex-md.md': `${HEADING}\n\nold copy\n`, '.roo/rules/mine.md': 'mine\n' });
+  const r = wire(dir, {});
+  assert.ok(!existsSync(join(dir, '.roo/rules/complex-md.md')));
+  assert.ok(r.removed.includes('.roo/rules/complex-md.md'));
+  assert.ok(!r.rules.some((x) => x.startsWith('.roo')));
+  assert.equal(read(dir, '.roo/rules/mine.md'), 'mine\n');
+  const again = wire(dir, { agents: ['roo'] });
+  assert.ok(!existsSync(join(dir, '.roo/rules/complex-md.md')), '--for roo writes nothing either');
+  assert.deepEqual(again.removed, []);
+});
+
 test('a block only rule file is still written when no AGENTS.md carries the block', () => {
   const dir = repo({ 'GEMINI.md': '# Gemini\n', '.cursor': null });
   const r = wire(dir, { agents: ['cursor'] });

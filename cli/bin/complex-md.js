@@ -17,7 +17,7 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
   npx complex-md generate        same; --agent writes the prompt bundle for your agent instead of calling a model
                                  --model <id>  --provider <name>  --no-wire  --no-hooks
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
-                                 --for claude,cursor,openhands,codex,windsurf,cline,roo,openclaw,hermes
+                                 --for claude,cursor,openhands,codex,windsurf,cline,openclaw,hermes
                                  (default: detect repo-local targets; openclaw/hermes are global registries,
                                   opt-in only, wired through their own CLIs)
   npx complex-md check           report hotspots and untouched co-change partners in the current change

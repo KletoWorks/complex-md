@@ -199,7 +199,7 @@ test('wire creates CLAUDE.md as imports of AGENTS.md and the map, and a second r
   assert.equal((readFileSync(join(dir, 'AGENTS.md'), 'utf8').match(/## COMPLEX\.md: the structural risk map/g) || []).length, 1);
 });
 
-test('windsurf, cline and roo rule targets; unknown target errors; globals never auto-detect', async () => {
+test('windsurf, cline and roo read the created AGENTS.md; unknown target errors; globals never auto-detect', async () => {
   const { wire } = await import('../src/wire.js');
   const { readFileSync, existsSync } = await import('node:fs');
   const dir = makeRepo();
@@ -212,7 +212,7 @@ test('windsurf, cline and roo rule targets; unknown target errors; globals never
   // The created AGENTS.md carries the block, which both agents read.
   assert.ok(!report.rules.includes('.windsurf/rules/complex-md.md'));
   assert.ok(!report.rules.includes('.clinerules/complex-md.md'));
-  assert.ok(report.rules.includes('.roo/rules/complex-md.md'));
+  assert.ok(!existsSync(join(dir, '.roo/rules/complex-md.md')), 'Roo reads AGENTS.md');
   assert.ok(readFileSync(join(dir, 'AGENTS.md'), 'utf8').includes('## COMPLEX.md: the structural risk map'));
   assert.ok(!existsSync(join(dir, '.cursor')), 'undetected targets stay untouched');
   assert.ok(!report.mcp.some((m) => /openclaw|hermes/.test(m)), 'global registries are opt-in only');
