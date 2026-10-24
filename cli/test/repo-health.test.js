@@ -128,3 +128,15 @@ test('the Scorecard workflow publishes with no token permissions at the top leve
     assert.doesNotMatch(read(`.github/workflows/${f}`), /id-token: write/, `${f} does not ask for id-token`);
   }
 });
+
+/* The SHA pins above go stale without a bot that proposes the next one.
+   Dependabot opens those pull requests for the workflows and for the CLI's
+   two runtime dependencies. */
+test('dependabot.yml keeps the actions and the CLI dependencies current', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const s = read('.github/dependabot.yml');
+  assert.match(s, /^version: 2$/m);
+  for (const [eco, dir] of [['github-actions', '/'], ['npm', '/cli']]) {
+    assert.match(s, new RegExp(`package-ecosystem: "${eco}"\\n\\s+directory: "${dir}"\\n\\s+schedule:\\n\\s+interval: "weekly"`), `${eco} in ${dir}, weekly`);
+  }
+});
