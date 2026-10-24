@@ -18,8 +18,6 @@ These rules are for a coding agent that works on either part.
   other.
 - When CLI behavior changes, run `cd cli && node --test test/truth.test.js`.
   It fails on a public sentence that the code contradicts.
-- `cli/src/resolve.js` holds a literal NUL byte, so ripgrep skips it in a
-  directory search. Read it with `git grep -I --text`.
 - Do not run `bench/run.mjs` unless you are asked to. It drives a real
   agent and spends the account's usage.
 - Do not edit `COMPLEX.md`, `.claude/rules/` or the section below by hand.
