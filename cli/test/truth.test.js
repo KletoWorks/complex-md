@@ -77,7 +77,11 @@ const BANNED = [
   { re: /list form does not load/i, why: 'Claude Code reads paths as a YAML list or a comma separated string' },
   { re: /--no-mcp/, why: 'there is no such flag; the MCP server is off unless --mcp asks for it' },
   { re: /--no-hooks/, why: 'there is no such flag; the hooks are off unless --hooks asks for them' },
-  { re: /get rules and hooks|Install the hooks \(next section\) where|complex-md wire`: it performs steps 1 to 5 idempotently and adds the hooks|rules per hot path, hooks\)|adds an? <code>@COMPLEX\.md<\/code> line to a <code>REVIEW\.md<\/code> that exists, and <code>complex-md hook<\/code>/, files: PUBLIC.filter((f) => f !== 'README.md'), why: 'hooks are opt in: a default wire writes none, and wire --hooks adds them' },
+  { re: /get rules and hooks|Install the hooks \(next section\) where|complex-md wire`: it performs steps 1 to 5 idempotently and adds the hooks|rules per hot path, hooks\)|adds an? <code>@COMPLEX\.md<\/code> line to a <code>REVIEW\.md<\/code> that exists, and <code>complex-md hook<\/code>|brief, and the PreToolUse and Stop hooks/, why: 'hooks are opt in: a default wire writes none, and wire --hooks adds them' },
+  { re: /without (any|a) key,? it writes `?\.complex-md\/prompt\.md`? for the agent/i, why: 'a run with no key writes COMPLEX.md with template prose and wires it; the bundle comes as well' },
+  { re: /`\.complex-md\/` (goes|is added) in ?to `?\.gitignore/i, why: 'the entry is .complex-md/* with !.complex-md/bounds.json, so bounds.json stays committable' },
+  { re: /--arms [\w,]*\bmcp\b/, why: 'the mcp arm is retired; run.mjs refuses it' },
+  { re: /settings\.json` runs this checkout/, files: ['AGENTS.md'], why: 'the repository commits no hooks; the CLI writes them only with --hooks' },
   { re: /query it mid-task|agents query mid-task/i, why: 'the MCP server is opt in, not the headline' },
   { re: /\bRoo\b|cline,roo/, files: ['README.md', 'cli/README.md', 'cli/bin/complex-md.js', ...WIRING], why: 'Roo reads AGENTS.md; its block-only rule file adds nothing and is not offered' },
   { re: /\.roo\/rules|\.claude\/rules\/complex-md\.md/, files: ['README.md', 'cli/README.md', 'cli/bin/complex-md.js', 'content/index.html', ...WIRING], why: 'wire writes neither file now, and a rewire removes the copies earlier versions wrote' },
@@ -134,6 +138,20 @@ test('--help and the CLI README name every command the bin runs', () => {
     if (c !== 'hook') assert.match(readme, new RegExp(`complex-md ${c}\\b`), `the CLI README names ${c}`);
   }
   assert.match(help, /impact <path>[\s\S]*--strict/);
+});
+
+/* A flag a reader cannot find does not exist for them. Every flag the bin
+   reads for generate and wire is named in --help and in the CLI README. */
+test('--help and the CLI README name every flag the bin parses', () => {
+  const bin = readFileSync(join(import.meta.dirname, '..', 'bin', 'complex-md.js'), 'utf8');
+  const help = /const HELP = `([\s\S]*?)`;/.exec(bin)[1];
+  const readme = readFileSync(join(import.meta.dirname, '..', 'README.md'), 'utf8');
+  const flags = [...new Set([...bin.matchAll(/(?:flag|opt)\('(--[a-z-]+)'\)/g)].map((m) => m[1]))].filter((f) => f !== '--root');
+  for (const f of ['--via', '--via-timeout', '--template', '--yes']) assert.ok(flags.includes(f), `the bin parses ${f}`);
+  for (const f of flags) {
+    assert.ok(help.includes(f), `--help names ${f}`);
+    assert.ok(readme.includes(f), `the CLI README names ${f}`);
+  }
 });
 
 /* Every folder wire writes per file briefs to is named where a reader
