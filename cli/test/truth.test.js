@@ -20,6 +20,8 @@ const PUBLIC = [
   'cli/README.md',
   'cli/package.json',
   'cli/bin/complex-md.js',
+  // The report page's headings, legend and notes are written here.
+  'cli/src/render.js',
   'content/index.html',
   'content/spec.md',
   'content/skill.md',
@@ -33,6 +35,7 @@ const PUBLIC = [
   'bench/README.md',
   'bench/RESULTS.md',
   'bench/skillopt/README.md',
+  'bench/SELECTORS.md',
   'CONTRIBUTING.md',
   'docs/RESEARCH-signals-and-wiring.md',
   // The build writes llms.txt, the JSON-LD and the footer from this file.
