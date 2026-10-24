@@ -4,13 +4,22 @@
 // well as on one with ten years of commits.
 import { readFileSync, statSync } from 'node:fs';
 import { join, dirname, posix } from 'node:path';
-import { loadTsAliases, loadWorkspaces, resolveWorkspace, loadImportMaps, resolveHashImport, loadBundlerAliases, pythonRoots } from './resolve.js';
+import { parseJsonc, loadTsAliases, loadWorkspaces, resolveWorkspace, loadImportMaps, resolveHashImport, loadBundlerAliases, pythonRoots } from './resolve.js';
 
 export const BINARY_RE = /\.(png|jpg|jpeg|gif|svg|ico|woff2?|ttf|otf|eot|pdf|zip|gz|tgz|jar|wasm|mp4|mp3|webp|avif|bmp|tiff?|psd|ai|sketch|db|sqlite3?|pyc|class|o|so|dylib|dll|exe|bin|dat)$/i;
 
 const VENDORED_RE = /(^|\/)(vendor|node_modules|third[_-]?party|external|bower_components|\.yarn\/|\.pnpm\/)(\/|$)|\.min\.(js|css)$|(^|\/)[^/]*\.bundle\.js$/;
-const GENERATED_RE = /(^|\/)(dist|build|out|target|coverage|\.next|\.nuxt|\.svelte-kit|__pycache__|\.cache|generated|__generated__)\/|\.generated\.[a-z]+$|_pb2?\.(py|js|ts)$|\.pb\.go$|\.d\.ts\.map$|\.map$|\.snap$|(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|composer\.lock|Cargo\.lock|poetry\.lock|Gemfile\.lock|go\.sum|bun\.lockb?|uv\.lock)$/;
-export const TEST_FILE_RE = /(^|\/)(tests?|__tests__|specs?|test_?utils?|e2e|cypress|playwright)\/|\.(test|spec|tst|e2e)\.[a-z]+$|_test\.[a-z]+$|(^|\/)test[_-]?[a-z0-9]*\.(m?js|cjs|ts|mts|py|rb|go|rs|java|kt|php|ex|exs|sh)$|(^|\/)(conftest\.py|tests?\.py|spec_helper\.rb|jest\.setup\.[a-z]+)$/;
+const GENERATED_RE = /(^|\/)(dist|target|coverage|\.next|\.nuxt|\.svelte-kit|__pycache__|\.cache|generated|__generated__)\/|\.generated\.[a-z]+$|_pb2?\.(py|js|ts)$|\.pb\.go$|\.d\.ts\.map$|\.map$|\.snap$|(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|composer\.lock|Cargo\.lock|poetry\.lock|Gemfile\.lock|go\.sum|bun\.lockb?|uv\.lock)$/;
+export const TEST_FILE_RE = /(^|\/)(tests?|__tests__|specs?|test_?utils?|e2e|cypress|playwright)\/|\.(test|spec|tst|e2e)\.[a-z]+$|_test\.[a-z]+$|(^|\/)test(?:[_-](?!(?:utils?|helpers?|support|common)\.)[a-z0-9_-]+)?\.(m?js|cjs|ts|mts|py|rb|go|rs|java|kt|php|ex|exs|sh)$|(^|\/)(conftest\.py|tests?\.py|spec_helper\.rb|jest\.setup\.[a-z]+)$/;
+// Files a test suite loads but never runs as a test: fixtures, setup and
+// shared helpers. Inside a test directory they keep the test kind, so they
+// never rank, but they are never named as a covering test either. Before
+// this rule flask's src/flask/testing.py was the "covering test" of app.py.
+const TEST_HELPER_RE = /(^|\/)(conftest\.py|testing\.[a-z]+|test[_-]?(utils?|helpers?|support|common)\.[a-z]+|helpers?\.[a-z]+|utils?\.[a-z]+|fixtures?\.[a-z]+|factories\.[a-z]+|spec_helper\.rb|rails_helper\.rb|jest\.setup\.[a-z]+|setup[_-]?tests?\.[a-z]+)$/i;
+// Build and out directories hold hand-written scripts in many repositories,
+// because real build output is gitignored. They are generated only when a
+// manifest or tsconfig names them as output (see outputDirs).
+const OUTPUT_DIR_RE = /(^|\/)(build|out)\//;
 const DOC_EXT_RE = /\.(md|mdx|markdown|rst|txt|adoc|asciidoc|org|pod|mdc)$/i;
 const EXAMPLE_RE = /(^|\/)(examples?|samples?|demos?|playground|sandbox)\//;
 const DOTFILE_RE = /(^|\/)\.[^/]+$/;
@@ -20,7 +29,11 @@ const MANIFEST_RE = /(^|\/)(package\.json|composer\.json|Cargo\.toml|go\.mod|pyp
 const CI_RE = /(^|\/)(\.github|\.circleci|\.gitlab|\.buildkite|\.azure-pipelines)\/|(^|\/)(\.gitlab-ci\.yml|\.travis\.yml|azure-pipelines\.yml|Jenkinsfile|appveyor\.yml|\.drone\.yml|bitbucket-pipelines\.yml|cloudbuild\.yaml|\.pre-commit-config\.yaml|renovate\.json|\.releaserc[^/]*|\.dependabot\/[^/]*)$/;
 const STYLE_RE = /\.(css|scss|sass|less|styl|pcss)$/;
 const MARKUP_RE = /\.(html?|xhtml|njk|hbs|handlebars|mustache|ejs|pug|jade|liquid|twig|erb|haml|slim|jinja2?|j2|tmpl|tpl)$/;
-const DATA_RE = /\.(json|ndjson|jsonl|csv|tsv|xml|geojson|parquet|arrow|avro|proto|graphql|gql|sqlite|webmanifest|vcf|ics|yaml\.example)$|(^|\/)(fixtures?|testdata|__fixtures__|__snapshots__|data|datasets?|seed-data|mocks?|__mocks__)\//;
+const DATA_RE = /\.(json|ndjson|jsonl|csv|tsv|xml|geojson|parquet|arrow|avro|proto|graphql|gql|sqlite|webmanifest|vcf|ics|yaml\.example)$|(^|\/)(fixtures?|testdata|__fixtures__|__snapshots__|seed-data|mocks?|__mocks__)\//;
+// A data/ directory holds data files, and also loaders and schemas written
+// in code (src/data/loader.ts). Only the files without a source extension
+// are data; the code ranks.
+const DATA_DIR_RE = /(^|\/)(data|datasets?)\//;
 const SOURCE_EXT_RE = /\.(m?js|cjs|jsx|ts|mts|cts|tsx|vue|svelte|astro|py|pyi|rb|go|rs|java|kt|kts|scala|groovy|php|cs|fs|vb|swift|m|mm|c|h|cc|cpp|cxx|hpp|hh|hxx|zig|nim|d|dart|ex|exs|erl|hrl|clj|cljs|cljc|edn|hs|lhs|ml|mli|elm|purs|lua|pl|pm|r|R|jl|sh|bash|zsh|fish|ps1|psm1|bat|cmd|awk|sed|sql\.js|wat|sol|move|cairo|tf\.js|gd|glsl|hlsl|wgsl|cu|f90|f95|f03|for|nix|dhall|cue|rego|star|bzl)$|(^|\/)(BUILD|WORKSPACE|Snakefile)$/;
 const GENERATED_HEADER_RE = /@generated|DO NOT EDIT|Code generated|automatically generated|autogenerated|auto-generated|this file was generated|generated by/i;
 
@@ -31,16 +44,19 @@ const MAX_READ = 1024 * 1024;
  * win over everything (a vendored test is still vendored); tests win over
  * source; docs, config, style, markup, data, then source by extension.
  * `head` is the first few hundred bytes when the caller has them, for the
- * generated-header check.
+ * generated-header check. `ctx` is what the repository declares about
+ * itself (see loadClassifyContext); without it, build/ and out/ count as
+ * output and only the built-in test names apply.
  */
-export function classify(path, head = null) {
+export function classify(path, head = null, ctx = null) {
   if (BINARY_RE.test(path)) return 'asset';
   if (VENDORED_RE.test(path)) return 'vendored';
   if (GENERATED_RE.test(path)) return 'generated';
+  if (OUTPUT_DIR_RE.test(path) && (!ctx || underOutputDir(path, ctx.outputDirs))) return 'generated';
   if (head && GENERATED_HEADER_RE.test(head)) return 'generated';
   // A markdown file in spec/ or e2e/ is documentation, not a test.
   if (DOC_EXT_RE.test(path)) return 'docs';
-  if (TEST_FILE_RE.test(path)) return 'test';
+  if (TEST_FILE_RE.test(path) || matchesTestPatterns(path, ctx)) return 'test';
   // A docs/ directory makes prose documentation; a Go `doc` package or a
   // docs site's build script is still code.
   if (DOCS_RE.test(path) && !SOURCE_EXT_RE.test(path)) return 'docs';
@@ -60,8 +76,77 @@ export function classify(path, head = null) {
   if (STYLE_RE.test(path)) return 'style';
   if (MARKUP_RE.test(path)) return 'markup';
   if (DATA_RE.test(path)) return 'data';
+  if (DATA_DIR_RE.test(path) && !SOURCE_EXT_RE.test(path)) return 'data';
   if (SOURCE_EXT_RE.test(path)) return 'source';
   return 'other';
+}
+
+/** A file the test runner loads but does not run: never a covering test, unless the project's own test patterns name it. */
+export function isTestHelper(path, ctx = null) {
+  return TEST_HELPER_RE.test(path) && !matchesTestPatterns(path, ctx);
+}
+
+function matchesTestPatterns(path, ctx) {
+  if (!ctx?.testPatterns?.length || !/\.py$/.test(path)) return false;
+  const base = posix.basename(path);
+  return ctx.testPatterns.some((re) => re.test(base));
+}
+
+function underOutputDir(path, outputDirs) {
+  for (const d of outputDirs || []) if (path.startsWith(d + '/')) return true;
+  return false;
+}
+
+// pytest's python_files: whitespace separated globs in an ini value (which
+// may continue on indented lines), or a TOML string or array.
+const PYTEST_SECTIONS = { 'pytest.ini': /^\[pytest\]/m, 'tox.ini': /^\[pytest\]/m, 'setup.cfg': /^\[tool:pytest\]/m, 'pyproject.toml': /^\[tool\.pytest\.ini_options\]/m };
+const OUTPUT_FIELDS = ['main', 'module', 'browser', 'types', 'typings', 'unpkg', 'jsdelivr', 'exports', 'bin', 'files'];
+
+function fnmatchToRe(g) {
+  return new RegExp('^' + g.replace(/[.+^${}()|\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
+}
+
+/**
+ * What the repository declares about its own files: the test file patterns
+ * pytest is configured with, and the build/ or out/ directories a
+ * package.json or tsconfig names as output. Read once per graph.
+ */
+export function loadClassifyContext(root, files) {
+  const testPatterns = [];
+  const outputDirs = new Set();
+  const read = (f) => { try { return readFileSync(join(root, f), 'utf8'); } catch { return null; } };
+  const addOutput = (dir, p) => {
+    if (typeof p !== 'string') return;
+    const m = /^(build|out)(\/|$)/.exec(posix.normalize(p).replace(/^\.\//, ''));
+    if (m) outputDirs.add(dir === '.' ? m[1] : dir + '/' + m[1]);
+  };
+  const walk = (dir, v) => {
+    if (typeof v === 'string') addOutput(dir, v);
+    else if (v && typeof v === 'object') for (const x of Object.values(v)) walk(dir, x);
+  };
+  for (const f of files) {
+    const base = posix.basename(f);
+    const dir = posix.dirname(f);
+    if (PYTEST_SECTIONS[base]) {
+      const txt = read(f);
+      const at = txt ? txt.search(PYTEST_SECTIONS[base]) : -1;
+      if (at < 0) continue;
+      const body = txt.slice(at).split('\n').slice(1);
+      const end = body.findIndex((l) => /^\[/.test(l));
+      const section = (end < 0 ? body : body.slice(0, end)).join('\n');
+      const m = /^python_files\s*=\s*((?:.*)(?:\n[ \t]+.*)*)/m.exec(section);
+      if (m) for (const g of m[1].replace(/[\[\]"',]/g, ' ').split(/\s+/)) if (g) testPatterns.push(fnmatchToRe(g));
+    } else if (base === 'package.json') {
+      let pkg;
+      try { pkg = JSON.parse(read(f) || ''); } catch { continue; }
+      for (const k of OUTPUT_FIELDS) walk(dir, pkg?.[k]);
+    } else if (/^[jt]sconfig[^/]*\.json$/.test(base)) {
+      let cfg;
+      try { cfg = parseJsonc(read(f) || ''); } catch { continue; }
+      addOutput(dir, cfg?.compilerOptions?.outDir);
+    }
+  }
+  return { testPatterns, outputDirs };
 }
 
 /** Kinds that can be hotspots. Weight says how much an edit there can break. */
@@ -195,13 +280,14 @@ export function buildGraph(root, tracked) {
   // has to declare rather than paper over. See grepBlind at the return.
   const grepBlind = [];
   const TEXT_KINDS = new Set(['source', 'style', 'markup', 'config', 'docs', 'data', 'manifest', 'test']);
+  const ctx = loadClassifyContext(root, tracked);
   for (const f of tracked) {
     if (BINARY_RE.test(f)) { kinds.set(f, 'asset'); continue; }
     let buf;
     try {
       const st = statSync(join(root, f));
       if (!st.isFile()) { kinds.set(f, 'other'); continue; }
-      if (st.size > MAX_READ) { skippedLarge++; kinds.set(f, classify(f)); loc.set(f, null); continue; }
+      if (st.size > MAX_READ) { skippedLarge++; kinds.set(f, classify(f, null, ctx)); loc.set(f, null); continue; }
       buf = readFileSync(join(root, f));
     } catch { kinds.set(f, 'other'); continue; }
     // Binary sniff: a NUL in the first 8k means not text.
@@ -219,7 +305,7 @@ export function buildGraph(root, tracked) {
     }
     const head = sniff.toString('utf8', 0, Math.min(sniff.length, 600));
     heads.set(f, head);
-    const kind = classify(f, head);
+    const kind = classify(f, head, ctx);
     kinds.set(f, kind);
     /* A NUL ANYWHERE in a file makes grep classify it as binary, and grep
        skips a binary file in SILENCE when its output is piped: no match, no
@@ -346,6 +432,7 @@ export function buildGraph(root, tracked) {
       // Only files that can be hotspots have a blast radius worth counting.
       if (!(kinds.get(to) in RANKED_KINDS)) continue;
       if (TEST_KINDS.has(k)) {
+        if (isTestHelper(from, ctx)) continue;
         let t = tests.get(to);
         if (!t) tests.set(to, (t = new Set()));
         t.add(from);
@@ -360,7 +447,7 @@ export function buildGraph(root, tracked) {
   // exact stem only. Never a substring match; that is how the 0.2 tool told an
   // agent app.js was covered by admin.test.mjs.
   const byStem = new Map();
-  for (const [f, k] of kinds) if (k === 'test') {
+  for (const [f, k] of kinds) if (k === 'test' && !isTestHelper(f, ctx)) {
     const stem = posix.basename(f).replace(/\.(test|spec|tst|e2e)\.[a-z]+$|_test\.[a-z]+$|\.[a-z]+$/g, '').replace(/^test_/, '');
     if (!byStem.has(stem)) byStem.set(stem, []);
     byStem.get(stem).push(f);
