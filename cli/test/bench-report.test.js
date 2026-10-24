@@ -36,3 +36,20 @@ test('the per arm table prints cost per run in dollars, not a dollar sign with a
   assert.match(out, /\| file \|.*\| \$2\.50 \|/);
   assert.doesNotMatch(out, /\$\d+(\.\d+)?c\b/);
 });
+
+test('capped runs stay in the pairs and get their own column', () => {
+  const rows = [
+    row('a', 'none', { success: true, regressed_tests: 0, stopped: 'budget' }),
+    row('a', 'file', { success: true, regressed_tests: 0 }),
+    // A row recorded before caps were stops: the cap sat in `error`.
+    row('b', 'none', { success: false, error: 'error_max_budget_usd' }),
+    row('b', 'file', { success: true, stopped: 'timeout' }),
+  ];
+  const out = report(rows);
+  assert.match(out, /\| arm \| n \| capped \|/);
+  assert.match(out, /\| none \| 2 \| 2 \|/);
+  assert.match(out, /\| file \| 2 \| 1 \|/);
+  // Both tasks are judged pairs for success; the legacy capped row is not an error.
+  assert.match(out, /\| file \| 2 \| 1 \| 2 \|/);
+  assert.doesNotMatch(out, /runs with errors/);
+});

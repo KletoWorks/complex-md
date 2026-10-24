@@ -42,6 +42,16 @@ test('an error result is the run\'s error unless the harness stopped the run', (
   assert.equal(b.m.error, null);
 });
 
+test('a budget or turn cap is a stop, not an error', () => {
+  for (const [subtype, stopped] of [['error_max_budget_usd', 'budget'], ['error_max_turns', 'max-turns']]) {
+    const { m, onEvent } = createMeter({ wt: WT, gold: [], stopAt: 'none' });
+    onEvent({ type: 'result', subtype, is_error: true, total_cost_usd: 5.03, duration_ms: 496145 });
+    assert.equal(m.stopped, stopped);
+    assert.equal(m.error, null);
+    assert.equal(m.cost_usd, 5.03);
+  }
+});
+
 test('the model and the agent version come from the init event', () => {
   const { m, onEvent } = createMeter({ wt: WT, gold: [], stopAt: 'none' });
   onEvent({ type: 'system', subtype: 'init', model: 'claude-opus-5[1m]', claude_code_version: '2.1.260', tools: ['Read', 'Bash'] });

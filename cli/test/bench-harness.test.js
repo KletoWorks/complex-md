@@ -35,3 +35,16 @@ test('a mock run records one row per arm with the edit the agent made', () => {
     }
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });
+
+test('a run that hits the budget cap is recorded as capped and still judged', () => {
+  const fx = buildBenchRepo();
+  try {
+    const { status, stderr, rows } = runHarness(fx, ['--agent', 'mock', '--arms', 'none', '--stop-at', 'none', '--suite'], { env: { CX_MOCK_END: 'budget' } });
+    assert.equal(status, 0, stderr);
+    const [r] = rows;
+    assert.equal(r.stopped, 'budget');
+    assert.equal(r.error, null);
+    assert.equal(r.regressed_tests, 0, 'the damage suite ran on the capped patch');
+    assert.equal(typeof r.success, 'boolean');
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});

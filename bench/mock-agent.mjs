@@ -11,4 +11,7 @@ else for (const f of ['README.md', 'lib/hooks.js', 'lib/route.js']) use('Read', 
 use('Read', { file_path: `${process.cwd()}/${gold[0]}` });
 appendFileSync(gold[0], '\n// mock fix\n');
 use('Edit', { file_path: `${process.cwd()}/${gold[0]}`, old_string: 'a', new_string: 'b' });
-emit({ type: 'result', subtype: 'success', num_turns: hasMap ? 3 : 5, total_cost_usd: 0.01, duration_ms: 10, result: 'done' });
+if (process.env.CX_MOCK_END === 'budget') {
+  emit({ type: 'result', subtype: 'error_max_budget_usd', is_error: true, num_turns: 9, total_cost_usd: 5.01, duration_ms: 10 });
+  process.exitCode = 1;
+} else emit({ type: 'result', subtype: 'success', num_turns: hasMap ? 3 : 5, total_cost_usd: 0.01, duration_ms: 10, result: 'done' });

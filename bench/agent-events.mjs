@@ -18,6 +18,9 @@ export function isTestCommand(cmd = '') {
   return false;
 }
 
+/* Result subtypes that mean the agent hit a cap the harness set. */
+export const CAPS = { error_max_budget_usd: 'budget', error_max_turns: 'max-turns' };
+
 export const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 export const pathOf = (input = {}) => input.file_path || input.path || input.notebook_path || null;
 export const rel = (p, wt) => (p && p.startsWith(wt) ? p.slice(wt.length + 1) : p);
@@ -77,8 +80,12 @@ export function createMeter({ wt, gold, stopAt }) {
       m.cost_usd = ev.total_cost_usd ?? null;
       m.result_turns = ev.num_turns;
       m.duration_ms = ev.duration_ms;
+      /* A cap is an outcome, not a failure: the patch the agent left is
+         judged like any other. Recorded as an error, it skipped the damage
+         suite and dropped the task from every paired comparison. */
+      if (CAPS[ev.subtype]) m.stopped = CAPS[ev.subtype];
       // A run we stopped ourselves reports error_during_execution; that is the stop, not a failure.
-      if (ev.is_error && !killed) m.error = String(ev.result || ev.subtype).slice(0, 200);
+      else if (ev.is_error && !killed) m.error = String(ev.result || ev.subtype).slice(0, 200);
     }
     return action;
   }

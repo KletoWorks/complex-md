@@ -4,23 +4,28 @@
 import { readFileSync } from 'node:fs';
 import { summarise, pairsNeeded, mcnemar } from './stats.mjs';
 import { usd } from './format.mjs';
+import { CAPS } from './agent-events.mjs';
 
 const path = process.argv[2] || 'bench/results/run/runs.jsonl';
 const runs = readFileSync(path, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
   // Runs the harness stopped at the first edit end with Claude reporting error_during_execution; that is the stop, not a failure.
-  .map((r) => (r.stopped && r.error === 'error_during_execution' ? { ...r, error: null } : r));
+  .map((r) => (r.stopped && r.error === 'error_during_execution' ? { ...r, error: null } : r))
+  // Rows recorded before caps were stops carry the cap as their error. A cap is an outcome, so the pair stays.
+  .map((r) => (CAPS[r.error] ? { ...r, error: null, stopped: CAPS[r.error] } : r));
 const arms = [...new Set(runs.map((r) => r.arm))];
 const byTask = new Map();
 for (const r of runs) (byTask.get(r.task) || byTask.set(r.task, {}).get(r.task))[r.arm] = r;
 
+/* Stops at a limit the harness set, as opposed to the first-edit stop of a localization run. */
+const CAPPED = new Set(['budget', 'timeout', 'max-turns']);
 const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
 const median = (xs) => { if (!xs.length) return NaN; const s = [...xs].sort((a, b) => a - b); const h = s.length >> 1; return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2; };
 const f1 = (x) => (Number.isNaN(x) ? '-' : x.toFixed(1));
 const pct = (x) => (Number.isNaN(x) ? '-' : `${Math.round(x * 100)}%`);
 
 console.log(`## Per arm (n = runs)\n`);
-console.log('| arm | n | found gold | steps to first gold read (median / mean) | wasted reads before it (mean) | gold edited | success | gate fired | MCP calls | cost/run |');
-console.log('|---|---|---|---|---|---|---|---|---|---|');
+console.log('| arm | n | capped | found gold | steps to first gold read (median / mean) | wasted reads before it (mean) | gold edited | success | gate fired | MCP calls | cost/run |');
+console.log('|---|---|---|---|---|---|---|---|---|---|---|');
 for (const arm of arms) {
   const rs = runs.filter((r) => r.arm === arm && !r.error);
   const found = rs.filter((r) => r.first_gold_read !== null);
@@ -28,7 +33,7 @@ for (const arm of arms) {
   const cost = rs.map((r) => r.cost_usd).filter((c) => c != null);
   const judged = rs.filter((r) => r.success === true || r.success === false);
   const succ = judged.length ? pct(judged.filter((r) => r.success).length / judged.length) + ` (n=${judged.length})` : '-';
-  console.log(`| ${arm} | ${rs.length} | ${pct(found.length / rs.length)} | ${f1(median(steps))} / ${f1(mean(steps))} | ${f1(mean(rs.map((r) => r.wasted_reads)))} | ${pct(rs.filter((r) => r.gold_edited).length / rs.length)} | ${succ} | ${rs.filter((r) => r.gate_fired).length} | ${rs.reduce((a, r) => a + (r.mcp_calls || 0), 0)} | ${cost.length ? usd(mean(cost)) : '-'} |`);
+  console.log(`| ${arm} | ${rs.length} | ${rs.filter((r) => CAPPED.has(r.stopped)).length} | ${pct(found.length / rs.length)} | ${f1(median(steps))} / ${f1(mean(steps))} | ${f1(mean(rs.map((r) => r.wasted_reads)))} | ${pct(rs.filter((r) => r.gold_edited).length / rs.length)} | ${succ} | ${rs.filter((r) => r.gate_fired).length} | ${rs.reduce((a, r) => a + (r.mcp_calls || 0), 0)} | ${cost.length ? usd(mean(cost)) : '-'} |`);
 }
 
 // Paired: the same task under each arm versus `none`. Sign test on steps to first gold read.

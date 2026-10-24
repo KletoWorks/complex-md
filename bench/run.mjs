@@ -54,7 +54,8 @@ const workRoot = opt('--work', '/tmp/cxbench');
    dir, and is shared when many small out dirs judge the same tasks. */
 const skillText = opt('--skill', null) ? readFileSync(opt('--skill'), 'utf8') : null;
 const cacheDir = opt('--cache', outDir);
-const suiteOn = stopAt === 'none' && !flag('--no-suite') && agent !== 'mock';
+/* A scripted agent skips the suite unless --suite asks for it (the harness tests do). */
+const suiteOn = stopAt === 'none' && !flag('--no-suite') && (agent === 'claude' || flag('--suite'));
 for (const d of ['transcripts', 'patches']) mkdirSync(join(outDir, d), { recursive: true });
 for (const d of ['maps', 'baseline']) mkdirSync(join(cacheDir, d), { recursive: true });
 const runsPath = join(outDir, 'runs.jsonl');
@@ -204,7 +205,7 @@ function runAgent(task, arm, wt) {
     });
     child.on('close', (code) => {
       clearTimeout(timer);
-      if (code !== 0 && !killed && !m.error) m.error = (stderr.join('').trim() || `exit ${code}`).slice(0, 300);
+      if (code !== 0 && !killed && !m.error && !m.stopped) m.error = (stderr.join('').trim() || `exit ${code}`).slice(0, 300);
       writeFileSync(join(outDir, 'transcripts', `${task.id}-${arm}.jsonl`), transcript.join('\n') + '\n');
       resolvePromise(m);
     });
