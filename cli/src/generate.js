@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { computeSignals, graphFor, detectTestCommand, TABLE_HEAD, rowToArray } from './signals.js';
 import { templateProse, packageRoots, reachableFrom } from './template.js';
 import { loadComplexMd } from './complexmd.js';
+import { ignoreWorkDir, WORK_DIR } from './gitignore.js';
 import { generatePrompt, promptVersion } from './prompts.js';
 import { resolveProvider, PROVIDERS } from './providers.js';
 import { createRequire } from 'node:module';
@@ -199,6 +200,7 @@ export async function generate(root, { model = null, provider = null, agent = fa
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'prompt.md'), bundle);
     writeFileSync(join(dir, 'front-matter.yaml'), fm);
+    if (ignoreWorkDir(root)) log(`added ${WORK_DIR}/ to .gitignore, so its 2 working files stay out of commits.`);
     return join(dir, 'prompt.md');
   };
   const writeBundle = (why) => {

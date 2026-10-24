@@ -179,6 +179,16 @@ test('generate --template replaces any prose, and makes no model call with a key
   assert.match(readFileSync(join(dir, 'COMPLEX.md'), 'utf8'), /^prose: template$/m);
 });
 
+test('a run that writes .complex-md/ adds it to .gitignore once', async () => {
+  const dir = makeRepo();
+  writeFileSync(join(dir, '.gitignore'), 'node_modules/\n');
+  await withoutKeys(() => generate(dir));
+  await withoutKeys(() => generate(dir, { agent: true }));
+  const text = readFileSync(join(dir, '.gitignore'), 'utf8');
+  assert.equal(text.match(/^\.complex-md\/$/gm)?.length, 1);
+  assert.equal(execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: dir, encoding: 'utf8' }).includes('.complex-md/'), false);
+});
+
 test('generate --agent still writes only the prompt bundle', async () => {
   const dir = makeRepo();
   const r = await withoutKeys(() => generate(dir, { agent: true }));
