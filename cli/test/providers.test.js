@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { resolveProvider, PROVIDERS } from '../src/providers.js';
 
 test('detection: first provider in table order with a key set wins', () => {
@@ -74,4 +75,58 @@ test('every table entry is well-formed', () => {
     assert.ok(p.name);
     assert.ok(p.name === 'anthropic' || p.base || p.baseEnv || p.hostEnv, `${p.name} needs a base`);
   }
+});
+
+// Named providers for open model vendors. Each base URL, key variable and
+// default model comes from the vendor's own quickstart.
+const NAMED = [
+  ['moonshot', 'MOONSHOT_API_KEY', 'https://api.moonshot.ai/v1', 'kimi-k3.1-pro'],
+  ['qwen', 'DASHSCOPE_API_KEY', 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', 'qwen3.8-max'],
+  ['zai', 'ZAI_API_KEY', 'https://api.z.ai/api/paas/v4', 'glm-5.3'],
+  ['minimax', 'MINIMAX_API_KEY', 'https://api.minimax.io/v1', 'MiniMax-M3.1-Flash'],
+  ['fireworks', 'FIREWORKS_API_KEY', 'https://api.fireworks.ai/inference/v1', 'accounts/fireworks/models/glm-5p3-flash'],
+  ['cerebras', 'CEREBRAS_API_KEY', 'https://api.cerebras.ai/v1', 'qwen-3.8-27b'],
+];
+
+for (const [name, envVar, base, model] of NAMED) {
+  test(`${name}: detected from ${envVar}, with its base URL and default model`, () => {
+    const r = resolveProvider({ env: { [envVar]: 'k' } });
+    assert.deepEqual({ name: r.name, base: r.base, model: r.model, key: r.key }, { name, base, model, key: 'k' });
+  });
+}
+
+test('the named providers come after the existing ones in detection order', () => {
+  assert.equal(resolveProvider({ env: { MOONSHOT_API_KEY: 'm', GROQ_API_KEY: 'g' } }).name, 'groq');
+  assert.equal(resolveProvider({ env: { CEREBRAS_API_KEY: 'c', ZAI_API_KEY: 'z' } }).name, 'zai');
+});
+
+test('an OpenRouter slug that starts with a vendor name stays an OpenRouter slug', () => {
+  const r = resolveProvider({ model: 'qwen/qwen3-coder-next', env: { OPENROUTER_API_KEY: 'k' } });
+  assert.equal(r.name, 'openrouter');
+  assert.equal(r.model, 'qwen/qwen3-coder-next');
+  const q = resolveProvider({ model: 'qwen/qwen3.8-max', env: { OPENROUTER_API_KEY: 'k', DASHSCOPE_API_KEY: 'd' } });
+  assert.equal(q.name, 'qwen', 'with the vendor key set, the vendor prefix selects the vendor');
+});
+
+test('huggingface: HF_TOKEN alone never selects it; --provider does', () => {
+  assert.equal(resolveProvider({ env: { HF_TOKEN: 'h' } }), null, 'a token exported for model downloads must not send code to the router');
+  const r = resolveProvider({ provider: 'huggingface', env: { HF_TOKEN: 'h' } });
+  assert.deepEqual({ base: r.base, key: r.key, model: r.model }, { base: 'https://router.huggingface.co/v1', key: 'h', model: 'openai/gpt-oss-120b' });
+  assert.throws(() => resolveProvider({ provider: 'huggingface', env: {} }), /HF_TOKEN/);
+});
+
+test('lmstudio: local, keyless, explicit only, and needs --model', () => {
+  assert.equal(resolveProvider({ env: {} }), null);
+  const r = resolveProvider({ provider: 'lmstudio', model: 'qwen3.8-27b', env: {} });
+  assert.deepEqual({ base: r.base, key: r.key }, { base: 'http://localhost:1234/v1', key: null });
+  assert.throws(() => resolveProvider({ provider: 'lmstudio', env: {} }), /--model/);
+});
+
+test('--help names every key variable and the local servers', () => {
+  const bin = readFileSync(new URL('../bin/complex-md.js', import.meta.url), 'utf8');
+  const help = /const HELP = `([\s\S]*?)`;/.exec(bin)[1];
+  for (const p of PROVIDERS) {
+    for (const v of [p.env, p.keyEnv, p.hostEnv, p.baseEnv]) if (v) assert.ok(help.includes(v), `--help names ${v} (${p.name})`);
+  }
+  assert.match(help, /LM Studio/);
 });

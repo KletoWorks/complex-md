@@ -38,8 +38,10 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
 
 Model call: the first configured provider wins, or pick one with --provider / --model provider/id.
 Keys: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, XAI_API_KEY,
-DEEPSEEK_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, TOGETHER_API_KEY; local Ollama via OLLAMA_HOST;
-any OpenAI-compatible endpoint via COMPLEX_MD_BASE_URL (+ COMPLEX_MD_API_KEY).
+DEEPSEEK_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, TOGETHER_API_KEY, MOONSHOT_API_KEY (Kimi),
+DASHSCOPE_API_KEY (Qwen), ZAI_API_KEY (GLM), MINIMAX_API_KEY, FIREWORKS_API_KEY, CEREBRAS_API_KEY.
+Named only with --provider: huggingface (HF_TOKEN), ollama (OLLAMA_HOST), lmstudio (LM Studio on
+localhost:1234). Any OpenAI-compatible endpoint via COMPLEX_MD_BASE_URL (+ COMPLEX_MD_API_KEY).
 Without any of them the prompt bundle goes to .complex-md/prompt.md for the agent you already run.
 Without a key nothing is sent. With one, that call sends the signals and excerpts of up to ten
 hotspot files, about 60,000 characters of code at most, to the provider you chose.
