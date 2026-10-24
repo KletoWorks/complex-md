@@ -249,6 +249,28 @@ export const TARGETS = {
     },
   },
 
+  /* GitHub Copilot path instructions (docs.github.com, "Adding repository
+     custom instructions"). A file under .github/instructions/ named
+     *.instructions.md, with an `applyTo` glob in its front matter, is read
+     by Copilot code review and the Copilot cloud agent for the files that
+     glob matches. Code review reads it from the pull request's head
+     branch, so each brief reaches the review of every change to its file
+     with nothing installed by the reviewer. Subfolders are allowed, so the
+     briefs get a folder that is ours alone. Detected from Copilot's own
+     files, never from .github/, which nearly every repository has. */
+  copilot: {
+    detect: (root) => existsSync(join(root, '.github/copilot-instructions.md')) || existsSync(join(root, '.github/instructions')),
+    rules({ root, briefs, report }) {
+      writeBriefs(
+        join(root, '.github/instructions/complex-md'),
+        briefs,
+        (b) => `---\napplyTo: ${JSON.stringify(b.path)}\n---\n`,
+        report,
+        { name: '.github/instructions/complex-md/', ext: '.instructions.md' },
+      );
+    },
+  },
+
   windsurf: {
     detect: (root) => existsSync(join(root, '.windsurf')),
     rules({ root, block, paths, report, carried }) {

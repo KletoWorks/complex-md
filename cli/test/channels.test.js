@@ -108,6 +108,56 @@ test('--for openclaw,hermes writes the portable skill without --mcp', () => {
   assert.deepEqual(wire(dir, { agents: ['openclaw'] }).rules, [p], 'a rewire rewrites the same file');
 });
 
+/* Briefs as files in a directory, each with its front matter parsed:
+   { file: { front: {key: raw value}, body } }. */
+function briefsIn(dir, rel, suffix = '.md') {
+  const out = {};
+  for (const f of readdirSync(join(dir, rel)).filter((x) => x.endsWith(suffix))) {
+    const m = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(read(dir, join(rel, f)));
+    assert.ok(m, `${f} starts with front matter`);
+    const front = {};
+    let key = null;
+    for (const line of m[1].split('\n')) {
+      const kv = /^([A-Za-z_]+):\s?(.*)$/.exec(line);
+      if (kv) [, key, front[kv[1]]] = kv;
+      else front[key] += '\n' + line;
+    }
+    out[f] = { front, body: m[2] };
+  }
+  return out;
+}
+
+const BRIEFED = ['src/core.js', 'src/legacy.js', 'src/render.css', 'src/render.js'];
+
+/* Copilot code review and the Copilot cloud agent read
+   .github/instructions/**\/*.instructions.md whose applyTo glob matches a
+   file in the change. One file per brief puts that file's brief in front
+   of the review bot on every pull request that touches it. */
+test('copilot: one .instructions.md per brief, applyTo scoped to its path', () => {
+  const dir = repo({ '.github/copilot-instructions.md': '# Copilot\n' });
+  const r = wire(dir, {});
+  const got = briefsIn(dir, '.github/instructions/complex-md', '.instructions.md');
+  assert.equal(Object.keys(got).length, BRIEFED.length);
+  assert.deepEqual(Object.values(got).map((b) => b.front.applyTo).sort(), BRIEFED.map((p) => `"${p}"`));
+  const core = Object.values(got).find((b) => b.front.applyTo === '"src/core.js"');
+  assert.match(core.body, /^# src\/core\.js\n/);
+  assert.match(core.body, /is the hub every module imports/);
+  assert.ok(r.rules.includes('.github/instructions/complex-md/ (4 paths)'));
+});
+
+test('copilot is detected from its own files only, never from .github alone', () => {
+  const dir = repo({ '.github/workflows/ci.yml': 'on: push\n' });
+  wire(dir, {});
+  assert.ok(!existsSync(join(dir, '.github/instructions')), 'a workflow is not a Copilot setup');
+  const dir2 = repo({ '.github/instructions/house.instructions.md': '---\napplyTo: "**"\n---\nmine\n' });
+  wire(dir2, {});
+  assert.ok(existsSync(join(dir2, '.github/instructions/complex-md')), 'an instructions folder opts in');
+  assert.equal(read(dir2, '.github/instructions/house.instructions.md'), '---\napplyTo: "**"\n---\nmine\n');
+  const dir3 = repo();
+  wire(dir3, { agents: ['copilot'] });
+  assert.ok(existsSync(join(dir3, '.github/instructions/complex-md')), '--for copilot opts in');
+});
+
 test('a block only rule file is still written when no AGENTS.md carries the block', () => {
   const dir = repo({ 'GEMINI.md': '# Gemini\n', '.cursor': null });
   const r = wire(dir, { agents: ['cursor'] });
