@@ -9,8 +9,11 @@
 #
 # Run: bash bench/repro/nul-byte.sh
 #      CLAUDE_BIN=/path/to/claude bash bench/repro/nul-byte.sh
+#      CODEX_BIN=/path/to/codex bash bench/repro/nul-byte.sh
+#      CURSOR_AGENT_BIN=/path/to/cursor-agent bash bench/repro/nul-byte.sh
 #
-# Output on 2026-10-24, Ubuntu 24.04, Claude Code 2.1.303 native build:
+# Output on 2026-10-24, Ubuntu 24.04, Claude Code 2.1.303 native build,
+# Codex CLI 0.164.0 from npm, Cursor agent CLI 2026.10.22-27dcf5f:
 #
 #   routes.js: 61440 bytes, NUL at offset 53248
 #
@@ -44,9 +47,28 @@
 #     stdout: (empty)
 #     stderr: (empty)
 #
+#   $ rg -n /api/widgets          (ripgrep 15.2.0 (rev e89fff89ac), the rg on Codex's PATH)
+#     exit:   0
+#     stdout: (empty)
+#     stderr: (empty)
+#
+#   $ Grep tool, content mode       (ripgrep 15.1.0-cursor5 (rev c3e3c2f7ec), next to cursor-agent)
+#     exit:   0
+#     stdout: (empty)
+#     stderr: (empty)
+#
+#   $ Grep tool, files mode         (the same rg with -l)
+#     exit:   0
+#     stdout: (empty)
+#     stderr: (empty)
+#
 # What the run shows:
 # - ripgrep, searching a directory, prints nothing for the file: no match
-#   and no warning. Claude Code's built in copy does the same.
+#   and no warning. Claude Code's built in copy does the same, and so do
+#   the copies that Codex CLI and Cursor's agent CLI ship. The Cursor
+#   lines use the arguments its Grep tool builds. Codex runs the rg command
+#   its model writes, so the Codex line runs a plain rg -n. The script does
+#   not run the agents themselves, because each one needs a login.
 # - ripgrep names the binary file only when the file is named explicitly,
 #   and then prints no line.
 # - GNU grep prints no line either. It writes one notice to stderr.
@@ -112,4 +134,43 @@ if [ -n "${CLAUDE_BIN:-}" ] && [ -x "$CLAUDE_BIN" ]; then
       ;;
     *) echo "CLAUDE_BIN does not answer as ripgrep; skipped" ;;
   esac
+fi
+
+# Codex CLI runs its searches as shell commands, and its instructions tell
+# the model to prefer rg. It puts a directory with its own ripgrep first on
+# the PATH of every command it runs. Set CODEX_BIN to the codex command to
+# ask it which rg its commands get, then search with that copy. CODEX_HOME
+# points at the temporary directory, so nothing is written to ~/.codex.
+if [ -n "${CODEX_BIN:-}" ] && [ -x "$CODEX_BIN" ]; then
+  rg_path=$(CODEX_HOME="$dir" "$CODEX_BIN" sandbox -- sh -c 'command -v rg' 2>/dev/null)
+  case "$rg_path" in
+    */codex-path/rg)
+      version=$("$rg_path" --version | head -n 1)
+      search "rg -n /api/widgets          ($version, the rg on Codex's PATH)" \
+        "$rg_path" -n /api/widgets
+      ;;
+    *) echo "CODEX_BIN gave no bundled rg (got: ${rg_path:-nothing}); skipped" ;;
+  esac
+fi
+
+# Cursor's agent CLI ships ripgrep next to its entry point and uses it for
+# its Grep tool before any rg on the system. The arguments below are the
+# ones the tool builds for a content search with no path, from the CLI's
+# index.js (2026.10.22-27dcf5f), less the --cursor-ignore files. Set
+# CURSOR_AGENT_BIN to the cursor-agent command.
+if [ -n "${CURSOR_AGENT_BIN:-}" ] && [ -x "$CURSOR_AGENT_BIN" ]; then
+  rg_path="$(dirname "$(readlink -f "$CURSOR_AGENT_BIN")")/rg"
+  if [ -x "$rg_path" ]; then
+    version=$("$rg_path" --version | head -n 1)
+    search "Grep tool, content mode       ($version, next to cursor-agent)" \
+      "$rg_path" --line-number --with-filename --no-heading -0 \
+      --max-columns 1000 --max-columns-preview --case-sensitive \
+      --sortr modified --no-config --color=never --hidden --follow \
+      --regexp /api/widgets -- .
+    search "Grep tool, files mode         (the same rg with -l)" \
+      "$rg_path" -l --case-sensitive --sortr modified --no-config \
+      --color=never --hidden --follow --regexp /api/widgets -- .
+  else
+    echo "no rg next to $CURSOR_AGENT_BIN; skipped"
+  fi
 fi
