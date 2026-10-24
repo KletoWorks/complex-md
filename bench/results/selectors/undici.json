@@ -116,11 +116,11 @@
     "b": {
      "fixes": 124,
      "truth": 143,
-     "hits": 59,
-     "recall": 0.4126,
-     "any_hit": 0.4032,
-     "share_mean": 0.0275,
-     "share_median": 0.0355
+     "hits": 93,
+     "recall": 0.6503,
+     "any_hit": 0.6371,
+     "share_mean": 0.4241,
+     "share_median": 0.7873
     },
     "c": {
      "fixes": 124,
@@ -199,11 +199,11 @@
     "b": {
      "fixes": 17,
      "truth": 22,
-     "hits": 6,
-     "recall": 0.2727,
-     "any_hit": 0.2941,
-     "share_mean": 0.0519,
-     "share_median": 0.0526
+     "hits": 18,
+     "recall": 0.8182,
+     "any_hit": 0.8235,
+     "share_mean": 0.5769,
+     "share_median": 0.8005
     },
     "c": {
      "fixes": 17,
@@ -282,11 +282,11 @@
     "b": {
      "fixes": 8,
      "truth": 12,
-     "hits": 5,
-     "recall": 0.4167,
-     "any_hit": 0.5,
-     "share_mean": 0.1556,
-     "share_median": 0.1525
+     "hits": 11,
+     "recall": 0.9167,
+     "any_hit": 1,
+     "share_mean": 0.8514,
+     "share_median": 0.8535
     },
     "c": {
      "fixes": 8,
@@ -365,11 +365,11 @@
     "b": {
      "fixes": 150,
      "truth": 178,
-     "hits": 71,
-     "recall": 0.3989,
-     "any_hit": 0.4,
-     "share_mean": 0.0369,
-     "share_median": 0.0367
+     "hits": 123,
+     "recall": 0.691,
+     "any_hit": 0.68,
+     "share_mean": 0.4614,
+     "share_median": 0.7931
     },
     "c": {
      "fixes": 150,
@@ -533,11 +533,11 @@
     "b": {
      "fixes": 112,
      "truth": 123,
-     "hits": 44,
-     "recall": 0.3577,
-     "any_hit": 0.3571,
-     "share_mean": 0.0262,
-     "share_median": 0.0353
+     "hits": 74,
+     "recall": 0.6016,
+     "any_hit": 0.5982,
+     "share_mean": 0.3978,
+     "share_median": 0.0399
     },
     "c": {
      "fixes": 112,
@@ -616,11 +616,11 @@
     "b": {
      "fixes": 11,
      "truth": 14,
-     "hits": 3,
-     "recall": 0.2143,
-     "any_hit": 0.2727,
-     "share_mean": 0.0451,
-     "share_median": 0.0475
+     "hits": 11,
+     "recall": 0.7857,
+     "any_hit": 0.8182,
+     "share_mean": 0.5198,
+     "share_median": 0.8
     },
     "c": {
      "fixes": 11,
@@ -702,8 +702,8 @@
      "hits": 1,
      "recall": 1,
      "any_hit": 1,
-     "share_mean": 0.1465,
-     "share_median": 0.1465
+     "share_mean": 0.8535,
+     "share_median": 0.8535
     },
     "c": {
      "fixes": 1,
@@ -782,11 +782,11 @@
     "b": {
      "fixes": 125,
      "truth": 139,
-     "hits": 49,
-     "recall": 0.3525,
-     "any_hit": 0.36,
-     "share_mean": 0.0286,
-     "share_median": 0.0353
+     "hits": 87,
+     "recall": 0.6259,
+     "any_hit": 0.624,
+     "share_mean": 0.409,
+     "share_median": 0.7825
     },
     "c": {
      "fixes": 125,
@@ -900,27 +900,8 @@
      ]
     },
     "b": {
-     "size": 17,
-     "hits": 1,
-     "tests": [
-      "test/cache-interceptor/sqlite-cache-store-tests.js",
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3959.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 341,
+     "hits": 1
     },
     "c": {
      "size": 341,
@@ -991,28 +972,8 @@
      ]
     },
     "b": {
-     "size": 18,
-     "hits": 1,
-     "tests": [
-      "test/decorator-handler.js",
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/decompress.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-delayed-abort.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 341,
+     "hits": 2
     },
     "c": {
      "size": 341,
@@ -1246,26 +1207,8 @@
      ]
     },
     "b": {
-     "size": 16,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/decompress.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 336,
+     "hits": 1
     },
     "c": {
      "size": 336,
@@ -1336,42 +1279,8 @@
      ]
     },
     "b": {
-     "size": 32,
-     "hits": 0,
-     "tests": [
-      "test/cache/cache.js",
-      "test/env-http-proxy-agent-nodejs-bundle.js",
-      "test/eventsource/eventsource-attributes.js",
-      "test/eventsource/eventsource-close.js",
-      "test/eventsource/eventsource-connect.js",
-      "test/eventsource/eventsource-constructor-stringify.js",
-      "test/eventsource/eventsource-constructor.js",
-      "test/eventsource/eventsource-dispatcher-options.js",
-      "test/eventsource/eventsource-message.js",
-      "test/eventsource/eventsource-reconnect.js",
-      "test/eventsource/eventsource-redirecting.js",
-      "test/eventsource/eventsource-request-status-error.js",
-      "test/eventsource/eventsource.js",
-      "test/fetch/client-error-stack-trace.js",
-      "test/fetch/client-fetch.js",
-      "test/fetch/general.js",
-      "test/fetch/issue-2242.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-platform-objects.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 346,
+     "hits": 1
     },
     "c": {
      "size": 336,
@@ -1481,7 +1390,7 @@
      ]
     },
     "b": {
-     "size": 78,
+     "size": 352,
      "hits": 1
     },
     "c": {
@@ -1540,29 +1449,8 @@
      ]
     },
     "b": {
-     "size": 19,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/fetch/issue-3630.js",
-      "test/global-frozen.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js"
-     ]
+     "size": 336,
+     "hits": 1
     },
     "c": {
      "size": 336,
@@ -1920,39 +1808,8 @@
      ]
     },
     "b": {
-     "size": 29,
-     "hits": 0,
-     "tests": [
-      "test/fetch/formdata.js",
-      "test/fetch/general.js",
-      "test/global-frozen.js",
-      "test/http2-late-data.js",
-      "test/http2-response-after-completion.js",
-      "test/http2-resume-null-request.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/issue-4780.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/node-test/balanced-pool.js",
-      "test/node-test/tree.js",
-      "test/node-test/util.js",
-      "test/pool-connection-error-memory-leak.js",
-      "test/proxy-agent.js",
-      "test/socks5-proxy-agent.js",
-      "test/util.js"
-     ]
+     "size": 338,
+     "hits": 2
     },
     "c": {
      "size": 334,
@@ -2043,25 +1900,8 @@
      "tests": []
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 332,
+     "hits": 1
     },
     "c": {
      "size": 332,
@@ -2130,25 +1970,8 @@
      "tests": []
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 332,
+     "hits": 1
     },
     "c": {
      "size": 332,
@@ -2354,8 +2177,8 @@
      ]
     },
     "b": {
-     "size": 51,
-     "hits": 0
+     "size": 349,
+     "hits": 1
     },
     "c": {
      "size": 340,
@@ -2736,8 +2559,8 @@
      ]
     },
     "b": {
-     "size": 63,
-     "hits": 0
+     "size": 357,
+     "hits": 1
     },
     "c": {
      "size": 332,
@@ -2927,8 +2750,8 @@
      ]
     },
     "b": {
-     "size": 70,
-     "hits": 2
+     "size": 358,
+     "hits": 3
     },
     "c": {
      "size": 340,
@@ -2984,25 +2807,8 @@
      "tests": []
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 328,
+     "hits": 1
     },
     "c": {
      "size": 328,
@@ -3231,27 +3037,8 @@
      ]
     },
     "b": {
-     "size": 17,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js"
-     ]
+     "size": 328,
+     "hits": 1
     },
     "c": {
      "size": 328,
@@ -3320,26 +3107,8 @@
      ]
     },
     "b": {
-     "size": 16,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 328,
+     "hits": 1
     },
     "c": {
      "size": 328,
@@ -3426,39 +3195,8 @@
      ]
     },
     "b": {
-     "size": 29,
-     "hits": 1,
-     "tests": [
-      "test/env-http-proxy-agent-nodejs-bundle.js",
-      "test/eventsource/eventsource-attributes.js",
-      "test/eventsource/eventsource-close.js",
-      "test/eventsource/eventsource-connect.js",
-      "test/eventsource/eventsource-constructor-stringify.js",
-      "test/eventsource/eventsource-constructor.js",
-      "test/eventsource/eventsource-message.js",
-      "test/eventsource/eventsource-reconnect.js",
-      "test/eventsource/eventsource-redirecting.js",
-      "test/eventsource/eventsource-request-status-error.js",
-      "test/eventsource/eventsource.js",
-      "test/fetch/client-error-stack-trace.js",
-      "test/fetch/client-fetch.js",
-      "test/fetch/general.js",
-      "test/fetch/issue-2242.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 338,
+     "hits": 1
     },
     "c": {
      "size": 337,
@@ -3564,8 +3302,8 @@
      ]
     },
     "b": {
-     "size": 50,
-     "hits": 0
+     "size": 345,
+     "hits": 2
     },
     "c": {
      "size": 336,
@@ -3621,25 +3359,8 @@
      "tests": []
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 326,
+     "hits": 1
     },
     "c": {
      "size": 326,
@@ -3729,39 +3450,8 @@
      ]
     },
     "b": {
-     "size": 29,
-     "hits": 1,
-     "tests": [
-      "test/env-http-proxy-agent-nodejs-bundle.js",
-      "test/eventsource/eventsource-attributes.js",
-      "test/eventsource/eventsource-close.js",
-      "test/eventsource/eventsource-connect.js",
-      "test/eventsource/eventsource-constructor-stringify.js",
-      "test/eventsource/eventsource-constructor.js",
-      "test/eventsource/eventsource-message.js",
-      "test/eventsource/eventsource-reconnect.js",
-      "test/eventsource/eventsource-redirecting.js",
-      "test/eventsource/eventsource-request-status-error.js",
-      "test/eventsource/eventsource.js",
-      "test/fetch/client-error-stack-trace.js",
-      "test/fetch/client-fetch.js",
-      "test/fetch/general.js",
-      "test/fetch/issue-2242.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 336,
+     "hits": 1
     },
     "c": {
      "size": 335,
@@ -3842,28 +3532,8 @@
      ]
     },
     "b": {
-     "size": 18,
-     "hits": 1,
-     "tests": [
-      "test/cache-interceptor/memory-cache-store-tests.js",
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3904.js",
-      "test/issue-3959.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 327,
+     "hits": 1
     },
     "c": {
      "size": 327,
@@ -3931,26 +3601,8 @@
      ]
     },
     "b": {
-     "size": 16,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/decompress.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 326,
+     "hits": 1
     },
     "c": {
      "size": 326,
@@ -4196,25 +3848,8 @@
      "tests": []
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 323,
+     "hits": 1
     },
     "c": {
      "size": 323,
@@ -4273,27 +3908,8 @@
      ]
     },
     "b": {
-     "size": 17,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/global-frozen.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/node-test/global-dispatcher-version.js"
-     ]
+     "size": 325,
+     "hits": 2
     },
     "c": {
      "size": 324,
@@ -4521,25 +4137,8 @@
      "tests": []
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 322,
+     "hits": 1
     },
     "c": {
      "size": 322,
@@ -4701,26 +4300,8 @@
      ]
     },
     "b": {
-     "size": 16,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 322,
+     "hits": 1
     },
     "c": {
      "size": 322,
@@ -4798,33 +4379,8 @@
      ]
     },
     "b": {
-     "size": 23,
-     "hits": 0,
-     "tests": [
-      "test/client-timeout.js",
-      "test/fetch/formdata.js",
-      "test/fetch/general.js",
-      "test/global-frozen.js",
-      "test/http2-resume-null-request.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/node-test/util.js",
-      "test/proxy-agent.js",
-      "test/util.js"
-     ]
+     "size": 324,
+     "hits": 1
     },
     "c": {
      "size": 321,
@@ -4934,27 +4490,8 @@
      ]
     },
     "b": {
-     "size": 17,
-     "hits": 2,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/decompress.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 321,
+     "hits": 2
     },
     "c": {
      "size": 321,
@@ -5138,25 +4675,8 @@
      "tests": []
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate-retry.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 321,
+     "hits": 1
     },
     "c": {
      "size": 321,
@@ -5306,25 +4826,8 @@
      "tests": []
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/global-frozen.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 321,
+     "hits": 1
     },
     "c": {
      "size": 320,
@@ -5387,25 +4890,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/decompress.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 319,
+     "hits": 1
     },
     "c": {
      "size": 319,
@@ -5476,26 +4962,8 @@
      ]
     },
     "b": {
-     "size": 16,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js"
-     ]
+     "size": 319,
+     "hits": 1
     },
     "c": {
      "size": 319,
@@ -5643,28 +5111,8 @@
      "tests": []
     },
     "b": {
-     "size": 18,
-     "hits": 0,
-     "tests": [
-      "test/env-http-proxy-agent-nodejs-bundle.js",
-      "test/fetch/client-error-stack-trace.js",
-      "test/fetch/client-fetch.js",
-      "test/fetch/general.js",
-      "test/fetch/issue-2242.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 320,
+     "hits": 1
     },
     "c": {
      "size": 319,
@@ -5734,30 +5182,8 @@
      ]
     },
     "b": {
-     "size": 20,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/global-frozen.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/node-test/balanced-pool.js",
-      "test/pool-connection-error-memory-leak.js",
-      "test/proxy-agent.js",
-      "test/socks5-proxy-agent.js"
-     ]
+     "size": 319,
+     "hits": 2
     },
     "c": {
      "size": 318,
@@ -5829,29 +5255,8 @@
      "tests": []
     },
     "b": {
-     "size": 19,
-     "hits": 0,
-     "tests": [
-      "test/cookie/is-ctl-excluding-htab.js",
-      "test/cookie/to-imf-date.js",
-      "test/cookie/validate-cookie-name.js",
-      "test/cookie/validate-cookie-path.js",
-      "test/cookie/validate-cookie-value.js",
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 323,
+     "hits": 1
     },
     "c": {
      "size": 318,
@@ -5922,25 +5327,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/decompress.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 318,
+     "hits": 1
     },
     "c": {
      "size": 318,
@@ -6010,25 +5398,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 317,
+     "hits": 1
     },
     "c": {
      "size": 317,
@@ -6106,25 +5477,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 317,
+     "hits": 1
     },
     "c": {
      "size": 317,
@@ -6297,25 +5651,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/decompress.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 317,
+     "hits": 1
     },
     "c": {
      "size": 317,
@@ -6396,24 +5733,8 @@
      "tests": []
     },
     "b": {
-     "size": 14,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 317,
+     "hits": 1
     },
     "c": {
      "size": 317,
@@ -6485,24 +5806,8 @@
      "tests": []
     },
     "b": {
-     "size": 14,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 317,
+     "hits": 1
     },
     "c": {
      "size": 317,
@@ -6562,24 +5867,8 @@
      "tests": []
     },
     "b": {
-     "size": 14,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 317,
+     "hits": 1
     },
     "c": {
      "size": 317,
@@ -6646,24 +5935,8 @@
      "tests": []
     },
     "b": {
-     "size": 14,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 317,
+     "hits": 1
     },
     "c": {
      "size": 317,
@@ -6779,7 +6052,7 @@
      "hits": 1
     },
     "b": {
-     "size": 79,
+     "size": 334,
      "hits": 1
     },
     "c": {
@@ -6905,25 +6178,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 316,
+     "hits": 2
     },
     "c": {
      "size": 316,
@@ -7000,40 +6256,8 @@
      ]
     },
     "b": {
-     "size": 30,
-     "hits": 0,
-     "tests": [
-      "test/cache/cache.js",
-      "test/env-http-proxy-agent-nodejs-bundle.js",
-      "test/eventsource/eventsource-attributes.js",
-      "test/eventsource/eventsource-close.js",
-      "test/eventsource/eventsource-connect.js",
-      "test/eventsource/eventsource-constructor-stringify.js",
-      "test/eventsource/eventsource-constructor.js",
-      "test/eventsource/eventsource-message.js",
-      "test/eventsource/eventsource-reconnect.js",
-      "test/eventsource/eventsource-redirecting.js",
-      "test/eventsource/eventsource-request-status-error.js",
-      "test/eventsource/eventsource.js",
-      "test/fetch/client-error-stack-trace.js",
-      "test/fetch/client-fetch.js",
-      "test/fetch/general.js",
-      "test/fetch/issue-2242.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-platform-objects.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 326,
+     "hits": 1
     },
     "c": {
      "size": 316,
@@ -7092,26 +6316,8 @@
      ]
     },
     "b": {
-     "size": 16,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js"
-     ]
+     "size": 316,
+     "hits": 1
     },
     "c": {
      "size": 316,
@@ -7179,24 +6385,8 @@
      "tests": []
     },
     "b": {
-     "size": 14,
-     "hits": 2,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 316,
+     "hits": 2
     },
     "c": {
      "size": 316,
@@ -7275,38 +6465,8 @@
      ]
     },
     "b": {
-     "size": 28,
-     "hits": 1,
-     "tests": [
-      "test/env-http-proxy-agent-nodejs-bundle.js",
-      "test/eventsource/eventsource-attributes.js",
-      "test/eventsource/eventsource-close.js",
-      "test/eventsource/eventsource-connect.js",
-      "test/eventsource/eventsource-constructor-stringify.js",
-      "test/eventsource/eventsource-constructor.js",
-      "test/eventsource/eventsource-message.js",
-      "test/eventsource/eventsource-reconnect.js",
-      "test/eventsource/eventsource-redirecting.js",
-      "test/eventsource/eventsource-request-status-error.js",
-      "test/eventsource/eventsource.js",
-      "test/fetch/client-error-stack-trace.js",
-      "test/fetch/client-fetch.js",
-      "test/fetch/general.js",
-      "test/fetch/issue-2242.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 326,
+     "hits": 1
     },
     "c": {
      "size": 325,
@@ -7395,27 +6555,8 @@
      ]
     },
     "b": {
-     "size": 17,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js",
-      "test/socks5-proxy-agent.js"
-     ]
+     "size": 316,
+     "hits": 1
     },
     "c": {
      "size": 316,
@@ -7549,25 +6690,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 316,
+     "hits": 1
     },
     "c": {
      "size": 316,
@@ -7643,28 +6767,8 @@
      ]
     },
     "b": {
-     "size": 18,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/fetch/issue-3630.js",
-      "test/global-frozen.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js"
-     ]
+     "size": 316,
+     "hits": 1
     },
     "c": {
      "size": 316,
@@ -7737,27 +6841,8 @@
      ]
     },
     "b": {
-     "size": 17,
-     "hits": 1,
-     "tests": [
-      "test/cache-interceptor/memory-cache-store-tests.js",
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3904.js",
-      "test/issue-3959.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 315,
+     "hits": 1
     },
     "c": {
      "size": 315,
@@ -7825,27 +6910,8 @@
      ]
     },
     "b": {
-     "size": 17,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js",
-      "test/socks5-proxy-agent.js"
-     ]
+     "size": 314,
+     "hits": 1
     },
     "c": {
      "size": 314,
@@ -7906,28 +6972,8 @@
      "tests": []
     },
     "b": {
-     "size": 18,
-     "hits": 0,
-     "tests": [
-      "test/env-http-proxy-agent-nodejs-bundle.js",
-      "test/fetch/client-error-stack-trace.js",
-      "test/fetch/client-fetch.js",
-      "test/fetch/general.js",
-      "test/fetch/issue-2242.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 315,
+     "hits": 1
     },
     "c": {
      "size": 314,
@@ -8006,28 +7052,8 @@
      ]
     },
     "b": {
-     "size": 18,
-     "hits": 1,
-     "tests": [
-      "test/decorator-handler.js",
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/decompress.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-delayed-abort.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 313,
+     "hits": 1
     },
     "c": {
      "size": 313,
@@ -8326,25 +7352,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 312,
+     "hits": 1
     },
     "c": {
      "size": 312,
@@ -8416,24 +7425,8 @@
      "tests": []
     },
     "b": {
-     "size": 14,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 312,
+     "hits": 1
     },
     "c": {
      "size": 312,
@@ -8495,25 +7488,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 312,
+     "hits": 1
     },
     "c": {
      "size": 312,
@@ -8623,7 +7599,7 @@
      ]
     },
     "b": {
-     "size": 44,
+     "size": 328,
      "hits": 2
     },
     "c": {
@@ -8686,34 +7662,8 @@
      ]
     },
     "b": {
-     "size": 24,
-     "hits": 0,
-     "tests": [
-      "test/dispatcher.js",
-      "test/env-http-proxy-agent-nodejs-bundle.js",
-      "test/fetch/client-error-stack-trace.js",
-      "test/fetch/client-fetch.js",
-      "test/fetch/general.js",
-      "test/fetch/issue-2242.js",
-      "test/fetch/issue-3630.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-4780.js",
-      "test/mock-agent.js",
-      "test/mock-client.js",
-      "test/mock-interceptor.js",
-      "test/mock-pool.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 312,
+     "hits": 2
     },
     "c": {
      "size": 311,
@@ -8782,34 +7732,8 @@
      ]
     },
     "b": {
-     "size": 24,
-     "hits": 0,
-     "tests": [
-      "test/client-timeout.js",
-      "test/fetch/formdata.js",
-      "test/fetch/general.js",
-      "test/global-frozen.js",
-      "test/http2-resume-null-request.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/ip-prioritization.js",
-      "test/issue-3897.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/node-test/util.js",
-      "test/proxy-agent.js",
-      "test/socks5-proxy-agent.js",
-      "test/util.js"
-     ]
+     "size": 313,
+     "hits": 1
     },
     "c": {
      "size": 310,
@@ -8948,25 +7872,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 307,
+     "hits": 1
     },
     "c": {
      "size": 307,
@@ -9038,24 +7945,8 @@
      "tests": []
     },
     "b": {
-     "size": 14,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 307,
+     "hits": 1
     },
     "c": {
      "size": 307,
@@ -9116,27 +8007,8 @@
      ]
     },
     "b": {
-     "size": 17,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js",
-      "test/socks5-proxy-agent.js"
-     ]
+     "size": 307,
+     "hits": 1
     },
     "c": {
      "size": 307,
@@ -9282,28 +8154,8 @@
      "tests": []
     },
     "b": {
-     "size": 18,
-     "hits": 0,
-     "tests": [
-      "test/env-http-proxy-agent-nodejs-bundle.js",
-      "test/fetch/client-error-stack-trace.js",
-      "test/fetch/client-fetch.js",
-      "test/fetch/general.js",
-      "test/fetch/issue-2242.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 308,
+     "hits": 1
     },
     "c": {
      "size": 307,
@@ -9364,25 +8216,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 306,
+     "hits": 1
     },
     "c": {
      "size": 306,
@@ -9671,31 +8506,8 @@
      ]
     },
     "b": {
-     "size": 21,
-     "hits": 3,
-     "tests": [
-      "test/cache-interceptor/cache-utils.js",
-      "test/cache-interceptor/issue-4209.js",
-      "test/cache-interceptor/memory-cache-store-tests.js",
-      "test/cache-interceptor/sqlite-cache-store-tests.js",
-      "test/cache-interceptor/utils.js",
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3904.js",
-      "test/issue-3959.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 306,
+     "hits": 3
     },
     "c": {
      "size": 306,
@@ -9777,25 +8589,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 302,
+     "hits": 2
     },
     "c": {
      "size": 302,
@@ -10059,25 +8854,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/decompress.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 300,
+     "hits": 1
     },
     "c": {
      "size": 300,
@@ -10473,8 +9251,8 @@
      ]
     },
     "b": {
-     "size": 55,
-     "hits": 0
+     "size": 325,
+     "hits": 1
     },
     "c": {
      "size": 306,
@@ -10666,25 +9444,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/retry-handler-controller-proxy.js"
-     ]
+     "size": 299,
+     "hits": 1
     },
     "c": {
      "size": 299,
@@ -10756,24 +9517,8 @@
      "tests": []
     },
     "b": {
-     "size": 14,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 299,
+     "hits": 1
     },
     "c": {
      "size": 299,
@@ -10839,27 +9584,8 @@
      "tests": []
     },
     "b": {
-     "size": 17,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/fetch/issue-3630.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js"
-     ]
+     "size": 299,
+     "hits": 1
     },
     "c": {
      "size": 299,
@@ -10929,25 +9655,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/decompress.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 299,
+     "hits": 1
     },
     "c": {
      "size": 299,
@@ -11258,24 +9967,8 @@
      "tests": []
     },
     "b": {
-     "size": 14,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 299,
+     "hits": 1
     },
     "c": {
      "size": 299,
@@ -11352,42 +10045,8 @@
      ]
     },
     "b": {
-     "size": 32,
-     "hits": 0,
-     "tests": [
-      "test/cache/cache.js",
-      "test/env-http-proxy-agent-nodejs-bundle.js",
-      "test/eventsource/eventsource-attributes.js",
-      "test/eventsource/eventsource-close.js",
-      "test/eventsource/eventsource-connect.js",
-      "test/eventsource/eventsource-constructor-stringify.js",
-      "test/eventsource/eventsource-constructor.js",
-      "test/eventsource/eventsource-message.js",
-      "test/eventsource/eventsource-reconnect.js",
-      "test/eventsource/eventsource-redirecting.js",
-      "test/eventsource/eventsource-request-status-error.js",
-      "test/eventsource/eventsource.js",
-      "test/fetch/client-error-stack-trace.js",
-      "test/fetch/client-fetch.js",
-      "test/fetch/general.js",
-      "test/fetch/includes-credentials.js",
-      "test/fetch/issue-2242.js",
-      "test/fetch/util.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-interceptor.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-platform-objects.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 312,
+     "hits": 1
     },
     "c": {
      "size": 299,
@@ -11673,25 +10332,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 2,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/issue-3897.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js"
-     ]
+     "size": 298,
+     "hits": 3
     },
     "c": {
      "size": 298,
@@ -12730,25 +11372,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js",
-      "test/socks5-proxy-agent.js"
-     ]
+     "size": 290,
+     "hits": 1
     },
     "c": {
      "size": 290,
@@ -13318,23 +11943,8 @@
      "tests": []
     },
     "b": {
-     "size": 13,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 285,
+     "hits": 1
     },
     "c": {
      "size": 285,
@@ -13528,29 +12138,8 @@
      ]
     },
     "b": {
-     "size": 19,
-     "hits": 0,
-     "tests": [
-      "test/client-timeout.js",
-      "test/fetch/formdata.js",
-      "test/fetch/general.js",
-      "test/http2-resume-null-request.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/node-test/util.js",
-      "test/proxy-agent.js",
-      "test/util.js"
-     ]
+     "size": 286,
+     "hits": 1
     },
     "c": {
      "size": 284,
@@ -13648,27 +12237,8 @@
      ]
     },
     "b": {
-     "size": 17,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/http2-resume-null-request.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/ip-prioritization.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js",
-      "test/socks5-proxy-agent.js"
-     ]
+     "size": 281,
+     "hits": 1
     },
     "c": {
      "size": 281,
@@ -14197,23 +12767,8 @@
      "tests": []
     },
     "b": {
-     "size": 13,
-     "hits": 0,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js"
-     ]
+     "size": 278,
+     "hits": 1
     },
     "c": {
      "size": 278,
@@ -14286,7 +12841,7 @@
      ]
     },
     "b": {
-     "size": 52,
+     "size": 303,
      "hits": 1
     },
     "c": {
@@ -14345,25 +12900,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js",
-      "test/socks5-proxy-agent.js"
-     ]
+     "size": 278,
+     "hits": 1
     },
     "c": {
      "size": 278,
@@ -14425,25 +12963,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/fetch/general.js",
-      "test/install.js",
-      "test/interceptors/cache-async-store.js",
-      "test/interceptors/cache-revalidate-stale.js",
-      "test/interceptors/cache.js",
-      "test/interceptors/deduplicate.js",
-      "test/mock-utils.js",
-      "test/node-fetch/headers.js",
-      "test/node-fetch/main.js",
-      "test/node-fetch/mock.js",
-      "test/node-fetch/request.js",
-      "test/node-fetch/response.js",
-      "test/node-test/agent.js",
-      "test/proxy-agent.js",
-      "test/socks5-proxy-agent.js"
-     ]
+     "size": 277,
+     "hits": 1
     },
     "c": {
      "size": 277,
@@ -20933,5 +19454,5 @@
    "reason": "over_cap"
   }
  ],
- "seconds": 47
+ "seconds": 106
 }

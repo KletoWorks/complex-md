@@ -116,11 +116,11 @@
     "b": {
      "fixes": 56,
      "truth": 89,
-     "hits": 41,
-     "recall": 0.4607,
-     "any_hit": 0.5893,
-     "share_mean": 0.126,
-     "share_median": 0.125
+     "hits": 59,
+     "recall": 0.6629,
+     "any_hit": 0.6964,
+     "share_mean": 0.1706,
+     "share_median": 0.16
     },
     "c": {
      "fixes": 56,
@@ -282,11 +282,11 @@
     "b": {
      "fixes": 60,
      "truth": 97,
-     "hits": 43,
-     "recall": 0.4433,
-     "any_hit": 0.5833,
-     "share_mean": 0.1274,
-     "share_median": 0.125
+     "hits": 61,
+     "recall": 0.6289,
+     "any_hit": 0.6833,
+     "share_mean": 0.169,
+     "share_median": 0.16
     },
     "c": {
      "fixes": 60,
@@ -450,10 +450,10 @@
     "b": {
      "fixes": 32,
      "truth": 39,
-     "hits": 17,
-     "recall": 0.4359,
-     "any_hit": 0.4375,
-     "share_mean": 0.0746,
+     "hits": 22,
+     "recall": 0.5641,
+     "any_hit": 0.5938,
+     "share_mean": 0.0965,
      "share_median": 0.0476
     },
     "c": {
@@ -533,10 +533,10 @@
     "b": {
      "fixes": 34,
      "truth": 43,
-     "hits": 17,
-     "recall": 0.3953,
-     "any_hit": 0.4118,
-     "share_mean": 0.0702,
+     "hits": 22,
+     "recall": 0.5116,
+     "any_hit": 0.5588,
+     "share_mean": 0.0908,
      "share_median": 0.0455
     },
     "c": {
@@ -679,15 +679,24 @@
      ]
     },
     "b": {
-     "size": 8,
+     "size": 17,
      "hits": 1,
      "tests": [
       "test/cli/exec.test.js",
       "test/cli/parse.test.js",
+      "test/config/env.test.js",
       "test/config/load-logging.test.js",
       "test/config/load.test.js",
+      "test/events/complete.test.js",
       "test/events/scripts.test.js",
+      "test/lib/events.test.js",
+      "test/lib/require-restartable.test.js",
+      "test/lib/require.test.js",
+      "test/misc/listeners.test.js",
+      "test/monitor/count.test.js",
       "test/monitor/match.test.js",
+      "test/monitor/run.test.js",
+      "test/monitor/watch-restart.test.js",
       "test/monitor/watch.test.js",
       "test/rules/index.test.js"
      ]
@@ -3249,10 +3258,11 @@
      ]
     },
     "b": {
-     "size": 4,
-     "hits": 0,
+     "size": 5,
+     "hits": 1,
      "tests": [
       "test/cli/exec.test.js",
+      "test/cli/parse.test.js",
       "test/config/load.test.js",
       "test/events/scripts.test.js",
       "test/rules/index.test.js"
@@ -3846,10 +3856,11 @@
      ]
     },
     "b": {
-     "size": 4,
-     "hits": 0,
+     "size": 5,
+     "hits": 1,
      "tests": [
       "test/cli/exec.test.js",
+      "test/cli/parse.test.js",
       "test/config/load.test.js",
       "test/events/scripts.test.js",
       "test/rules/index.test.js"
@@ -4667,10 +4678,11 @@
      ]
     },
     "b": {
-     "size": 5,
-     "hits": 1,
+     "size": 6,
+     "hits": 2,
      "tests": [
       "test/cli/exec.test.js",
+      "test/cli/parse.test.js",
       "test/config/load.test.js",
       "test/events/scripts.test.js",
       "test/monitor/match.test.js",
@@ -5040,17 +5052,24 @@
      ]
     },
     "b": {
-     "size": 11,
-     "hits": 2,
+     "size": 18,
+     "hits": 4,
      "tests": [
       "test/cli/exec.test.js",
       "test/cli/parse.test.js",
+      "test/config/env.test.js",
       "test/config/load.test.js",
       "test/config/watchable.test.js",
+      "test/events/complete.test.js",
       "test/events/scripts.test.js",
+      "test/lib/events.test.js",
+      "test/lib/require.test.js",
       "test/lib/version.test.js",
       "test/monitor/changed-since.test.js",
+      "test/monitor/count.test.js",
       "test/monitor/match.test.js",
+      "test/monitor/run.test.js",
+      "test/monitor/watch-restart.test.js",
       "test/rules/index.test.js",
       "test/utils/log.test.js",
       "test/utils/stringify.test.js"
@@ -5337,12 +5356,19 @@
      ]
     },
     "b": {
-     "size": 4,
-     "hits": 0,
+     "size": 11,
+     "hits": 1,
      "tests": [
       "test/cli/parse.test.js",
+      "test/config/env.test.js",
       "test/config/load.test.js",
+      "test/events/complete.test.js",
       "test/events/scripts.test.js",
+      "test/lib/events.test.js",
+      "test/lib/require.test.js",
+      "test/monitor/count.test.js",
+      "test/monitor/run.test.js",
+      "test/monitor/watch-restart.test.js",
       "test/rules/index.test.js"
      ]
     },
@@ -5620,13 +5646,20 @@
      ]
     },
     "b": {
-     "size": 5,
-     "hits": 1,
+     "size": 12,
+     "hits": 2,
      "tests": [
       "test/cli/exec.test.js",
       "test/cli/parse.test.js",
+      "test/config/env.test.js",
       "test/config/load.test.js",
+      "test/events/complete.test.js",
       "test/events/scripts.test.js",
+      "test/lib/events.test.js",
+      "test/lib/require.test.js",
+      "test/monitor/count.test.js",
+      "test/monitor/run.test.js",
+      "test/monitor/watch-restart.test.js",
       "test/rules/index.test.js"
      ]
     },
@@ -5894,11 +5927,18 @@
      ]
     },
     "b": {
-     "size": 3,
-     "hits": 0,
+     "size": 10,
+     "hits": 1,
      "tests": [
       "test/cli/parse.test.js",
+      "test/config/env.test.js",
       "test/config/load.test.js",
+      "test/events/complete.test.js",
+      "test/lib/events.test.js",
+      "test/lib/require.test.js",
+      "test/monitor/count.test.js",
+      "test/monitor/run.test.js",
+      "test/monitor/watch-restart.test.js",
       "test/rules/index.test.js"
      ]
     },
@@ -6298,11 +6338,16 @@
      ]
     },
     "b": {
-     "size": 3,
-     "hits": 1,
+     "size": 8,
+     "hits": 2,
      "tests": [
       "test/cli/parse.test.js",
+      "test/config/env.test.js",
       "test/config/load.test.js",
+      "test/lib/events.test.js",
+      "test/lib/require.test.js",
+      "test/monitor/run.test.js",
+      "test/monitor/watch-restart.test.js",
       "test/rules/index.test.js"
      ]
     },
@@ -6632,10 +6677,11 @@
      ]
     },
     "b": {
-     "size": 3,
-     "hits": 0,
+     "size": 4,
+     "hits": 1,
      "tests": [
       "test/cli/exec.test.js",
+      "test/cli/parse.test.js",
       "test/config/load.test.js",
       "test/rules/index.test.js"
      ]
@@ -7656,14 +7702,18 @@
      ]
     },
     "b": {
-     "size": 6,
-     "hits": 1,
+     "size": 10,
+     "hits": 4,
      "tests": [
       "test/cli/exec.test.js",
       "test/cli/parse.test.js",
       "test/config/load.test.js",
+      "test/lib/events.test.js",
+      "test/lib/require.test.js",
       "test/monitor/changed-since.test.js",
       "test/monitor/match.test.js",
+      "test/monitor/run.test.js",
+      "test/monitor/watch-restart.test.js",
       "test/utils/log.test.js"
      ]
     },
@@ -7801,12 +7851,17 @@
      "tests": []
     },
     "b": {
-     "size": 3,
-     "hits": 1,
+     "size": 8,
+     "hits": 5,
      "tests": [
       "test/cli/exec.test.js",
       "test/cli/parse.test.js",
-      "test/config/load.test.js"
+      "test/config/load.test.js",
+      "test/fork/watch-restart.test.js",
+      "test/lib/events.test.js",
+      "test/lib/require.test.js",
+      "test/monitor/run.test.js",
+      "test/monitor/watch-restart.test.js"
      ]
     },
     "c": {
@@ -8011,10 +8066,13 @@
      "tests": []
     },
     "b": {
-     "size": 1,
+     "size": 4,
      "hits": 0,
      "tests": [
-      "test/cli/parse.test.js"
+      "test/cli/parse.test.js",
+      "test/lib/events.test.js",
+      "test/lib/require.test.js",
+      "test/monitor/run.test.js"
      ]
     },
     "c": {
@@ -8119,10 +8177,12 @@
      "tests": []
     },
     "b": {
-     "size": 1,
-     "hits": 0,
+     "size": 3,
+     "hits": 1,
      "tests": [
-      "test/cli/parse.test.js"
+      "test/cli/parse.test.js",
+      "test/lib/events.test.js",
+      "test/lib/require.test.js"
      ]
     },
     "c": {
@@ -9812,5 +9872,5 @@
    "reason": "truth_not_in_suite"
   }
  ],
- "seconds": 9
+ "seconds": 26
 }

@@ -107,20 +107,20 @@
     "a": {
      "fixes": 109,
      "truth": 143,
-     "hits": 27,
-     "recall": 0.1888,
-     "any_hit": 0.1927,
-     "share_mean": 0.0377,
+     "hits": 48,
+     "recall": 0.3357,
+     "any_hit": 0.2752,
+     "share_mean": 0.1206,
      "share_median": 0.0103
     },
     "b": {
      "fixes": 109,
      "truth": 143,
-     "hits": 39,
-     "recall": 0.2727,
-     "any_hit": 0.2936,
-     "share_mean": 0.183,
-     "share_median": 0.1727
+     "hits": 130,
+     "recall": 0.9091,
+     "any_hit": 0.8899,
+     "share_mean": 0.7529,
+     "share_median": 0.8607
     },
     "c": {
      "fixes": 109,
@@ -190,20 +190,20 @@
     "a": {
      "fixes": 32,
      "truth": 50,
-     "hits": 23,
-     "recall": 0.46,
-     "any_hit": 0.5313,
-     "share_mean": 0.1138,
+     "hits": 32,
+     "recall": 0.64,
+     "any_hit": 0.75,
+     "share_mean": 0.3365,
      "share_median": 0.0606
     },
     "b": {
      "fixes": 32,
      "truth": 50,
-     "hits": 29,
-     "recall": 0.58,
-     "any_hit": 0.625,
-     "share_mean": 0.2717,
-     "share_median": 0.2473
+     "hits": 50,
+     "recall": 1,
+     "any_hit": 1,
+     "share_mean": 0.8988,
+     "share_median": 0.898
     },
     "c": {
      "fixes": 32,
@@ -273,20 +273,20 @@
     "a": {
      "fixes": 150,
      "truth": 203,
-     "hits": 50,
-     "recall": 0.2463,
-     "any_hit": 0.2533,
-     "share_mean": 0.0516,
+     "hits": 80,
+     "recall": 0.3941,
+     "any_hit": 0.36,
+     "share_mean": 0.1594,
      "share_median": 0.0161
     },
     "b": {
      "fixes": 150,
      "truth": 203,
-     "hits": 68,
-     "recall": 0.335,
-     "any_hit": 0.3467,
-     "share_mean": 0.1909,
-     "share_median": 0.2165
+     "hits": 180,
+     "recall": 0.8867,
+     "any_hit": 0.86,
+     "share_mean": 0.7388,
+     "share_median": 0.8736
     },
     "c": {
      "fixes": 150,
@@ -441,20 +441,20 @@
     "a": {
      "fixes": 92,
      "truth": 107,
-     "hits": 17,
-     "recall": 0.1589,
-     "any_hit": 0.163,
-     "share_mean": 0.0349,
+     "hits": 25,
+     "recall": 0.2336,
+     "any_hit": 0.2391,
+     "share_mean": 0.1024,
      "share_median": 0.0098
     },
     "b": {
      "fixes": 92,
      "truth": 107,
-     "hits": 28,
-     "recall": 0.2617,
-     "any_hit": 0.2717,
-     "share_mean": 0.1759,
-     "share_median": 0.15
+     "hits": 95,
+     "recall": 0.8879,
+     "any_hit": 0.8804,
+     "share_mean": 0.7393,
+     "share_median": 0.8561
     },
     "c": {
      "fixes": 92,
@@ -524,20 +524,20 @@
     "a": {
      "fixes": 10,
      "truth": 13,
-     "hits": 1,
-     "recall": 0.0769,
-     "any_hit": 0.1,
-     "share_mean": 0.1326,
-     "share_median": 0.232
+     "hits": 7,
+     "recall": 0.5385,
+     "any_hit": 0.6,
+     "share_mean": 0.454,
+     "share_median": 0.8737
     },
     "b": {
      "fixes": 10,
      "truth": 13,
-     "hits": 5,
-     "recall": 0.3846,
-     "any_hit": 0.4,
-     "share_mean": 0.2501,
-     "share_median": 0.2432
+     "hits": 13,
+     "recall": 1,
+     "any_hit": 1,
+     "share_mean": 0.8874,
+     "share_median": 0.8817
     },
     "c": {
      "fixes": 10,
@@ -607,20 +607,20 @@
     "a": {
      "fixes": 109,
      "truth": 128,
-     "hits": 18,
-     "recall": 0.1406,
-     "any_hit": 0.1468,
-     "share_mean": 0.0416,
+     "hits": 32,
+     "recall": 0.25,
+     "any_hit": 0.2569,
+     "share_mean": 0.1281,
      "share_median": 0.0099
     },
     "b": {
      "fixes": 109,
      "truth": 128,
-     "hits": 33,
-     "recall": 0.2578,
-     "any_hit": 0.2661,
-     "share_mean": 0.1714,
-     "share_median": 0.15
+     "hits": 108,
+     "recall": 0.8438,
+     "any_hit": 0.8349,
+     "share_mean": 0.7054,
+     "share_median": 0.8583
     },
     "c": {
      "fixes": 109,
@@ -733,8 +733,8 @@
      ]
     },
     "b": {
-     "size": 65,
-     "hits": 0
+     "size": 182,
+     "hits": 1
     },
     "c": {
      "size": 176,
@@ -970,8 +970,8 @@
      ]
     },
     "b": {
-     "size": 46,
-     "hits": 0
+     "size": 175,
+     "hits": 1
     },
     "c": {
      "size": 175,
@@ -1189,8 +1189,8 @@
      "tests": []
     },
     "b": {
-     "size": 59,
-     "hits": 0
+     "size": 177,
+     "hits": 2
     },
     "c": {
      "size": 174,
@@ -1425,8 +1425,8 @@
      ]
     },
     "b": {
-     "size": 59,
-     "hits": 0
+     "size": 177,
+     "hits": 1
     },
     "c": {
      "size": 177,
@@ -1641,7 +1641,7 @@
      ]
     },
     "b": {
-     "size": 59,
+     "size": 176,
      "hits": 1
     },
     "c": {
@@ -1858,8 +1858,8 @@
      ]
     },
     "b": {
-     "size": 59,
-     "hits": 1
+     "size": 176,
+     "hits": 2
     },
     "c": {
      "size": 176,
@@ -2083,8 +2083,8 @@
      ]
     },
     "b": {
-     "size": 77,
-     "hits": 1
+     "size": 183,
+     "hits": 2
     },
     "c": {
      "size": 175,
@@ -2299,7 +2299,7 @@
      ]
     },
     "b": {
-     "size": 59,
+     "size": 176,
      "hits": 1
     },
     "c": {
@@ -2749,8 +2749,8 @@
      "tests": []
     },
     "b": {
-     "size": 45,
-     "hits": 0
+     "size": 172,
+     "hits": 2
     },
     "c": {
      "size": 172,
@@ -2973,8 +2973,8 @@
      ]
     },
     "b": {
-     "size": 60,
-     "hits": 0
+     "size": 176,
+     "hits": 1
     },
     "c": {
      "size": 173,
@@ -3404,8 +3404,8 @@
      "tests": []
     },
     "b": {
-     "size": 45,
-     "hits": 0
+     "size": 172,
+     "hits": 1
     },
     "c": {
      "size": 172,
@@ -3636,7 +3636,7 @@
      ]
     },
     "b": {
-     "size": 60,
+     "size": 175,
      "hits": 1
     },
     "c": {
@@ -3835,8 +3835,8 @@
      "tests": []
     },
     "b": {
-     "size": 45,
-     "hits": 0
+     "size": 171,
+     "hits": 1
     },
     "c": {
      "size": 171,
@@ -4029,12 +4029,12 @@
    "suite": 194,
    "selectors": {
     "a": {
-     "size": 45,
-     "hits": 0
+     "size": 171,
+     "hits": 1
     },
     "b": {
-     "size": 47,
-     "hits": 0
+     "size": 171,
+     "hits": 1
     },
     "c": {
      "size": 171,
@@ -4479,7 +4479,7 @@
      ]
     },
     "b": {
-     "size": 59,
+     "size": 173,
      "hits": 1
     },
     "c": {
@@ -4678,8 +4678,8 @@
      ]
     },
     "b": {
-     "size": 46,
-     "hits": 0
+     "size": 171,
+     "hits": 1
     },
     "c": {
      "size": 171,
@@ -4889,8 +4889,8 @@
      ]
     },
     "b": {
-     "size": 64,
-     "hits": 0
+     "size": 177,
+     "hits": 1
     },
     "c": {
      "size": 171,
@@ -5137,8 +5137,8 @@
      ]
     },
     "b": {
-     "size": 59,
-     "hits": 0
+     "size": 173,
+     "hits": 1
     },
     "c": {
      "size": 173,
@@ -5331,12 +5331,12 @@
    "suite": 194,
    "selectors": {
     "a": {
-     "size": 45,
-     "hits": 0
+     "size": 170,
+     "hits": 1
     },
     "b": {
-     "size": 47,
-     "hits": 0
+     "size": 170,
+     "hits": 1
     },
     "c": {
      "size": 170,
@@ -5539,11 +5539,11 @@
    "suite": 194,
    "selectors": {
     "a": {
-     "size": 46,
+     "size": 170,
      "hits": 1
     },
     "b": {
-     "size": 52,
+     "size": 172,
      "hits": 1
     },
     "c": {
@@ -5979,8 +5979,8 @@
      ]
     },
     "b": {
-     "size": 61,
-     "hits": 0
+     "size": 174,
+     "hits": 1
     },
     "c": {
      "size": 172,
@@ -6202,8 +6202,8 @@
      "tests": []
     },
     "b": {
-     "size": 45,
-     "hits": 0
+     "size": 168,
+     "hits": 1
     },
     "c": {
      "size": 168,
@@ -6416,7 +6416,7 @@
      ]
     },
     "b": {
-     "size": 60,
+     "size": 172,
      "hits": 2
     },
     "c": {
@@ -6653,7 +6653,7 @@
      ]
     },
     "b": {
-     "size": 64,
+     "size": 174,
      "hits": 2
     },
     "c": {
@@ -6870,8 +6870,8 @@
      ]
     },
     "b": {
-     "size": 59,
-     "hits": 0
+     "size": 171,
+     "hits": 1
     },
     "c": {
      "size": 171,
@@ -7067,8 +7067,8 @@
      "tests": []
     },
     "b": {
-     "size": 45,
-     "hits": 0
+     "size": 167,
+     "hits": 1
     },
     "c": {
      "size": 167,
@@ -7280,8 +7280,8 @@
      ]
     },
     "b": {
-     "size": 59,
-     "hits": 0
+     "size": 170,
+     "hits": 1
     },
     "c": {
      "size": 170,
@@ -7500,7 +7500,7 @@
      ]
     },
     "b": {
-     "size": 77,
+     "size": 177,
      "hits": 2
     },
     "c": {
@@ -7712,8 +7712,8 @@
      ]
     },
     "b": {
-     "size": 59,
-     "hits": 0
+     "size": 170,
+     "hits": 1
     },
     "c": {
      "size": 170,
@@ -7924,8 +7924,8 @@
      ]
     },
     "b": {
-     "size": 59,
-     "hits": 0
+     "size": 170,
+     "hits": 1
     },
     "c": {
      "size": 170,
@@ -8137,7 +8137,7 @@
      ]
     },
     "b": {
-     "size": 59,
+     "size": 170,
      "hits": 2
     },
     "c": {
@@ -8604,7 +8604,7 @@
      ]
     },
     "b": {
-     "size": 76,
+     "size": 176,
      "hits": 2
     },
     "c": {
@@ -8801,7 +8801,7 @@
      "tests": []
     },
     "b": {
-     "size": 45,
+     "size": 166,
      "hits": 1
     },
     "c": {
@@ -9017,8 +9017,8 @@
      "tests": []
     },
     "b": {
-     "size": 45,
-     "hits": 0
+     "size": 166,
+     "hits": 1
     },
     "c": {
      "size": 166,
@@ -9210,12 +9210,12 @@
    "suite": 190,
    "selectors": {
     "a": {
-     "size": 45,
-     "hits": 0
+     "size": 166,
+     "hits": 2
     },
     "b": {
-     "size": 46,
-     "hits": 0
+     "size": 166,
+     "hits": 2
     },
     "c": {
      "size": 166,
@@ -9425,8 +9425,8 @@
      ]
     },
     "b": {
-     "size": 58,
-     "hits": 0
+     "size": 169,
+     "hits": 1
     },
     "c": {
      "size": 169,
@@ -9636,8 +9636,8 @@
      ]
     },
     "b": {
-     "size": 58,
-     "hits": 0
+     "size": 169,
+     "hits": 1
     },
     "c": {
      "size": 169,
@@ -9844,8 +9844,8 @@
      ]
     },
     "b": {
-     "size": 57,
-     "hits": 0
+     "size": 168,
+     "hits": 1
     },
     "c": {
      "size": 168,
@@ -10057,7 +10057,7 @@
      ]
     },
     "b": {
-     "size": 74,
+     "size": 174,
      "hits": 2
     },
     "c": {
@@ -10252,8 +10252,8 @@
      "tests": []
     },
     "b": {
-     "size": 45,
-     "hits": 0
+     "size": 164,
+     "hits": 1
     },
     "c": {
      "size": 164,
@@ -10571,12 +10571,12 @@
    "suite": 186,
    "selectors": {
     "a": {
-     "size": 45,
-     "hits": 0
+     "size": 164,
+     "hits": 1
     },
     "b": {
-     "size": 46,
-     "hits": 0
+     "size": 164,
+     "hits": 1
     },
     "c": {
      "size": 164,
@@ -10782,8 +10782,8 @@
      ]
     },
     "b": {
-     "size": 58,
-     "hits": 0
+     "size": 167,
+     "hits": 1
     },
     "c": {
      "size": 166,
@@ -11239,8 +11239,8 @@
      ]
     },
     "b": {
-     "size": 56,
-     "hits": 0
+     "size": 166,
+     "hits": 1
     },
     "c": {
      "size": 166,
@@ -11627,12 +11627,12 @@
    "suite": 185,
    "selectors": {
     "a": {
-     "size": 44,
-     "hits": 0
+     "size": 163,
+     "hits": 1
     },
     "b": {
-     "size": 45,
-     "hits": 0
+     "size": 163,
+     "hits": 1
     },
     "c": {
      "size": 163,
@@ -11829,8 +11829,8 @@
      "tests": []
     },
     "b": {
-     "size": 57,
-     "hits": 0
+     "size": 166,
+     "hits": 1
     },
     "c": {
      "size": 163,
@@ -12025,8 +12025,8 @@
      ]
     },
     "b": {
-     "size": 45,
-     "hits": 0
+     "size": 164,
+     "hits": 2
     },
     "c": {
      "size": 164,
@@ -12224,12 +12224,12 @@
    "suite": 185,
    "selectors": {
     "a": {
-     "size": 66,
-     "hits": 0
+     "size": 171,
+     "hits": 1
     },
     "b": {
-     "size": 76,
-     "hits": 0
+     "size": 172,
+     "hits": 1
     },
     "c": {
      "size": 171,
@@ -12698,8 +12698,8 @@
      ]
     },
     "b": {
-     "size": 73,
-     "hits": 1
+     "size": 172,
+     "hits": 2
     },
     "c": {
      "size": 165,
@@ -12891,12 +12891,12 @@
    "suite": 184,
    "selectors": {
     "a": {
-     "size": 44,
-     "hits": 0
+     "size": 163,
+     "hits": 1
     },
     "b": {
-     "size": 45,
-     "hits": 0
+     "size": 163,
+     "hits": 1
     },
     "c": {
      "size": 163,
@@ -13099,8 +13099,8 @@
      ]
     },
     "b": {
-     "size": 56,
-     "hits": 0
+     "size": 166,
+     "hits": 1
     },
     "c": {
      "size": 166,
@@ -13285,11 +13285,11 @@
    "suite": 184,
    "selectors": {
     "a": {
-     "size": 43,
+     "size": 162,
      "hits": 0
     },
     "b": {
-     "size": 44,
+     "size": 162,
      "hits": 0
     },
     "c": {
@@ -13711,12 +13711,12 @@
    "suite": 185,
    "selectors": {
     "a": {
-     "size": 43,
-     "hits": 0
+     "size": 162,
+     "hits": 1
     },
     "b": {
-     "size": 44,
-     "hits": 0
+     "size": 162,
+     "hits": 1
     },
     "c": {
      "size": 162,
@@ -13938,7 +13938,7 @@
      ]
     },
     "b": {
-     "size": 73,
+     "size": 171,
      "hits": 2
     },
     "c": {
@@ -14142,8 +14142,8 @@
      ]
     },
     "b": {
-     "size": 58,
-     "hits": 0
+     "size": 164,
+     "hits": 1
     },
     "c": {
      "size": 164,
@@ -14344,8 +14344,8 @@
      "tests": []
     },
     "b": {
-     "size": 48,
-     "hits": 1
+     "size": 160,
+     "hits": 2
     },
     "c": {
      "size": 160,
@@ -14548,7 +14548,7 @@
      ]
     },
     "b": {
-     "size": 60,
+     "size": 162,
      "hits": 1
     },
     "c": {
@@ -14741,8 +14741,8 @@
      ]
     },
     "b": {
-     "size": 49,
-     "hits": 0
+     "size": 160,
+     "hits": 1
     },
     "c": {
      "size": 160,
@@ -14937,8 +14937,8 @@
      "tests": []
     },
     "b": {
-     "size": 48,
-     "hits": 0
+     "size": 159,
+     "hits": 1
     },
     "c": {
      "size": 159,
@@ -15147,12 +15147,12 @@
    "suite": 182,
    "selectors": {
     "a": {
-     "size": 48,
-     "hits": 0
+     "size": 159,
+     "hits": 1
     },
     "b": {
-     "size": 49,
-     "hits": 0
+     "size": 159,
+     "hits": 1
     },
     "c": {
      "size": 159,
@@ -15472,8 +15472,8 @@
      "tests": []
     },
     "b": {
-     "size": 48,
-     "hits": 1
+     "size": 159,
+     "hits": 2
     },
     "c": {
      "size": 159,
@@ -15665,8 +15665,8 @@
      ]
     },
     "b": {
-     "size": 48,
-     "hits": 0
+     "size": 160,
+     "hits": 1
     },
     "c": {
      "size": 160,
@@ -15856,50 +15856,8 @@
      "tests": []
     },
     "b": {
-     "size": 40,
-     "hits": 1,
-     "tests": [
-      "test/async-dispose.test.js",
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/custom-parser.2.test.js",
-      "test/custom-parser.3.test.js",
-      "test/custom-parser.4.test.js",
-      "test/custom-parser.5.test.js",
-      "test/esm/errorCodes.test.mjs",
-      "test/esm/esm.test.mjs",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/listen.4.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/method-missing.test.js",
-      "test/mkcalendar.test.js",
-      "test/plugin.1.test.js",
-      "test/plugin.2.test.js",
-      "test/plugin.3.test.js",
-      "test/plugin.4.test.js",
-      "test/report.test.js",
-      "test/requestTimeout.test.js",
-      "test/route-shorthand.test.js",
-      "test/route.2.test.js",
-      "test/route.8.test.js",
-      "test/serialize-response.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.1.test.js",
-      "test/web-api.test.js"
-     ]
+     "size": 158,
+     "hits": 1
     },
     "c": {
      "size": 158,
@@ -16089,11 +16047,11 @@
    "suite": 166,
    "selectors": {
     "a": {
-     "size": 41,
+     "size": 145,
      "hits": 1
     },
     "b": {
-     "size": 53,
+     "size": 153,
      "hits": 1
     },
     "c": {
@@ -16283,8 +16241,8 @@
      ]
     },
     "b": {
-     "size": 53,
-     "hits": 2
+     "size": 153,
+     "hits": 3
     },
     "c": {
      "size": 145,
@@ -16465,50 +16423,8 @@
      ]
     },
     "b": {
-     "size": 40,
-     "hits": 1,
-     "tests": [
-      "test/async-dispose.test.js",
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/custom-parser.2.test.js",
-      "test/custom-parser.3.test.js",
-      "test/custom-parser.4.test.js",
-      "test/custom-parser.5.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/listen.4.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/plugin.1.test.js",
-      "test/plugin.2.test.js",
-      "test/plugin.3.test.js",
-      "test/plugin.4.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.2.test.js",
-      "test/route.8.test.js",
-      "test/serialize-response.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.1.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 147,
+     "hits": 1
     },
     "c": {
      "size": 145,
@@ -16713,43 +16629,8 @@
      "tests": []
     },
     "b": {
-     "size": 33,
-     "hits": 0,
-     "tests": [
-      "test/async-dispose.test.js",
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/custom-parser.2.test.js",
-      "test/custom-parser.3.test.js",
-      "test/custom-parser.4.test.js",
-      "test/custom-parser.5.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/listen.4.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/plugin.1.test.js",
-      "test/plugin.2.test.js",
-      "test/plugin.3.test.js",
-      "test/plugin.4.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.2.test.js",
-      "test/route.8.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.1.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 139,
+     "hits": 2
     },
     "c": {
      "size": 139,
@@ -16948,44 +16829,8 @@
      ]
     },
     "b": {
-     "size": 34,
-     "hits": 1,
-     "tests": [
-      "test/async-dispose.test.js",
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/custom-parser.2.test.js",
-      "test/custom-parser.3.test.js",
-      "test/custom-parser.4.test.js",
-      "test/custom-parser.5.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/listen.4.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/plugin.1.test.js",
-      "test/plugin.2.test.js",
-      "test/plugin.3.test.js",
-      "test/plugin.4.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.2.test.js",
-      "test/route.8.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.1.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 140,
+     "hits": 1
     },
     "c": {
      "size": 140,
@@ -17180,83 +17025,12 @@
    "suite": 161,
    "selectors": {
     "a": {
-     "size": 33,
-     "hits": 1,
-     "tests": [
-      "test/async-dispose.test.js",
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/custom-parser.2.test.js",
-      "test/custom-parser.3.test.js",
-      "test/custom-parser.4.test.js",
-      "test/custom-parser.5.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/listen.4.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/plugin.1.test.js",
-      "test/plugin.2.test.js",
-      "test/plugin.3.test.js",
-      "test/plugin.4.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.2.test.js",
-      "test/route.8.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.1.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 139,
+     "hits": 2
     },
     "b": {
-     "size": 34,
-     "hits": 1,
-     "tests": [
-      "test/async-dispose.test.js",
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/custom-parser.2.test.js",
-      "test/custom-parser.3.test.js",
-      "test/custom-parser.4.test.js",
-      "test/custom-parser.5.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/logger.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/listen.4.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/plugin.1.test.js",
-      "test/plugin.2.test.js",
-      "test/plugin.3.test.js",
-      "test/plugin.4.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.2.test.js",
-      "test/route.8.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.1.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 139,
+     "hits": 2
     },
     "c": {
      "size": 139,
@@ -17434,43 +17208,8 @@
      ]
     },
     "b": {
-     "size": 33,
-     "hits": 0,
-     "tests": [
-      "test/async-dispose.test.js",
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/custom-parser.2.test.js",
-      "test/custom-parser.3.test.js",
-      "test/custom-parser.4.test.js",
-      "test/custom-parser.5.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/listen.4.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/plugin.1.test.js",
-      "test/plugin.2.test.js",
-      "test/plugin.3.test.js",
-      "test/plugin.4.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.2.test.js",
-      "test/route.8.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.1.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 139,
+     "hits": 1
     },
     "c": {
      "size": 139,
@@ -17651,47 +17390,8 @@
      ]
     },
     "b": {
-     "size": 37,
-     "hits": 1,
-     "tests": [
-      "test/async-dispose.test.js",
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/custom-parser.2.test.js",
-      "test/custom-parser.3.test.js",
-      "test/custom-parser.4.test.js",
-      "test/custom-parser.5.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/listen.4.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/plugin.1.test.js",
-      "test/plugin.2.test.js",
-      "test/plugin.3.test.js",
-      "test/plugin.4.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.2.test.js",
-      "test/route.8.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.1.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 141,
+     "hits": 1
     },
     "c": {
      "size": 141,
@@ -17867,43 +17567,8 @@
      "tests": []
     },
     "b": {
-     "size": 33,
-     "hits": 0,
-     "tests": [
-      "test/async-dispose.test.js",
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/custom-parser.2.test.js",
-      "test/custom-parser.3.test.js",
-      "test/custom-parser.4.test.js",
-      "test/custom-parser.5.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/listen.4.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/plugin.1.test.js",
-      "test/plugin.2.test.js",
-      "test/plugin.3.test.js",
-      "test/plugin.4.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.2.test.js",
-      "test/route.8.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.1.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 139,
+     "hits": 1
     },
     "c": {
      "size": 139,
@@ -18079,31 +17744,8 @@
      "tests": []
     },
     "b": {
-     "size": 21,
-     "hits": 1,
-     "tests": [
-      "test/async-dispose.test.js",
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 118,
+     "hits": 1
     },
     "c": {
      "size": 118,
@@ -18302,40 +17944,8 @@
      ]
     },
     "b": {
-     "size": 30,
-     "hits": 1,
-     "tests": [
-      "test/async-dispose.test.js",
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/default-route.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/request.test.js",
-      "test/internals/server.test.js",
-      "test/internals/validation.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/schema-feature.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 123,
+     "hits": 1
     },
     "c": {
      "size": 120,
@@ -18502,34 +18112,8 @@
      ]
     },
     "b": {
-     "size": 24,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 119,
+     "hits": 1
     },
     "c": {
      "size": 119,
@@ -18687,30 +18271,8 @@
      "tests": []
     },
     "b": {
-     "size": 20,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-listen.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/logger/instantiation.test.js",
-      "test/logger/logging.test.js",
-      "test/logger/options.test.js",
-      "test/logger/request.test.js",
-      "test/logger/response.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 117,
+     "hits": 1
     },
     "c": {
      "size": 117,
@@ -18876,28 +18438,8 @@
      ]
     },
     "b": {
-     "size": 18,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 112,
+     "hits": 1
     },
     "c": {
      "size": 112,
@@ -19053,27 +18595,8 @@
      ]
     },
     "b": {
-     "size": 17,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 112,
+     "hits": 1
     },
     "c": {
      "size": 112,
@@ -19247,27 +18770,8 @@
      ]
     },
     "b": {
-     "size": 17,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 112,
+     "hits": 1
     },
     "c": {
      "size": 112,
@@ -19468,51 +18972,12 @@
    "suite": 133,
    "selectors": {
     "a": {
-     "size": 17,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 112,
+     "hits": 2
     },
     "b": {
-     "size": 18,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/logger.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 112,
+     "hits": 2
     },
     "c": {
      "size": 112,
@@ -19666,26 +19131,8 @@
      "tests": []
     },
     "b": {
-     "size": 16,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 110,
+     "hits": 1
     },
     "c": {
      "size": 110,
@@ -19874,44 +19321,8 @@
      ]
     },
     "b": {
-     "size": 34,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/custom-http-server.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/errors.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/initialConfig.test.js",
-      "test/internals/logger.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/request.test.js",
-      "test/internals/server.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/middleware.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.test.js",
-      "test/router-options.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 119,
+     "hits": 2
     },
     "c": {
      "size": 111,
@@ -20073,44 +19484,8 @@
      ]
     },
     "b": {
-     "size": 34,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/custom-http-server.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/errors.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/initialConfig.test.js",
-      "test/internals/logger.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/request.test.js",
-      "test/internals/server.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/middleware.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.test.js",
-      "test/router-options.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 117,
+     "hits": 1
     },
     "c": {
      "size": 109,
@@ -20300,48 +19675,12 @@
    "suite": 128,
    "selectors": {
     "a": {
-     "size": 16,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 108,
+     "hits": 1
     },
     "b": {
-     "size": 16,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 108,
+     "hits": 1
     },
     "c": {
      "size": 108,
@@ -20488,48 +19827,12 @@
    "suite": 127,
    "selectors": {
     "a": {
-     "size": 16,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 107,
+     "hits": 1
     },
     "b": {
-     "size": 16,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 107,
+     "hits": 1
     },
     "c": {
      "size": 107,
@@ -20684,26 +19987,8 @@
      ]
     },
     "b": {
-     "size": 16,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 107,
+     "hits": 2
     },
     "c": {
      "size": 107,
@@ -20861,29 +20146,8 @@
      ]
     },
     "b": {
-     "size": 19,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/request.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 109,
+     "hits": 3
     },
     "c": {
      "size": 109,
@@ -21190,26 +20454,8 @@
      ]
     },
     "b": {
-     "size": 16,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/custom-parser.0.test.js",
-      "test/custom-parser.1.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 106,
+     "hits": 2
     },
     "c": {
      "size": 106,
@@ -21362,25 +20608,8 @@
      ]
     },
     "b": {
-     "size": 15,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/serial/logger.0.test.js",
-      "test/serial/logger.1.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 106,
+     "hits": 2
     },
     "c": {
      "size": 106,
@@ -21776,30 +21005,8 @@
      ]
     },
     "b": {
-     "size": 20,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/default-route.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/request.test.js",
-      "test/internals/server.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 109,
+     "hits": 1
     },
     "c": {
      "size": 105,
@@ -21947,22 +21154,8 @@
      "tests": []
     },
     "b": {
-     "size": 12,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 104,
+     "hits": 1
     },
     "c": {
      "size": 104,
@@ -22112,23 +21305,8 @@
      ]
     },
     "b": {
-     "size": 13,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 105,
+     "hits": 1
     },
     "c": {
      "size": 105,
@@ -22522,39 +21700,8 @@
      ]
     },
     "b": {
-     "size": 29,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/custom-http-server.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/initialConfig.test.js",
-      "test/internals/logger.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/request.test.js",
-      "test/internals/server.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/middleware.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.test.js",
-      "test/router-options.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 112,
+     "hits": 1
     },
     "c": {
      "size": 104,
@@ -22741,42 +21888,8 @@
      ]
     },
     "b": {
-     "size": 32,
-     "hits": 4,
-     "tests": [
-      "test/500s.test.js",
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/context-config.test.js",
-      "test/custom-parser-async.test.js",
-      "test/decorator.test.js",
-      "test/fastify-instance.test.js",
-      "test/handler-context.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/hooks.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/request.test.js",
-      "test/internals/server.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/request-error.test.js",
-      "test/requestTimeout.test.js",
-      "test/schema-feature.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 111,
+     "hits": 4
     },
     "c": {
      "size": 109,
@@ -22924,22 +22037,8 @@
      "tests": []
     },
     "b": {
-     "size": 12,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 103,
+     "hits": 1
     },
     "c": {
      "size": 103,
@@ -23087,22 +22186,8 @@
      "tests": []
     },
     "b": {
-     "size": 12,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 103,
+     "hits": 1
     },
     "c": {
      "size": 103,
@@ -23253,28 +22338,8 @@
      ]
     },
     "b": {
-     "size": 18,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 107,
+     "hits": 1
     },
     "c": {
      "size": 105,
@@ -23456,27 +22521,8 @@
      ]
     },
     "b": {
-     "size": 17,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 105,
+     "hits": 1
     },
     "c": {
      "size": 103,
@@ -23665,23 +22711,8 @@
      ]
     },
     "b": {
-     "size": 13,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 103,
+     "hits": 1
     },
     "c": {
      "size": 103,
@@ -24055,28 +23086,8 @@
      ]
     },
     "b": {
-     "size": 18,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 106,
+     "hits": 2
     },
     "c": {
      "size": 104,
@@ -24229,26 +23240,8 @@
      ]
     },
     "b": {
-     "size": 16,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 104,
+     "hits": 1
     },
     "c": {
      "size": 104,
@@ -24398,62 +23391,12 @@
    "suite": 122,
    "selectors": {
     "a": {
-     "size": 17,
-     "hits": 2,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/custom-http-server.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/middleware.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.test.js",
-      "test/router-options.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 102,
+     "hits": 3
     },
     "b": {
-     "size": 29,
-     "hits": 2,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/custom-http-server.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/initialConfig.test.js",
-      "test/internals/logger.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/request.test.js",
-      "test/internals/server.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/middleware.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.test.js",
-      "test/router-options.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 110,
+     "hits": 3
     },
     "c": {
      "size": 102,
@@ -24896,39 +23839,8 @@
      ]
     },
     "b": {
-     "size": 29,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/custom-http-server.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/initialConfig.test.js",
-      "test/internals/logger.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/request.test.js",
-      "test/internals/server.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/middleware.test.js",
-      "test/requestTimeout.test.js",
-      "test/route.test.js",
-      "test/router-options.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 110,
+     "hits": 2
     },
     "c": {
      "size": 104,
@@ -25076,22 +23988,8 @@
      "tests": []
     },
     "b": {
-     "size": 12,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 102,
+     "hits": 1
     },
     "c": {
      "size": 102,
@@ -25275,24 +24173,8 @@
      ]
     },
     "b": {
-     "size": 14,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 100,
+     "hits": 3
     },
     "c": {
      "size": 100,
@@ -25557,23 +24439,8 @@
      ]
     },
     "b": {
-     "size": 13,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 100,
+     "hits": 1
     },
     "c": {
      "size": 100,
@@ -25746,22 +24613,8 @@
      "tests": []
     },
     "b": {
-     "size": 12,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/has-route.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 99,
+     "hits": 1
     },
     "c": {
      "size": 99,
@@ -26095,21 +24948,8 @@
      "tests": []
     },
     "b": {
-     "size": 11,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/reply-serialize.test.js",
-      "test/internals/request-validate.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 98,
+     "hits": 1
     },
     "c": {
      "size": 98,
@@ -26374,34 +25214,12 @@
    "suite": 106,
    "selectors": {
     "a": {
-     "size": 9,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 86,
+     "hits": 1
     },
     "b": {
-     "size": 9,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 86,
+     "hits": 1
     },
     "c": {
      "size": 86,
@@ -26676,37 +25494,8 @@
      ]
     },
     "b": {
-     "size": 27,
-     "hits": 1,
-     "tests": [
-      "test/500s.test.js",
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/custom-parser-async.test.js",
-      "test/decorator.test.js",
-      "test/fastify-instance.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/hooks.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/request.test.js",
-      "test/internals/server.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/request-error.test.js",
-      "test/requestTimeout.test.js",
-      "test/schema-feature.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 94,
+     "hits": 2
     },
     "c": {
      "size": 91,
@@ -27011,19 +25800,8 @@
      ]
     },
     "b": {
-     "size": 9,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 86,
+     "hits": 1
     },
     "c": {
      "size": 86,
@@ -27198,23 +25976,8 @@
      ]
     },
     "b": {
-     "size": 13,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 88,
+     "hits": 1
     },
     "c": {
      "size": 88,
@@ -27354,22 +26117,8 @@
      ]
     },
     "b": {
-     "size": 12,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/request.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/unsupported-httpversion.test.js"
-     ]
+     "size": 89,
+     "hits": 1
     },
     "c": {
      "size": 89,
@@ -27553,24 +26302,8 @@
      ]
     },
     "b": {
-     "size": 14,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 90,
+     "hits": 1
     },
     "c": {
      "size": 88,
@@ -27709,22 +26442,8 @@
      ]
     },
     "b": {
-     "size": 12,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 86,
+     "hits": 1
     },
     "c": {
      "size": 86,
@@ -27860,18 +26579,8 @@
      ]
     },
     "b": {
-     "size": 8,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js"
-     ]
+     "size": 84,
+     "hits": 1
     },
     "c": {
      "size": 84,
@@ -28033,32 +26742,12 @@
    "suite": 102,
    "selectors": {
     "a": {
-     "size": 8,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js"
-     ]
+     "size": 84,
+     "hits": 1
     },
     "b": {
-     "size": 8,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js"
-     ]
+     "size": 84,
+     "hits": 1
     },
     "c": {
      "size": 84,
@@ -28385,36 +27074,12 @@
    "suite": 101,
    "selectors": {
     "a": {
-     "size": 8,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js"
-     ]
+     "size": 83,
+     "hits": 1
     },
     "b": {
-     "size": 12,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/server.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 85,
+     "hits": 1
     },
     "c": {
      "size": 83,
@@ -28576,39 +27241,12 @@
    "suite": 99,
    "selectors": {
     "a": {
-     "size": 11,
-     "hits": 4,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js"
-     ]
+     "size": 83,
+     "hits": 14
     },
     "b": {
-     "size": 12,
-     "hits": 4,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js"
-     ]
+     "size": 84,
+     "hits": 14
     },
     "c": {
      "size": 83,
@@ -28733,30 +27371,12 @@
    "suite": 99,
    "selectors": {
     "a": {
-     "size": 7,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js"
-     ]
+     "size": 81,
+     "hits": 1
     },
     "b": {
-     "size": 7,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js"
-     ]
+     "size": 81,
+     "hits": 1
     },
     "c": {
      "size": 81,
@@ -28890,20 +27510,8 @@
      ]
     },
     "b": {
-     "size": 10,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js"
-     ]
+     "size": 82,
+     "hits": 1
     },
     "c": {
      "size": 82,
@@ -29042,31 +27650,8 @@
      ]
     },
     "b": {
-     "size": 21,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/initialConfig.test.js",
-      "test/internals/logger.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/middleware.test.js",
-      "test/requestTimeout.test.js",
-      "test/router-options.test.js",
-      "test/skip-reply-send.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 88,
+     "hits": 1
     },
     "c": {
      "size": 81,
@@ -29315,61 +27900,12 @@
    "suite": 98,
    "selectors": {
     "a": {
-     "size": 21,
-     "hits": 0,
-     "tests": [
-      "test/500s.test.js",
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/custom-parser-async.test.js",
-      "test/decorator.test.js",
-      "test/fastify-instance.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/hooks.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/request-error.test.js",
-      "test/requestTimeout.test.js",
-      "test/schema-feature.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 86,
+     "hits": 1
     },
     "b": {
-     "size": 24,
-     "hits": 0,
-     "tests": [
-      "test/500s.test.js",
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/custom-parser-async.test.js",
-      "test/decorator.test.js",
-      "test/fastify-instance.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/hooks.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/request-error.test.js",
-      "test/requestTimeout.test.js",
-      "test/schema-feature.test.js",
-      "test/skip-reply-send.test.js",
-      "test/stream.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 88,
+     "hits": 1
     },
     "c": {
      "size": 86,
@@ -29499,21 +28035,8 @@
      "tests": []
     },
     "b": {
-     "size": 11,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/reply.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 84,
+     "hits": 1
     },
     "c": {
      "size": 82,
@@ -29648,19 +28171,8 @@
      ]
     },
     "b": {
-     "size": 9,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/plugin.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js"
-     ]
+     "size": 82,
+     "hits": 1
     },
     "c": {
      "size": 81,
@@ -29813,19 +28325,8 @@
      ]
     },
     "b": {
-     "size": 9,
-     "hits": 0,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/plugin.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/requestTimeout.test.js",
-      "test/skip-reply-send.test.js"
-     ]
+     "size": 81,
+     "hits": 1
     },
     "c": {
      "size": 80,
@@ -29976,47 +28477,12 @@
    "suite": 97,
    "selectors": {
     "a": {
-     "size": 10,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/middleware.test.js",
-      "test/requestTimeout.test.js",
-      "test/router-options.test.js",
-      "test/skip-reply-send.test.js"
-     ]
+     "size": 80,
+     "hits": 1
     },
     "b": {
-     "size": 21,
-     "hits": 1,
-     "tests": [
-      "test/constrained-routes.test.js",
-      "test/content-parser.test.js",
-      "test/custom-parser-async.test.js",
-      "test/hooks-async.test.js",
-      "test/hooks.on-ready.test.js",
-      "test/internals/contentTypeParser.test.js",
-      "test/internals/decorator.test.js",
-      "test/internals/handleRequest.test.js",
-      "test/internals/hookRunner.test.js",
-      "test/internals/hooks.test.js",
-      "test/internals/initialConfig.test.js",
-      "test/internals/logger.test.js",
-      "test/internals/plugin.test.js",
-      "test/internals/reply.test.js",
-      "test/internals/validation.test.js",
-      "test/maxRequestsPerSocket.test.js",
-      "test/middleware.test.js",
-      "test/requestTimeout.test.js",
-      "test/router-options.test.js",
-      "test/skip-reply-send.test.js",
-      "test/wrapThenable.test.js"
-     ]
+     "size": 87,
+     "hits": 1
     },
     "c": {
      "size": 80,
@@ -32985,5 +31451,5 @@
    "reason": "over_cap"
   }
  ],
- "seconds": 29
+ "seconds": 113
 }
