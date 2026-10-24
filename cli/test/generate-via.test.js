@@ -102,6 +102,24 @@ test('a --via reply that names a missing file is not written', { skip: !posix },
   assert.ok(!readFileSync(join(root, 'COMPLEX.md'), 'utf8').endsWith(PROSE));
 });
 
+test('a file input --via CLI has the bundle files in the plan, written before the call', { skip: !posix }, async () => {
+  const root = makeRepo();
+  let seen = null;
+  await generate(root, { via: 'opencode', approve: async (plan) => { seen = plan; return false; } });
+  const now = seen.files.map((e) => `${e.action} ${e.path}`);
+  for (const f of ['create .complex-md/prompt.md', 'create .complex-md/front-matter.yaml', 'create .gitignore']) assert.ok(now.includes(f), `${f} in ${now}`);
+  assert.deepEqual(seen.fallback, [], 'nothing is left to write only on failure');
+  // A stdin CLI keeps the bundle as the failure fallback.
+  await generate(root, { via: 'claude', approve: async (plan) => { seen = plan; return false; } });
+  assert.ok(!seen.files.some((e) => e.path.startsWith('.complex-md/')));
+  assert.ok(seen.fallback.some((e) => e.path === '.complex-md/prompt.md'));
+  const bin = stubPath();
+  symlinkSync(join(bin, 'claude'), join(bin, 'opencode'));
+  const r = await withEnv({ PATH: bin }, () => generate(root, { via: 'opencode' }));
+  assert.equal(r.written, true);
+  assert.match(readFileSync(join(root, '.gitignore'), 'utf8'), /^\.complex-md\/\*$/m);
+});
+
 test('the bin passes --via and --via-timeout, and names every CLI in --help', { skip: !posix }, () => {
   const root = makeRepo();
   const env = { ...process.env, PATH: stubPath() };

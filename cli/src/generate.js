@@ -9,7 +9,7 @@ import { loadComplexMd } from './complexmd.js';
 import { ignoreWorkDir, gitignoreAction, WORK_DIR } from './gitignore.js';
 import { generatePrompt, promptVersion } from './prompts.js';
 import { resolveProvider, PROVIDERS } from './providers.js';
-import { runVia, viaSelection } from './via.js';
+import { runVia, viaSelection, viaInvocation } from './via.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json');
@@ -258,8 +258,11 @@ export async function generate(root, { model = null, provider = null, agent = fa
   if (ignore) bundleFiles.push({ path: '.gitignore', action: ignore });
   const writesMap = mode === 'model' || mode === 'template';
   const mapText = writesMap ? templateMap(root, sig, tool) : null;
-  const files = mode === 'model' ? entry('COMPLEX.md') : [...(writesMap ? entry('COMPLEX.md', mapText) : []), ...bundleFiles];
-  if (!(await approve({ files, fallback: mode === 'model' ? bundleFiles : [], mapText, keyed: mode === 'model' }))) {
+  // A --via CLI that reads the bundle from a file gets it before the call.
+  const bundleFirst = Boolean(sel?.via) && viaInvocation(sel.via).input === 'file';
+  const files = mode === 'model' ? [...entry('COMPLEX.md'), ...(bundleFirst ? bundleFiles : [])] : [...(writesMap ? entry('COMPLEX.md', mapText) : []), ...bundleFiles];
+  const fallback = mode === 'model' && !bundleFirst ? bundleFiles : [];
+  if (!(await approve({ files, fallback, mapText, keyed: mode === 'model' }))) {
     log('Nothing written.');
     return { sig, written: false, declined: true };
   }
@@ -287,6 +290,7 @@ export async function generate(root, { model = null, provider = null, agent = fa
   log(`model: ${sel.name}/${sel.model}, prompt ${Math.round(bundle.length / 4)} tokens approx`);
   let out;
   let r;
+  if (bundleFirst) saveBundle();
   try {
     r = sel.via ? await runVia(sel.via, { root, bundle, fm, model, timeoutMs: viaTimeoutMs, log }) : sel.name === 'anthropic' ? await callAnthropic(bundle, sel.model) : await callOpenAICompat(bundle, sel);
     out = normalizeOutput(r.text, fm);
