@@ -14,4 +14,8 @@ jobs:
         working-directory: cli
       - run: npm test
         working-directory: cli
+      - run: npm ci
+        working-directory: packages/complex-md-mcp
+      - run: npm test
+        working-directory: packages/complex-md-mcp
       - run: npm run build
