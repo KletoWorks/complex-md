@@ -2,6 +2,12 @@
 
 Issues and pull requests are welcome. The spec changes by evidence: a new signal or rule needs a citation or a benchmark run in `bench/`, and a line in `CHANGELOG.md` saying why. Plain prose, no emphasis words, numbers over adjectives; read the spec for the register.
 
+## AI assistance
+
+The policy for contributions made with AI assistance is coming, and this
+section will hold it. Until then, tick the disclosure box in the pull
+request template when an AI tool helped.
+
 ## Releasing
 
 Three things carry a version. The spec version (`complex_md` in every

@@ -1,0 +1,48 @@
+name: A map is wrong for my repository
+description: COMPLEX.md names a file, a number or a pair that is false for your repository.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A wrong map tells every agent in your repository something false. With the four fields below, the maintainer can rerun the CLI on the same commit and see the same line.
+        Only report a public repository here. For a private repository, describe its shape in "Anything else" and leave the URL out.
+  - type: input
+    id: repository
+    attributes:
+      label: Repository URL
+      placeholder: https://github.com/OWNER/REPO
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit
+      description: The full SHA that the map was computed at. `git rev-parse HEAD` prints it.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: complex-md version
+      description: The `tool` line in the COMPLEX.md front matter, or `npx complex-md --version`.
+      placeholder: complex-md/0.9.2
+  - type: textarea
+    id: wrong_line
+    attributes:
+      label: The wrong line
+      description: Copy the line from COMPLEX.md exactly, with the list it is in, for example `hotspots` or `co_change`.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: truth
+    attributes:
+      label: What is true
+      description: What the line should say, and how you know. A command and its output are best, for example `git log --oneline -- path | wc -l`.
+    validations:
+      required: true
+  - type: textarea
+    id: other
+    attributes:
+      label: Anything else

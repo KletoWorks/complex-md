@@ -37,6 +37,10 @@ const PUBLIC = [
   'bench/skillopt/README.md',
   'bench/SELECTORS.md',
   'CONTRIBUTING.md',
+  'AGENTS.md',
+  'SECURITY.md',
+  '.github/PULL_REQUEST_TEMPLATE.md',
+  ...dir('.github/ISSUE_TEMPLATE', '.yml'),
   'docs/RESEARCH-signals-and-wiring.md',
   // The build writes llms.txt, the JSON-LD and the footer from this file.
   'scripts/build.mjs',

@@ -1,0 +1,34 @@
+# OpenSSF Scorecard: checks the repository's supply chain practices each
+# week and on each push to main. The results go to the Security tab as
+# SARIF and to api.scorecard.dev, which serves the README badge.
+# The workflow token has no permissions. The one job asks only for what
+# the action needs: read the code, upload SARIF, and sign the published
+# result through OIDC.
+name: scorecard
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: '17 6 * * 1'
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions: {}
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: results.sarif

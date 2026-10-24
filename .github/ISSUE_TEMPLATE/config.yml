@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: A question
+    url: https://github.com/KletoWorks/complex-md/discussions/categories/q-a
+    about: Ask how to run, read or wire the map in Discussions. Issues are for defects and requests.
+  - name: A security vulnerability
+    url: https://github.com/KletoWorks/complex-md/security/advisories/new
+    about: Report it in private. SECURITY.md gives the scope.
