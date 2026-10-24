@@ -48,3 +48,12 @@ test("this repository's own map names no invented path", (t) => {
   const text = readFileSync(join(root, 'COMPLEX.md'), 'utf8').replace(/^---\n[\s\S]*?\n---\n/, '');
   assert.deepEqual(inventedPaths(text, trackedFiles(root)), []);
 });
+
+test('a member access in backticks is code, not a file name', () => {
+  const prose = 'Use `ky.create` and `response.ok`; `json.dumps` and `Signer.sign` run; `flag.Parse` and `Node.js` too. Go uses net/http.Request.';
+  assert.deepEqual(inventedPaths(prose, [...FILES, 'src/main.go', 'signer.py']), []);
+});
+
+test('a file extension the repository uses still marks an invented name', () => {
+  assert.deepEqual(inventedPaths('Read `routes.go` and `src/gone.go`.', ['src/main.go']), ['src/gone.go', 'routes.go']);
+});

@@ -20,6 +20,14 @@ const OWN_DIRS = ['.complex-md/'];
 
 const EXT = /\.[A-Za-z][A-Za-z0-9]{0,7}$/;
 
+/* "ky.create", "json.dumps" and "flag.Parse" have the shape of a file name
+   but are code. A name counts as a file only when its extension is a common
+   file extension or one the repository uses. */
+const FILE_EXTS = new Set('c cc cfg cjs conf cpp cs css csv go h hpp html ini java js json jsx kt lock md mdx mjs php py rb rs scss sh sql svelte swift toml ts tsx txt vue xml yaml yml'.split(' '));
+/* Products named like a file. */
+const PRODUCT_NAMES = new Set(['Node.js', 'Next.js', 'Nuxt.js', 'Vue.js', 'Express.js', 'Three.js', 'D3.js', 'Chart.js', 'Alpine.js', 'Ember.js']);
+const extOf = (name) => (name.includes('.') ? name.slice(name.lastIndexOf('.') + 1).toLowerCase() : '');
+
 function clean(raw) {
   let t = raw;
   // Wrapping punctuation, repeated: "(src/a.js)," and "src/a.js:".
@@ -87,9 +95,11 @@ export function inventedPaths(prose, files) {
   const dirs = new Set();
   const top = new Set();
   const basenames = new Set();
+  const exts = new Set(FILE_EXTS);
   for (const f of files) {
     const segs = f.split('/');
     basenames.add(segs[segs.length - 1]);
+    if (extOf(segs[segs.length - 1])) exts.add(extOf(segs[segs.length - 1]));
     if (segs.length > 1) top.add(segs[0]);
     for (let i = 1; i < segs.length; i++) dirs.add(segs.slice(0, i).join('/'));
   }
@@ -102,6 +112,7 @@ export function inventedPaths(prose, files) {
   const out = [];
   for (const { path, kind } of namedPaths(prose)) {
     if (own(path)) continue;
+    if (kind !== 'dir' && (PRODUCT_NAMES.has(path) || !exts.has(extOf(path.split('/').pop())))) continue;
     if (kind === 'name') {
       if (!basenames.has(path)) out.push(path);
     } else if (kind === 'file') {
