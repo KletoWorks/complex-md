@@ -263,9 +263,11 @@ test('check and hook advice on the synthetic repo', () => {
   assert.equal(adviseEdit(dir, 'src/a.js', { acknowledged: [] }, 'off').kind, 'none');
 });
 
-/* A NUL byte anywhere in a source file makes grep classify it as binary, and
-   grep skips a binary file in SILENCE when its output is piped: no match, no
-   warning, exit 0. Both positions matter and they fail differently.
+/* A NUL byte anywhere in a source file makes ripgrep classify it as binary.
+   Searching a directory, ripgrep then prints nothing for the file: no match
+   and no warning (bench/repro/nul-byte.sh). Claude Code's Grep tool runs
+   ripgrep. GNU grep prints no line either, only "binary file matches". Both
+   positions matter and they fail differently.
 
      early (inside the 8k sniff)  the file is classified as an asset and drops
                                   out of the map entirely
@@ -275,8 +277,8 @@ test('check and hook advice on the synthetic repo', () => {
 
    The second is the worse of the two, because the map then vouches for a file
    nothing can grep. Note that the NULs below are written as \0 escapes: a
-   literal one in this source would make THIS file invisible to grep too. */
-test('blind spots name source files that a NUL byte hides from grep', () => {
+   literal one in this source would make THIS file invisible to ripgrep too. */
+test('blind spots name source files that a NUL byte hides from ripgrep and grep', () => {
   const dir = mkdtempSync(join(tmpdir(), 'cx-nul-'));
   const g = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' } });
   g('init', '-q');
@@ -296,6 +298,14 @@ test('blind spots name source files that a NUL byte hides from grep', () => {
   assert.doesNotMatch(note, /clean\.js/);
   assert.match(note, /git grep -I --text/);
   assert.match(note, /2 source files contain/);
+  // Name the tools and what each one does, as the repro shows it.
+  assert.match(note, /ripgrep/);
+  assert.match(note, /Claude Code's Grep tool/);
+  assert.match(note, /GNU grep prints a binary file notice/);
+  // A double quote would reach the front matter escaped and read back with
+  // its backslash, so the note carries none.
+  assert.doesNotMatch(note, /"/);
+  assert.doesNotMatch(note, /grep treats/);
 });
 
 /* Wiring must never look like it owns the repository's conventions. Two

@@ -279,7 +279,8 @@ export function computeSignals(cwd, opts = {}) {
   if (graph.grepBlind?.length) {
     const n = graph.grepBlind.length;
     const many = n > 1;
-    blind.push(`${n} source file${many ? 's' : ''} ${many ? 'contain' : 'contains'} a NUL byte, so grep treats ${many ? 'them' : 'it'} as binary and skips ${many ? 'them' : 'it'} in silence: ${graph.grepBlind.join(', ')}. Search with git grep -I --text, and fix the byte: it is almost always a separator that should have been written as an escape.`);
+    // What each tool does is recorded in bench/repro/nul-byte.sh.
+    blind.push(`${n} source file${many ? 's' : ''} ${many ? 'contain' : 'contains'} a NUL byte, so ripgrep, which Claude Code's Grep tool runs, skips ${many ? 'them' : 'it'} with no match and no warning, and GNU grep prints a binary file notice and no line:${graph.grepBlind.join(', ')}. Search with git grep -I --text, and fix the byte: it is almost always a separator that should have been written as an escape.`);
   }
   if (git(['rev-parse', '--is-shallow-repository'], { cwd, allowFail: true }).trim() === 'true') blind.push('shallow clone: history is truncated');
   if (thin) blind.push(`${counted} commits of usable history: ranking rests on structure and size; churn, fixes and ownership carry little weight yet`);
