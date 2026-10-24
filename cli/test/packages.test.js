@@ -52,3 +52,61 @@ test('every shipped SKILL.md meets the Agent Skills specification', (t) => {
     assert.ok(fm.description.length >= 1 && fm.description.length <= 1024, `${p} description is ${fm.description.length} characters`);
   }
 });
+
+// ------------------------------------------------------------ Claude Code
+// Plugin manifest reference: code.claude.com/docs/en/plugins-reference.
+// Marketplace reference: code.claude.com/docs/en/plugins/marketplace-reference.
+const readJson = (p) => JSON.parse(read(p));
+const CLI_VERSION = () => readJson('cli/package.json').version;
+const PLUGIN_ROOT = 'plugins/complex-md';
+const CLAUDE_PLUGIN_KEYS = new Set(['$schema', 'name', 'displayName', 'version', 'description', 'author', 'homepage', 'repository', 'license', 'keywords', 'metadata', 'icon', 'documentationUrl', 'supportUrl', 'privacyPolicyUrl', 'termsOfServiceUrl', 'defaultEnabled', 'dependencies', 'settings', 'userConfig', 'types', 'channels', 'skills', 'commands', 'agents', 'hooks', 'mcpServers', 'lspServers', 'outputStyles', 'workflows', 'experimental']);
+const MARKET_KEYS = new Set(['$schema', 'name', 'owner', 'plugins', 'description', 'version', 'metadata', 'forceRemoveDeletedPlugins', 'allowCrossMarketplaceDependenciesOn', 'renames']);
+const ENTRY_KEYS = new Set(['name', 'source', 'description', 'version', 'category', 'tags', 'strict', 'relevance', 'dependencies', 'defaultEnabled', 'displayName', 'metadata', 'author', 'homepage', 'repository', 'license', 'keywords']);
+const ID_PART = /^(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function assertNotReserved(name) {
+  const n = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  assert.ok(!/^(claude|anthropic|anthropics|cc-plugin)-/.test(n), `${name} starts with a reserved prefix`);
+  assert.ok(!/(^|-)(claude|anthropic|anthropics)(-|$)/.test(n), `${name} reads as one of Anthropic's own`);
+}
+
+test('the Claude Code plugin manifest uses documented fields and ships no hooks', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const m = readJson(`${PLUGIN_ROOT}/.claude-plugin/plugin.json`);
+  for (const k of Object.keys(m)) assert.ok(CLAUDE_PLUGIN_KEYS.has(k), `unknown plugin.json field ${k}`);
+  assert.match(m.name, KEBAB);
+  assertNotReserved(m.name);
+  assert.equal(m.version, CLI_VERSION(), 'plugin version follows cli/package.json; run npm run build');
+  assert.ok(m.description && m.author?.name, 'description and author.name are set');
+  assert.doesNotThrow(() => new URL(m.homepage), 'homepage must parse as a URL');
+  // No component may run code in the user's session: no hooks, no MCP
+  // server, no executables on PATH. CLAUDE.md at a plugin root is never loaded.
+  for (const k of ['hooks', 'mcpServers', 'lspServers', 'commands', 'agents', 'channels', 'userConfig']) assert.ok(!(k in m), `plugin.json declares ${k}`);
+  for (const f of ['hooks', '.mcp.json', 'mcp.json', '.lsp.json', 'bin', 'monitors', 'CLAUDE.md', 'settings.json']) assert.ok(!existsSync(join(ROOT, PLUGIN_ROOT, f)), `${PLUGIN_ROOT}/${f} must not exist`);
+  assert.ok(existsSync(join(ROOT, PLUGIN_ROOT, 'skills/complex-md/SKILL.md')));
+});
+
+test('the repository marketplace lists the plugin by a relative path', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const mk = readJson('.claude-plugin/marketplace.json');
+  for (const k of Object.keys(mk)) assert.ok(MARKET_KEYS.has(k), `unknown marketplace field ${k}`);
+  assert.match(mk.name, ID_PART);
+  assertNotReserved(mk.name);
+  assert.ok(mk.owner?.name, 'owner.name is required');
+  assert.ok(mk.description, 'a missing description is a validate warning');
+  assert.ok(Array.isArray(mk.plugins) && mk.plugins.length > 0);
+  const names = new Set();
+  for (const e of mk.plugins) {
+    for (const k of Object.keys(e)) assert.ok(ENTRY_KEYS.has(k), `unknown entry field ${k}`);
+    assert.match(e.name, ID_PART);
+    assert.ok(!names.has(e.name), `duplicate entry ${e.name}`);
+    names.add(e.name);
+    assert.equal(typeof e.source, 'string');
+    assert.ok(e.source.startsWith('./') && !e.source.includes('..'), `source ${e.source}`);
+    const manifest = join(e.source, '.claude-plugin/plugin.json');
+    assert.ok(existsSync(join(ROOT, manifest)), `${manifest} is missing`);
+    assert.equal(readJson(manifest).name, e.name, 'entry name and manifest name must match');
+    assert.ok(!('version' in e), 'plugin.json carries the version; an entry version only warns');
+  }
+});

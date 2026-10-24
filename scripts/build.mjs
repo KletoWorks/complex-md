@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderSkill, SKILL_COPIES } from './skill.mjs';
+import { renderSkill, SKILL_COPIES, stampVersions } from './skill.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
@@ -302,6 +302,7 @@ for (const p of SKILL_COPIES) {
   mkdirSync(dirname(join(ROOT, p)), { recursive: true });
   writeFileSync(join(ROOT, p), skill);
 }
+stampVersions(ROOT);
 writeFileSync(join(DIST, 'integration.md'), integrationBlock + '\n');
 
 // The CLI package ships the same two prompts; keep its copies in lockstep.

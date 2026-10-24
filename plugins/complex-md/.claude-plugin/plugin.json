@@ -1,0 +1,19 @@
+{
+  "name": "complex-md",
+  "version": "0.9.2",
+  "description": "One skill that writes COMPLEX.md, a computed map of where edits in a repository are risky, and wires it into the agent context files. No hooks, no MCP server.",
+  "author": {
+    "name": "James L. Cowan Jr.",
+    "url": "https://jameslcowan.com"
+  },
+  "homepage": "https://complex.md",
+  "repository": "https://github.com/KletoWorks/complex-md",
+  "license": "MIT",
+  "keywords": [
+    "complex-md",
+    "hotspots",
+    "git-history",
+    "code-churn",
+    "agent-context"
+  ]
+}
