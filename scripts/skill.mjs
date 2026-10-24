@@ -15,7 +15,7 @@ export const SKILL_COPIES = ['skills/complex-md/SKILL.md', 'plugins/complex-md/s
 
 // Each package manifest carries the CLI version, so a user's installed
 // package moves only on a release. The build stamps it from cli/package.json.
-export const PACKAGE_MANIFESTS = ['plugins/complex-md/.claude-plugin/plugin.json', 'plugins/complex-md/plugin.json'];
+export const PACKAGE_MANIFESTS = ['plugins/complex-md/.claude-plugin/plugin.json', 'plugins/complex-md/plugin.json', 'gemini-extension.json'];
 
 export function stampVersions(root = ROOT) {
   const version = JSON.parse(readFileSync(join(root, 'cli/package.json'), 'utf8')).version;

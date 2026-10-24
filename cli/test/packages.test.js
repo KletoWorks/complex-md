@@ -138,3 +138,25 @@ test('the portable plugin.json meets the Agent Plugins 1.0.0 schema', (t) => {
   // Codex reads hooks from extensions["com.openai"].hooks; none may ship.
   assert.ok(!('hooks' in (m.extensions?.['com.openai'] ?? {})), 'no hooks for Codex either');
 });
+
+// ------------------------------------------------------------- Gemini CLI
+// Extension reference: geminicli.com/docs/extensions/reference. The gallery
+// requires gemini-extension.json at the repository root, so the extension
+// root is the repository root and it loads skills/ from there.
+const GEMINI_KEYS = new Set(['name', 'version', 'description', 'migratedTo', 'mcpServers', 'contextFileName', 'excludeTools', 'plan', 'settings', 'themes']);
+
+test('the Gemini CLI extension manifest uses documented fields and a small context file', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const m = readJson('gemini-extension.json');
+  for (const k of Object.keys(m)) assert.ok(GEMINI_KEYS.has(k), `unknown gemini-extension.json field ${k}`);
+  assert.match(m.name, KEBAB, 'lowercase letters, digits and dashes');
+  assert.equal(m.version, CLI_VERSION(), 'extension version follows cli/package.json; run npm run build');
+  assert.equal(typeof m.description, 'string');
+  assert.ok(!('mcpServers' in m), 'the extension starts no MCP server');
+  assert.equal(typeof m.contextFileName, 'string');
+  assert.ok(existsSync(join(ROOT, m.contextFileName)), `${m.contextFileName} is missing`);
+  // Everything the extension loader picks up from the root besides the
+  // manifest: the context file and skills/. Nothing else may exist there.
+  for (const d of ['hooks', 'commands', 'agents', 'policies', 'GEMINI.md']) assert.ok(!existsSync(join(ROOT, d)), `${d} at the repository root would load into the extension`);
+  assert.ok(existsSync(join(ROOT, 'skills/complex-md/SKILL.md')));
+});
