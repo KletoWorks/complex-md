@@ -30,6 +30,7 @@ import { buildBundle, normalizeOutput } from '../cli/src/generate.js';
 import { wire } from '../cli/src/wire.js';
 import { detectRunner, listTestFiles, runSuite, confirm, goldTestFiles } from './suite.mjs';
 import { createMeter, newMetrics, behaviour } from './agent-events.mjs';
+import { isolatedCheckout, fileAt } from './isolate.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '../cli/bin/complex-md.js');
@@ -43,7 +44,7 @@ const agent = opt('--agent', 'claude');
 /* Scripted agents stand in for a model when the harness itself is tested.
    Any other name is refused: an unknown name used to fall through to a real
    Claude Code run. CX_BENCH_NO_MODEL=1 refuses every model call outright. */
-const SCRIPTED = { mock: 'mock-agent.mjs' };
+const SCRIPTED = { mock: 'mock-agent.mjs', probe: 'leak-probe.mjs' };
 if (agent !== 'claude' && !SCRIPTED[agent]) { console.error(`unknown --agent ${agent}: claude, ${Object.keys(SCRIPTED).join(', ')}`); process.exit(2); }
 const noModel = () => { if (process.env.CX_BENCH_NO_MODEL === '1') throw new Error('a model call was refused: CX_BENCH_NO_MODEL=1'); };
 const budget = Number(opt('--budget', 0.6));
@@ -101,18 +102,36 @@ async function mapFor(task, wt) {
   return text;
 }
 
+/* The dataset clone's install, copied once (hard links where the file
+   system allows) to a directory that holds nothing else. A link straight
+   into the clone led an agent from node_modules to the clone and its
+   future history. */
+let deps;
+function depsFor() {
+  if (deps !== undefined) return deps;
+  const src = join(dataset.path, 'node_modules');
+  if (!existsSync(src)) return (deps = null);
+  const dest = join(workRoot, '.deps', (dataset.repo || 'repo').replace('/', '-'), 'node_modules');
+  if (!existsSync(dest)) {
+    mkdirSync(dirname(dest), { recursive: true });
+    if (spawnSync('cp', ['-al', src, dest]).status !== 0) { rmSync(dest, { recursive: true, force: true }); sh('cp', ['-a', src, dest]); }
+  }
+  return (deps = dest);
+}
+
 function prepareWorktree(task, arm) {
   const wt = join(workRoot, `${task.id}-${arm}`);
-  if (existsSync(wt)) { spawnSync('git', ['worktree', 'remove', '--force', wt], { cwd: dataset.path }); rmSync(wt, { recursive: true, force: true }); }
-  sh('git', ['worktree', 'add', '--detach', '--quiet', wt, task.base], dataset.path);
+  /* A fresh repository with the history up to the base and nothing after
+     it, never a worktree of the dataset clone (bench/isolate.mjs). */
+  isolatedCheckout(dataset.path, task.base, wt);
   // No arm gets a pre-existing map or wiring from the repository itself.
   for (const f of ['COMPLEX.md', '.complex-md']) rmSync(join(wt, f), { recursive: true, force: true });
   /* A worktree has no node_modules of its own. Without this, every test the
      agent ran failed with a missing module in every arm, and the success
      metric could never be true. The link is the dataset checkout's install,
      made once; a repository without one records success as null. */
-  const nm = join(dataset.path, 'node_modules');
-  if (existsSync(nm) && !existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
+  const nm = depsFor();
+  if (nm && !existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
   /* Generated inputs the suite needs (test certificates, a bundled build):
      the dataset lists them as `prepare`, run once per worktree before any
      arm touches it. A failure here is the worktree's problem, not a row. */
@@ -256,7 +275,9 @@ function runGoldTests(task, wt) {
   if (!runner) return { tests_run: 0, tests_passed: null, success: null };
   let passed = 0, run = 0;
   for (const f of files) {
-    spawnSync('git', ['checkout', task.fix, '--', f], { cwd: wt, stdio: 'ignore' });
+    // The fix commit is not in the isolated checkout: its test file comes from the clone.
+    const body = fileAt(dataset.path, task.fix, f);
+    if (body) { mkdirSync(dirname(join(wt, f)), { recursive: true }); writeFileSync(join(wt, f), body); }
     if (!existsSync(join(wt, f))) continue;
     run++;
     const r = spawnSync(runner.cmd, [...runner.args, f], { cwd: wt, encoding: 'utf8', timeout: 120000, env: { ...process.env, CI: '1' }, maxBuffer: 64 * 1024 * 1024 });
@@ -327,7 +348,7 @@ for (const task of tasks) {
       appendFileSync(runsPath, JSON.stringify(rec) + '\n');
       log(`  steps ${m.steps}, first gold read at ${m.first_gold_read ?? '-'}, gold edited ${rec.gold_edited}, success ${rec.success ?? '-'}, regressions ${rec.regressed_tests ?? '-'}, tests run by agent ${m.agent_test_runs}, $${m.cost_usd?.toFixed(3) ?? '?'}${m.gate_fired ? `, gate x${m.gate_fired}` : ''}${m.error ? `, error: ${m.error}` : ''}`);
     } finally {
-      if (!flag('--keep')) { spawnSync('git', ['worktree', 'remove', '--force', wt], { cwd: dataset.path }); rmSync(wt, { recursive: true, force: true }); }
+      if (!flag('--keep')) rmSync(wt, { recursive: true, force: true });
     }
   }
 }
