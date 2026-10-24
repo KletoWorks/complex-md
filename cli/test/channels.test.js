@@ -158,6 +158,32 @@ test('copilot is detected from its own files only, never from .github alone', ()
   assert.ok(existsSync(join(dir3, '.github/instructions/complex-md')), '--for copilot opts in');
 });
 
+/* Claude Code Review puts a root file in place of a line that holds only
+   `@` and the file's name. REVIEW.md is the team's file: wire adds that
+   one line to an existing one and never creates it. */
+test('review: an existing REVIEW.md gets one @COMPLEX.md line; none is ever created', () => {
+  const dir = repo({ 'REVIEW.md': '# Review instructions\n\nReport at most five Nits per review.' });
+  const r = wire(dir, {});
+  assert.equal(read(dir, 'REVIEW.md'), '# Review instructions\n\nReport at most five Nits per review.\n\n@COMPLEX.md\n');
+  assert.ok(r.primary.includes('REVIEW.md (@COMPLEX.md include)'));
+  wire(dir, {});
+  assert.equal(count(read(dir, 'REVIEW.md'), '@COMPLEX.md'), 1, 'a rewire adds nothing');
+
+  const none = repo();
+  const r2 = wire(none, { agents: ['review'] });
+  assert.ok(!existsSync(join(none, 'REVIEW.md')), '--for review never creates the file');
+  assert.ok(r2.skipped.includes('REVIEW.md (absent, not created)'));
+});
+
+test('review: a line inside an open code fence or comment would not include, so none is added', () => {
+  for (const tail of ['```md\nexample\n', '<!-- draft\n']) {
+    const dir = repo({ 'REVIEW.md': `# Review\n\n${tail}` });
+    const r = wire(dir, {});
+    assert.equal(read(dir, 'REVIEW.md'), `# Review\n\n${tail}`);
+    assert.ok(r.skipped.some((s) => s.startsWith('REVIEW.md (ends inside')));
+  }
+});
+
 test('a block only rule file is still written when no AGENTS.md carries the block', () => {
   const dir = repo({ 'GEMINI.md': '# Gemini\n', '.cursor': null });
   const r = wire(dir, { agents: ['cursor'] });

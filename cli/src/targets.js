@@ -271,6 +271,28 @@ export const TARGETS = {
     },
   },
 
+  /* Claude Code Review reads REVIEW.md at the repository root and puts a
+     root file in place of a line that holds only `@` and its name
+     (code.claude.com, "Customize Code Review"). REVIEW.md belongs to the
+     team, so wire adds that one line to a file that exists and never
+     creates one. A line inside an open code fence or HTML comment would
+     stay plain text, so an ending like that gets nothing. */
+  review: {
+    detect: (root) => existsSync(join(root, 'REVIEW.md')),
+    rules({ root, report }) {
+      const p = join(root, 'REVIEW.md');
+      if (!existsSync(p)) return void report.skipped.push('REVIEW.md (absent, not created)');
+      const cur = readFileSync(p, 'utf8');
+      if (/^@COMPLEX\.md\s*$/m.test(cur)) return void report.skipped.push('REVIEW.md');
+      const fences = (cur.match(/^\s*(```|~~~)/gm) || []).length;
+      if (fences % 2 || cur.lastIndexOf('<!--') > cur.lastIndexOf('-->')) {
+        return void report.skipped.push('REVIEW.md (ends inside a code fence or comment)');
+      }
+      appendFileSync(p, (cur.endsWith('\n') ? '' : '\n') + '\n@COMPLEX.md\n');
+      report.primary.push('REVIEW.md (@COMPLEX.md include)');
+    },
+  },
+
   windsurf: {
     detect: (root) => existsSync(join(root, '.windsurf')),
     rules({ root, block, paths, report, carried }) {
