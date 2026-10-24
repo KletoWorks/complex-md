@@ -7,7 +7,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, spawn } from 'node:child_process';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'complex-md.js');
 
@@ -47,6 +47,29 @@ test('a run with no provider key writes COMPLEX.md with template prose and wires
   assert.equal(r.status, 0, r.stderr);
   assert.match(readFileSync(join(dir, 'COMPLEX.md'), 'utf8'), /^prose: template$/m);
   assert.match(readFileSync(join(dir, 'AGENTS.md'), 'utf8'), /## COMPLEX\.md: the structural risk map/);
+});
+
+test('the run prints the file plan before it writes, and an open stdin that is not a terminal never blocks it', async () => {
+  const dir = smallRepo();
+  const child = spawn(process.execPath, [BIN], { cwd: dir, env: { ...NO_KEYS, GIT_CEILING_DIRECTORIES: dirname(dir) }, stdio: ['pipe', 'pipe', 'pipe'] });
+  let stderr = '';
+  child.stderr.on('data', (d) => { stderr += d; });
+  const timer = setTimeout(() => child.kill(), 30000);
+  const code = await new Promise((resolve) => child.on('close', resolve));
+  clearTimeout(timer);
+  assert.equal(code, 0, `exited on its own with stdin still open: ${stderr}`);
+  const plan = stderr.indexOf('File plan:');
+  assert.ok(plan >= 0, stderr);
+  assert.ok(plan < stderr.indexOf('wrote COMPLEX.md'), 'the plan comes before the first write');
+  for (const f of ['create  COMPLEX.md', 'create  .complex-md/prompt.md', 'create  .gitignore', 'create  AGENTS.md']) assert.ok(stderr.includes(f), f);
+  assert.ok(!stderr.includes('Write these files?'), 'no question without a terminal');
+});
+
+test('--yes runs the whole first run with no question', () => {
+  const dir = smallRepo();
+  const r = runNoKey(dir, ['--yes']);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(existsSync(join(dir, 'AGENTS.md')));
 });
 
 test('a flag with no command runs generate', () => {

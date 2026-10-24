@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { computeSignals, graphFor, detectTestCommand, TABLE_HEAD, rowToArray } from './signals.js';
 import { templateProse, packageRoots, reachableFrom } from './template.js';
 import { loadComplexMd } from './complexmd.js';
-import { ignoreWorkDir, WORK_DIR } from './gitignore.js';
+import { ignoreWorkDir, gitignoreAction, WORK_DIR } from './gitignore.js';
 import { generatePrompt, promptVersion } from './prompts.js';
 import { resolveProvider, PROVIDERS } from './providers.js';
 import { createRequire } from 'node:module';
@@ -184,7 +184,9 @@ function holdsOtherProse(root) {
   return loadComplexMd(root)?.front?.prose !== 'template';
 }
 
-export async function generate(root, { model = null, provider = null, agent = false, template = false, log = () => {} } = {}) {
+/* `approve({ files, fallback, mapText })` sees the file plan before the
+   first write and returns false to stop the run. */
+export async function generate(root, { model = null, provider = null, agent = false, template = false, approve = async () => true, log = () => {} } = {}) {
   const t0 = Date.now();
   const sig = computeSignals(root);
   log(`signals: ${sig.files_analyzed} files in scope, ${sig.profile.dependency_edges} dependency edges, ${sig.commits_analyzed} commits (${sig.fix_commits} fixes), ${sig.hotspots.length} hotspots, ${sig.co_change.length} pairs, confidence ${sig.profile.confidence}, ${Date.now() - t0} ms`);
@@ -212,18 +214,35 @@ export async function generate(root, { model = null, provider = null, agent = fa
 
   const keys = PROVIDERS.filter((p) => p.env).map((p) => p.env).join(', ');
   const sel = agent || template ? null : resolveProvider({ model, provider });
-  if (agent) {
+  const mode = agent ? 'agent' : sel ? 'model' : !template && holdsOtherProse(root) ? 'keep' : 'template';
+
+  /* The file plan, before the first write. `mapText` is the map the wiring
+     will read: the template map stands in for a model reply, because the
+     wiring depends only on the front matter, which is the same in both. */
+  const entry = (path) => ({ path, action: existsSync(join(root, path)) ? 'change' : 'create' });
+  const bundleFiles = [entry(`${WORK_DIR}/prompt.md`), entry(`${WORK_DIR}/front-matter.yaml`)];
+  const ignore = gitignoreAction(root);
+  if (ignore) bundleFiles.push({ path: '.gitignore', action: ignore });
+  const writesMap = mode === 'model' || mode === 'template';
+  const mapText = writesMap ? templateMap(root, sig, tool) : null;
+  const files = mode === 'model' ? [entry('COMPLEX.md')] : [...(writesMap ? [entry('COMPLEX.md')] : []), ...bundleFiles];
+  if (!(await approve({ files, fallback: mode === 'model' ? bundleFiles : [], mapText }))) {
+    log('Nothing written.');
+    return { sig, written: false, declined: true };
+  }
+
+  if (mode === 'agent') {
     const promptPath = writeBundle('no API key requested');
     log(`Or set a provider key (${keys}) and rerun to make the model call from here.`);
     return { sig, written: false, promptPath };
   }
-  if (!sel) {
-    if (!template && holdsOtherProse(root)) {
-      const promptPath = writeBundle('no API key found');
-      log('COMPLEX.md exists and a template did not write its prose, so this run keeps it as it is. Pass --template to replace it with template prose.');
-      return { sig, written: false, promptPath };
-    }
-    const out = templateMap(root, sig, tool);
+  if (mode === 'keep') {
+    const promptPath = writeBundle('no API key found');
+    log('COMPLEX.md exists and a template did not write its prose, so this run keeps it as it is. Pass --template to replace it with template prose.');
+    return { sig, written: false, promptPath };
+  }
+  if (mode === 'template') {
+    const out = mapText;
     const promptPath = saveBundle();
     writeFileSync(join(root, 'COMPLEX.md'), out);
     log(`${template ? 'template prose requested' : 'no API key found'}: wrote COMPLEX.md (${out.split('\n').length} lines) with template prose from the computed numbers; ${Date.now() - t0} ms`);

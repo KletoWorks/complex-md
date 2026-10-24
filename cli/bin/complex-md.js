@@ -21,6 +21,7 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
   npx complex-md generate        same; --agent writes the prompt bundle for your agent instead of calling a model
                                  --template writes template prose from the computed numbers, with no model call
                                  --model <id>  --provider <name>  --no-wire  --no-hooks
+                                 prints the file plan first; asks once in a terminal, --yes skips the question
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
                                  --for claude,cursor,openhands,codex,windsurf,cline,roo,openclaw,hermes
                                  (default: detect repo-local targets; openclaw/hermes are global registries,
@@ -122,10 +123,19 @@ async function main() {
 
   if (cmd === 'generate') {
     const { generate } = await import('../src/generate.js');
-    const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), template: flag('--template'), log });
+    const { planWire, formatPlan, confirmPlan } = await import('../src/plan.js');
+    const wireOpts = { hooks: !flag('--no-hooks'), mcp: flag('--mcp'), agents: opt('--for')?.split(',') };
+    // The file plan goes out before the first write; a terminal gets one
+    // question, and --yes or a non terminal stdin never waits.
+    const approve = async ({ files, fallback, mapText }) => {
+      const wiring = mapText && !flag('--no-wire') ? planWire(root, mapText, wireOpts) : [];
+      log(formatPlan([...files, ...wiring], fallback));
+      return confirmPlan({ yes: flag('--yes') });
+    };
+    const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), template: flag('--template'), approve, log });
     if (r.written && !flag('--no-wire')) {
       const { wire } = await import('../src/wire.js');
-      wire(root, { hooks: !flag('--no-hooks'), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
+      wire(root, { ...wireOpts, log });
     }
     return;
   }
