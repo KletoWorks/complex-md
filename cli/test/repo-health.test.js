@@ -34,3 +34,16 @@ test('every workflow declares its token permissions at the top level', (t) => {
   const missing = workflows().filter((f) => !/^permissions:/m.test(readFileSync(join(WORKFLOWS, f), 'utf8')));
   assert.deepEqual(missing, [], 'add a top level permissions: block');
 });
+
+const read = (f) => readFileSync(join(ROOT, f), 'utf8');
+
+/* A reporter who finds a hole must find a private path before a public
+   one. GitHub shows SECURITY.md on the Security tab and on the new issue
+   page. */
+test('SECURITY.md gives a private report path and the supported versions', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  assert.ok(existsSync(join(ROOT, 'SECURITY.md')), 'SECURITY.md exists');
+  const s = read('SECURITY.md');
+  assert.match(s, /https:\/\/github\.com\/KletoWorks\/complex-md\/security\/advisories\/new/);
+  assert.match(s, /^## Supported versions/m);
+});
