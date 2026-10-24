@@ -4,7 +4,7 @@
 // pairs and tells the agent to open the partner, so fewer misses with the
 // map is the effect it claims.
 //
-//   node bench/partners.mjs            writes bench/results/e0.json
+//   node bench/partners.mjs            writes bench/results/partners.json
 //
 // The pairs are the source co-change pairs the harness computed at each
 // task's base commit (bench/results/<run>/baseline), the same for every
@@ -149,7 +149,7 @@ const VARIANTS = [
 const variantName = ([level, metric, o]) => `${level}_${metric}${o.skipErrors ? '_no_error_runs' : ''}`;
 
 /** The partner miss result object, computed from the committed runs under `root`. */
-export function e0Report(root) {
+export function partnersReport(root) {
   const read = (p) => JSON.parse(readFileSync(join(root, p), 'utf8'));
   const repos = [
     { name: 'undici', results: 'bench/results/undici-damage', dataset: 'bench/data/undici-danger.json', arms: ['file'] },
@@ -190,7 +190,7 @@ export function e0Report(root) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-  const out = join(root, 'bench/results/e0.json');
-  writeFileSync(out, JSON.stringify(e0Report(root), null, 2) + '\n');
+  const out = join(root, 'bench/results/partners.json');
+  writeFileSync(out, JSON.stringify(partnersReport(root), null, 2) + '\n');
   console.log(`wrote ${out}`);
 }

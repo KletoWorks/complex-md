@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const BENCH = join(ROOT, 'bench');
-const load = () => import(pathToFileURL(join(BENCH, 'e1.mjs')).href);
+const load = () => import(pathToFileURL(join(BENCH, 'selectors.mjs')).href);
 
 /* lib/core.js is imported by lib/mid.js and by the barrel lib/index.js,
    which the package root index.js re-exports. Each test reaches core.js a
@@ -23,7 +23,7 @@ const load = () => import(pathToFileURL(join(BENCH, 'e1.mjs')).href);
      other.test  imports lib/other.js -> mid    depth 3, full closure only
      side.test   imports nothing of these       co-change history only */
 function makeRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'cx-e1-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cx-selectors-'));
   const env = { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' };
   const g = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe', env });
   const w = (p, s) => { mkdirSync(dirname(join(dir, p)), { recursive: true }); writeFileSync(join(dir, p), s); };
@@ -71,7 +71,7 @@ test('the five selectors at the parent of a fix, on a repository with a root and
   if (!existsSync(BENCH)) return t.skip('not a repository checkout');
   const { runRepo } = await load();
   const dir = makeRepo();
-  const wt = mkdtempSync(join(tmpdir(), 'cx-e1-wt-'));
+  const wt = mkdtempSync(join(tmpdir(), 'cx-selectors-wt-'));
   rmSync(wt, { recursive: true, force: true });
   try {
     const r = runRepo({ repo: dir, name: 'fixture', max: 150, worktree: wt });
@@ -128,7 +128,7 @@ test('knownBreaks scores each selector on the tests an agent patch broke', async
   if (!existsSync(BENCH)) return t.skip('not a repository checkout');
   const { knownBreaks } = await load();
   const dir = makeRepo();
-  const wt = mkdtempSync(join(tmpdir(), 'cx-e1-wt-'));
+  const wt = mkdtempSync(join(tmpdir(), 'cx-selectors-wt-'));
   rmSync(wt, { recursive: true, force: true });
   try {
     const base = execFileSync('git', ['rev-list', '--max-count=1', '--grep', '^docs: readme', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();

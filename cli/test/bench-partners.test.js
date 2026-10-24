@@ -83,13 +83,13 @@ test('run level counts match the harness: undici 11 of 27 and 7 of 28, fastify 2
   assert.deepEqual(count(f, 'hooks'), [19, 30]);
 });
 
-test('bench/results/e0.json is what the module computes from the committed runs', async (t) => {
+test('bench/results/partners.json is what the module computes from the committed runs', async (t) => {
   if (!committed()) return t.skip('bench results are not in this checkout');
-  const { e0Report } = await load();
-  const path = join(RESULTS, 'e0.json');
-  assert.ok(existsSync(path), 'bench/results/e0.json is missing');
+  const { partnersReport } = await load();
+  const path = join(RESULTS, 'partners.json');
+  assert.ok(existsSync(path), 'bench/results/partners.json is missing');
   const onDisk = JSON.parse(readFileSync(path, 'utf8'));
-  assert.deepEqual(onDisk, JSON.parse(JSON.stringify(e0Report(ROOT))));
+  assert.deepEqual(onDisk, JSON.parse(JSON.stringify(partnersReport(ROOT))));
   /* The corrected definition came after the recorded result; the file says so. */
   assert.equal(onDisk.primary, 'edit_recorded');
   assert.match(onDisk.exploratory, /corrected/);

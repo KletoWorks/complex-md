@@ -4,7 +4,7 @@
 // the files the fix changed, and does that set contain the test files the
 // fix itself changed. No model, no agent: the graph and the history.
 //
-//   node bench/e1.mjs --repo <clone> --name <name> [--max 150] [--out bench/results/e1]
+//   node bench/selectors.mjs --repo <clone> --name <name> [--max 150] [--out bench/results/selectors]
 //
 // Selectors, from narrow to wide. T(x) is the set of test files whose
 // import, path literal or exact name points at x (the map's covering
@@ -424,20 +424,20 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.log(JSON.stringify(out.pooled.verdict));
     process.exit(0);
   }
-  if (!repo || !name) { console.error('usage: node bench/e1.mjs --repo <clone> --name <name> [--max 150] [--out bench/results/e1]'); process.exit(2); }
-  const out = opt('--out', 'bench/results/e1');
+  if (!repo || !name) { console.error('usage: node bench/selectors.mjs --repo <clone> --name <name> [--max 150] [--out bench/results/selectors]'); process.exit(2); }
+  const out = opt('--out', 'bench/results/selectors');
   mkdirSync(out, { recursive: true });
   /* --known <resultsDir> --dataset <path>: score the selectors on the tests
      the agent patches in a damage run broke, instead of the fix history. */
   if (opt('--known')) {
     const rows = readFileSync(join(opt('--known'), 'runs.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
-    const known = knownBreaks({ repo: resolve(repo), worktree: resolve(repo) + '-e1-wt', rows, dataset: JSON.parse(readFileSync(opt('--dataset'), 'utf8')) });
+    const known = knownBreaks({ repo: resolve(repo), worktree: resolve(repo) + '-selectors-wt', rows, dataset: JSON.parse(readFileSync(opt('--dataset'), 'utf8')) });
     writeFileSync(join(out, `${name}-known.json`), JSON.stringify({ name, results: opt('--known'), breaks: known }, null, 1) + '\n');
     console.log(JSON.stringify(known.map((k) => ({ task: k.task, broken: k.broken, caught: k.caught })), null, 1));
     process.exit(0);
   }
   const t0 = Date.now();
-  const r = runRepo({ repo: resolve(repo), name, max: Number(opt('--max', 150)), worktree: resolve(repo) + '-e1-wt', log: (s) => process.stderr.write(s + '\n') });
+  const r = runRepo({ repo: resolve(repo), name, max: Number(opt('--max', 150)), worktree: resolve(repo) + '-selectors-wt', log: (s) => process.stderr.write(s + '\n') });
   r.seconds = Math.round((Date.now() - t0) / 1000);
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, `${name}.json`), JSON.stringify(r, null, 1) + '\n');

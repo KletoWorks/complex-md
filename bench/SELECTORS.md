@@ -137,14 +137,14 @@ tasks. At each task's base, for the source file the agents edited:
 ```sh
 git clone --filter=blob:none https://github.com/nodejs/undici.git
 git -C undici checkout -q 046bb4c6fe
-node bench/e1.mjs --repo undici --name undici --max 150
-node bench/e1.mjs --repo undici --name undici --known bench/results/undici-damage --dataset bench/data/undici-danger.json
-node bench/e1.mjs --summary bench/results/e1
+node bench/selectors.mjs --repo undici --name undici --max 150
+node bench/selectors.mjs --repo undici --name undici --known bench/results/undici-damage --dataset bench/data/undici-danger.json
+node bench/selectors.mjs --summary bench/results/selectors
 ```
 
 The backtest reads the history from the checked out commit, so check out
 the commit named under Method to get the same numbers. Results:
-`bench/results/e1/<repository>.json` per repository, with every
+`bench/results/selectors/<repository>.json` per repository, with every
 fix row and every dropped fix; `summary.json` pooled; `undici-known.json`
 for the known breaks. Each repository takes under two minutes from a cold
 blobless clone and under one minute from a warm one.
