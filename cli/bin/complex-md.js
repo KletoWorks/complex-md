@@ -14,6 +14,7 @@ const opt = (name) => {
   return i >= 0 ? args[i + 1] : null;
 };
 const log = (s) => process.stderr.write(s + '\n');
+const SITE_URL = 'https://complex.md/?utm_source=cli';
 
 const HELP = `complex-md ${pkg.version}  https://complex.md
 
@@ -136,6 +137,11 @@ async function main() {
     if (r.written && !flag('--no-wire')) {
       const { wire } = await import('../src/wire.js');
       wire(root, { ...wireOpts, log });
+    }
+    if (!r.declined) {
+      const { repositoryFact } = await import('../src/template.js');
+      log(`Fact: ${repositoryFact(r.sig)}`);
+      log(SITE_URL);
     }
     return;
   }

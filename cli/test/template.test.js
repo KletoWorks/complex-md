@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { computeSignals, graphFor } from '../src/signals.js';
 import { validateOutput, frontMatter } from '../src/generate.js';
 import { parseComplexMd } from '../src/complexmd.js';
-import { templateProse, packageRoots, reachableFrom } from '../src/template.js';
+import { templateProse, packageRoots, reachableFrom, repositoryFact } from '../src/template.js';
 import { buildRegressionRepo, REGRESSION_OPTS } from './fixtures/regression-repo.mjs';
 
 const fixture = buildRegressionRepo();
@@ -124,4 +124,11 @@ test('a hotspot reachable from the package root gets the full test suite directi
   assert.match(m.paragraphFor('src/core.js'), /The package root reaches it through imports, so a break here can surface in any test\./);
   const none = parseComplexMd(frontMatter(s, 't') + '\n' + templateProse(s, { reachable }));
   assert.equal(none.directive('src/core.js'), 'Before editing this file, run the full test suite.');
+});
+
+test('repositoryFact states one computed fact, preferring where fixes landed', () => {
+  assert.equal(repositoryFact(sig), 'src/render.js received 2 of the 3 fix commits in the last 7 commits.');
+  assert.equal(repositoryFact({ ...sig, hotspots: [], table: [], fix_commits: 0 }), 'src/render.css and src/render.js changed together in 3 commits.');
+  assert.equal(repositoryFact({ ...sig, hotspots: [], table: [], fix_commits: 0, co_change: [] }), 'src/legacy.js has 5 dependents, the most of any file in the map.');
+  assert.equal(repositoryFact({ ...sig, hotspots: [], table: [], fix_commits: 0, co_change: [], load_bearing: [] }), `complex-md read ${sig.files_analyzed} rankable files and 7 commits.`);
 });

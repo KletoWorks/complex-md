@@ -72,6 +72,15 @@ test('--yes runs the whole first run with no question', () => {
   assert.ok(existsSync(join(dir, 'AGENTS.md')));
 });
 
+test('the run ends with one computed fact and the site URL', () => {
+  const dir = smallRepo();
+  const r = runNoKey(dir, ['--yes']);
+  assert.equal(r.status, 0, r.stderr);
+  const lines = r.stderr.trim().split('\n');
+  assert.equal(lines.at(-1), 'https://complex.md/?utm_source=cli');
+  assert.match(lines.at(-2), /^Fact: .*src\/a\.js.*\.$/);
+});
+
 test('a flag with no command runs generate', () => {
   const dir = smallRepo();
   const r = runNoKey(dir, ['--no-wire']);

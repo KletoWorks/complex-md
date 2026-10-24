@@ -226,3 +226,14 @@ export function templateProse(sig, { reachable = new Set(), roots = [], testComm
     '## What to read first', '', readFirstSection(sig), '',
   ].join('\n');
 }
+
+/** One computed fact about the repository, as a plain sentence for the end of a run. */
+export function repositoryFact(sig) {
+  const fixed = [...(sig.table || [])].filter((r) => r.fixes > 0).sort((a, b) => b.fixes - a.fixes)[0];
+  if (fixed && sig.fix_commits) return `${fixed.path} received ${fixed.fixes} of the ${plural(sig.fix_commits, 'fix commit')} in the last ${plural(sig.window_commits, 'commit')}.`;
+  const pair = sig.co_change[0];
+  if (pair) return `${pair.files[0]} and ${pair.files[1]} changed together in ${plural(pair.count, 'commit')}.`;
+  const wide = [...(sig.table || []), ...(sig.load_bearing || [])].sort((a, b) => b.fan_in - a.fan_in || a.path.localeCompare(b.path))[0];
+  if (wide && wide.fan_in > 0) return `${wide.path} has ${plural(wide.fan_in, 'dependent')}, the most of any file in the map.`;
+  return `complex-md read ${plural(sig.files_analyzed, 'rankable file')} and ${plural(sig.window_commits, 'commit')}.`;
+}
