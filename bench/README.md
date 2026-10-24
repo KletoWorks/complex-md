@@ -119,6 +119,23 @@ term buys blast-radius awareness (a quiet, heavily imported file on the
 list), not fix prediction. `complex_where_to_look` therefore orders by
 `churn_w * loc`; the hotspot list keeps the score.
 
+## Scores from the recorded runs (no model)
+
+These scripts read committed runs and fix history. They spend nothing.
+
+- `node bench/comply.mjs <results> <dataset>`: for each file an agent
+  edited, did it run the tests the map names for that file. Arms pair on
+  task and file, with McNemar's exact test per arm.
+- `node bench/partners.mjs`: co-change partner misses per arm on the damage
+  runs. It writes `bench/results/partners.json`. The primary definition
+  counts a Read or an edit of the partner. The wider definition was chosen
+  after the primary result was known, so it is exploratory.
+- `node bench/selectors.mjs --repo <clone> --name <name>`: a test selector
+  backtest on fix history. `--known <results> --dataset <path>` scores the
+  selectors on the tests agents broke in recorded runs, and `--summary
+  bench/results/selectors` pools the repositories. Method and tables:
+  [SELECTORS.md](SELECTORS.md).
+
 ## Caveats
 
 Same agent, same model, one repository at a time: a result says what the map
