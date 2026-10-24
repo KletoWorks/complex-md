@@ -59,6 +59,7 @@ const BANNED = [
   { re: /gets safer/i, why: 'no run shows fewer regressions yet; state what agents do with the map' },
   { re: /over the last twelve months|halves every year/i, why: 'history is indexed by commit: the last 2,000 commits, half-life a quarter of the window' },
   { re: /score is recency-weighted churn multiplied by lines of code/i, why: 'the 0.3 score also multiplies in fan-in (spec, Hotspot score)' },
+  { re: /list form does not load/i, why: 'Claude Code reads paths as a YAML list or a comma separated string' },
 ];
 
 for (const rule of BANNED) {

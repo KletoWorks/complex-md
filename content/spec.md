@@ -524,8 +524,8 @@ Stage 3 of generation, in full:
    after the block, unless the file already imports it.
 3. If `.claude/` exists, write `.claude/rules/complex-md.md` with the front
    matter `alwaysApply: false` and a single line `paths:` listing every
-   hotspot and co-change path, comma separated and unquoted (the YAML list
-   form does not load), followed by the block.
+   hotspot and co-change path, comma separated and unquoted, followed by
+   the block.
 4. If `.cursor/` exists, write `.cursor/rules/complex-md.mdc` with the front
    matter `description: COMPLEX.md structural risk map`, `alwaysApply: false`
    and `globs:` listing the same paths, followed by the block.
