@@ -157,3 +157,13 @@ test('the release workflow installs an exact npm version', (t) => {
   assert.ok(m, 'npm install -g npm@X.Y.Z');
   assert.ok(Number(m[1]) > 11 || (Number(m[1]) === 11 && Number(m[2]) >= 5), `npm ${m[1]}.${m[2]} supports trusted publishing`);
 });
+
+/* A clone of this repository should not run code on a contributor's
+   machine before they ask for it. Committed hook settings run the CLI on
+   every edit in Claude Code, and a committed .mcp.json starts a server.
+   The CLI writes neither by default, and this repository follows its own
+   default. */
+test('this repository commits no edit hooks and no MCP server config', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  for (const f of ['.claude/settings.json', '.cursor/hooks.json', '.mcp.json']) assert.ok(!existsSync(join(ROOT, f)), `${f} is not committed`);
+});

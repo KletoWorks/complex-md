@@ -25,8 +25,10 @@ These rules are for a coding agent that works on either part.
 - Do not edit `COMPLEX.md`, `.claude/rules/` or the section below by hand.
   They are generated. Regenerate them with `node cli/bin/complex-md.js`,
   which prints the next step when no provider key is set.
-- In Claude Code, `.claude/settings.json` runs this checkout's CLI as a
-  hook on each edit and when the agent stops.
+- The repository commits no edit hooks and no MCP server config. To try
+  the hooks on your own clone, run `node cli/bin/complex-md.js wire
+  --hooks --local`. It writes them to Claude Code's per user settings
+  file, which stays out of commits.
 - Write a commit subject in conventional form, 72 characters at most. In
   the body, state the problem before the fix. Use numbers, not adjectives.
 - A change to the spec or a signal cites a benchmark run or a source, and
