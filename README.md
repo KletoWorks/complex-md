@@ -100,25 +100,22 @@ the wrong question.
 
 ## Measured, not asserted
 
-complex-md ships with its own benchmark: real fix commits from a repository's
-history, the issue text as the prompt, the commit's parent as the starting
-point, and the files the real fix touched as the answer. Each task runs with
-and without the map, from the same commit, and the runs are compared in
-pairs. Outcomes are the ones AGENTS.md's own evidence uses: time to a finished
-change, output tokens, cost, diff size, and whether the agent's patch passes
-the tests the real fix was verified by. Tests are rank based, so a single long
-run cannot move a result.
+Agents follow it. On two repositories with no shared tasks, agents ran the
+tests the map names on 14 of 15 risky edits, against 3 of 17 without it
+(11 of 11 discordant pairs, p about 0.001). The agent was Claude Opus 5 in
+Claude Code. It does not cost correctness: on the real fix's own tests, every
+arm with the map passed within one task of the arm without it.
 
-On 24 fastify tasks with the map present, the agent produced 27 percent fewer
-output tokens at the median before its first edit. A four arm run to
-completion, including a computed only variant with no generated prose, is in
-progress; results are published as they land in
-[bench/RESULTS.md](bench/RESULTS.md).
+complex-md ships with the benchmark that measured this: real fix commits from
+a repository's history, the issue text as the prompt and the commit's parent
+as the starting point. Each task runs with and without the map, from the same
+commit, and the runs are compared in pairs. After each run the judge runs the
+real fix's tests and, in the damage runs, the whole suite as it stood at the
+base commit. Tables, method
+and raw runs: [bench/RESULTS.md](bench/RESULTS.md).
 
-The tool costs nothing per edit. The map is computed locally by
-`npx complex-md`; the one model call is the optional prose step at generation
-time. Benchmark cost figures are the API equivalent price the agent reports
-per run, used as a unit for comparing arms.
+The map is computed on your machine by `npx complex-md`. The one model call
+is the optional prose step at generation time.
 
 ## Layout
 
@@ -128,7 +125,7 @@ per run, used as a unit for comparing arms.
 | `prompts/integration.md` | The normative wiring block appended to AGENTS.md, CLAUDE.md and friends. Served at /integration.md. |
 | `cli/` | The `complex-md` npm package: signals engine, generator, wiring, hooks, MCP server, diff check. `npm test` here or inside it. |
 | `examples/` | Reference COMPLEX.md files, starting with fastify. This repository carries its own at the root. |
-| `bench/` | Localization benchmark: does the map get an agent to the right file in fewer tool calls? Real fix history, paired arms. |
+| `bench/` | Collateral damage benchmark on real fix commits, paired arms: does the agent run the tests the map names, pass the fix's tests, and leave the rest of the suite green? `bench/repro/` holds standalone reproductions. |
 | `docs/` | Research behind the spec: signal verdicts, agent context-file evidence, wiring mechanics. |
 | `content/` | Site pages (markdown, front matter in an HTML comment). |
 | `skill/SKILL.tmpl.md` | Template assembled with the prompt into the downloadable skill. |

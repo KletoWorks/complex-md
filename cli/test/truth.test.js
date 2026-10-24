@@ -50,6 +50,12 @@ const BANNED = [
   { re: /(?<![a-z])grep (skips?|classif(y|ies)|treats?)/i, why: 'GNU grep prints "binary file matches"; ripgrep is the one that stays silent (bench/repro/nul-byte.sh)' },
   { re: /unreadable by grep/i, why: 'name ripgrep, the tool that skips the file in silence' },
   { re: /no warning, exit 0/i, why: 'the exit code differs by ripgrep build; the repro shows no match and no warning' },
+  { re: /27(\.4)? ?(percent|%)/i, why: 'a first edit only figure (n 24, p 0.14) that no run to completion repeats' },
+  { re: /fewer output tokens/i, why: 'no run to completion shows a token saving' },
+  { re: /in progress/i, why: 'the runs finished; report them' },
+  { re: /costs nothing per edit/i, why: 'an agent with the map spends more per run (bench/RESULTS.md)' },
+  { re: /never leaks into its own/i, why: 'a month\'s map can include a later run task\'s fix' },
+  { re: /fewer regressions|breaks? less|reduces? (collateral )?damage/i, why: 'no run shows fewer regressions yet' },
 ];
 
 for (const rule of BANNED) {

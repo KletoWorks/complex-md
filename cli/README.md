@@ -88,8 +88,11 @@ none, because Claude Code does not read AGENTS.md.
 Run at an old commit and the window anchors to that commit's date, so a map
 regenerated for a past release describes the history that existed then.
 
-Whether any of this gets an agent to the right file faster is measured, not
-asserted: see the benchmark in the repository (`bench/`, https://github.com/KletoWorks/complex-md).
+Agents follow it. On two repositories with no shared tasks, agents ran the
+tests the map names on 14 of 15 risky edits, against 3 of 17 without it
+(11 of 11 discordant pairs, p about 0.001), with Claude Opus 5 in Claude
+Code. Results and method: `bench/RESULTS.md` in
+https://github.com/KletoWorks/complex-md.
 
 ## Limits, stated plainly
 
