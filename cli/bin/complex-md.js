@@ -30,7 +30,8 @@ Keys: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, XAI
 DEEPSEEK_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, TOGETHER_API_KEY; local Ollama via OLLAMA_HOST;
 any OpenAI-compatible endpoint via COMPLEX_MD_BASE_URL (+ COMPLEX_MD_API_KEY).
 Without any of them the prompt bundle goes to .complex-md/prompt.md for the agent you already run.
-Nothing leaves the machine except the signals table and the top hotspot files, in that one call.`;
+Without a key nothing is sent. With one, that call sends the signals and excerpts of up to ten
+hotspot files, about 60,000 characters of code at most, to the provider you chose.`;
 
 async function main() {
   if (cmd === '--version' || cmd === '-v') return console.log(pkg.version);

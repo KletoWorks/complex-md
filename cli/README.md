@@ -107,6 +107,14 @@ statement.
 
 ## Privacy
 
-Signals are computed by git and grep on your machine. The only thing that
-leaves it is the one model call, and only if you set a key: the signals table
-and excerpts of the top five hotspot files, capped around 15k tokens.
+The signals are computed on your machine by git and Node.js. Without a key
+the CLI sends nothing: its one network request is the model call, and it
+makes that call only when a key is set.
+
+With a key, the call goes to the provider you chose. It carries the
+generation prompt, the computed signals (paths, their numbers, co-change
+pairs, the repository profile) and excerpts of up to ten hotspot files:
+about 14,000 characters each and 60,000 in all. On undici the request held
+five excerpts and 80,000 characters, about 20,000 tokens. `generate --agent`
+writes the same request to `.complex-md/prompt.md` and sends nothing, so you
+can read it first.

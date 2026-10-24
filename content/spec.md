@@ -463,8 +463,9 @@ Three ways to produce a conforming COMPLEX.md:
    1,300-file repository), writes the front matter itself so no number
    passes through a model, and makes one model call for the prose (or hands
    the prompt bundle to the agent you are already using when no API key is
-   set). Nothing but the top hotspot files and the signals table leaves the
-   machine. The same package provides the hooks described
+   set). Without a key it sends nothing. With a key, the one call carries
+   the signals and excerpts of up to ten hotspot files, about 60,000
+   characters in all. The same package provides the hooks described
    under "Enforcement and runtime".
 2. **The skill.** Download the [complex-md skill](/skill) and run it with any
    coding agent inside the repo. Where Node is available the skill runs the
@@ -674,9 +675,11 @@ that: an algorithm that flags too much loses all impact.
 
 ### Does the whole repo get sent to a model?
 
-No. The signals are computed
-locally by git and grep. Only the signals table and the text of the top 5 to
-10 hotspot files go into the model call, capped around 15k tokens.
+No. The signals are computed locally by git and Node.js. Without a key,
+nothing is sent. With a key, one model call carries the generation prompt,
+the signals table and excerpts of up to ten hotspot files: about 14,000
+characters each and 60,000 in all. On undici that request is about 80,000
+characters, about 20,000 tokens.
 
 ### Can I write one for a repo I do not own?
 

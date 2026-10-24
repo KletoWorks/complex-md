@@ -53,9 +53,10 @@ the agent at it: "follow complex-md.skill.md to generate COMPLEX.md".
    supports it, a hook that pauses the first edit of a risky file until the
    agent has read why it is risky.
 
-Everything runs on your machine, inside the agent's shell. Nothing is
-uploaded anywhere. The exact signals, formulas and rules are in the
-[spec](/spec).
+The analysis runs on your machine, inside the agent's shell, and the skill
+calls no model of its own. Your agent reads the inputs and writes the file
+with the model it already uses. The exact signals, formulas and rules are in
+the [spec](/spec).
 
 ## Versioning
 
