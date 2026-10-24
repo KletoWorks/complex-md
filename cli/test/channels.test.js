@@ -208,6 +208,23 @@ test('antigravity: flat .agents/rules briefs with a glob trigger; the user\'s ru
   assert.ok(!existsSync(join(plain, '.agents/rules')), 'not detected without the folder');
 });
 
+/* Devin Desktop (formerly Windsurf) reads .devin/rules/*.md, and
+   .windsurf/rules/*.md as the fallback. A `glob` trigger applies the rule
+   when the agent reads or edits a file `globs` matches. */
+test('devin and windsurf: one glob triggered brief per path in each rules folder', () => {
+  for (const folder of ['.devin', '.windsurf']) {
+    const dir = repo({ [`${folder}/rules/house.md`]: '---\ntrigger: always_on\n---\nmine\n' });
+    const r = wire(dir, {});
+    const ours = Object.entries(briefsIn(dir, `${folder}/rules`)).filter(([f]) => f.startsWith('complex-md-'));
+    assert.equal(ours.length, BRIEFED.length, folder);
+    for (const [, b] of ours) assert.equal(b.front.trigger, 'glob');
+    assert.deepEqual(ours.map(([, b]) => b.front.globs).sort(), BRIEFED);
+    assert.ok(ours.every(([, b]) => b.body.length < 12000), 'under the 12,000 character limit per rule');
+    assert.equal(read(dir, `${folder}/rules/house.md`), '---\ntrigger: always_on\n---\nmine\n');
+    assert.ok(r.rules.includes(`${folder}/rules/complex-md-* (4 paths)`));
+  }
+});
+
 test('a block only rule file is still written when no AGENTS.md carries the block', () => {
   const dir = repo({ 'GEMINI.md': '# Gemini\n', '.cursor': null });
   const r = wire(dir, { agents: ['cursor'] });

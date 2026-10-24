@@ -63,6 +63,8 @@ export function dropBlockCopy(root, rel, report) {
   }
 }
 
+const globRule = (b) => `---\ntrigger: glob\nglobs: ${b.path}\n---\n`;
+
 export function write(p, content) {
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, content);
@@ -313,10 +315,24 @@ export const TARGETS = {
     },
   },
 
+  /* Devin Desktop, formerly Windsurf (docs.devin.ai, Cascade memories and
+     rules). Workspace rules live in .devin/rules/*.md, with
+     .windsurf/rules/*.md as the fallback, at most 12,000 characters each.
+     A `glob` trigger applies a rule when the agent reads or edits a file
+     that `globs` matches. Each target writes its own folder flat, with the
+     complex-md- prefix, and clears only prefixed files. */
+  devin: {
+    detect: (root) => existsSync(join(root, '.devin')),
+    rules({ root, briefs, report }) {
+      writeBriefs(join(root, '.devin/rules'), briefs, globRule, report, { name: '.devin/rules/complex-md-*', ext: '.md', prefix: 'complex-md-' });
+    },
+  },
+
   windsurf: {
     detect: (root) => existsSync(join(root, '.windsurf')),
-    rules({ root, block, paths, report, carried }) {
+    rules({ root, block, paths, briefs, report, carried }) {
       blockRule(root, '.windsurf/rules/complex-md.md', `---\ntrigger: glob\nglobs: ${paths.join(', ')}\n---\n${block}`, carried, report);
+      writeBriefs(join(root, '.windsurf/rules'), briefs, globRule, report, { name: '.windsurf/rules/complex-md-*', ext: '.md', prefix: 'complex-md-' });
     },
   },
 
