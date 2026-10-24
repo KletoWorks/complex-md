@@ -80,8 +80,9 @@ tests on 12 of 12 risky edits.
 
 ## Why a computed instruction works
 
-AGENTS.md tells an agent how to work in a project. It cannot say which
-test suite guards which file, because nobody keeps that list current.
+AGENTS.md tells an agent how to work in a project. A hand written file
+rarely says which test suite guards which file, because that list changes
+as the code changes.
 COMPLEX.md computes it from the dependency graph and the commit history,
 and it puts the instruction in the paragraph for the file. `CLAUDE.md`
 loads the map at the start of a session, so the instruction is in the
@@ -91,9 +92,10 @@ agent's context before the first edit. It is one command long.
 
 One agent and one model: Claude Opus 5 in Claude Code 2.1.260. The count
 is 17 risky edits without the map and 15 with it, on two JavaScript
-repositories. The scorer reads the
-agent's shell commands, so a test run through another tool would not
-count. The runs with the map cost more at API prices: at the median, 17%
+repositories. The scorer reads the agent's shell commands, so a test run
+through another tool would not count. Each task worktree shared the
+clone's history, so an agent in any arm could read commits after its
+base, the fix among them. The runs with the map cost more at API prices: at the median, 17%
 to 31% more for the map alone, and about 50% more with the hook. A month's
 map is built at the first task of that month, so for some tasks it holds
 history from after the task's own fix: 12 of 30 `fastify-damage` tasks and
