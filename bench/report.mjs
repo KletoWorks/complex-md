@@ -153,5 +153,10 @@ if (damaged.length) {
   }
 }
 
+/* A run without the sandbox could reach later history through git, the
+   network or the disk. Rows recorded before the sandbox have no field. */
+const exposed = runs.filter((r) => r.arm !== 'gold' && r.sandbox !== true);
+if (exposed.length) console.log(`\n${exposed.length} agent runs ran without the sandbox, so later history was within their reach: ${exposed.map((r) => `${r.task}/${r.arm}`).join(', ')}`);
+
 const errs = runs.filter((r) => r.error);
 if (errs.length) console.log(`\n${errs.length} runs with errors: ${errs.map((r) => `${r.task}/${r.arm}`).join(', ')}`);

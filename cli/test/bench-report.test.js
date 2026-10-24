@@ -66,6 +66,18 @@ test('wall clock pairs use the harness clock, so timed out runs are not left out
   assert.match(out, /Cost is unknown for 10 runs/);
 });
 
+test('the report says how many agent runs had no isolation', () => {
+  const out = report([
+    row('a', 'none', { sandbox: true }),
+    row('a', 'file', { sandbox: false }),
+    row('b', 'none'), // recorded before the sandbox existed
+    row('b', 'gold'), // no agent ran
+  ]);
+  assert.match(out, /2 agent runs ran without the sandbox/);
+  const clean = report([row('a', 'none', { sandbox: true }), row('a', 'gold')]);
+  assert.doesNotMatch(clean, /without the sandbox/);
+});
+
 test('conduct in the damage table is the named test check, with the old flag as a fallback', () => {
   const d = (task, arm, extra) => row(task, arm, { regressed_tests: 0, regressed_files: 0, edited_risky: ['lib/a.js'], partners_missed: [], agent_test_runs: 3, ...extra });
   const out = report([
