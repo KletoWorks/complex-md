@@ -47,6 +47,9 @@ const BANNED = [
   { re: /by git and grep/i, why: 'the CLI computes the signals with git and Node.js; it runs no grep' },
   { re: /capped (around|near) 15k/i, why: 'the cap is on the excerpts (about 60,000 characters); the whole request is larger' },
   { re: /safe to remove/i, why: 'there is no unwire command; name the files wire writes instead' },
+  { re: /(?<![a-z])grep (skips?|classif(y|ies)|treats?)/i, why: 'GNU grep prints "binary file matches"; ripgrep is the one that stays silent (bench/repro/nul-byte.sh)' },
+  { re: /unreadable by grep/i, why: 'name ripgrep, the tool that skips the file in silence' },
+  { re: /no warning, exit 0/i, why: 'the exit code differs by ripgrep build; the repro shows no match and no warning' },
 ];
 
 for (const rule of BANNED) {

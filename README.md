@@ -38,10 +38,12 @@ The endpoint existed. It was implemented, routed and mounted.
 
 One module in that package, about 60 kB, carried a single NUL byte at offset
 53248: a map key separator written as a literal byte where an escape was
-meant. grep classifies a file containing a NUL as binary and skips it in
-silence when its output is piped. No match, no warning, exit 0. Every search
-across that package had been stepping over the one file that answered the
-question.
+meant. ripgrep, which Claude Code's Grep tool runs, classifies a file
+containing a NUL as binary. Searching a directory, it skips that file in
+silence: no match, no warning. GNU grep prints "binary file matches" and not
+the line. Every search across that package had been stepping over the one
+file that answered the question. [bench/repro/nul-byte.sh](bench/repro/nul-byte.sh)
+reproduces it with each tool.
 
 COMPLEX.md had ranked that module and written a paragraph about it, because
 the signals come from the dependency graph and the commit history rather than
