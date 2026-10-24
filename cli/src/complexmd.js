@@ -112,7 +112,7 @@ function names(para, name) {
    and some editors write a byte order mark. Either one made the map parse
    to null, and every hook then went silent on that machine. */
 function normalizeNewlines(text) {
-  return text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+  return text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
 }
 
 function lastSentence(para) {
