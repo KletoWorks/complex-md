@@ -47,7 +47,7 @@ export const VIA_CLIS = [
     args: ({ model, promptRel }) => [...m('--model', model), '--prompt', fileInstruction(promptRel)] },
   { name: 'crush', bins: ['crush'], input: 'stdin', docs: 'https://github.com/charmbracelet/crush/blob/main/internal/cmd/run.go',
     args: ({ model }) => ['run', '--quiet', ...m('--model', model), ARG_INSTRUCTION] },
-  { name: 'goose', bins: ['goose'], input: 'stdin', docs: 'https://block.github.io/goose/docs/guides/goose-cli-commands',
+  { name: 'goose', bins: ['goose'], input: 'stdin', docs: 'https://github.com/block/goose/blob/main/documentation/docs/guides/goose-cli-commands.md',
     args: ({ model }) => ['run', '--instructions', '-', '--no-session', '--quiet', ...m('--model', model)] },
   { name: 'cursor-agent', bins: ['cursor-agent', 'agent'], input: 'file', docs: 'https://cursor.com/docs/cli/headless',
     // Without --force, print mode proposes changes and applies none.
