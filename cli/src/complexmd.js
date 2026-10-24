@@ -27,7 +27,24 @@ export function parseComplexMd(text) {
   const hotspotParas = paragraphs(sections['Why these files are hot'] || '');
   const couplingParas = paragraphs(sections['Change coupling'] || '');
   const mentions = mentionMatcher(fm);
-  const paragraphFor = (path) => hotspotParas.find((para) => mentions(para, path)) || null;
+  /* A file's own paragraph opens with its name; other paragraphs name it
+     later, as a partner to keep in step. Taking the first paragraph that
+     mentioned the path handed one file another file's directive. So a
+     paragraph that names the full path beats one that names only a suffix,
+     and within each kind the earliest mention wins. Ties keep map order. */
+  const paragraphFor = (path) => {
+    let best = null;
+    let bestHit = null;
+    for (const para of hotspotParas) {
+      const hit = mentions(para, path);
+      if (!hit) continue;
+      const better = !bestHit
+        || (hit.full && !bestHit.full)
+        || (hit.full === bestHit.full && hit.at < bestHit.at);
+      if (better) { best = para; bestHit = hit; }
+    }
+    return best;
+  };
   const couplingFor = (path) => couplingParas.filter((para) => mentions(para, path));
   return {
     front: fm,
@@ -60,15 +77,16 @@ export function parseComplexMd(text) {
   };
 }
 
-/* Does a paragraph name this path? A paragraph names a path with the full
-   path, or with a shorter suffix such as its basename. A suffix counts only
-   when the path is in the map and no other mapped path ends with the same
-   suffix. A monorepo maps several index.ts or __init__.py files, and a plain
-   substring test gave every one of them the paragraph of the first. A name
-   counts only with a boundary on each side, so src/index.ts is not found
-   inside packages/a/src/index.ts. The search looks for the path itself
+/* Where does a paragraph name this path? A paragraph names a path with the
+   full path, or with a shorter suffix such as its basename. A suffix counts
+   only when the path is in the map and no other mapped path ends with the
+   same suffix. A monorepo maps several index.ts or __init__.py files, and a
+   plain substring test gave every one of them the paragraph of the first. A
+   name counts only with a boundary on each side, so src/index.ts is not
+   found inside packages/a/src/index.ts. The search looks for the path itself
    rather than splitting prose into words, because route files carry
-   brackets, parentheses and plus signs (app/[slug]/page.tsx). */
+   brackets, parentheses and plus signs (app/[slug]/page.tsx). The matcher
+   returns { full, at } for the earliest mention, or null. */
 function mentionMatcher(fm) {
   const mapped = new Set([
     ...(fm.hotspots || []).map((h) => h.path),
@@ -78,22 +96,27 @@ function mentionMatcher(fm) {
   const endsWith = (p, suffix) => p === suffix || p.endsWith('/' + suffix);
   const sharedSuffix = (path, suffix) => [...mapped].some((p) => p !== path && endsWith(p, suffix));
   return (para, path) => {
-    if (names(para, path)) return true;
-    if (!mapped.has(path)) return false;
+    const at = nameAt(para, path);
+    if (at >= 0) return { full: true, at };
+    if (!mapped.has(path)) return null;
+    let best = -1;
     const parts = path.split('/');
     for (let k = 1; k < parts.length; k++) {
       const suffix = parts.slice(k).join('/');
       if (!suffix.includes('/') && suffix.length <= 6) continue;
-      if (!sharedSuffix(path, suffix) && names(para, suffix)) return true;
+      if (sharedSuffix(path, suffix)) continue;
+      const i = nameAt(para, suffix);
+      if (i >= 0 && (best < 0 || i < best)) best = i;
     }
-    return false;
+    return best >= 0 ? { full: false, at: best } : null;
   };
 }
 
-/* True when para holds name with no path character joined to either end.
-   A leading ./ is allowed, and so is a full stop that ends a sentence. */
-function names(para, name) {
-  if (!name) return false;
+/* The index where para holds name with no path character joined to either
+   end, or -1. A leading ./ is allowed, and so is a full stop that ends a
+   sentence. */
+function nameAt(para, name) {
+  if (!name) return -1;
   for (let i = para.indexOf(name); i !== -1; i = para.indexOf(name, i + 1)) {
     let start = i;
     if (para.slice(i - 2, i) === './') start = i - 2;
@@ -103,9 +126,9 @@ function names(para, name) {
     if (before !== undefined && /[\w@.\/+~$-]/.test(before)) continue;
     if (after !== undefined && /[\w@\/+~$-]/.test(after)) continue;
     if (after === '.' && /\w/.test(para[end + 1] || '')) continue;
-    return true;
+    return start;
   }
-  return false;
+  return -1;
 }
 
 /* A Windows checkout has CRLF line ends by default (core.autocrlf=true),

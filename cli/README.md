@@ -78,6 +78,7 @@ runs it on stdio. Six tools:
     npx complex-md check [--staged | --base main] [--json] [--strict]
     npx complex-md signals [--json | --tsv]
     npx complex-md impact <path> [--json] [--strict]
+    npx complex-md report                # write .complex-md/report.html, a page of the map
     npx complex-md wire [--no-hooks] [--mcp]
                         [--for claude,cursor,openhands,codex,windsurf,cline,openclaw,hermes]
     npx complex-md generate --agent      # write the prompt bundle, no model call

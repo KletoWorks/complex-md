@@ -132,3 +132,18 @@ test('parseFrontMatter accepts CRLF input on its own', () => {
   assert.equal(fm.complex_md, '0.3');
   assert.deepEqual(fm.hotspots, [{ path: 'a.js', score: 5 }]);
 });
+
+test('a paragraph that names the full path beats an earlier mention of the basename', () => {
+  // The first paragraph names generate.js by its basename near its start.
+  // The second paragraph is the file's own, and it names the full path a
+  // little later in its text. Position alone would pick the first one.
+  const m = parseComplexMd(`---\ncomplex_md: "0.3"\nhotspots:\n  - path: cli/src/signals.js\n  - path: cli/src/generate.js\n---\n\n## Why these files are hot\n\ncli/src/signals.js hands its rows to generate.js. Before editing this file, run test/signals.test.js.\n\nThe model call and the reply checks live in cli/src/generate.js. Before editing this file, run test/generate.test.js.\n`);
+  assert.equal(m.directive('cli/src/generate.js'), 'Before editing this file, run test/generate.test.js.');
+  assert.equal(m.directive('cli/src/signals.js'), 'Before editing this file, run test/signals.test.js.');
+});
+
+test('among suffix mentions of a path, the earliest one wins', () => {
+  const m = parseComplexMd(`---\ncomplex_md: "0.3"\nhotspots:\n  - path: lib/core/router.js\n  - path: lib/core/server.js\n---\n\n## Why these files are hot\n\nThe server in server.js starts every listener and calls router.js. Before editing this file, run the server tests.\n\nrouter.js dispatches each request. Before editing this file, run the router tests.\n`);
+  assert.equal(m.directive('lib/core/router.js'), 'Before editing this file, run the router tests.');
+  assert.equal(m.directive('lib/core/server.js'), 'Before editing this file, run the server tests.');
+});

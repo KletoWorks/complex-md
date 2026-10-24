@@ -65,6 +65,15 @@ test('COMPLEX.md index finds paragraph, directive and partners by path', () => {
   assert.equal(m.row('src/zzz.js'), null);
 });
 
+test('a file gets its own paragraph even when an earlier paragraph names it', () => {
+  // Generated maps cross reference: the paragraph for one hot file tells the
+  // reader to keep it in step with another hot file further down.
+  const m = parseComplexMd(`---\ncomplex_md: "0.3"\nhotspots:\n  - path: src/a.js\n  - path: src/b.js\n---\n\n## Why these files are hot\n\nsrc/a.js reads the table. Before editing this file, keep it in step with src/b.js.\n\nsrc/b.js writes the table. Before editing this file, run test/b.test.js.\n`);
+  assert.match(m.paragraphFor('src/b.js'), /^src\/b\.js writes the table/);
+  assert.equal(m.directive('src/b.js'), 'Before editing this file, run test/b.test.js.');
+  assert.equal(m.directive('src/a.js'), 'Before editing this file, keep it in step with src/b.js.');
+});
+
 test('normalizeOutput strips fences and replaces model front matter with the computed one', () => {
   const fm = '---\ncomplex_md: "0.3"\n---\n';
   const prose = '## Where the risk lives\n\nx\n\n## Why these files are hot\n\ny\n\n## Change coupling\n\nz\n\n## What to read first\n\n1. a';

@@ -28,6 +28,8 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
   npx complex-md check           report hotspots, untouched co-change partners and hand edited briefs in the change
                                  --staged | --base <ref> | --json | --strict (exit 1 on findings)
   npx complex-md signals         print the signals table  (--json | --tsv)
+  npx complex-md report          render COMPLEX.md as a page: .complex-md/report.html (treemap, directives,
+                                 co-change, blind spots); one self contained file, no network
   npx complex-md hook <kind>     hook handler: pre | stop | cursor-pre | cursor-stop   [--mode gate|warn|off]
 
 Model call: the first configured provider wins, or pick one with --provider / --model provider/id.
@@ -52,6 +54,24 @@ async function main() {
   if (cmd === 'mcp') {
     const { serveStdio } = await import('../src/mcp.js');
     return serveStdio(opt('--root') || process.cwd());
+  }
+
+  // The report reads the map, not the history: it needs no commits, and
+  // outside a repository it reads COMPLEX.md in the current directory.
+  if (cmd === 'report') {
+    const { existsSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { writeReport } = await import('../src/report.js');
+    const dir = repoRoot(process.cwd()) || process.cwd();
+    const out = writeReport(dir, { version: pkg.version });
+    if (!out) {
+      log(existsSync(join(dir, 'COMPLEX.md'))
+        ? `complex-md: ${join(dir, 'COMPLEX.md')} has no front matter block to read. Regenerate it with npx complex-md, then run npx complex-md report again.`
+        : `complex-md: no COMPLEX.md in ${dir}. Make one with npx complex-md (or npx complex-md generate --agent to have your coding agent write it), then run npx complex-md report again.`);
+      process.exit(2);
+    }
+    console.log(out);
+    return;
   }
 
   const root = repoRoot(process.cwd());
