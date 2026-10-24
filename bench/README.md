@@ -19,10 +19,18 @@ agent runs from a clean worktree at the parent commit under two or more arms:
 | `hooks` | `file` plus the PreToolUse gate and Stop check |
 | `mcp` | `hooks` plus the MCP server |
 
-The map is computed at the task's base commit with the history window
-anchored there, so the fix being tested never leaks into its own `fixes`
-count. One map per calendar month of base dates, which is how often a map
-gets regenerated in practice.
+An arm gets what this checkout's `wire` writes. The published runs were
+wired when `wire` also wrote `.claude/rules/complex-md.md`: the
+integration block again, loaded when the agent touched a listed path.
+`wire` no longer writes it, so a rerun of the `file` arm is not the arm
+those runs measured. Each new row records `cli_version` and `cli_commit`,
+the CLI that wired it. Compare a rerun with rows wired the same way.
+
+One map serves each calendar month of fix dates, which is how often a map
+gets regenerated in practice. It is computed at the base commit of the first
+task the harness runs in that month, with the history window anchored there.
+When a later run task in the same month has an earlier fix, that fix is
+inside the map's history.
 
 **Task selection.** `make-dataset.mjs --danger` keeps the fixes that touched
 a file the map calls risky (a hotspot, a load-bearing file, one side of a
@@ -117,6 +125,23 @@ good or better than the 0.3 score at this job on all five. The structural
 term buys blast-radius awareness (a quiet, heavily imported file on the
 list), not fix prediction. `complex_where_to_look` therefore orders by
 `churn_w * loc`; the hotspot list keeps the score.
+
+## Scores from the recorded runs (no model)
+
+These scripts read committed runs and fix history. They spend nothing.
+
+- `node bench/comply.mjs <results> <dataset>`: for each file an agent
+  edited, did it run the tests the map names for that file. Arms pair on
+  task and file, with McNemar's exact test per arm.
+- `node bench/partners.mjs`: co-change partner misses per arm on the damage
+  runs. It writes `bench/results/partners.json`. The primary definition
+  counts a Read or an edit of the partner. The wider definition was chosen
+  after the primary result was known, so it is exploratory.
+- `node bench/selectors.mjs --repo <clone> --name <name>`: a test selector
+  backtest on fix history. `--known <results> --dataset <path>` scores the
+  selectors on the tests agents broke in recorded runs, and `--summary
+  bench/results/selectors` pools the repositories. Method and tables:
+  [SELECTORS.md](SELECTORS.md).
 
 ## Caveats
 

@@ -1,0 +1,382 @@
+{
+  "question": "When the agent edits one file of a source co-change pair, does it miss the partner less often with the map than without it?",
+  "primary": "edit_recorded",
+  "exploratory": "every *_corrected comparison: the corrected definition was set after the edit_recorded result was known",
+  "definitions": {
+    "recorded": "partner read with Read or edited with an edit tool (the harness partners_missed field)",
+    "corrected": "a tool call targets the partner: Read or edit on it, Grep or Glob path, or a Bash command naming it (Grep patterns and commands on COMPLEX.md do not count)",
+    "edit": "unit is one edited file in one task; arms pair when both edited that file",
+    "run": "unit is one task; a run misses when any partner of any edited file went unseen",
+    "no_error_runs": "runs that ended in an error (budget stop) left out, as the harness counted them",
+    "favours_map": "pairs where only the none run missed a partner",
+    "against_map": "pairs where only the map arm missed a partner",
+    "p": "McNemar exact two sided, bench/stats.mjs"
+  },
+  "repositories": {
+    "undici": {
+      "results": "bench/results/undici-damage",
+      "dataset": "bench/data/undici-danger.json",
+      "runs": 60,
+      "comparisons": {
+        "file": {
+          "edit_recorded": {
+            "pairs": 20,
+            "missed_none": 13,
+            "missed_arm": 9,
+            "favours_map": 6,
+            "against_map": 2,
+            "p": 0.289
+          },
+          "edit_corrected": {
+            "pairs": 20,
+            "missed_none": 9,
+            "missed_arm": 2,
+            "favours_map": 8,
+            "against_map": 1,
+            "p": 0.0391
+          },
+          "run_recorded": {
+            "pairs": 30,
+            "missed_none": 13,
+            "missed_arm": 8,
+            "favours_map": 6,
+            "against_map": 1,
+            "p": 0.125
+          },
+          "run_corrected": {
+            "pairs": 30,
+            "missed_none": 9,
+            "missed_arm": 2,
+            "favours_map": 8,
+            "against_map": 1,
+            "p": 0.0391
+          },
+          "run_recorded_no_error_runs": {
+            "pairs": 27,
+            "missed_none": 11,
+            "missed_arm": 7,
+            "favours_map": 5,
+            "against_map": 1,
+            "p": 0.219
+          },
+          "run_corrected_no_error_runs": {
+            "pairs": 27,
+            "missed_none": 8,
+            "missed_arm": 2,
+            "favours_map": 7,
+            "against_map": 1,
+            "p": 0.0703
+          }
+        }
+      },
+      "totals": {
+        "edit_recorded": {
+          "none": {
+            "missed": 14,
+            "units": 21
+          },
+          "file": {
+            "missed": 10,
+            "units": 22
+          }
+        },
+        "edit_corrected": {
+          "none": {
+            "missed": 10,
+            "units": 21
+          },
+          "file": {
+            "missed": 3,
+            "units": 22
+          }
+        },
+        "run_recorded": {
+          "none": {
+            "missed": 13,
+            "units": 30
+          },
+          "file": {
+            "missed": 8,
+            "units": 30
+          }
+        },
+        "run_corrected": {
+          "none": {
+            "missed": 9,
+            "units": 30
+          },
+          "file": {
+            "missed": 2,
+            "units": 30
+          }
+        },
+        "run_recorded_no_error_runs": {
+          "none": {
+            "missed": 11,
+            "units": 27
+          },
+          "file": {
+            "missed": 7,
+            "units": 28
+          }
+        },
+        "run_corrected_no_error_runs": {
+          "none": {
+            "missed": 8,
+            "units": 27
+          },
+          "file": {
+            "missed": 2,
+            "units": 28
+          }
+        }
+      }
+    },
+    "fastify": {
+      "results": "bench/results/fastify-damage",
+      "dataset": "bench/data/fastify-danger.json",
+      "runs": 90,
+      "comparisons": {
+        "file": {
+          "edit_recorded": {
+            "pairs": 33,
+            "missed_none": 29,
+            "missed_arm": 28,
+            "favours_map": 1,
+            "against_map": 0,
+            "p": 1
+          },
+          "edit_corrected": {
+            "pairs": 33,
+            "missed_none": 25,
+            "missed_arm": 17,
+            "favours_map": 8,
+            "against_map": 0,
+            "p": 0.00781
+          },
+          "run_recorded": {
+            "pairs": 30,
+            "missed_none": 25,
+            "missed_arm": 24,
+            "favours_map": 1,
+            "against_map": 0,
+            "p": 1
+          },
+          "run_corrected": {
+            "pairs": 30,
+            "missed_none": 23,
+            "missed_arm": 15,
+            "favours_map": 8,
+            "against_map": 0,
+            "p": 0.00781
+          },
+          "run_recorded_no_error_runs": {
+            "pairs": 30,
+            "missed_none": 25,
+            "missed_arm": 24,
+            "favours_map": 1,
+            "against_map": 0,
+            "p": 1
+          },
+          "run_corrected_no_error_runs": {
+            "pairs": 30,
+            "missed_none": 23,
+            "missed_arm": 15,
+            "favours_map": 8,
+            "against_map": 0,
+            "p": 0.00781
+          }
+        },
+        "hooks": {
+          "edit_recorded": {
+            "pairs": 31,
+            "missed_none": 29,
+            "missed_arm": 23,
+            "favours_map": 6,
+            "against_map": 0,
+            "p": 0.0313
+          },
+          "edit_corrected": {
+            "pairs": 31,
+            "missed_none": 25,
+            "missed_arm": 8,
+            "favours_map": 17,
+            "against_map": 0,
+            "p": 0.0000153
+          },
+          "run_recorded": {
+            "pairs": 30,
+            "missed_none": 25,
+            "missed_arm": 19,
+            "favours_map": 6,
+            "against_map": 0,
+            "p": 0.0313
+          },
+          "run_corrected": {
+            "pairs": 30,
+            "missed_none": 23,
+            "missed_arm": 7,
+            "favours_map": 16,
+            "against_map": 0,
+            "p": 0.0000305
+          },
+          "run_recorded_no_error_runs": {
+            "pairs": 30,
+            "missed_none": 25,
+            "missed_arm": 19,
+            "favours_map": 6,
+            "against_map": 0,
+            "p": 0.0313
+          },
+          "run_corrected_no_error_runs": {
+            "pairs": 30,
+            "missed_none": 23,
+            "missed_arm": 7,
+            "favours_map": 16,
+            "against_map": 0,
+            "p": 0.0000305
+          }
+        }
+      },
+      "totals": {
+        "edit_recorded": {
+          "file": {
+            "missed": 28,
+            "units": 33
+          },
+          "none": {
+            "missed": 29,
+            "units": 34
+          },
+          "hooks": {
+            "missed": 23,
+            "units": 31
+          }
+        },
+        "edit_corrected": {
+          "file": {
+            "missed": 17,
+            "units": 33
+          },
+          "none": {
+            "missed": 25,
+            "units": 34
+          },
+          "hooks": {
+            "missed": 8,
+            "units": 31
+          }
+        },
+        "run_recorded": {
+          "file": {
+            "missed": 24,
+            "units": 30
+          },
+          "none": {
+            "missed": 25,
+            "units": 30
+          },
+          "hooks": {
+            "missed": 19,
+            "units": 30
+          }
+        },
+        "run_corrected": {
+          "file": {
+            "missed": 15,
+            "units": 30
+          },
+          "none": {
+            "missed": 23,
+            "units": 30
+          },
+          "hooks": {
+            "missed": 7,
+            "units": 30
+          }
+        },
+        "run_recorded_no_error_runs": {
+          "file": {
+            "missed": 24,
+            "units": 30
+          },
+          "none": {
+            "missed": 25,
+            "units": 30
+          },
+          "hooks": {
+            "missed": 19,
+            "units": 30
+          }
+        },
+        "run_corrected_no_error_runs": {
+          "file": {
+            "missed": 15,
+            "units": 30
+          },
+          "none": {
+            "missed": 23,
+            "units": 30
+          },
+          "hooks": {
+            "missed": 7,
+            "units": 30
+          }
+        }
+      }
+    }
+  },
+  "pooled": {
+    "arms": "file against none, undici and fastify",
+    "comparisons": {
+      "edit_recorded": {
+        "pairs": 53,
+        "missed_none": 42,
+        "missed_arm": 37,
+        "favours_map": 7,
+        "against_map": 2,
+        "p": 0.18
+      },
+      "edit_corrected": {
+        "pairs": 53,
+        "missed_none": 34,
+        "missed_arm": 19,
+        "favours_map": 16,
+        "against_map": 1,
+        "p": 0.000275
+      },
+      "run_recorded": {
+        "pairs": 60,
+        "missed_none": 38,
+        "missed_arm": 32,
+        "favours_map": 7,
+        "against_map": 1,
+        "p": 0.0703
+      },
+      "run_corrected": {
+        "pairs": 60,
+        "missed_none": 32,
+        "missed_arm": 17,
+        "favours_map": 16,
+        "against_map": 1,
+        "p": 0.000275
+      },
+      "run_recorded_no_error_runs": {
+        "pairs": 57,
+        "missed_none": 36,
+        "missed_arm": 31,
+        "favours_map": 6,
+        "against_map": 1,
+        "p": 0.125
+      },
+      "run_corrected_no_error_runs": {
+        "pairs": 57,
+        "missed_none": 31,
+        "missed_arm": 17,
+        "favours_map": 15,
+        "against_map": 1,
+        "p": 0.000519
+      }
+    }
+  }
+}

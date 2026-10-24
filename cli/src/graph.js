@@ -26,6 +26,18 @@ const GENERATED_HEADER_RE = /@generated|DO NOT EDIT|Code generated|automatically
 
 const MAX_READ = 1024 * 1024;
 
+/* The NUL blind spot names code a reader would search and could fix. A
+   test directory holds binary fixtures by design: compressed corpora,
+   compiled .mo catalogs, archives. One repository listed 93 of them and
+   advised fixing the byte in each. A file counts only when its extension
+   is a code extension and it sits outside a fixture or data directory. */
+const FIXTURE_DIR_RE = /(^|\/)(fixtures?|testdata|test[_-]?data|__fixtures__|__snapshots__|data|datasets?|seed-data|mocks?|__mocks__)\//;
+const CODE_KINDS = new Set(['source', 'style', 'markup', 'test']);
+
+function namesAsGrepBlind(path, kind) {
+  return CODE_KINDS.has(kind) && (SOURCE_EXT_RE.test(path) || STYLE_RE.test(path) || MARKUP_RE.test(path)) && !FIXTURE_DIR_RE.test(path);
+}
+
 /**
  * Classify one repo-relative path. Order matters: vendored and generated
  * win over everything (a vendored test is still vendored); tests win over
@@ -191,10 +203,9 @@ export function buildGraph(root, tracked) {
   const texts = new Map();
   let skippedLarge = 0;
   // Text files carrying a NUL past the sniff window below. They read as
-  // source here and are invisible to grep, which is a blind spot the map
+  // source here and ripgrep skips them, which is a blind spot the map
   // has to declare rather than paper over. See grepBlind at the return.
   const grepBlind = [];
-  const TEXT_KINDS = new Set(['source', 'style', 'markup', 'config', 'docs', 'data', 'manifest', 'test']);
   for (const f of tracked) {
     if (BINARY_RE.test(f)) { kinds.set(f, 'asset'); continue; }
     let buf;
@@ -210,10 +221,10 @@ export function buildGraph(root, tracked) {
       /* A file whose EXTENSION says source and whose bytes say binary is
          almost never an asset that was misnamed; it is a source file with a
          stray control byte in it. Dropping it from the map without a word
-         hides a file that grep is also skipping without a word, so the
+         hides a file that ripgrep is also skipping without a word, so the
          repository ends up with a module nothing can find. Classify it as an
          asset as before, and say so. */
-      if (TEXT_KINDS.has(classify(f))) grepBlind.push(f);
+      if (namesAsGrepBlind(f, classify(f))) grepBlind.push(f);
       kinds.set(f, 'asset');
       continue;
     }
@@ -221,14 +232,15 @@ export function buildGraph(root, tracked) {
     heads.set(f, head);
     const kind = classify(f, head);
     kinds.set(f, kind);
-    /* A NUL ANYWHERE in a file makes grep classify it as binary, and grep
-       skips a binary file in SILENCE when its output is piped: no match, no
-       warning, exit 0. The sniff above only reads the first 8k, so a file can
+    /* A NUL ANYWHERE in a file makes ripgrep classify it as binary, and a
+       directory search then prints nothing for it: no match, no warning.
+       Claude Code's Grep tool runs ripgrep; GNU grep prints only "binary file
+       matches" (bench/repro/nul-byte.sh). The sniff above only reads the first 8k, so a file can
        pass as text here, be ranked and described in the map, and still be
        unreachable by every text search in the repository. That is the worst
        case, because the map then implies the file is findable. Scanning the
        whole buffer is one pass over bytes already in memory. */
-    if (TEXT_KINDS.has(kind) && buf.includes(0)) {
+    if (namesAsGrepBlind(f, kind) && buf.includes(0)) {
       grepBlind.push(f);
     }
     loc.set(f, countLines(buf));

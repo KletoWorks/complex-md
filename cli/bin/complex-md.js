@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
-import { repoRoot, hasCommits } from '../src/git.js';
+import { repoRoot, hasCommits, resolvesCommit } from '../src/git.js';
 
 const pkg = createRequire(import.meta.url)('../package.json');
 const [, , cmd = 'generate', ...args] = process.argv;
@@ -17,12 +17,19 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
   npx complex-md generate        same; --agent writes the prompt bundle for your agent instead of calling a model
                                  --model <id>  --provider <name>  --no-wire  --no-hooks
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
-                                 --for claude,cursor,openhands,codex,windsurf,cline,roo,openclaw,hermes
-                                 (default: detect repo-local targets; openclaw/hermes are global registries,
-                                  opt-in only, wired through their own CLIs)
-  npx complex-md check           report hotspots and untouched co-change partners in the current change
+                                 --no-hooks  --for claude,cursor,openhands,antigravity,codex,copilot,review,devin,
+                                 windsurf,kiro,cline,openclaw,hermes
+                                 (default: detect repo-local targets; openclaw/hermes are opt-in only and get
+                                  .agents/skills/complex-md/SKILL.md)
+                                 --mcp also registers the MCP server; openclaw/hermes are global
+                                 registries, wired with --mcp --for openclaw,hermes through their own CLIs
+  npx complex-md impact <path>   what changing a file reaches, against .complex-md/bounds.json
+                                 --json | --strict (exit 1 when a declared bound is exceeded)
+  npx complex-md check           report hotspots, untouched co-change partners and hand edited briefs in the change
                                  --staged | --base <ref> | --json | --strict (exit 1 on findings)
   npx complex-md signals         print the signals table  (--json | --tsv)
+  npx complex-md report          render COMPLEX.md as a page: .complex-md/report.html (treemap, directives,
+                                 co-change, blind spots); one self contained file, no network
   npx complex-md hook <kind>     hook handler: pre | stop | cursor-pre | cursor-stop   [--mode gate|warn|off]
 
 Model call: the first configured provider wins, or pick one with --provider / --model provider/id.
@@ -30,7 +37,8 @@ Keys: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, XAI
 DEEPSEEK_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, TOGETHER_API_KEY; local Ollama via OLLAMA_HOST;
 any OpenAI-compatible endpoint via COMPLEX_MD_BASE_URL (+ COMPLEX_MD_API_KEY).
 Without any of them the prompt bundle goes to .complex-md/prompt.md for the agent you already run.
-Nothing leaves the machine except the signals table and the top hotspot files, in that one call.`;
+Without a key nothing is sent. With one, that call sends the signals and excerpts of up to ten
+hotspot files, about 60,000 characters of code at most, to the provider you chose.`;
 
 async function main() {
   if (cmd === '--version' || cmd === '-v') return console.log(pkg.version);
@@ -46,6 +54,24 @@ async function main() {
   if (cmd === 'mcp') {
     const { serveStdio } = await import('../src/mcp.js');
     return serveStdio(opt('--root') || process.cwd());
+  }
+
+  // The report reads the map, not the history: it needs no commits, and
+  // outside a repository it reads COMPLEX.md in the current directory.
+  if (cmd === 'report') {
+    const { existsSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { writeReport } = await import('../src/report.js');
+    const dir = repoRoot(process.cwd()) || process.cwd();
+    const out = writeReport(dir, { version: pkg.version });
+    if (!out) {
+      log(existsSync(join(dir, 'COMPLEX.md'))
+        ? `complex-md: ${join(dir, 'COMPLEX.md')} has no front matter block to read. Regenerate it with npx complex-md, then run npx complex-md report again.`
+        : `complex-md: no COMPLEX.md in ${dir}. Make one with npx complex-md (or npx complex-md generate --agent to have your coding agent write it), then run npx complex-md report again.`);
+      process.exit(2);
+    }
+    console.log(out);
+    return;
   }
 
   const root = repoRoot(process.cwd());
@@ -73,8 +99,20 @@ async function main() {
   }
 
   if (cmd === 'check') {
+    const base = opt('--base');
+    if (flag('--base') && (!base || base.startsWith('-'))) {
+      log('complex-md: --base needs a ref, for example --base origin/main.');
+      process.exit(2);
+    }
+    /* A diff against a ref that does not exist is empty, and an empty diff
+       reads as a clean change. A shallow CI checkout has no other branch, so
+       the gate passed on every pull request without running. */
+    if (base && !resolvesCommit(root, base)) {
+      log(`complex-md: the base ref ${base} does not exist in this checkout, so there is no change to check. A shallow CI checkout fetches one commit and no other branch: fetch the history first (actions/checkout with fetch-depth: 0, or git fetch origin).`);
+      process.exit(2);
+    }
     const { runCheck, formatCheck } = await import('../src/check.js');
-    const f = runCheck(root, { base: opt('--base'), staged: flag('--staged') });
+    const f = runCheck(root, { base, staged: flag('--staged') });
     if (flag('--json')) console.log(JSON.stringify(f, null, 2));
     else console.log(formatCheck(f));
     if (flag('--strict') && !f.clean) process.exit(1);

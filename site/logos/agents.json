@@ -72,10 +72,6 @@
   "name": "Warp"
  },
  {
-  "slug": "aider",
-  "name": "Aider"
- },
- {
   "slug": "devin-light",
   "name": "Devin"
  },
@@ -94,9 +90,5 @@
  {
   "slug": "augment",
   "name": "Augment"
- },
- {
-  "slug": "modelcontextprotocol",
-  "name": "MCP"
  }
 ]

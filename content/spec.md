@@ -267,7 +267,7 @@ compiler, a language server, tree-sitter with resolvers, or a code
 intelligence index, and the spec does not pretend otherwise. The line
 matters in both directions.
 
-What the text level buys: the whole analysis runs locally in seconds on any
+What the text level buys: the whole analysis runs locally on any
 repository in any mix of languages, with no build, no dependency install,
 and no toolchain. That is what lets one `npx` run work on a Go module, a
 pnpm monorepo and a pile of Caddy configs alike.
@@ -459,12 +459,13 @@ editing this file, open lib/route.js and fastify.d.ts alongside it, and run
 Three ways to produce a conforming COMPLEX.md:
 
 1. **The CLI**, the reference implementation. `npx complex-md` builds the
-   dependency graph and reads the history locally (about a second on a
-   1,300-file repository), writes the front matter itself so no number
+   dependency graph and reads the history locally, writes the front
+   matter itself so no number
    passes through a model, and makes one model call for the prose (or hands
    the prompt bundle to the agent you are already using when no API key is
-   set). Nothing but the top hotspot files and the signals table leaves the
-   machine. The same package provides the hooks described
+   set). Without a key it sends nothing. With a key, the one call carries
+   the signals and excerpts of up to ten hotspot files, about 60,000
+   characters in all. The same package provides the hooks described
    under "Enforcement and runtime".
 2. **The skill.** Download the [complex-md skill](/skill) and run it with any
    coding agent inside the repo. Where Node is available the skill runs the
@@ -508,36 +509,65 @@ The research on what makes a secondary file get followed drives the shape:
   partially. Four rules, each a single sentence with one action, and one
   note.
 - **Path scope it.** Compliance is lowest when editing existing code late in
-  a session, which is exactly when a hotspot gets edited. Claude Code,
-  Cursor and OpenHands all load rules only when a matching file is touched,
-  so the generator writes a rule whose paths are the hotspot files
-  themselves. The directives reappear at the moment they apply.
+  a session, which is exactly when a hotspot gets edited. Most coding agents
+  and review bots load a rule only when a matching file is touched, so the
+  generator writes one brief per listed file, scoped to that file alone. The
+  file's numbers, paragraph and directive reappear at the moment they apply.
 
 Stage 3 of generation, in full:
 
 1. Append the block below, verbatim, to each of `AGENTS.md`, `CLAUDE.md`,
    `GEMINI.md`, and `.github/copilot-instructions.md` that exists, separated
-   by one blank line; skip any file that already contains the block's
-   heading. If none exist, create `AGENTS.md` containing only the block.
+   by one blank line. Skip any file that already contains the block's
+   heading. Skip a `CLAUDE.md` or `GEMINI.md` that holds an `@AGENTS.md`
+   line while `AGENTS.md` exists, because that import already loads the
+   block. If none exist, create `AGENTS.md` containing only the block.
 2. In `CLAUDE.md` only, add the line `@COMPLEX.md` on its own line directly
-   after the block, unless the file already imports it.
-3. If `.claude/` exists, write `.claude/rules/complex-md.md` with the front
-   matter `alwaysApply: false` and a single line `paths:` listing every
-   hotspot and co-change path, comma separated and unquoted (the YAML list
-   form does not load), followed by the block.
-4. If `.cursor/` exists, write `.cursor/rules/complex-md.mdc` with the front
-   matter `description: COMPLEX.md structural risk map`, `alwaysApply: false`
-   and `globs:` listing the same paths, followed by the block.
-5. If `.openhands/` or `.agents/` exists, write `.agents/skills/complex-md.md`
-   with the front matter `name: complex-md` and a `paths:` YAML list of the
-   same paths, quoted, followed by the block. OpenHands injects it once, the
-   first time a matching file is touched, at zero baseline cost.
-6. Install the hooks (next section) where the
-   tool directories exist. `npx complex-md wire` does steps 1 to 7
-   idempotently; the skill writes the same files by hand when `npx` is
-   unavailable.
-7. Regeneration rewrites the rule files (the paths change) and leaves the
+   after the block, unless the file already imports it. When `.claude/`
+   exists and `CLAUDE.md` does not, create `CLAUDE.md` with the lines
+   `@AGENTS.md` and `@COMPLEX.md`.
+3. Write one brief per path listed under `hotspots`, `load_bearing` and
+   `co_change`. A brief holds the path as its heading, the row's numbers,
+   the file's paragraph from "Why these files are hot", its co-change
+   partners and the directive. Write the briefs for each agent whose folder
+   exists, scoped to the one path by that agent's front matter key. The
+   table after this list names the folders and keys.
+4. Cursor, OpenHands, Windsurf and Cline read `AGENTS.md`. While
+   `AGENTS.md` carries the block, write no rule file that holds only the
+   block, because a copy would load it twice. When `AGENTS.md` does not
+   carry it, write the block once for each of them, scoped to every listed
+   path: `.cursor/rules/complex-md.mdc`, `.agents/skills/complex-md.md`,
+   `.windsurf/rules/complex-md.md` and `.clinerules/complex-md.md`. Claude
+   Code never gets one, because `CLAUDE.md` carries the block.
+5. If `REVIEW.md` exists, add the line `@COMPLEX.md` to it, so Claude Code
+   Review includes the map. Never create `REVIEW.md`.
+6. Install the hooks (next section) where the tool directories exist.
+7. OpenClaw and Hermes are wired only on request: they get the portable
+   skill `.agents/skills/complex-md/SKILL.md`, which both load from the
+   project.
+8. Regeneration rewrites the briefs (the paths change) and leaves the
    primary files alone.
+
+Where step 3 writes the briefs:
+
+| Agent | Detected from | Brief files | Scope key |
+| --- | --- | --- | --- |
+| Claude Code | `.claude/` or `CLAUDE.md` | `.claude/rules/complex-md/*.md` | `paths` |
+| Cursor | `.cursor/` | `.cursor/rules/complex-md/*.mdc` | `globs` |
+| OpenHands | `.openhands/` or `.agents/` | `.agents/skills/complex-md-*.md` | `paths` list |
+| Antigravity | `.agents/rules/` | `.agents/rules/complex-md-*.md` | `trigger: glob`, `globs` |
+| Copilot code review and cloud agent | `.github/copilot-instructions.md` or `.github/instructions/` | `.github/instructions/complex-md/*.instructions.md` | `applyTo` |
+| Devin Desktop | `.devin/` | `.devin/rules/complex-md-*.md` | `trigger: glob`, `globs` |
+| Windsurf | `.windsurf/` | `.windsurf/rules/complex-md-*.md` | `trigger: glob`, `globs` |
+| Kiro | `.kiro/` | `.kiro/steering/complex-md-*.md` | `inclusion: fileMatch`, `fileMatchPattern` |
+| Cline | a `.clinerules/` folder | `.clinerules/complex-md-*.md` | `paths` list |
+
+A `.agents/` folder that holds only `.agents/skills/complex-md/` does not
+count as OpenHands.
+
+`npx complex-md wire` does steps 1 to 8 idempotently, and step 7 only with
+`--for openclaw,hermes`. When `npx` is unavailable, the skill writes the
+same files by hand for Claude Code and Cursor.
 
 ## Enforcement and runtime
 
@@ -574,7 +604,9 @@ through with the paragraph attached, for teams that find the gate too firm.
 ### Diff check
 
 `npx complex-md check [--staged | --base ref] [--strict]`
-is the same report on the command line, for pre-commit hooks and CI.
+is the same report on the command line, for pre-commit hooks and CI. It
+also names a generated brief in the change that differs from what `wire`
+writes, because review bots read those files from the pull request.
 
 The block is normative: generators and hand authors copy it exactly, because
 identical wording across repositories is what makes it recognizable to
@@ -674,9 +706,11 @@ that: an algorithm that flags too much loses all impact.
 
 ### Does the whole repo get sent to a model?
 
-No. The signals are computed
-locally by git and grep. Only the signals table and the text of the top 5 to
-10 hotspot files go into the model call, capped around 15k tokens.
+No. The signals are computed locally by git and Node.js. Without a key,
+nothing is sent. With a key, one model call carries the generation prompt,
+the signals table and excerpts of up to ten hotspot files: about 14,000
+characters each and 60,000 in all. On undici that request is about 80,000
+characters, about 20,000 tokens.
 
 ### Can I write one for a repo I do not own?
 

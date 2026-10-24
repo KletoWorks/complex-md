@@ -65,6 +65,15 @@ test('COMPLEX.md index finds paragraph, directive and partners by path', () => {
   assert.equal(m.row('src/zzz.js'), null);
 });
 
+test('a file gets its own paragraph even when an earlier paragraph names it', () => {
+  // Generated maps cross reference: the paragraph for one hot file tells the
+  // reader to keep it in step with another hot file further down.
+  const m = parseComplexMd(`---\ncomplex_md: "0.3"\nhotspots:\n  - path: src/a.js\n  - path: src/b.js\n---\n\n## Why these files are hot\n\nsrc/a.js reads the table. Before editing this file, keep it in step with src/b.js.\n\nsrc/b.js writes the table. Before editing this file, run test/b.test.js.\n`);
+  assert.match(m.paragraphFor('src/b.js'), /^src\/b\.js writes the table/);
+  assert.equal(m.directive('src/b.js'), 'Before editing this file, run test/b.test.js.');
+  assert.equal(m.directive('src/a.js'), 'Before editing this file, keep it in step with src/b.js.');
+});
+
 test('normalizeOutput strips fences and replaces model front matter with the computed one', () => {
   const fm = '---\ncomplex_md: "0.3"\n---\n';
   const prose = '## Where the risk lives\n\nx\n\n## Why these files are hot\n\ny\n\n## Change coupling\n\nz\n\n## What to read first\n\n1. a';
@@ -199,7 +208,7 @@ test('wire creates CLAUDE.md as imports of AGENTS.md and the map, and a second r
   assert.equal((readFileSync(join(dir, 'AGENTS.md'), 'utf8').match(/## COMPLEX\.md: the structural risk map/g) || []).length, 1);
 });
 
-test('windsurf, cline and roo rule targets; unknown target errors; globals never auto-detect', async () => {
+test('windsurf, cline and roo read the created AGENTS.md; unknown target errors; globals never auto-detect', async () => {
   const { wire } = await import('../src/wire.js');
   const { readFileSync, existsSync } = await import('node:fs');
   const dir = makeRepo();
@@ -209,10 +218,11 @@ test('windsurf, cline and roo rule targets; unknown target errors; globals never
   mkdirSync(join(dir, '.clinerules'));
   mkdirSync(join(dir, '.roo'));
   const report = wire(dir, {});
-  assert.ok(report.rules.includes('.windsurf/rules/complex-md.md'));
-  assert.ok(report.rules.includes('.clinerules/complex-md.md'));
-  assert.ok(report.rules.includes('.roo/rules/complex-md.md'));
-  assert.match(readFileSync(join(dir, '.windsurf/rules/complex-md.md'), 'utf8'), /trigger: glob/);
+  // The created AGENTS.md carries the block, which both agents read.
+  assert.ok(!report.rules.includes('.windsurf/rules/complex-md.md'));
+  assert.ok(!report.rules.includes('.clinerules/complex-md.md'));
+  assert.ok(!existsSync(join(dir, '.roo/rules/complex-md.md')), 'Roo reads AGENTS.md');
+  assert.ok(readFileSync(join(dir, 'AGENTS.md'), 'utf8').includes('## COMPLEX.md: the structural risk map'));
   assert.ok(!existsSync(join(dir, '.cursor')), 'undetected targets stay untouched');
   assert.ok(!report.mcp.some((m) => /openclaw|hermes/.test(m)), 'global registries are opt-in only');
   assert.throws(() => wire(dir, { agents: ['zed'] }), /unknown wiring target/);
@@ -263,9 +273,11 @@ test('check and hook advice on the synthetic repo', () => {
   assert.equal(adviseEdit(dir, 'src/a.js', { acknowledged: [] }, 'off').kind, 'none');
 });
 
-/* A NUL byte anywhere in a source file makes grep classify it as binary, and
-   grep skips a binary file in SILENCE when its output is piped: no match, no
-   warning, exit 0. Both positions matter and they fail differently.
+/* A NUL byte anywhere in a source file makes ripgrep classify it as binary.
+   Searching a directory, ripgrep then prints nothing for the file: no match
+   and no warning (bench/repro/nul-byte.sh). Claude Code's Grep tool runs
+   ripgrep. GNU grep prints no line either, only "binary file matches". Both
+   positions matter and they fail differently.
 
      early (inside the 8k sniff)  the file is classified as an asset and drops
                                   out of the map entirely
@@ -275,8 +287,8 @@ test('check and hook advice on the synthetic repo', () => {
 
    The second is the worse of the two, because the map then vouches for a file
    nothing can grep. Note that the NULs below are written as \0 escapes: a
-   literal one in this source would make THIS file invisible to grep too. */
-test('blind spots name source files that a NUL byte hides from grep', () => {
+   literal one in this source would make THIS file invisible to ripgrep too. */
+test('blind spots name source files that a NUL byte hides from ripgrep and grep', () => {
   const dir = mkdtempSync(join(tmpdir(), 'cx-nul-'));
   const g = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' } });
   g('init', '-q');
@@ -296,6 +308,45 @@ test('blind spots name source files that a NUL byte hides from grep', () => {
   assert.doesNotMatch(note, /clean\.js/);
   assert.match(note, /git grep -I --text/);
   assert.match(note, /2 source files contain/);
+  // Name the tools and what each one does, as the repro shows it.
+  assert.match(note, /ripgrep/);
+  assert.match(note, /Claude Code's Grep tool/);
+  assert.match(note, /GNU grep prints a binary file notice/);
+  // A double quote would reach the front matter escaped and read back with
+  // its backslash, so the note carries none.
+  assert.doesNotMatch(note, /"/);
+  assert.doesNotMatch(note, /grep treats/);
+  // The file list reads as its own clause after the colon.
+  assert.match(note, /no line: \S/);
+});
+
+/* A binary test fixture carries NUL bytes by design. A compressed corpus
+   under tests/, a compiled .mo catalog or a fixture module with an
+   embedded NUL is not a source file someone needs to grep. Listing them
+   advised the reader to "fix the byte" in files that must keep it. */
+test('the NUL blind spot ignores binary formats and fixture or data paths', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-nul-fixture-'));
+  const g = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' } });
+  g('init', '-q');
+  for (const d of ['src', 'tests/data', 'tests/fixtures', 'tests/locale/fr', 'testdata', 'src/__mocks__']) mkdirSync(join(dir, d), { recursive: true });
+  writeFileSync(join(dir, 'src/late.js'), `// ${'x'.repeat(9000)}\nconst k = \`a\0b\`;\n`);
+  writeFileSync(join(dir, 'tests/test_parse.py'), 'X = "a\0b"\n');
+  writeFileSync(join(dir, 'tests/data/sherlock.bz2'), Buffer.from([0x42, 0x5a, 0x68, 0, 1, 2]));
+  writeFileSync(join(dir, 'tests/data/sherlock.lz4'), Buffer.from([4, 0x22, 0x4d, 0x18, 0]));
+  writeFileSync(join(dir, 'tests/locale/fr/django.mo'), Buffer.from([0xde, 0x12, 0x04, 0x95, 0, 0]));
+  writeFileSync(join(dir, 'tests/archive.tar'), Buffer.from([0x61, 0, 0, 0]));
+  writeFileSync(join(dir, 'tests/fixtures/payload.py'), 'BLOB = "\0"\n');
+  writeFileSync(join(dir, 'testdata/input.go'), 'package x // \0\n');
+  writeFileSync(join(dir, 'src/__mocks__/fs.js'), 'export const b = "\0";\n');
+  g('add', '.');
+  g('commit', '-q', '-m', 'init');
+
+  const note = computeSignals(dir).blind_spots.find((b) => /NUL byte/.test(b));
+  assert.ok(note, 'the real source files are still reported');
+  assert.match(note, /2 source files contain/);
+  assert.match(note, /src\/late\.js/);
+  assert.match(note, /tests\/test_parse\.py/);
+  for (const f of ['sherlock', 'django.mo', 'archive.tar', 'payload.py', 'input.go', '__mocks__']) assert.ok(!note.includes(f), `${f} is not a source file to fix`);
 });
 
 /* Wiring must never look like it owns the repository's conventions. Two

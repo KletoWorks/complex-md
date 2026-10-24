@@ -11,6 +11,7 @@ export function loadComplexMd(cwd) {
 }
 
 export function parseComplexMd(text) {
+  text = normalizeNewlines(text);
   const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text);
   if (!m) return null;
   const fm = parseFrontMatter(m[1]);
@@ -25,9 +26,24 @@ export function parseComplexMd(text) {
   const sections = splitSections(prose);
   const hotspotParas = paragraphs(sections['Why these files are hot'] || '');
   const couplingParas = paragraphs(sections['Change coupling'] || '');
+  const mentions = mentionMatcher(fm);
+  /* A file's own paragraph opens with its name; other paragraphs name it
+     later, as a partner to keep in step. Taking the first paragraph that
+     mentioned the path handed one file another file's directive. So a
+     paragraph that names the full path beats one that names only a suffix,
+     and within each kind the earliest mention wins. Ties keep map order. */
   const paragraphFor = (path) => {
-    const hits = hotspotParas.filter((para) => mentions(para, path));
-    return hits.length ? hits[0] : null;
+    let best = null;
+    let bestHit = null;
+    for (const para of hotspotParas) {
+      const hit = mentions(para, path);
+      if (!hit) continue;
+      const better = !bestHit
+        || (hit.full && !bestHit.full)
+        || (hit.full === bestHit.full && hit.at < bestHit.at);
+      if (better) { best = para; bestHit = hit; }
+    }
+    return best;
   };
   const couplingFor = (path) => couplingParas.filter((para) => mentions(para, path));
   return {
@@ -61,10 +77,65 @@ export function parseComplexMd(text) {
   };
 }
 
-function mentions(para, path) {
-  if (para.includes(path)) return true;
-  const base = path.split('/').pop();
-  return base.length > 6 && para.includes(base);
+/* Where does a paragraph name this path? A paragraph names a path with the
+   full path, or with a shorter suffix such as its basename. A suffix counts
+   only when the path is in the map and no other mapped path ends with the
+   same suffix. A monorepo maps several index.ts or __init__.py files, and a
+   plain substring test gave every one of them the paragraph of the first. A
+   name counts only with a boundary on each side, so src/index.ts is not
+   found inside packages/a/src/index.ts. The search looks for the path itself
+   rather than splitting prose into words, because route files carry
+   brackets, parentheses and plus signs (app/[slug]/page.tsx). The matcher
+   returns { full, at } for the earliest mention, or null. */
+function mentionMatcher(fm) {
+  const mapped = new Set([
+    ...(fm.hotspots || []).map((h) => h.path),
+    ...(fm.load_bearing || []).map((h) => h.path),
+    ...(fm.co_change || []).flatMap((c) => c.files || []),
+  ].filter((p) => typeof p === 'string'));
+  const endsWith = (p, suffix) => p === suffix || p.endsWith('/' + suffix);
+  const sharedSuffix = (path, suffix) => [...mapped].some((p) => p !== path && endsWith(p, suffix));
+  return (para, path) => {
+    const at = nameAt(para, path);
+    if (at >= 0) return { full: true, at };
+    if (!mapped.has(path)) return null;
+    let best = -1;
+    const parts = path.split('/');
+    for (let k = 1; k < parts.length; k++) {
+      const suffix = parts.slice(k).join('/');
+      if (!suffix.includes('/') && suffix.length <= 6) continue;
+      if (sharedSuffix(path, suffix)) continue;
+      const i = nameAt(para, suffix);
+      if (i >= 0 && (best < 0 || i < best)) best = i;
+    }
+    return best >= 0 ? { full: false, at: best } : null;
+  };
+}
+
+/* The index where para holds name with no path character joined to either
+   end, or -1. A leading ./ is allowed, and so is a full stop that ends a
+   sentence. */
+function nameAt(para, name) {
+  if (!name) return -1;
+  for (let i = para.indexOf(name); i !== -1; i = para.indexOf(name, i + 1)) {
+    let start = i;
+    if (para.slice(i - 2, i) === './') start = i - 2;
+    const before = para[start - 1];
+    const end = i + name.length;
+    const after = para[end];
+    if (before !== undefined && /[\w@.\/+~$-]/.test(before)) continue;
+    if (after !== undefined && /[\w@\/+~$-]/.test(after)) continue;
+    if (after === '.' && /\w/.test(para[end + 1] || '')) continue;
+    return start;
+  }
+  return -1;
+}
+
+/* A Windows checkout has CRLF line ends by default (core.autocrlf=true),
+   and some editors write a byte order mark. Either one made the map parse
+   to null, and every hook then went silent on that machine. */
+function normalizeNewlines(text) {
+  return text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
 }
 
 function lastSentence(para) {
@@ -97,7 +168,7 @@ function paragraphs(text) {
 /** Minimal parser for the spec's front matter shape: scalars, `hotspots` list of maps, `co_change` list with inline arrays. */
 export function parseFrontMatter(src) {
   const out = {};
-  const lines = src.split('\n');
+  const lines = normalizeNewlines(src).split('\n');
   let i = 0;
   const scalar = (v) => {
     v = v.trim();

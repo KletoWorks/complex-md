@@ -14,7 +14,11 @@ npx complex-md
 
 One run computes the signals, writes COMPLEX.md, and wires it in: the
 integration block in the agent files, a rule per hot path carrying that
-file's own brief, and the PreToolUse and Stop hooks. The package lives in `cli/`. Without `npx`,
+file's own brief, and the PreToolUse and Stop hooks. The briefs go where
+each agent or review bot the repository uses reads them: Claude Code,
+Cursor, Copilot code review and cloud agent, OpenHands, Antigravity, Devin
+Desktop, Windsurf, Kiro and Cline. A `REVIEW.md` that exists gets an
+`@COMPLEX.md` line for Claude Code Review. The package lives in `cli/`. Without `npx`,
 the skill does the same by hand: download https://complex.md/complex-md.skill.md
 and run it with any coding agent inside the repo.
 
@@ -38,10 +42,12 @@ The endpoint existed. It was implemented, routed and mounted.
 
 One module in that package, about 60 kB, carried a single NUL byte at offset
 53248: a map key separator written as a literal byte where an escape was
-meant. grep classifies a file containing a NUL as binary and skips it in
-silence when its output is piped. No match, no warning, exit 0. Every search
-across that package had been stepping over the one file that answered the
-question.
+meant. ripgrep, which Claude Code's Grep tool runs, classifies a file
+containing a NUL as binary. Searching a directory, it skips that file in
+silence: no match, no warning. GNU grep prints "binary file matches" and not
+the line. Every search across that package had been stepping over the one
+file that answered the question. [bench/repro/nul-byte.sh](bench/repro/nul-byte.sh)
+reproduces it with each tool.
 
 COMPLEX.md had ranked that module and written a paragraph about it, because
 the signals come from the dependency graph and the commit history rather than
@@ -96,27 +102,44 @@ Visual Studio Code* (CMU SEI, DOI 10.58012/4c2e-xd64), whose warning this
 follows: without that first row, a clean and analyzable model can still answer
 the wrong question.
 
+## See the map as a page
+
+```sh
+npx complex-md report
+```
+
+This command reads COMPLEX.md at the repository root and writes
+`.complex-md/report.html`. Then it prints the path. Open the file in any
+browser. The page shows:
+
+- a treemap of the hotspots. Tile area is lines of code, and color is bug fixes in the commit window. A table view holds the same rows.
+- each hot or load bearing file with the "Before editing this file" sentence from its paragraph, and the files that change with it.
+- the co-change pairs and the directories that move together.
+- the blind spots, including each file that text search tools skip because it holds a NUL byte.
+
+The page is one HTML file with no external fonts, scripts or requests, so you
+can attach it to an issue or open it offline. It reads the map and the origin
+remote only, never the history. Without a COMPLEX.md, the command tells you how
+to make one and exits 2.
+
 ## Measured, not asserted
 
-complex-md ships with its own benchmark: real fix commits from a repository's
-history, the issue text as the prompt, the commit's parent as the starting
-point, and the files the real fix touched as the answer. Each task runs with
-and without the map, from the same commit, and the runs are compared in
-pairs. Outcomes are the ones AGENTS.md's own evidence uses: time to a finished
-change, output tokens, cost, diff size, and whether the agent's patch passes
-the tests the real fix was verified by. Tests are rank based, so a single long
-run cannot move a result.
+Agents follow it. On two repositories with no shared tasks, agents ran the
+tests the map names on 14 of 15 risky edits, against 3 of 17 without it
+(11 of 11 discordant pairs, p about 0.001). The agent was Claude Opus 5 in
+Claude Code. It does not cost correctness: on the real fix's own tests, every
+arm with the map passed within one task of the arm without it.
 
-On 24 fastify tasks with the map present, the agent produced 27 percent fewer
-output tokens at the median before its first edit. A four arm run to
-completion, including a computed only variant with no generated prose, is in
-progress; results are published as they land in
-[bench/RESULTS.md](bench/RESULTS.md).
+complex-md ships with the benchmark that measured this: real fix commits from
+a repository's history, the issue text as the prompt and the commit's parent
+as the starting point. Each task runs with and without the map, from the same
+commit, and the runs are compared in pairs. After each run the judge runs the
+real fix's tests and, in the damage runs, the whole suite as it stood at the
+base commit. Tables, method
+and raw runs: [bench/RESULTS.md](bench/RESULTS.md).
 
-The tool costs nothing per edit. The map is computed locally by
-`npx complex-md`; the one model call is the optional prose step at generation
-time. Benchmark cost figures are the API equivalent price the agent reports
-per run, used as a unit for comparing arms.
+The map is computed on your machine by `npx complex-md`. The one model call
+is the optional prose step at generation time.
 
 ## Layout
 
@@ -124,9 +147,9 @@ per run, used as a unit for comparing arms.
 | --- | --- |
 | `prompts/generate.md` | The versioned generation prompt. Single source of truth for the CLI and the skill. |
 | `prompts/integration.md` | The normative wiring block appended to AGENTS.md, CLAUDE.md and friends. Served at /integration.md. |
-| `cli/` | The `complex-md` npm package: signals engine, generator, wiring, hooks, MCP server, diff check. `npm test` here or inside it. |
+| `cli/` | The `complex-md` npm package: signals engine, generator, wiring, hooks, diff check, impact, and an opt in MCP server. `npm test` here or inside it. |
 | `examples/` | Reference COMPLEX.md files, starting with fastify. This repository carries its own at the root. |
-| `bench/` | Localization benchmark: does the map get an agent to the right file in fewer tool calls? Real fix history, paired arms. |
+| `bench/` | Collateral damage benchmark on real fix commits, paired arms: does the agent run the tests the map names, pass the fix's tests, and leave the rest of the suite green? `bench/repro/` holds standalone reproductions. |
 | `docs/` | Research behind the spec: signal verdicts, agent context-file evidence, wiring mechanics. |
 | `content/` | Site pages (markdown, front matter in an HTML comment). |
 | `skill/SKILL.tmpl.md` | Template assembled with the prompt into the downloadable skill. |

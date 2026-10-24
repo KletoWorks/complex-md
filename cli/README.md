@@ -2,7 +2,8 @@
 
 `COMPLEX.md` is a computed map of where edits are risky and where bugs get
 fixed, generated from a repository's git history for coding agents. This
-package generates it, enforces it, and lets agents query it mid-task.
+package generates it, wires it into your agents, and checks each change
+against it.
 
     npx complex-md
 
@@ -12,7 +13,7 @@ Spec, research and the downloadable skill: https://complex.md
 
 1. Computes the spec 0.3 signals locally: lines of code, churn, recency
    weighted churn, bug-fix commits, authors, owner share, co-change pairs,
-   fan-in, covering tests. About two seconds on a mid-sized repo.
+   fan-in, covering tests.
 2. Writes the front matter itself (numbers verbatim) and makes one model call
    for the prose. The first configured provider wins: `ANTHROPIC_API_KEY`,
    `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`,
@@ -25,17 +26,25 @@ Spec, research and the downloadable skill: https://complex.md
    - appends the integration block to `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`,
      `.github/copilot-instructions.md` where they exist, plus an
      `@COMPLEX.md` import in `CLAUDE.md`;
-   - path-scoped rules keyed to the hotspot files for Claude Code
-     (`.claude/rules/`), Cursor (`.cursor/rules/`), OpenHands
-     (`.agents/skills/`), Windsurf (`.windsurf/rules/`), Cline
-     (`.clinerules/`), Roo (`.roo/rules/`);
+   - one brief per hot path, scoped to that path, where each agent or
+     review bot looks: Claude Code (`.claude/rules/complex-md/`), Cursor
+     (`.cursor/rules/complex-md/`), Copilot code review and cloud agent
+     (`.github/instructions/complex-md/`, when `.github/copilot-instructions.md`
+     or `.github/instructions/` exists), OpenHands (`.agents/skills/`),
+     Antigravity (`.agents/rules/`), Devin Desktop (`.devin/rules/`), Windsurf
+     (`.windsurf/rules/`), Kiro (`.kiro/steering/`), Cline (`.clinerules/`);
+   - an `@COMPLEX.md` line in an existing `REVIEW.md`, for Claude Code
+     Review; wire never creates `REVIEW.md`;
    - hooks: Claude Code `PreToolUse` and `Stop`, Cursor `preToolUse` and `stop`;
-   - the MCP server in `.mcp.json`, `.cursor/mcp.json`, `.codex/config.toml`;
-     OpenClaw and Hermes keep a machine-level MCP registry, so they are
-     wired only when asked (`--for openclaw,hermes`), through their own
-     CLIs, with `mcp --root <repo>` pinning the server to this repository.
+   - OpenClaw and Hermes are wired only when asked (`--for openclaw,hermes`):
+     they get the portable skill `.agents/skills/complex-md/SKILL.md`, and
+     `--mcp` also registers the server through their own CLIs.
 
-Skip any part with `--no-wire`, `--no-hooks`, `--no-mcp`.
+A rule file that would only repeat the block is not written while
+`AGENTS.md` carries it, and a rewire removes the copies earlier versions
+wrote.
+
+`--no-wire` writes only COMPLEX.md. `--no-hooks` skips the hooks.
 
 ## The hooks
 
@@ -59,9 +68,20 @@ Modes: `--mode gate` (default), `--mode warn` (let the edit through with the
 paragraph attached), `--mode off`. Edit the command in `.claude/settings.json`
 or `.cursor/hooks.json`, or set `COMPLEX_MD_GATE`.
 
-## The MCP server
+A wired hook runs the project's own install (`node_modules/.bin/complex-md`)
+when there is one. Otherwise it runs a `complex-md` found on PATH, and
+otherwise `npx -y --prefer-offline complex-md@<version>`, pinned to the
+version that wired it. With a local install, a hook takes about 80 ms per
+edit. Hooks written by 0.9.2 and earlier ran an unpinned `npx -y complex-md`;
+run `npx complex-md wire` again to rewrite them in the pinned form.
 
-`npx complex-md mcp` on stdio. Six tools:
+## Optional: the MCP server (`--mcp`)
+
+Off by default. `wire --mcp` registers it in `.mcp.json`, `.cursor/mcp.json`
+and `.codex/config.toml`. OpenClaw and Hermes keep a machine-level registry,
+so `wire --mcp --for openclaw,hermes` registers it through their own CLIs,
+with `mcp --root <repo>` pinning it to this repository. `npx complex-md mcp`
+runs it on stdio. Six tools:
 
 | Tool | Use it when |
 | --- | --- |
@@ -76,25 +96,35 @@ or `.cursor/hooks.json`, or set `COMPLEX_MD_GATE`.
 
     npx complex-md check [--staged | --base main] [--json] [--strict]
     npx complex-md signals [--json | --tsv]
-    npx complex-md wire [--no-hooks] [--no-mcp]
-                        [--for claude,cursor,openhands,codex,windsurf,cline,roo,openclaw,hermes]
+    npx complex-md impact <path> [--json] [--strict]
+    npx complex-md report                # write .complex-md/report.html, a page of the map
+    npx complex-md wire [--no-hooks] [--mcp]
+                        [--for claude,cursor,openhands,antigravity,codex,copilot,review,devin,windsurf,kiro,cline,openclaw,hermes]
     npx complex-md generate --agent      # write the prompt bundle, no model call
 
-`check --strict` exits 1 on findings, for pre-commit and CI. `wire` detects
+`check --strict` exits 1 on findings, for pre-commit and CI.
+`check --base <ref>` exits 2 when the ref is not in the checkout. In GitHub
+Actions, check out with `fetch-depth: 0` so `origin/main` exists. `check` also
+names a generated brief that differs from what `wire` writes, since review
+bots read those files from the pull request. `impact --strict`
+exits 1 when a bound in `.complex-md/bounds.json` is exceeded. `wire` detects
 which agents a repository already uses from its config directories; `--for`
-overrides that. Wiring for Claude Code creates a `CLAUDE.md` when there is
-none, because Claude Code does not read AGENTS.md.
+overrides that. Wiring for Claude Code creates a `CLAUDE.md` that imports
+COMPLEX.md when there is none.
 
 Run at an old commit and the window anchors to that commit's date, so a map
 regenerated for a past release describes the history that existed then.
 
-Whether any of this gets an agent to the right file faster is measured, not
-asserted: see the benchmark in the repository (`bench/`, https://github.com/KletoWorks/complex-md).
+Agents follow it. On two repositories with no shared tasks, agents ran the
+tests the map names on 14 of 15 risky edits, against 3 of 17 without it
+(11 of 11 discordant pairs, p about 0.001), with Claude Opus 5 in Claude
+Code. Results and method: `bench/RESULTS.md` in
+https://github.com/KletoWorks/complex-md.
 
 ## Limits, stated plainly
 
 The analysis is text-level: regular expressions and lightweight parsers
-over tracked files, plus git. That is what makes it run in seconds on any
+over tracked files, plus git. That is what makes it run on any
 repository with no build or toolchain, and it means the dependency graph is
 not a compiler's. Computed imports, dependency injection, reflection and
 runtime registration do not resolve; Go fan-in is package-level blast
@@ -107,6 +137,14 @@ statement.
 
 ## Privacy
 
-Signals are computed by git and grep on your machine. The only thing that
-leaves it is the one model call, and only if you set a key: the signals table
-and excerpts of the top five hotspot files, capped around 15k tokens.
+The signals are computed on your machine by git and Node.js. Without a key
+the CLI sends nothing: its one network request is the model call, and it
+makes that call only when a key is set.
+
+With a key, the call goes to the provider you chose. It carries the
+generation prompt, the computed signals (paths, their numbers, co-change
+pairs, the repository profile) and excerpts of up to ten hotspot files:
+about 14,000 characters each and 60,000 in all. On undici the request held
+five excerpts and 80,000 characters, about 20,000 tokens. `generate --agent`
+writes the same request to `.complex-md/prompt.md` and sends nothing, so you
+can read it first.

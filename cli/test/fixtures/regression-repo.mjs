@@ -125,7 +125,7 @@ export function buildRegressionRepo() {
 
   /* A source file that grep cannot read. The NUL is written as an escape here
      for the same reason the detector exists: a literal one in this source
-     would make THIS file invisible to grep too. */
+     would make THIS file invisible to ripgrep too. */
   put('src/opaque.js', `import { id } from './core.js';\nexport const key = (a, b) => \`\${a}\0\${b}\`;\nexport const o = id(1);\n`);
   commit('feat: opaque key separator');
 

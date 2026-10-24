@@ -1,0 +1,187 @@
+{
+ "name": "undici",
+ "results": "bench/results/undici-damage",
+ "breaks": [
+  {
+   "task": "c8d50b4a82",
+   "base": "a1d6766ade",
+   "arms": [
+    "none",
+    "file"
+   ],
+   "edited": [
+    "lib/core/request.js"
+   ],
+   "changed": [
+    {
+     "path": "lib/core/request.js",
+     "fan_in": 5,
+     "band": "1-5"
+    }
+   ],
+   "broken": [
+    "test/fetch/issue-2021.js"
+   ],
+   "suite": 348,
+   "caught": {
+    "a": 0,
+    "b": 0,
+    "c": 0,
+    "d": 0,
+    "e": 1,
+    "e15": 0,
+    "e20": 0,
+    "m15": 0,
+    "m20": 0
+   },
+   "selectors": {
+    "a": {
+     "size": 1,
+     "share": 0.0029,
+     "caught": []
+    },
+    "b": {
+     "size": 7,
+     "share": 0.0201,
+     "caught": []
+    },
+    "c": {
+     "size": 1,
+     "share": 0.0029,
+     "caught": []
+    },
+    "d": {
+     "size": 66,
+     "share": 0.1897,
+     "caught": []
+    },
+    "e": {
+     "size": 307,
+     "share": 0.8822,
+     "caught": [
+      "test/fetch/issue-2021.js"
+     ]
+    },
+    "e15": {
+     "size": 52,
+     "share": 0.1494,
+     "caught": []
+    },
+    "e20": {
+     "size": 69,
+     "share": 0.1983,
+     "caught": []
+    },
+    "m15": {
+     "size": 52,
+     "share": 0.1494,
+     "caught": []
+    },
+    "m20": {
+     "size": 69,
+     "share": 0.1983,
+     "caught": []
+    }
+   }
+  },
+  {
+   "task": "f0497300fa",
+   "base": "cc793b780c",
+   "arms": [
+    "none",
+    "file"
+   ],
+   "edited": [
+    "lib/core/util.js"
+   ],
+   "changed": [
+    {
+     "path": "lib/core/util.js",
+     "fan_in": 45,
+     "band": ">20"
+    }
+   ],
+   "broken": [
+    "test/issue-4880.js",
+    "test/issue-803.js"
+   ],
+   "suite": 357,
+   "caught": {
+    "a": 0,
+    "b": 1,
+    "c": 2,
+    "d": 1,
+    "e": 2,
+    "e15": 1,
+    "e20": 1,
+    "m15": 1,
+    "m20": 1
+   },
+   "selectors": {
+    "a": {
+     "size": 3,
+     "share": 0.0084,
+     "caught": []
+    },
+    "b": {
+     "size": 52,
+     "share": 0.1457,
+     "caught": [
+      "test/issue-4880.js"
+     ]
+    },
+    "c": {
+     "size": 282,
+     "share": 0.7899,
+     "caught": [
+      "test/issue-4880.js",
+      "test/issue-803.js"
+     ]
+    },
+    "d": {
+     "size": 79,
+     "share": 0.2213,
+     "caught": [
+      "test/issue-803.js"
+     ]
+    },
+    "e": {
+     "size": 316,
+     "share": 0.8852,
+     "caught": [
+      "test/issue-4880.js",
+      "test/issue-803.js"
+     ]
+    },
+    "e15": {
+     "size": 53,
+     "share": 0.1485,
+     "caught": [
+      "test/issue-803.js"
+     ]
+    },
+    "e20": {
+     "size": 71,
+     "share": 0.1989,
+     "caught": [
+      "test/issue-803.js"
+     ]
+    },
+    "m15": {
+     "size": 53,
+     "share": 0.1485,
+     "caught": [
+      "test/issue-803.js"
+     ]
+    },
+    "m20": {
+     "size": 71,
+     "share": 0.1989,
+     "caught": [
+      "test/issue-803.js"
+     ]
+    }
+   }
+  }
+ ]
+}

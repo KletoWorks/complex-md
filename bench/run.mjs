@@ -12,7 +12,7 @@
 //
 // Arms:  none   the repository as it is
 //        front  COMPLEX.md front matter only: computed numbers, no generated prose
-//        file   COMPLEX.md at the task's base commit, wired (CLAUDE.md, path-scoped rule)
+//        file   COMPLEX.md at the task's base commit, wired for Claude Code (CLAUDE.md, per path briefs)
 //        hooks  file + the PreToolUse/Stop hooks
 //        mcp    hooks + the MCP server
 // --stop-at edit kills the run at the agent's first edit: localization only, cheapest.
@@ -32,6 +32,11 @@ import { detectRunner, listTestFiles, runSuite, confirm } from './suite.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '../cli/bin/complex-md.js');
+/* Every row records the CLI that wired it. The wiring of an arm follows
+   this checkout's cli/src/wire.js, so a row is comparable only with rows
+   wired the same way. The commit pins it when the version was not bumped. */
+const CLI_VERSION = JSON.parse(readFileSync(resolve(here, '../cli/package.json'), 'utf8')).version;
+const CLI_COMMIT = spawnSync('git', ['rev-parse', '--short=10', 'HEAD'], { cwd: here, encoding: 'utf8' }).stdout.trim() || null;
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const flag = (k) => args.includes(k);
@@ -151,11 +156,17 @@ async function armSetup(task, arm, wt) {
   if (arm === 'none') return;
   const full = await mapFor(task, wt);
   writeFileSync(join(wt, 'COMPLEX.md'), arm === 'front' ? frontMatterOnly(full) : full);
+  /* The runs published in bench/results were wired when wire also wrote
+     .claude/rules/complex-md.md: the integration block again, loaded when
+     the agent touched a listed path. wire no longer writes it, because
+     CLAUDE.md carries the block, so a rerun of the file arm is not the arm
+     those runs measured. Compare a rerun with rows of the same
+     cli_version and cli_commit, not with the published rows. */
   wire(wt, { agents: ['claude'], hooks: arm === 'hooks' || arm === 'mcp', mcp: arm === 'mcp', block: skillText });
   // The package is not on npm yet: hooks and MCP call this checkout's binary.
   for (const f of ['.claude/settings.json', '.mcp.json']) {
     const p = join(wt, f);
-    if (existsSync(p)) writeFileSync(p, readFileSync(p, 'utf8').replace(/"npx -y complex-md/g, `"node ${BIN}`).replace(/"command": "npx",\s*"args": \[\s*"-y",\s*"complex-md",/g, `"command": "node", "args": ["${BIN}",`));
+    if (existsSync(p)) writeFileSync(p, readFileSync(p, 'utf8').replace(/"command": "[^"]*\bcomplex-md\b[^"]*?\b(hook [\w-]+)[^"]*"/g, `"command": "node ${BIN} $1"`).replace(/"command": "npx",\s*"args": \[[^\]]*?"complex-md(@[^"]*)?",/g, `"command": "node", "args": ["${BIN}",`));
   }
   // The map is context, not a change the agent made.
   sh('git', ['add', '-A'], wt);
@@ -351,7 +362,7 @@ for (const task of tasks) {
       const damage = suiteOn && baseline && !m.error ? await runDamage(task, wt, baseline) : null;
       const success = stopAt === 'none' ? runGoldTests(task, wt) : null;
       const conduct = baseline ? behaviour(edited, m, baseline.risky) : null;
-      const rec = { task: task.id, arm, agent, model, skill: skillText ? createHash('sha1').update(skillText).digest('hex').slice(0, 10) : null, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
+      const rec = { task: task.id, arm, agent, model, cli_version: CLI_VERSION, cli_commit: CLI_COMMIT, skill: skillText ? createHash('sha1').update(skillText).digest('hex').slice(0, 10) : null, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
       appendFileSync(runsPath, JSON.stringify(rec) + '\n');
       log(`  steps ${m.steps}, first gold read at ${m.first_gold_read ?? '-'}, gold edited ${rec.gold_edited}, success ${rec.success ?? '-'}, regressions ${rec.regressed_tests ?? '-'}, tests run by agent ${m.agent_test_runs}, $${m.cost_usd?.toFixed(3) ?? '?'}${m.gate_fired ? `, gate x${m.gate_fired}` : ''}${m.error ? `, error: ${m.error}` : ''}`);
     } finally {

@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { registryInvocation, hookCommand } from '../cli/src/invoke.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
@@ -298,6 +299,9 @@ const skill = readFileSync(join(ROOT, 'skill/SKILL.tmpl.md'), 'utf8')
   .replaceAll('{{PROMPT_VERSION}}', promptVersion)
   .replaceAll('{{SPEC_VERSION}}', specVersion)
   .replace('{{INTEGRATION_BLOCK}}', integrationBlock)
+  // Hook entries an agent writes by hand: the exact command wire writes,
+  // pinned to this CLI version, so the two never drift apart.
+  .replace(/\{\{HOOK:([a-z -]+)\}\}/g, (_, sub) => hookCommand(registryInvocation(), sub))
   .replace('{{GENERATE_PROMPT}}', genPrompt.replace(/^---[\s\S]*?---\n\n/, ''));
 writeFileSync(join(DIST, 'complex-md.skill.md'), skill);
 writeFileSync(join(DIST, 'integration.md'), integrationBlock + '\n');

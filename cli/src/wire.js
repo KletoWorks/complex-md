@@ -10,12 +10,15 @@ import { integrationBlock, BLOCK_HEADING } from './prompts.js';
 import { loadComplexMd } from './complexmd.js';
 import { pathBriefs } from './brief.js';
 import { TARGETS, TARGET_NAMES } from './targets.js';
+import { registryInvocation } from './invoke.js';
 
 const PRIMARY = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.github/copilot-instructions.md'];
+/* Files whose agents expand an `@AGENTS.md` line into the text of AGENTS.md. */
+const IMPORTERS = ['CLAUDE.md', 'GEMINI.md'];
 
 /**
- * How hooks and the MCP entry invoke the CLI. `npx -y complex-md` when the
- * tool came from the registry; the checkout's own bin when it is being run
+ * How hooks and the MCP entry invoke the CLI. The pinned registry form
+ * (invoke.js) when the tool came from the registry; the checkout's own bin when it is being run
  * from inside the repository it is wiring (dogfooding, or a vendored copy),
  * since npx would fetch a different version or nothing at all. Global
  * registries (openclaw, hermes) launch from an arbitrary cwd, so they get
@@ -31,7 +34,7 @@ function invocation(root) {
       return { shell: `node ${p}`, command: 'node', args: [p], absShell: `node ${abs}`, absCommand: 'node', absArgs: [abs] };
     }
   } catch {}
-  return { shell: 'npx -y complex-md', command: 'npx', args: ['-y', 'complex-md'], absShell: 'npx -y complex-md', absCommand: 'npx', absArgs: ['-y', 'complex-md'] };
+  return registryInvocation();
 }
 
 /* Prepended only when wire CREATES AGENTS.md, never when it appends to one
@@ -79,19 +82,20 @@ export function wire(root, { hooks = true, mcp = false, rules = true, agents = n
      and directive, so a scoped rule delivers the answer rather than a pointer
      to the document holding it. */
   const briefs = pathBriefs(map);
-  const report = { primary: [], created: [], rules: [], hooks: [], mcp: [], skipped: [] };
+  const report = { primary: [], created: [], rules: [], removed: [], hooks: [], mcp: [], skipped: [] };
 
-  // 1. Primary files. A CLAUDE.md that imports AGENTS.md already carries
-  // the block through that import (the shape this function creates), so
-  // it is wired, not a candidate for a second copy.
+  // 1. Primary files. AGENTS.md comes first in PRIMARY, so once it exists
+  // it carries the block by the time the others are read. A CLAUDE.md or
+  // GEMINI.md that imports it (the shape this function creates) loads the
+  // block through that import; a second copy would load it twice.
   let any = false;
-  const agentsWired = existsSync(join(root, 'AGENTS.md')) && readFileSync(join(root, 'AGENTS.md'), 'utf8').includes(BLOCK_HEADING);
+  const agentsCarries = existsSync(join(root, 'AGENTS.md'));
   for (const f of PRIMARY) {
     const p = join(root, f);
     if (!existsSync(p)) continue;
     any = true;
     const cur = readFileSync(p, 'utf8');
-    if (cur.includes(BLOCK_HEADING) || (f === 'CLAUDE.md' && agentsWired && /^@AGENTS\.md\s*$/m.test(cur))) {
+    if (cur.includes(BLOCK_HEADING) || (IMPORTERS.includes(f) && agentsCarries && /^@(\.\/)?AGENTS\.md\s*$/m.test(cur))) {
       report.skipped.push(f);
     } else {
       appendFileSync(p, (cur.endsWith('\n') ? '' : '\n') + '\n' + block);
@@ -124,11 +128,13 @@ export function wire(root, { hooks = true, mcp = false, rules = true, agents = n
     report.created.push('CLAUDE.md');
   }
 
-  // 3-7. Per-target rules, hooks, MCP.
+  // 3-7. Per-target rules, hooks, MCP. `carried` says AGENTS.md now holds
+  // the block, so an agent that reads AGENTS.md needs no copy of its own.
+  const carried = existsSync(join(root, 'AGENTS.md')) && readFileSync(join(root, 'AGENTS.md'), 'utf8').includes(BLOCK_HEADING);
   for (const name of active) {
     const t = TARGETS[name];
     const tinv = t.global ? { shell: inv.absShell, command: inv.absCommand, args: inv.absArgs } : inv;
-    const ctx = { root, inv: tinv, block, paths, briefs, report, log };
+    const ctx = { root, inv: tinv, block, paths, briefs, report, log, carried };
     if (rules && t.rules) t.rules(ctx);
     if (hooks && t.hooks) t.hooks(ctx);
     if (mcp && t.mcp) t.mcp(ctx);
