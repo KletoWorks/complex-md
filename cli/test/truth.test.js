@@ -67,6 +67,7 @@ const BANNED = [
   { re: /\bRoo\b|cline,roo/, files: ['README.md', 'cli/README.md', 'cli/bin/complex-md.js', ...WIRING], why: 'Roo reads AGENTS.md; its block-only rule file adds nothing and is not offered' },
   { re: /\.mcp\.json|mcpServers|complex-md mcp|--mcp\b|MCP server/i, files: WIRING, why: 'the spec and the skill do not tell agents to wire the MCP server' },
   { re: /"mcp"/, files: ['cli/package.json'], why: 'the npm keywords do not lead with MCP' },
+  { re: /about (a|one|two) seconds?|in a second\b|in seconds\b/i, why: 'no speed figure is measured across repositories; the pages do not pitch speed' },
 ];
 
 for (const rule of BANNED) {

@@ -13,7 +13,7 @@ Spec, research and the downloadable skill: https://complex.md
 
 1. Computes the spec 0.3 signals locally: lines of code, churn, recency
    weighted churn, bug-fix commits, authors, owner share, co-change pairs,
-   fan-in, covering tests. About two seconds on a mid-sized repo.
+   fan-in, covering tests.
 2. Writes the front matter itself (numbers verbatim) and makes one model call
    for the prose. The first configured provider wins: `ANTHROPIC_API_KEY`,
    `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`,
@@ -100,7 +100,7 @@ https://github.com/KletoWorks/complex-md.
 ## Limits, stated plainly
 
 The analysis is text-level: regular expressions and lightweight parsers
-over tracked files, plus git. That is what makes it run in seconds on any
+over tracked files, plus git. That is what makes it run on any
 repository with no build or toolchain, and it means the dependency graph is
 not a compiler's. Computed imports, dependency injection, reflection and
 runtime registration do not resolve; Go fan-in is package-level blast

@@ -267,7 +267,7 @@ compiler, a language server, tree-sitter with resolvers, or a code
 intelligence index, and the spec does not pretend otherwise. The line
 matters in both directions.
 
-What the text level buys: the whole analysis runs locally in seconds on any
+What the text level buys: the whole analysis runs locally on any
 repository in any mix of languages, with no build, no dependency install,
 and no toolchain. That is what lets one `npx` run work on a Go module, a
 pnpm monorepo and a pile of Caddy configs alike.
@@ -459,8 +459,8 @@ editing this file, open lib/route.js and fastify.d.ts alongside it, and run
 Three ways to produce a conforming COMPLEX.md:
 
 1. **The CLI**, the reference implementation. `npx complex-md` builds the
-   dependency graph and reads the history locally (about a second on a
-   1,300-file repository), writes the front matter itself so no number
+   dependency graph and reads the history locally, writes the front
+   matter itself so no number
    passes through a model, and makes one model call for the prose (or hands
    the prompt bundle to the agent you are already using when no API key is
    set). Without a key it sends nothing. With a key, the one call carries
