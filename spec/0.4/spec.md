@@ -61,9 +61,10 @@ document and the reader, not the numbers.
 2. A producer MUST NOT write a byte order mark.
 3. A producer SHOULD end lines with LF. A map with CRLF line ends is still a
    conforming map, because a Windows checkout converts LF to CRLF by default.
-4. A map MUST NOT be larger than 8,192 bytes, front matter and prose
+4. A map SHOULD NOT be larger than 8,192 bytes, front matter and prose
    together. Agents read the whole file into their context, and a long file
-   costs every session that loads it.
+   costs every session that loads it. A reader SHOULD warn on a larger map
+   and MUST still read it.
 5. A producer that cannot fit the map in 8,192 bytes SHOULD cut list rows
    from the end and shorten the prose. It MUST NOT drop a REQUIRED key or a
    REQUIRED section to fit.
