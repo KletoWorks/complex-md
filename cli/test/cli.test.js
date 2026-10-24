@@ -66,3 +66,17 @@ test('check --base with a ref that resolves still runs the check', () => {
   const r = run(committedRepo(), ['check', '--base', 'HEAD', '--strict']);
   assert.equal(r.status, 0, r.stderr);
 });
+
+/* The --for list in --help was typed by hand and drifted from the target
+   table. It is built from TARGET_NAMES, less the retired targets that only
+   clean up files earlier versions wrote. */
+test('--help lists exactly the offered --for targets, built from the target table', async () => {
+  const { TARGET_NAMES, OFFERED_TARGETS } = await import('../src/targets.js');
+  const r = spawnSync(process.execPath, [BIN, 'help'], { encoding: 'utf8' });
+  assert.equal(r.status, 0);
+  const listed = /--for ([a-z,\s]+?)\s*\(default/.exec(r.stdout)[1].replace(/\s+/g, '').split(',');
+  assert.deepEqual(listed, OFFERED_TARGETS);
+  assert.ok(OFFERED_TARGETS.every((n) => TARGET_NAMES.includes(n)));
+  assert.ok(!listed.includes('roo'), 'Roo reads AGENTS.md; no rule file is offered for it');
+  for (const line of r.stdout.split('\n')) assert.ok(line.length <= 120, `help line over 120 columns: ${line}`);
+});

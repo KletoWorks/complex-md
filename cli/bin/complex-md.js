@@ -17,8 +17,7 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
   npx complex-md generate        same; --agent writes the prompt bundle for your agent instead of calling a model
                                  --model <id>  --provider <name>  --no-wire  --no-hooks
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
-                                 --no-hooks  --for claude,cursor,openhands,antigravity,codex,copilot,review,devin,
-                                 windsurf,kiro,cline,openclaw,hermes
+                                 --no-hooks  --for {targets}
                                  (default: detect repo-local targets; openclaw/hermes are opt-in only and get
                                   .agents/skills/complex-md/SKILL.md)
                                  --mcp also registers the MCP server; openclaw/hermes are global
@@ -40,9 +39,26 @@ Without any of them the prompt bundle goes to .complex-md/prompt.md for the agen
 Without a key nothing is sent. With one, that call sends the signals and excerpts of up to ten
 hotspot files, about 60,000 characters of code at most, to the provider you chose.`;
 
+/* The --for names come from the target table, so the list in --help
+   cannot drift from what wire accepts. targets.js loads only when help
+   prints, so a hook run does not pay for it. */
+async function help() {
+  const { OFFERED_TARGETS } = await import('../src/targets.js');
+  return HELP.replace(/^(.*)\{targets\}$/m, (_, lead) => {
+    const indent = ' '.repeat(lead.length - lead.trimStart().length);
+    const lines = [lead];
+    OFFERED_TARGETS.forEach((name, i) => {
+      const piece = name + (i < OFFERED_TARGETS.length - 1 ? ',' : '');
+      if (lines.at(-1).length + piece.length > 115) lines.push(indent);
+      lines[lines.length - 1] += piece;
+    });
+    return lines.join('\n');
+  });
+}
+
 async function main() {
   if (cmd === '--version' || cmd === '-v') return console.log(pkg.version);
-  if (cmd === 'help' || cmd === '--help' || cmd === '-h') return console.log(HELP);
+  if (cmd === 'help' || cmd === '--help' || cmd === '-h') return console.log(await help());
 
   if (cmd === 'hook') {
     const { runHook } = await import('../src/hook.js');
@@ -162,7 +178,7 @@ async function main() {
   }
 
   log(`unknown command: ${cmd}\n`);
-  console.log(HELP);
+  console.log(await help());
   process.exit(2);
 }
 

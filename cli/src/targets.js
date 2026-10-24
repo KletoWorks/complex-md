@@ -413,8 +413,10 @@ export const TARGETS = {
 
   /* Roo Code reads AGENTS.md and offers no path scoped rule, so a file here
      could only repeat the block. The target stays so `--for roo` keeps
-     working and a rewire removes the copy earlier versions wrote. */
+     working and a rewire removes the copy earlier versions wrote. It is
+     retired: --help does not offer it. */
   roo: {
+    retired: true,
     detect: (root) => existsSync(join(root, '.roo')),
     rules({ root, report }) {
       dropBlockCopy(root, '.roo/rules/complex-md.md', report);
@@ -469,3 +471,6 @@ export const TARGETS = {
 };
 
 export const TARGET_NAMES = Object.keys(TARGETS);
+
+/** The `--for` names that --help offers: every target except the retired ones. */
+export const OFFERED_TARGETS = TARGET_NAMES.filter((name) => !TARGETS[name].retired);
