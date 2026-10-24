@@ -80,6 +80,11 @@ test('the issue forms ask for the fields a fix needs, and questions go to Discus
     for (const id of ids) assert.match(s, new RegExp(`^\\s+id: ${id}$`, 'm'), `${p} asks for ${id}`);
     assert.match(s, /required: true/, `${p} requires at least one field`);
   }
+  // Each form files its issue under the label a maintainer triages by.
+  for (const [p, label] of [['.github/ISSUE_TEMPLATE/map-wrong.yml', 'map'], ['.github/ISSUE_TEMPLATE/new-language.yml', 'language'], ['.github/ISSUE_TEMPLATE/benchmark-task.yml', 'bench'], ['.github/unlisted/page-removal.yml', 'removal']]) {
+    const labels = /^labels: \[([^\]]*)\]$/m.exec(read(p))?.[1].split(',').map((l) => l.trim()) || [];
+    assert.ok(labels.includes(label), `${p} labels ${label}, has ${labels}`);
+  }
   // No hosted page exists yet, so the chooser offers no form to remove one.
   assert.ok(!existsSync(join(ROOT, '.github/ISSUE_TEMPLATE/page-removal.yml')), 'the removal form stays out of the chooser');
   const config = read('.github/ISSUE_TEMPLATE/config.yml');

@@ -1,6 +1,6 @@
 name: A benchmark task
 description: Propose a real fix commit for the benchmark in bench/.
-labels: [enhancement]
+labels: [bench]
 body:
   - type: markdown
     attributes:

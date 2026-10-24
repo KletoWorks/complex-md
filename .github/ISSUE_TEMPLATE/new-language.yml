@@ -1,6 +1,6 @@
 name: A new language
 description: Ask for dependency edges in a language the map does not read yet, or offer to add them.
-labels: [enhancement]
+labels: [enhancement, language]
 body:
   - type: markdown
     attributes:

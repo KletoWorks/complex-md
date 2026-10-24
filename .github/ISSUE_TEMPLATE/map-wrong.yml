@@ -1,6 +1,6 @@
 name: A map is wrong for my repository
 description: COMPLEX.md names a file, a number or a pair that is false for your repository.
-labels: [bug]
+labels: [bug, map]
 body:
   - type: markdown
     attributes:
