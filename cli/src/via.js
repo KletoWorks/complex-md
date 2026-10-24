@@ -56,7 +56,12 @@ export const VIA_CLIS = [
   { name: 'copilot', bins: ['copilot'], input: 'stdin', docs: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/automate-copilot-cli/run-cli-programmatically',
     args: ({ model }) => ['--silent', '--no-ask-user', '--deny-tool=shell,write', ...(model ? [`--model=${model}`] : [])] },
   { name: 'hermes', bins: ['hermes'], input: 'stdin', docs: 'https://hermes-agent.nousresearch.com/docs/reference/cli-commands',
-    args: ({ model }) => ['-z', ARG_INSTRUCTION, ...m('--model', model)] },
+    /* `hermes -z` takes no --source, so the run uses `hermes chat` in quiet
+       mode: the reply goes to stdout and the session id to stderr. The
+       whole stdin is the query. --source tool keeps the run out of the
+       user's session list. hermes has no read only mode, so the guard in
+       runVia is the only check on what its tools write. */
+    args: ({ model }) => ['chat', '--query-file', '-', '--quiet', '--source', 'tool', ...m('--model', model)] },
   { name: 'openclaw', bins: ['openclaw'], input: 'stdin', docs: 'https://docs.openclaw.ai/cli/agent',
     args: ({ model }) => ['agent', 'exec', '--message-file', '-', ...m('--model', model)] },
 ];
