@@ -6,8 +6,9 @@
 // their MCP registry is configured through their own CLI, never by
 // editing another tool's global file behind the user's back.
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync, rmSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { git } from './git.js';
 import { hookCommand } from './invoke.js';
 import { BLOCK_HEADING } from './prompts.js';
 
@@ -75,7 +76,24 @@ function agentsInUse(root) {
   return readdirSync(d).some((e) => e !== 'skills' || !isDir(join(d, e)) || readdirSync(join(d, e)).some((s) => s !== 'complex-md'));
 }
 
-const globRule = (b) => `---\ntrigger: glob\nglobs: ${b.path}\n---\n`;
+/* A brief path is a literal file path, and every scope field below reads a
+   glob. There a route such as app/[id]/page.tsx is a character class: it
+   matches app/i/page.tsx and never itself. Each glob character becomes a
+   one character class, [[] []] [{] [}] [*] [?], which means the same in
+   VS Code's glob, minimatch, picomatch and fnmatch and needs no backslash;
+   VS Code's glob reads a backslash as a path separator. A comma splits the
+   glob list in Cursor, Windsurf, Devin and Copilot, and a class does not
+   protect it there, so a comma becomes ?. That ? also matches any other
+   character at that one position. */
+export function literalGlob(path) {
+  return path.replace(/[[\]{}*?,]/g, (c) => (c === ',' ? '?' : `[${c}]`));
+}
+
+/* An unquoted YAML value may not start with [ { * ? and the like, so a glob
+   that does is written as a quoted string. */
+const yamlValue = (v) => (/^[[\]{}*?&!|>'"%@`#,-]|: | #/.test(v) ? JSON.stringify(v) : v);
+
+const globRule = (b) => `---\ntrigger: glob\nglobs: ${literalGlob(b.path)}\n---\n`;
 
 export function write(p, content) {
   mkdirSync(dirname(p), { recursive: true });
@@ -87,8 +105,33 @@ export function readJson(p, fallback) {
   try {
     return JSON.parse(readFileSync(p, 'utf8'));
   } catch (e) {
-    throw new Error(`${p} is not valid JSON; fix it, or run with --no-hooks and without --mcp. (${e.message})`);
+    throw new Error(`${p} is not valid JSON; fix it, or run without --hooks and --mcp. (${e.message})`);
   }
+}
+
+/* Whether a settings file holds a complex-md hook entry, in any form an
+   earlier version wrote. A default wire writes no hooks, and uses this to
+   say so when it leaves such entries in place. */
+export function holdsOurHooks(root, rel) {
+  try {
+    return /complex-md(@\S+)?(\.js)?\s+hook\s/.test(readFileSync(join(root, rel), 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
+/* A per user settings file must stay out of the repository. Claude Code
+   ignores .claude/settings.local.json when it creates the file itself; when
+   wire creates it, the path goes into .git/info/exclude, which is local to
+   this clone, so the committed .gitignore is not edited. */
+function keepOutOfGit(root, rel) {
+  if (git(['check-ignore', rel], { cwd: root, allowFail: true }).trim()) return;
+  const ex = git(['rev-parse', '--git-path', 'info/exclude'], { cwd: root, allowFail: true }).trim();
+  if (!ex) return;
+  const p = isAbsolute(ex) ? ex : join(root, ex);
+  const cur = existsSync(p) ? readFileSync(p, 'utf8') : '';
+  mkdirSync(dirname(p), { recursive: true });
+  appendFileSync(p, `${cur && !cur.endsWith('\n') ? '\n' : ''}/${rel}\n`);
 }
 
 export function writeJson(p, obj) {
@@ -180,15 +223,15 @@ function cliAvailable(bin) {
  * exactly what wire would write.
  */
 export const BRIEF_SPECS = {
-  claude: { dir: '.claude/rules/complex-md', ext: '.md', header: (b) => `---\nalwaysApply: false\npaths: ${b.path}\n---\n` },
-  cursor: { dir: '.cursor/rules/complex-md', ext: '.mdc', header: (b) => `---\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${b.path}\nalwaysApply: false\n---\n` },
-  openhands: { dir: '.agents/skills', ext: '.md', prefix: 'complex-md-', header: (b) => `---\nname: complex-md-${b.slug}\ndescription: COMPLEX.md brief for ${b.path}\npaths:\n  - "${b.path}"\n---\n` },
-  antigravity: { dir: '.agents/rules', ext: '.md', prefix: 'complex-md-', header: (b) => `---\ntrigger: glob\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${JSON.stringify(b.path)}\n---\n` },
-  copilot: { dir: '.github/instructions/complex-md', ext: '.instructions.md', header: (b) => `---\napplyTo: ${JSON.stringify(b.path)}\n---\n` },
+  claude: { dir: '.claude/rules/complex-md', ext: '.md', header: (b) => `---\nalwaysApply: false\npaths: ${yamlValue(literalGlob(b.path))}\n---\n` },
+  cursor: { dir: '.cursor/rules/complex-md', ext: '.mdc', header: (b) => `---\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${literalGlob(b.path)}\nalwaysApply: false\n---\n` },
+  openhands: { dir: '.agents/skills', ext: '.md', prefix: 'complex-md-', header: (b) => `---\nname: complex-md-${b.slug}\ndescription: COMPLEX.md brief for ${b.path}\npaths:\n  - ${JSON.stringify(literalGlob(b.path))}\n---\n` },
+  antigravity: { dir: '.agents/rules', ext: '.md', prefix: 'complex-md-', header: (b) => `---\ntrigger: glob\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${JSON.stringify(literalGlob(b.path))}\n---\n` },
+  copilot: { dir: '.github/instructions/complex-md', ext: '.instructions.md', header: (b) => `---\napplyTo: ${JSON.stringify(literalGlob(b.path))}\n---\n` },
   devin: { dir: '.devin/rules', ext: '.md', prefix: 'complex-md-', header: globRule },
-  kiro: { dir: '.kiro/steering', ext: '.md', prefix: 'complex-md-', header: (b) => `---\ninclusion: fileMatch\nfileMatchPattern: ${JSON.stringify(b.path)}\n---\n` },
+  kiro: { dir: '.kiro/steering', ext: '.md', prefix: 'complex-md-', header: (b) => `---\ninclusion: fileMatch\nfileMatchPattern: ${JSON.stringify(literalGlob(b.path))}\n---\n` },
   windsurf: { dir: '.windsurf/rules', ext: '.md', prefix: 'complex-md-', header: globRule },
-  cline: { dir: '.clinerules', ext: '.md', prefix: 'complex-md-', header: (b) => `---\npaths:\n  - ${JSON.stringify(b.path)}\n---\n` },
+  cline: { dir: '.clinerules', ext: '.md', prefix: 'complex-md-', header: (b) => `---\npaths:\n  - ${JSON.stringify(literalGlob(b.path))}\n---\n` },
 };
 
 /* The files one spec produces for these briefs, as relative path to
@@ -229,22 +272,27 @@ export const TARGETS = {
       dropBlockCopy(root, '.claude/rules/complex-md.md', report);
       writeSpec(root, BRIEF_SPECS.claude, briefs, report);
     },
-    hooks({ root, inv, report }) {
-      const p = join(root, '.claude/settings.json');
+    hookFile: '.claude/settings.json',
+    /* `local`: the per user .claude/settings.local.json, which Claude Code
+       merges over the committed settings. */
+    hooks({ root, inv, report, local }) {
+      const rel = local ? '.claude/settings.local.json' : '.claude/settings.json';
+      const p = join(root, rel);
       const s = readJson(p, {});
       s.hooks ||= {};
       const inner = (list) => (list || []).flatMap((g) => g.hooks || []);
-      if (pinLegacy(inner(s.hooks.PreToolUse), 'hook pre', inv)) report.hooks.push('.claude/settings.json PreToolUse (pinned)');
-      if (pinLegacy(inner(s.hooks.Stop), 'hook stop', inv)) report.hooks.push('.claude/settings.json Stop (pinned)');
+      if (pinLegacy(inner(s.hooks.PreToolUse), 'hook pre', inv)) report.hooks.push(`${rel} PreToolUse (pinned)`);
+      if (pinLegacy(inner(s.hooks.Stop), 'hook stop', inv)) report.hooks.push(`${rel} Stop (pinned)`);
       if (!hasHook(s.hooks.PreToolUse, 'hook pre')) {
         (s.hooks.PreToolUse ||= []).push({ matcher: 'Edit|Write|MultiEdit|NotebookEdit', hooks: [{ type: 'command', command: hookCommand(inv, 'hook pre'), timeout: 30 }] });
-        report.hooks.push('.claude/settings.json PreToolUse');
+        report.hooks.push(`${rel} PreToolUse`);
       }
       if (!hasHook(s.hooks.Stop, 'hook stop')) {
         (s.hooks.Stop ||= []).push({ hooks: [{ type: 'command', command: hookCommand(inv, 'hook stop'), timeout: 60 }] });
-        report.hooks.push('.claude/settings.json Stop');
+        report.hooks.push(`${rel} Stop`);
       }
       writeJson(p, s);
+      if (local) keepOutOfGit(root, rel);
     },
     mcp({ root, inv, report }) {
       addMcpJson(join(root, '.mcp.json'), { command: inv.command, args: [...inv.args, 'mcp'] }, report, '.mcp.json');
@@ -254,10 +302,14 @@ export const TARGETS = {
   cursor: {
     detect: (root) => existsSync(join(root, '.cursor')),
     rules({ root, block, paths, briefs, report, carried }) {
-      blockRule(root, '.cursor/rules/complex-md.mdc', `---\ndescription: COMPLEX.md structural risk map\nglobs: ${paths.join(', ')}\nalwaysApply: false\n---\n${block}`, carried, report);
+      blockRule(root, '.cursor/rules/complex-md.mdc', `---\ndescription: COMPLEX.md structural risk map\nglobs: ${paths.map(literalGlob).join(', ')}\nalwaysApply: false\n---\n${block}`, carried, report);
       writeSpec(root, BRIEF_SPECS.cursor, briefs, report);
     },
-    hooks({ root, inv, report }) {
+    hookFile: '.cursor/hooks.json',
+    hooks({ root, inv, report, local }) {
+      // Cursor reads hooks from the project file or the user's home, and
+      // has no per user file inside the project.
+      if (local) return void report.skipped.push('.cursor/hooks.json (Cursor has no per user project hooks file; --hooks without --local writes it)');
       const p = join(root, '.cursor/hooks.json');
       const h = readJson(p, { version: 1, hooks: {} });
       h.version ||= 1;
@@ -289,7 +341,7 @@ export const TARGETS = {
   openhands: {
     detect: (root) => existsSync(join(root, '.openhands')) || agentsInUse(root),
     rules({ root, block, paths, briefs, report, carried }) {
-      blockRule(root, '.agents/skills/complex-md.md', `---\nname: complex-md\npaths:\n${paths.map((p) => `  - "${p}"`).join('\n')}\n---\n${block}`, carried, report);
+      blockRule(root, '.agents/skills/complex-md.md', `---\nname: complex-md\npaths:\n${paths.map((p) => `  - ${JSON.stringify(literalGlob(p))}`).join('\n')}\n---\n${block}`, carried, report);
       writeSpec(root, BRIEF_SPECS.openhands, briefs, report);
     },
   },
@@ -389,7 +441,7 @@ export const TARGETS = {
   windsurf: {
     detect: (root) => existsSync(join(root, '.windsurf')),
     rules({ root, block, paths, briefs, report, carried }) {
-      blockRule(root, '.windsurf/rules/complex-md.md', `---\ntrigger: glob\nglobs: ${paths.join(', ')}\n---\n${block}`, carried, report);
+      blockRule(root, '.windsurf/rules/complex-md.md', `---\ntrigger: glob\nglobs: ${paths.map(literalGlob).join(', ')}\n---\n${block}`, carried, report);
       writeSpec(root, BRIEF_SPECS.windsurf, briefs, report);
     },
   },
@@ -413,8 +465,10 @@ export const TARGETS = {
 
   /* Roo Code reads AGENTS.md and offers no path scoped rule, so a file here
      could only repeat the block. The target stays so `--for roo` keeps
-     working and a rewire removes the copy earlier versions wrote. */
+     working and a rewire removes the copy earlier versions wrote. It is
+     retired: --help does not offer it. */
   roo: {
+    retired: true,
     detect: (root) => existsSync(join(root, '.roo')),
     rules({ root, report }) {
       dropBlockCopy(root, '.roo/rules/complex-md.md', report);
@@ -469,3 +523,6 @@ export const TARGETS = {
 };
 
 export const TARGET_NAMES = Object.keys(TARGETS);
+
+/** The `--for` names that --help offers: every target except the retired ones. */
+export const OFFERED_TARGETS = TARGET_NAMES.filter((name) => !TARGETS[name].retired);

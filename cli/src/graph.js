@@ -30,9 +30,11 @@ const MAX_READ = 1024 * 1024;
    test directory holds binary fixtures by design: compressed corpora,
    compiled .mo catalogs, archives. One repository listed 93 of them and
    advised fixing the byte in each. A file counts only when its extension
-   is a code extension and it sits outside a fixture or data directory. */
-const FIXTURE_DIR_RE = /(^|\/)(fixtures?|testdata|test[_-]?data|__fixtures__|__snapshots__|data|datasets?|seed-data|mocks?|__mocks__)\//;
-const CODE_KINDS = new Set(['source', 'style', 'markup', 'test']);
+   is a code extension and it sits outside a fixture tree. A data folder is
+   a fixture tree only inside a test tree: src/data/ holds application
+   code, and classify gives it the data kind by its folder alone. */
+const FIXTURE_DIR_RE = /(^|\/)(fixtures?|testdata|test[_-]?data|__fixtures__|__snapshots__|mocks?|__mocks__)\/|(^|\/)(tests?|__tests__|specs?)\/(.+\/)?(data|datasets?|seed-data)\//;
+const CODE_KINDS = new Set(['source', 'style', 'markup', 'test', 'data']);
 
 function namesAsGrepBlind(path, kind) {
   return CODE_KINDS.has(kind) && (SOURCE_EXT_RE.test(path) || STYLE_RE.test(path) || MARKUP_RE.test(path)) && !FIXTURE_DIR_RE.test(path);
@@ -95,17 +97,36 @@ const JS_EXTS = ['.js', '.mjs', '.cjs', '.ts', '.mts', '.cts', '.jsx', '.tsx', '
 const PY_INIT = ['/__init__.py'];
 
 /** Resolve a relative-ish specifier from `fromDir` against the tracked set, probing extensions and index files. */
-function resolveRel(spec, fromDir, files, dirs) {
+function resolveRel(spec, fromDir, files, dirs, mains) {
   spec = spec.replace(/[?#].*$/, '');
   if (!spec) return null;
-  const base = posix.normalize(posix.join(fromDir, spec)).replace(/^\.\//, '');
-  return probe(base, files, dirs);
+  /* `..`, `.` and a trailing slash name a directory, the way Node reads
+     them: '../lib/' never loads a lib.js beside the folder. posix.normalize
+     keeps the trailing slash and maps the root to '.', so both are
+     stripped before probing. */
+  const dirOnly = spec.endsWith('/') || /(^|\/)\.\.?$/.test(spec);
+  const base = posix.normalize(posix.join(fromDir, spec)).replace(/\/+$/, '').replace(/^\.(\/|$)/, '');
+  if (base === '..' || base.startsWith('../')) return null;
+  if (dirOnly || !base) return probeDir(base, files, dirs, mains);
+  return probe(base, files, dirs, mains);
 }
 
-function probe(base, files, dirs) {
+/** A directory as a module: its package.json `main` (when `mains` is given), then index.<ext>. '' is the root. */
+function probeDir(base, files, dirs, mains) {
+  const main = mains?.get(base);
+  const hit = main && probe(main, files, dirs);
+  if (hit) return hit;
+  const pre = base ? base + '/' : '';
+  if (!base || dirs.has(base)) for (const e of JS_EXTS) if (files.has(pre + 'index' + e)) return pre + 'index' + e;
+  return null;
+}
+
+function probe(base, files, dirs, mains) {
+  if (!base) return null;
   if (files.has(base)) return base;
   for (const e of JS_EXTS) if (files.has(base + e)) return base + e;
-  if (dirs.has(base)) for (const e of JS_EXTS) if (files.has(base + '/index' + e)) return base + '/index' + e;
+  const dirHit = probeDir(base, files, dirs, mains);
+  if (dirHit) return dirHit;
   for (const e of PY_INIT) if (files.has(base + e)) return base + e;
   if (files.has(base + '.py')) return base + '.py';
   if (files.has(base + '.rb')) return base + '.rb';
@@ -266,10 +287,23 @@ export function buildGraph(root, tracked) {
     if (!s) edges.set(from, (s = new Set()));
     s.add(to);
   };
+  // Directory -> its package.json `main`, for require('..') and './pkg'.
+  const mains = new Map();
+  for (const f of files) {
+    if (!/(^|\/)package\.json$/.test(f) || !texts.has(f)) continue;
+    let main;
+    try {
+      main = JSON.parse(texts.get(f)).main;
+    } catch {
+      continue;
+    }
+    const dir = posix.dirname(f) === '.' ? '' : posix.dirname(f);
+    if (typeof main === 'string' && main) mains.set(dir, posix.normalize(posix.join(dir, main)).replace(/\/+$/, ''));
+  }
   const probeHere = (base) => probe(base, files, dirs);
   const resolveSpec = (spec, fromDir) => {
     if (/^(https?:)?\/\//.test(spec) || /^(data|mailto|tel|javascript|node|bun|npm|jsr|deno):/.test(spec)) return null;
-    if (spec.startsWith('.')) return resolveRel(spec, fromDir, files, dirs);
+    if (spec.startsWith('.')) return resolveRel(spec, fromDir, files, dirs, mains);
     if (spec.startsWith('/')) return probe(spec.slice(1), files, dirs) || nearestRootProbe(spec.slice(1), fromDir, files, dirs);
     if (spec.startsWith('#')) return resolveHashImport(spec, fromDir, importMaps, probeHere);
     return resolveAlias(spec, fromDir, aliases, files, dirs) || resolveWorkspace(spec, workspaces, probeHere);

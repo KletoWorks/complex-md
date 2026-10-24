@@ -39,9 +39,9 @@ file is a test file whose import, path literal or exact name points at it.
 | e | full closure | the covering tests of the file and of every file that reaches it by any import chain |
 
 A test that imports `..` or a directory such as `../lib/` reaches that
-package's entry file or the directory's index file. Selectors c and e use
-those edges. Selectors a and b use the map's graph as it is, which does not
-resolve them. A barrel is a source file in which at least 80% of the code
+package's entry file or the directory's index file. The map's graph
+resolves those edges, so the four import based selectors, a, b, c and e,
+use them. A barrel is a source file in which at least 80% of the code
 lines are imports, re-exports or object keys.
 
 The decision bar is a recall at a suite share, and only a ranked list can be
@@ -71,8 +71,8 @@ the three repositories, recall at the mean suite share:
 
 | selector | band 1 to 5 (289 fixes) | band 6 to 20 (51 fixes) |
 |---|---|---|
-| a direct | 29% at 3% | 41% at 8% |
-| b depth 2 | 37% at 11% | 49% at 20% |
+| a direct | 35% at 6% | 53% at 22% |
+| b depth 2 | 75% at 50% | 92% at 77% |
 | c roots and barrels | 78% at 53% | 93% at 76% |
 | d history | 87% at 26% | 80% at 35% |
 | e full closure | 97% at 80% | 99% at 88% |
@@ -85,7 +85,7 @@ Per repository, the same two bands:
 
 | selector | undici 1 to 5 (124) | undici 6 to 20 (17) | fastify 1 to 5 (109) | fastify 6 to 20 (32) | nodemon 1 to 5 (56) |
 |---|---|---|---|---|---|
-| a | 32% at 1% | 27% at 1% | 19% at 4% | 46% at 11% | 40% at 8% |
+| a | 32% at 1% | 27% at 1% | 34% at 12% | 64% at 34% | 40% at 8% |
 | d | 85% at 5% | 59% at 9% | 87% at 33% | 88% at 45% | 89% at 58% |
 | e | 98% at 85% | 100% at 87% | 99% at 87% | 100% at 90% | 91% at 51% |
 | e15 | 87% at 15% | 68% at 15% | 69% at 15% | 74% at 15% | 46% at 13% |
@@ -111,8 +111,12 @@ tasks. At each task's base, for the source file the agents edited:
 - Pooled, the full suite rule does not apply: the 20% cuts reach 74% to 76%
   recall in both bands. undici and fastify each clear it too. nodemon alone
   does not: its best 20% cut names 59.6% in the 1 to 5 band.
-- The map's list today names 29% of the fix tests in the 1 to 5 band and 41%
-  in the 6 to 20 band. It costs 3% to 8% of the suite.
+- The map's list today names 35% of the fix tests in the 1 to 5 band and 53%
+  in the 6 to 20 band. It costs 6% to 22% of the suite. In fastify, 24 of
+  the 150 fixes change fastify.js, the package root that most tests import,
+  and for each of them the direct list is 81% of the suite or more.
+- Depth 2 names 75% and 92%, at 50% and 77% of the suite: a test that
+  imports the package root is two steps from every file the root imports.
 - The full closure finds almost every fix test, but at 80% to 88% of the
   suite. Most tests import the package root, and the root reaches most
   files.

@@ -125,8 +125,8 @@ export function rootGraph(root, tracked, graph) {
       const spec = m[1] || m[2] || m[3];
       if (spec.startsWith('.')) {
         /* A directory: its package entry, or its index file. The base
-           graph resolves neither '..' nor a specifier with a trailing
-           slash such as '../../lib/'. */
+           graph resolves '..' and a trailing slash such as '../../lib/'
+           too, so most of these edges repeat ones it already holds. */
         const d = posix.normalize(posix.join(posix.dirname(f), spec)).replace(/\/$/, '');
         const pkg = byDir.get(d);
         if (pkg?.main) addRev(f, pkg.main);

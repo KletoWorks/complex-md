@@ -133,6 +133,24 @@ test('parseFrontMatter accepts CRLF input on its own', () => {
   assert.deepEqual(fm.hotspots, [{ path: 'a.js', score: 5 }]);
 });
 
+/* frontMatter writes a string that needs quoting with JSON.stringify, so a
+   double quote arrives as \" and a backslash as \\. The reader kept both
+   escapes, and a blind spot read back with a stray backslash. */
+test('quoted scalars and list items read back without their escapes', async () => {
+  const { frontMatter } = await import('../src/generate.js');
+  const spots = ['a file named "x.js" and a path C:\\src\\y.js', 'tab\there, line\nbreak, and \u00e9', 'plain, with a comma'];
+  const sig = {
+    spec: '0.3', generated: '2026-10-24', commit: 'abc1234', window_commits: 1, files_analyzed: 1,
+    profile: { kinds: 'source 1, "quoted" 2' }, hotspots: [], load_bearing: [], co_change: [], seams: [], blind_spots: spots,
+  };
+  const fm = parseFrontMatter(frontMatter(sig, 'complex-md/test'));
+  assert.deepEqual(fm.blind_spots, spots);
+  assert.equal(fm.profile.kinds, 'source 1, "quoted" 2');
+  const hand = parseFrontMatter(`complex_md: "0.3"\nnote: 'it''s here'\nblind_spots:\n  - "say \\"hi\\""\n  - 'single ''quoted'' item'\n  - "odd \\x escape"\n`);
+  assert.equal(hand.note, "it's here");
+  assert.deepEqual(hand.blind_spots, ['say "hi"', "single 'quoted' item", 'odd \\x escape']);
+});
+
 test('a paragraph that names the full path beats an earlier mention of the basename', () => {
   // The first paragraph names generate.js by its basename near its start.
   // The second paragraph is the file's own, and it names the full path a

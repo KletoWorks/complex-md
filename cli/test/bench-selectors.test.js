@@ -86,7 +86,8 @@ test('the five selectors at the parent of a fix, on a repository with a root and
     assert.equal(fx.band, '1-5');
     const sel = (k) => fx.selectors[k];
     assert.deepEqual(sel('a').tests, ['test/core.test.js']);
-    assert.deepEqual(sel('b').tests, ['test/core.test.js', 'test/mid.test.js']);
+    /* '../lib/' resolves to the barrel, which imports core.js: depth 2. */
+    assert.deepEqual(sel('b').tests, ['test/core.test.js', 'test/dir.test.js', 'test/mid.test.js']);
     assert.deepEqual(sel('c').tests, ['test/core.test.js', 'test/dir.test.js', 'test/root.test.js']);
     assert.deepEqual(sel('d').tests, ['test/side.test.js']);
     assert.deepEqual(sel('e').tests, ['test/core.test.js', 'test/dir.test.js', 'test/mid.test.js', 'test/other.test.js', 'test/root.test.js']);

@@ -327,3 +327,36 @@ test('the portable skill alone does not opt a later default wire into OpenHands'
   wire(user, { agents: ['openclaw'] });
   assert.ok(wire(user, {}).rules.includes('.agents/skills/complex-md-* (4 paths)'), 'a skill of the user\'s still opts in');
 });
+
+/* Every scope field is a glob. A route such as app/[id]/page.tsx is a
+   character class there, so the raw path scopes the brief to app/i/page.tsx
+   and never to itself, and a comma splits the list that Cursor, Windsurf,
+   Devin and Copilot read. Each brief must scope to exactly its own path. */
+const scopeOf = (header) => {
+  const m = /^(?:paths|globs|applyTo|fileMatchPattern):[ ]*(.*)\n(?:  - (.*)\n)?/m.exec(header);
+  const v = m[1] || m[2];
+  return v.startsWith('"') ? JSON.parse(v) : v;
+};
+
+test('every brief scope field matches its literal path, brackets, braces, stars and commas included', async () => {
+  const { BRIEF_SPECS } = await import('../src/targets.js');
+  const { matchesGlob } = (await import('node:path')).posix;
+  const cases = [
+    ['app/[id]/page.tsx', ['app/i/page.tsx', 'app/d/page.tsx']],
+    ['[locale]/layout.tsx', ['l/layout.tsx']],
+    ['src/{a}/x*.ts', ['src/a/xyz.ts']],
+    ['src/what?.js', ['src/whatx.js']],
+    ['src/a,b.ts', []],
+  ];
+  for (const [name, spec] of Object.entries(BRIEF_SPECS)) {
+    assert.equal(scopeOf(spec.header({ path: 'src/core.js', slug: 'x' })), 'src/core.js', `${name}: a plain path stays as it is`);
+    for (const [path, others] of cases) {
+      const glob = scopeOf(spec.header({ path, slug: 'x' }));
+      assert.ok(matchesGlob(path, glob), `${name}: ${glob} must match ${path}`);
+      for (const o of others) assert.ok(!matchesGlob(o, glob), `${name}: ${glob} must not match ${o}`);
+      assert.ok(!glob.includes(','), `${name}: ${glob} must not carry a comma, which splits a glob list`);
+    }
+  }
+  // An unquoted YAML value that starts with [ reads as a list.
+  assert.match(BRIEF_SPECS.claude.header({ path: '[locale]/layout.tsx', slug: 'x' }), /^paths: "\[\[\]locale\[\]\]\/layout\.tsx"$/m);
+});

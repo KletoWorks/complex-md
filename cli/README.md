@@ -35,7 +35,9 @@ Spec, research and the downloadable skill: https://complex.md
      (`.windsurf/rules/`), Kiro (`.kiro/steering/`), Cline (`.clinerules/`);
    - an `@COMPLEX.md` line in an existing `REVIEW.md`, for Claude Code
      Review; wire never creates `REVIEW.md`;
-   - hooks: Claude Code `PreToolUse` and `Stop`, Cursor `preToolUse` and `stop`;
+   - with `--hooks` only: Claude Code `PreToolUse` and `Stop` in
+     `.claude/settings.json`, Cursor `preToolUse` and `stop` in
+     `.cursor/hooks.json`;
    - OpenClaw and Hermes are wired only when asked (`--for openclaw,hermes`):
      they get the portable skill `.agents/skills/complex-md/SKILL.md`, and
      `--mcp` also registers the server through their own CLIs.
@@ -44,13 +46,20 @@ A rule file that would only repeat the block is not written while
 `AGENTS.md` carries it, and a rewire removes the copies earlier versions
 wrote.
 
-`--no-wire` writes only COMPLEX.md. `--no-hooks` skips the hooks.
+`--no-wire` writes only COMPLEX.md. A default run writes no hooks.
+`--hooks` writes them to the committed settings files. `--hooks --local`
+writes the Claude Code hooks to `.claude/settings.local.json` and adds that
+path to `.git/info/exclude`. Cursor has no per user hooks file in the
+project, so `--local` skips it.
 
 ## The hooks
 
 In-context instructions are followed roughly half the time when an agent is
 editing existing code late in a session, which is exactly when a hotspot gets
-edited. Hooks make the two rules that matter deterministic.
+edited. Hooks make the two rules that matter deterministic. They are opt
+in: on the fastify benchmark runs the hooks arm cost about 50% more per run
+at the median and passed no more of the real fixes' tests than the briefs
+alone (`bench/RESULTS.md`).
 
 - **PreToolUse gate.** The first edit of a hotspot file in a session is
   denied, and the denial reason is the file's paragraph from COMPLEX.md: what
@@ -73,7 +82,8 @@ when there is one. Otherwise it runs a `complex-md` found on PATH, and
 otherwise `npx -y --prefer-offline complex-md@<version>`, pinned to the
 version that wired it. With a local install, a hook takes about 80 ms per
 edit. Hooks written by 0.9.2 and earlier ran an unpinned `npx -y complex-md`;
-run `npx complex-md wire` again to rewrite them in the pinned form.
+run `npx complex-md wire --hooks` again to rewrite them in the pinned form.
+A run without `--hooks` leaves them as they are and says so.
 
 ## Optional: the MCP server (`--mcp`)
 
@@ -98,7 +108,7 @@ runs it on stdio. Six tools:
     npx complex-md signals [--json | --tsv]
     npx complex-md impact <path> [--json] [--strict]
     npx complex-md report                # write .complex-md/report.html, a page of the map
-    npx complex-md wire [--no-hooks] [--mcp]
+    npx complex-md wire [--hooks [--local]] [--mcp]
                         [--for claude,cursor,openhands,antigravity,codex,copilot,review,devin,windsurf,kiro,cline,openclaw,hermes]
     npx complex-md generate --agent      # write the prompt bundle, no model call
 
