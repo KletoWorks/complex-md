@@ -140,3 +140,15 @@ test('dependabot.yml keeps the actions and the CLI dependencies current', (t) =>
     assert.match(s, new RegExp(`package-ecosystem: "${eco}"\\n\\s+directory: "${dir}"\\n\\s+schedule:\\n\\s+interval: "weekly"`), `${eco} in ${dir}, weekly`);
   }
 });
+
+/* `npm@latest` installs whatever npm is newest on the day of a release,
+   so two releases of the same commit could build with different tools.
+   The release pins an exact npm, 11.5 or later for trusted publishing. */
+test('the release workflow installs an exact npm version', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const s = read('.github/workflows/release.yml');
+  assert.doesNotMatch(s, /npm@latest/);
+  const m = /npm install -g npm@(\d+)\.(\d+)\.(\d+)\b/.exec(s);
+  assert.ok(m, 'npm install -g npm@X.Y.Z');
+  assert.ok(Number(m[1]) > 11 || (Number(m[1]) === 11 && Number(m[2]) >= 5), `npm ${m[1]}.${m[2]} supports trusted publishing`);
+});
