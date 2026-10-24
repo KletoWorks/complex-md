@@ -97,6 +97,23 @@ test('the pull request template asks for the change, the test and an AI disclosu
   assert.match(read('CONTRIBUTING.md'), /^## AI assistance$/m, 'CONTRIBUTING.md has the section the template links to');
 });
 
+/* AGENTS.md is what a contributor's agent reads first. A path it names
+   that no longer exists sends the agent to a dead end, and wire keeps the
+   integration block only while its heading and text stay as written. */
+test('AGENTS.md names only paths that exist and keeps the integration block', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const s = read('AGENTS.md');
+  assert.match(s, /^## Working on this repository$/m);
+  assert.match(s, /cd cli && npm test/);
+  const block = read('prompts/integration.md').trim();
+  assert.ok(s.includes(block), 'the integration block matches prompts/integration.md');
+  const named = [...s.split(block)[0].matchAll(/`([\w.-]+\/[\w./-]*|[\w-]+\.(?:md|js|mjs|json))`/g)].map((m) => m[1].replace(/\/$/, ''));
+  assert.ok(named.length >= 5, `AGENTS.md names ${named.length} paths`);
+  // dist/ is build output and exists only after npm run build.
+  const missing = named.filter((p) => p !== 'dist' && !existsSync(join(ROOT, p)));
+  assert.deepEqual(missing, [], 'paths named in AGENTS.md exist');
+});
+
 /* Scorecard rejects a published result from a workflow with write
    permissions at the top level, and only its own job may hold id-token. */
 test('the Scorecard workflow publishes with no token permissions at the top level', (t) => {
