@@ -2,8 +2,21 @@
 // tokens, cost, test runs and how the run ended. Kept apart from the process
 // handling in run.mjs so the accounting can be tested on recorded events.
 
-/* A Bash command that runs tests. */
-export const TEST_CMD = /\b(node\s+--test|npm\s+(run\s+)?(test|unit)\b|npx\s+(tap|borp|jest|vitest|mocha)\b|\b(tap|borp|jest|vitest|mocha)\s+\S)/;
+import { TEST_FILE_RE } from '../cli/src/signals.js';
+
+/* A Bash command that runs tests through a runner or a package script.
+   `npx -y borp`, `npm exec borp` and `npm t` used to slip past it. */
+export const TEST_CMD = /\b(node\s+--test|npm\s+(run\s+)?(test|unit|t)\b|(npx|npm\s+exec)(\s+-{1,2}[\w-]+)*\s+(tap|borp|jest|vitest|mocha)\b|\b(tap|borp|jest|vitest|mocha)\s+\S)/;
+
+/* `node test/x.js`: a node:test file run directly, which the runner pattern
+   missed. Counts when the script node runs is a test file. */
+const NODE_SCRIPT = /\bnode((?:\s+--?[\w-]+(?:=\S+)?)*)\s+["']?([^\s"'|&;<>]+\.(?:m?js|cjs))\b/g;
+
+export function isTestCommand(cmd = '') {
+  if (TEST_CMD.test(cmd)) return true;
+  for (const [, , script] of cmd.matchAll(NODE_SCRIPT)) if (TEST_FILE_RE.test(script)) return true;
+  return false;
+}
 
 export const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 export const pathOf = (input = {}) => input.file_path || input.path || input.notebook_path || null;
@@ -44,7 +57,7 @@ export function createMeter({ wt, gold, stopAt }) {
         if (c.type !== 'tool_use') continue;
         m.steps++;
         if (c.name?.startsWith('mcp__complex-md')) m.mcp_calls++;
-        if (c.name === 'Bash' && TEST_CMD.test(c.input?.command || '')) m.agent_test_runs++;
+        if (c.name === 'Bash' && isTestCommand(c.input?.command)) m.agent_test_runs++;
         const p = rel(pathOf(c.input), wt);
         if (c.name === 'Read' || EDIT_TOOLS.has(c.name)) {
           if (isGold(p)) { m.first_gold_read ??= m.steps; if (EDIT_TOOLS.has(c.name)) m.first_gold_edit ??= m.steps; }
