@@ -4,7 +4,7 @@
 // on once and keeps it on.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -245,4 +245,14 @@ test('verify refuses a shallow clone instead of reporting its truncated history 
   assert.equal(r.status, 2);
   assert.match(r.stderr, /shallow clone/);
   assert.match(r.stderr, /fetch-depth: 0/);
+});
+
+test('a map commit that is not a hex SHA never reaches git as an option', () => {
+  const dir = repo();
+  touch(dir, { 'src/core.js': 20 });
+  const out = mkdtempSync(join(tmpdir(), 'cx-verify-opt-'));
+  writeFileSync(join(dir, 'COMPLEX.md'), `---\ncomplex_md: "0.3"\ncommit: --output=${join(out, 'x')}\nhotspots:\nco_change:\nblind_spots:\n---\n${PROSE}`);
+  const r = verifyMap(dir);
+  assert.deepEqual(readdirSync(out), [], 'git wrote no file');
+  assert.equal(r.commits_behind, null);
 });

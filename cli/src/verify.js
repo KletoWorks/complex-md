@@ -198,7 +198,9 @@ export function verifyMap(root, { tolerance = {} } = {}) {
   const head = fresh.commit;
   const mapCommit = front.commit ? String(front.commit) : null;
   let behind = null;
-  if (mapCommit) {
+  // The front matter is text in the repository. Only a hex SHA goes to git,
+  // so a value such as `--output=<path>` is never read as an option.
+  if (mapCommit && /^[0-9a-f]{4,64}$/i.test(mapCommit)) {
     const out = git(['rev-list', '--count', `${mapCommit}..HEAD`], { cwd: root, allowFail: true }).trim();
     if (/^\d+$/.test(out)) behind = Number(out);
   }
