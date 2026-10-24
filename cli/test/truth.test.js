@@ -46,6 +46,7 @@ const BANNED = [
   { re: /nothing is uploaded/i, why: 'with a key, one model call sends the signals and hotspot excerpts; the skill runs inside an agent that calls its model' },
   { re: /by git and grep/i, why: 'the CLI computes the signals with git and Node.js; it runs no grep' },
   { re: /capped (around|near) 15k/i, why: 'the cap is on the excerpts (about 60,000 characters); the whole request is larger' },
+  { re: /safe to remove/i, why: 'there is no unwire command; name the files wire writes instead' },
 ];
 
 for (const rule of BANNED) {
