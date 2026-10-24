@@ -4,7 +4,7 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
-## 2026-10-24  Texts match the code, six CLI fixes, briefs for review bots, a report page, scored claims
+## 2026-10-24  0.10.0: texts match the code, six CLI fixes, briefs for review bots, a report page, scored claims
 
 **Intent:** several public texts said things the code or the finished runs
 contradict, six defects gave agents wrong or no advice, review bots never saw
@@ -119,7 +119,7 @@ it, so the map keeps naming direct importers. Method and
 tables: `bench/SELECTORS.md`. Results: `bench/results/partners.json` and
 `bench/results/selectors/`.
 
-## Unreleased
+### Also in 0.10.0
 
 - The generation prompt (0.4.0) writes the prose to the sentence rules of
   ASD-STE100, the controlled language of aerospace maintenance manuals, with
