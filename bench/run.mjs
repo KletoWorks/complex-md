@@ -71,7 +71,7 @@ const sh = (cmd, a, cwd) => {
 };
 const log = (s) => process.stderr.write(`${new Date().toISOString().slice(11, 19)} ${s}\n`);
 
-/** COMPLEX.md as of the task's base commit. One map per calendar month of base dates: maps are regenerated periodically, not per commit. */
+/** COMPLEX.md for a task. One map per calendar month of task.date, the fix commit's date: the first task of a month generates it at that task's base commit, and the month's later tasks reuse it. Maps are regenerated periodically, not per commit. */
 async function mapFor(task, wt) {
   const key = `${(dataset.repo || 'repo').replace('/', '-')}-${task.date.slice(0, 7)}.md`;
   const cached = join(cacheDir, 'maps', key);
