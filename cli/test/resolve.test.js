@@ -3,12 +3,31 @@
 // git; buildGraph takes the tracked list directly.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { buildGraph } from '../src/graph.js';
 
 const CASES = [
+  {
+    name: 'workspace globs: ** matches nested package dirs, * matches one level only',
+    files: {
+      'package.json': '{ "workspaces": ["apps/**", "libs/*"] }',
+      'apps/web/admin/package.json': '{ "name": "admin", "main": "index.js" }',
+      'apps/web/admin/index.js': 'export default 1;\n',
+      'libs/a/package.json': '{ "name": "liba", "main": "index.js" }',
+      'libs/a/index.js': 'export default 1;\n',
+      'libs/a/deep/package.json': '{ "name": "deep", "main": "index.js" }',
+      'libs/a/deep/index.js': 'export default 1;\n',
+      'main.js': "import a from 'admin';\nimport b from 'liba';\nimport d from 'deep';\n",
+    },
+    edges: [
+      ['main.js', 'apps/web/admin/index.js'],
+      ['main.js', 'libs/a/index.js'],
+    ],
+    notEdges: [['main.js', 'libs/a/deep/index.js']],
+  },
   {
     name: 'npm workspaces: bare package name and subpath resolve via main and dir',
     files: {
@@ -201,3 +220,8 @@ for (const c of CASES) {
     }
   });
 }
+
+test('resolve.js holds no NUL byte, so ripgrep and grep read it as text', () => {
+  const src = readFileSync(fileURLToPath(new URL('../src/resolve.js', import.meta.url)));
+  assert.equal(src.indexOf(0), -1, 'a literal NUL byte makes ripgrep skip the file; write it as an escape');
+});
