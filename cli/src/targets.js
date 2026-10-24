@@ -236,6 +236,26 @@ export const TARGETS = {
     },
   },
 
+  /* Antigravity workspace rules (antigravity.google/docs/rules). Every .md
+     file directly in .agents/rules/ needs front matter with a `trigger`; a
+     `glob` trigger loads the rule when the agent reads or edits a file that
+     `globs` matches. Files in subfolders are ignored, so the briefs sit flat
+     with the complex-md- prefix, and only prefixed files are cleared.
+     Detected from .agents/rules/ itself: .agents/ alone is shared by
+     several agents. */
+  antigravity: {
+    detect: (root) => existsSync(join(root, '.agents/rules')),
+    rules({ root, briefs, report }) {
+      writeBriefs(
+        join(root, '.agents/rules'),
+        briefs,
+        (b) => `---\ntrigger: glob\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${JSON.stringify(b.path)}\n---\n`,
+        report,
+        { name: '.agents/rules/complex-md-*', ext: '.md', prefix: 'complex-md-' },
+      );
+    },
+  },
+
   codex: {
     detect: (root) => existsSync(join(root, '.codex')),
     mcp({ root, inv, report }) {

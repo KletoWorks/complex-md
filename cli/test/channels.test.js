@@ -184,6 +184,30 @@ test('review: a line inside an open code fence or comment would not include, so 
   }
 });
 
+/* Antigravity reads .agents/rules/*.md, flat, each with a trigger. A glob
+   trigger loads the rule when the agent reads or edits a matching file. */
+test('antigravity: flat .agents/rules briefs with a glob trigger; the user\'s rules stay', () => {
+  const dir = repo({
+    '.agents/rules/house.md': '---\ntrigger: always_on\n---\nmine\n',
+    '.agents/rules/complex-md-stale-x.md': '---\ntrigger: glob\n---\nours, stale\n',
+  });
+  const r = wire(dir, {});
+  const got = briefsIn(dir, '.agents/rules');
+  assert.equal(read(dir, '.agents/rules/house.md'), '---\ntrigger: always_on\n---\nmine\n');
+  assert.ok(!got['complex-md-stale-x.md'], 'a brief for a dropped path is removed');
+  const ours = Object.entries(got).filter(([f]) => f.startsWith('complex-md-'));
+  assert.equal(ours.length, BRIEFED.length);
+  for (const [, b] of ours) {
+    assert.equal(b.front.trigger, 'glob');
+    assert.match(b.front.description, /^COMPLEX\.md brief for /);
+  }
+  assert.deepEqual(ours.map(([, b]) => b.front.globs).sort(), BRIEFED.map((p) => `"${p}"`));
+  assert.ok(r.rules.includes('.agents/rules/complex-md-* (4 paths)'));
+  const plain = repo();
+  wire(plain, {});
+  assert.ok(!existsSync(join(plain, '.agents/rules')), 'not detected without the folder');
+});
+
 test('a block only rule file is still written when no AGENTS.md carries the block', () => {
   const dir = repo({ 'GEMINI.md': '# Gemini\n', '.cursor': null });
   const r = wire(dir, { agents: ['cursor'] });
