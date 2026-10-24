@@ -35,9 +35,11 @@ export function invocation(root) {
 
 /* An entry written by complex-md 0.9 or earlier starts the server through
    the core (`complex-md mcp`). The core no longer carries it, so such an
-   entry is replaced rather than kept. */
-const LEGACY = /complex-md(\.js)?\s+mcp(\s|$)/;
-const isLegacy = (line) => LEGACY.test(line) && !/complex-md-mcp/.test(line);
+   entry is replaced rather than kept. The pattern takes a pinned version
+   (`complex-md@0.9.2 mcp`) and the checkout's bin, and never matches this
+   package's own name. */
+const LEGACY = /complex-md(@\S+)?(\.js)?\s+mcp(\s|$)/;
+const isLegacy = (line) => LEGACY.test(line);
 
 function dropLegacy(root, names, report) {
   const json = { claude: '.mcp.json', cursor: '.cursor/mcp.json' };

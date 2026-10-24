@@ -57,6 +57,16 @@ test('an entry that starts the server through the core is replaced, other server
   assert.equal((toml.match(/\[mcp_servers\.complex-md\]/g) || []).length, 1);
 });
 
+test('a core entry pinned to a version is replaced too', () => {
+  const dir = repo();
+  mkdirSync(join(dir, '.cursor'));
+  writeFileSync(join(dir, '.mcp.json'), JSON.stringify({ mcpServers: { 'complex-md': { command: 'npx', args: ['-y', 'complex-md@0.9.2', 'mcp'] } } }));
+  writeFileSync(join(dir, '.cursor/mcp.json'), JSON.stringify({ mcpServers: { 'complex-md': { command: 'npx', args: ['-y', 'complex-md@latest', 'mcp'] } } }));
+  const r = register(dir, { agents: ['claude', 'cursor'] });
+  assert.deepEqual(r.replaced, ['.mcp.json', '.cursor/mcp.json']);
+  for (const f of ['.mcp.json', '.cursor/mcp.json']) assert.equal(readJson(join(dir, f)).mcpServers['complex-md'].args[1], `complex-md-mcp@${pkg.version}`);
+});
+
 test('a copy inside the repository registers its own bin; unknown targets error', async () => {
   const dir = repo();
   mkdirSync(join(dir, '.claude'));
