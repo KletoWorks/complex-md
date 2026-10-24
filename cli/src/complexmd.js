@@ -172,7 +172,18 @@ export function parseFrontMatter(src) {
   let i = 0;
   const scalar = (v) => {
     v = v.trim();
-    if (/^".*"$/.test(v) || /^'.*'$/.test(v)) return v.slice(1, -1);
+    /* frontMatter quotes with JSON.stringify, so a double quoted value is
+       read back with JSON.parse: \" becomes " and \\ becomes \. An escape
+       JSON lacks (YAML's \x41) keeps its backslash, and only \" and \\ are
+       undone. A single quoted value doubles its quote, as YAML does. */
+    if (/^".*"$/.test(v)) {
+      try {
+        return JSON.parse(v);
+      } catch {
+        return v.slice(1, -1).replace(/\\(["\\])/g, '$1');
+      }
+    }
+    if (/^'.*'$/.test(v)) return v.slice(1, -1).replace(/''/g, "'");
     if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);
     /* An inline flow sequence. A generated map never writes one: every list
        it emits is a block. A HAND WRITTEN map does, and writing one by hand

@@ -312,8 +312,8 @@ test('blind spots name source files that a NUL byte hides from ripgrep and grep'
   assert.match(note, /ripgrep/);
   assert.match(note, /Claude Code's Grep tool/);
   assert.match(note, /GNU grep prints a binary file notice/);
-  // A double quote would reach the front matter escaped and read back with
-  // its backslash, so the note carries none.
+  // A double quote reaches the front matter escaped, and a reader with a
+  // simpler YAML parser may keep the backslash, so the note carries none.
   assert.doesNotMatch(note, /"/);
   assert.doesNotMatch(note, /grep treats/);
   // The file list reads as its own clause after the colon.
