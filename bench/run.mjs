@@ -23,7 +23,8 @@
 // Runs are appended to <out>/runs.jsonl and skipped when already present, so it resumes.
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync, symlinkSync, realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { computeSignals, findCoveringTests } from '../cli/src/signals.js';
@@ -33,6 +34,7 @@ import { detectRunner, listTestFiles, runSuite, confirm, goldTestFiles } from '.
 import { createMeter, newMetrics, behaviour } from './agent-events.mjs';
 import { isolatedCheckout, fileAt, fixSourceDiff, applyPatch } from './isolate.mjs';
 import { mapAnchor, assertMapUsable, commitTime } from './maps.mjs';
+import { sandboxSupport, sandboxCommand, startProxy, innerPid, which, DEFAULT_ROOTS, DEFAULT_ALLOW } from './sandbox.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '../cli/bin/complex-md.js');
@@ -65,6 +67,18 @@ const workRoot = opt('--work', '/tmp/cxbench');
    dir, and is shared when many small out dirs judge the same tasks. */
 const skillText = opt('--skill', null) ? readFileSync(opt('--skill'), 'utf8') : null;
 const cacheDir = opt('--cache', outDir);
+/* Every agent runs in bench/sandbox.mjs: no network but the model API
+   hosts, and no files but its checkout and its own install. --no-sandbox
+   runs without it, and each row records which. --allow-host adds proxy
+   hosts (host, or host:port); --mask adds directories to hide (a colon
+   separated list). */
+const sandboxOn = !flag('--no-sandbox') && arms.some((a) => a !== 'gold');
+if (sandboxOn) {
+  const s = sandboxSupport();
+  if (!s.ok) { console.error(`the agent sandbox is not available on this host (${s.reason}). --no-sandbox runs without network and file isolation.`); process.exit(2); }
+}
+const allowHosts = [...DEFAULT_ALLOW, ...opt('--allow-host', '').split(',').filter(Boolean)];
+const maskRoots = () => [...DEFAULT_ROOTS, dataset.path, resolve(outDir), resolve(cacheDir), resolve(here, '..'), resolve(workRoot), ...opt('--mask', '').split(':').filter(Boolean)];
 /* A scripted agent skips the suite unless --suite asks for it (the harness tests do). */
 const suiteOn = stopAt === 'none' && !flag('--no-suite') && (agent === 'claude' || flag('--suite'));
 for (const d of ['transcripts', 'patches']) mkdirSync(join(outDir, d), { recursive: true });
@@ -235,10 +249,39 @@ function agentCommand(task, arm, wt) {
   return ['claude', a, {}];
 }
 
-function runAgent(task, arm, wt) {
+/* What the agent may see: its checkout, the dependency copy, the Node
+   install, and the agent's own install and credentials. The CLI checkout is
+   there for the hooks and MCP arms, which call its binary. */
+function agentKeeps(wt) {
+  const keeps = [wt, dirname(dirname(realpathSync(process.execPath)))];
+  if (depsFor()) keeps.push(depsFor());
+  if (SCRIPTED[agent]) return [...keeps, join(here, SCRIPTED[agent])];
+  const c = which('claude');
+  if (c) keeps.push(dirname(dirname(realpathSync(c))));
+  keeps.push(resolve(here, '../cli'));
+  for (const f of [join(homedir(), '.claude', '.credentials.json'), join(homedir(), '.claude.json')]) if (existsSync(f)) keeps.push(f);
+  return keeps;
+}
+
+async function runAgent(task, arm, wt) {
+  let [cmd, a, env] = agentCommand(task, arm, wt);
+  let proxy = null;
+  const sbx = `${wt}.sandbox`;
+  if (sandboxOn) {
+    rmSync(sbx, { recursive: true, force: true });
+    mkdirSync(sbx, { recursive: true });
+    const [c2, a2, env2, { socket }] = sandboxCommand({ cmd, args: a, cwd: wt, dir: sbx, roots: maskRoots(), keeps: agentKeeps(wt) });
+    proxy = await startProxy({ socket, allow: allowHosts });
+    [cmd, a, env] = [c2, a2, { ...env, ...env2 }];
+  }
   return new Promise((resolvePromise) => {
-    const [cmd, a, env] = agentCommand(task, arm, wt);
     const child = spawn(cmd, a, { cwd: wt, env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
+    /* In the sandbox the agent is the child of unshare, which ignores
+       SIGINT and SIGTERM; SIGKILL to unshare takes the namespace down. */
+    const stop = (sig) => {
+      const pid = proxy && sig !== 'SIGKILL' ? innerPid(child.pid) : null;
+      try { if (pid) process.kill(pid, sig); else child.kill(sig); } catch {}
+    };
     child.stdin.end(SCRIPTED[agent] ? '' : PROMPT(task));
     const transcript = [];
     const { m, onEvent } = createMeter({ wt, gold: task.gold, stopAt });
@@ -251,8 +294,8 @@ function runAgent(task, arm, wt) {
     let hardKill = null;
     const timer = setTimeout(() => {
       m.stopped = 'timeout'; killed = true;
-      child.kill('SIGINT');
-      hardKill = setTimeout(() => child.kill('SIGKILL'), graceS * 1000);
+      stop('SIGINT');
+      hardKill = setTimeout(() => stop('SIGKILL'), graceS * 1000);
     }, timeoutS * 1000);
     const stderr = [];
     child.stderr.on('data', (d) => stderr.push(String(d)));
@@ -266,12 +309,21 @@ function runAgent(task, arm, wt) {
         let ev; try { ev = JSON.parse(line); } catch { continue; }
         if (onEvent(ev, { killed }) === 'first-edit' && !killed) {
           m.stopped = 'first-edit'; killed = true;
-          setTimeout(() => child.kill('SIGTERM'), 1500); // let the tool result land so a gate denial is recorded
+          setTimeout(() => stop('SIGTERM'), 1500); // let the tool result land so a gate denial is recorded
         }
       }
     });
-    child.on('close', (code) => {
+    child.on('close', async (code) => {
       clearTimeout(timer); clearTimeout(hardKill);
+      /* Where the agent tried to connect: a denied host is a leak attempt
+         or a dependency the allowlist lacks, and either is worth reading. */
+      m.sandbox = Boolean(proxy);
+      if (proxy) {
+        await proxy.close();
+        m.net_allowed = [...proxy.allowed];
+        m.net_denied = [...proxy.denied];
+        rmSync(sbx, { recursive: true, force: true });
+      }
       // The harness clock: the agent's own duration_ms comes only with its result event.
       m.wall_ms = Date.now() - t0;
       if (code !== 0 && !killed && !m.error && !m.stopped) m.error = (stderr.join('').trim() || `exit ${code}`).slice(0, 300);

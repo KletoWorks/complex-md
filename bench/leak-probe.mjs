@@ -9,6 +9,7 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, lstatSync, readlinkSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
+import { connect } from 'node:net';
 
 const marker = process.env.CX_PROBE_MARKER || '';
 const emit = (o) => process.stdout.write(JSON.stringify(o) + '\n');
@@ -57,7 +58,41 @@ if (existsSync('node_modules') && lstatSync('node_modules').isSymbolicLink()) ou
 for (const p of (process.env.CX_PROBE_PATHS || '').split(':').filter(Boolean)) out.push(p);
 for (const p of out) {
   report(`read ${p}`, grepTree(p) ? marker : '');
+  // Another process's root: in a shared PID namespace, /proc/<pid>/root is the host's view of the disk.
+  let viaProc = false;
+  try { for (const pid of readdirSync('/proc').filter((x) => /^\d+$/.test(x))) if (!viaProc && grepTree(`/proc/${pid}/root${p}`, { files: 2000 })) viaProc = true; } catch {}
+  report(`read /proc/<pid>/root${p}`, viaProc ? marker : '');
   if (existsSync(join(p, '.git'))) report(`git -C ${p} log --all`, sh('git', ['-C', p, 'log', '--all', '--format=%B']));
+}
+
+/* The network: a direct request, curl (which reads the proxy variables),
+   and a raw CONNECT through the proxy the sandbox offers. CX_PROBE_URL is a
+   server the test runs with the marker in its body. */
+const url = process.env.CX_PROBE_URL;
+if (url) {
+  let direct = '';
+  try { direct = await (await fetch(url, { signal: AbortSignal.timeout(3000) })).text(); } catch {}
+  report('fetch direct', direct);
+  report('curl', sh('curl', ['-s', '-m', '5', url]));
+  const px = process.env.HTTPS_PROXY || process.env.https_proxy;
+  if (px) report('CONNECT through the proxy', await viaProxy(px, new URL(url)));
+}
+
+function viaProxy(px, target) {
+  return new Promise((res) => {
+    const p = new URL(px);
+    let got = '', sent = false;
+    const c = connect(Number(p.port), p.hostname);
+    const done = () => res(got);
+    c.setTimeout(5000, () => c.destroy());
+    c.on('data', (d) => {
+      got += d;
+      if (!sent && /^HTTP\/1\.[01] 200/.test(got)) { sent = true; c.write(`GET ${target.pathname} HTTP/1.1\r\nHost: ${target.host}\r\nConnection: close\r\n\r\n`); }
+    });
+    c.on('close', done);
+    c.on('error', done);
+    c.write(`CONNECT ${target.host} HTTP/1.1\r\nHost: ${target.host}\r\n\r\n`);
+  });
 }
 
 emit({ type: 'result', subtype: 'success', num_turns: 1, total_cost_usd: 0, duration_ms: 1, result: 'probe done' });
