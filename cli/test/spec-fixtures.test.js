@@ -36,6 +36,8 @@ const READER_GAPS = {
   'comma-path': 'the reader splits a flow list at every comma, also inside a double quoted path',
   'empty-test-files': 'the reader reads an empty flow list inside a list item as [""]',
 };
+/* The gaps above that also change the front matter the reader returns. */
+const FRONT_GAPS = new Set(['comma-path', 'escaped-string', 'empty-test-files']);
 
 /* ---------- a validator for the JSON Schema keywords the schema uses ---------- */
 
@@ -201,6 +203,30 @@ for (const name of names) {
     for (const [p, has] of Object.entries(r.rows || {})) assert.equal(map.row(p) !== null, has, `row(${JSON.stringify(p)})`);
     for (const [p, d] of Object.entries(r.directives || {})) assert.equal(map.directive(p), d, `directive(${JSON.stringify(p)})`);
   });
+
+  /* The schema check above runs on the data in expected.json, not on the
+     file. This test ties the 2 together: the reader's front matter must
+     equal that data, without x- keys and with null lists read as []
+     (section 10.3). A fixture whose COMPLEX.md and data drift apart fails
+     here. */
+  if (expected.data && expected.reader.result === 'map') {
+    test(`fixture ${name}: the reader's front matter equals the fixture data`, FRONT_GAPS.has(name) ? { todo: gap } : {}, () => {
+      const map = parseComplexMd(readFileSync(file, 'utf8'));
+      assert.ok(map, 'the reader returns a map');
+      assert.deepStrictEqual(map.front, asRead(expected.data));
+    });
+  }
+}
+
+/* The data as a conforming reader returns it: x- keys left out at every
+   level, and a top level list key with a null value read as []. */
+function asRead(data) {
+  const strip = (v) => (Array.isArray(v) ? v.map(strip)
+    : typeOf(v) === 'object' ? Object.fromEntries(Object.entries(v).filter(([k]) => !k.startsWith('x-')).map(([k, x]) => [k, strip(x)]))
+    : v);
+  const out = strip(data);
+  for (const k of ['hotspots', 'load_bearing', 'co_change', 'seams', 'blind_spots', 'workspaces']) if (k in out && out[k] === null) out[k] = [];
+  return out;
 }
 
 /* ---------- the spec text and the schema agree ---------- */
