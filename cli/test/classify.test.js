@@ -158,3 +158,30 @@ test('tests.rs, tests.js and test.go stay tests', () => {
   assert.equal(g.kinds.get('lib/tests.js'), 'test');
   assert.equal(g.kinds.get('cmd/test.go'), 'test');
 });
+
+test('pytest python_files = *.py with testpaths names only the files under testpaths', () => {
+  const g = graphOf({
+    'pytest.ini': '[pytest]\ntestpaths = tests integration\npython_files = *.py\n',
+    'src/pkg/__init__.py': '',
+    'src/pkg/core.py': 'X = 1\n',
+    'tests/check_core.py': 'from pkg.core import X\n',
+    'integration/flow.py': 'from pkg.core import X\n',
+  });
+  assert.equal(g.kinds.get('src/pkg/core.py'), 'source');
+  assert.equal(g.kinds.get('src/pkg/__init__.py'), 'source');
+  assert.equal(g.kinds.get('integration/flow.py'), 'test');
+  assert.deepEqual(testsOf(g, 'src/pkg/core.py'), ['integration/flow.py', 'tests/check_core.py']);
+});
+
+test('a catch-all python_files without testpaths does not turn the source tree into tests', () => {
+  const g = graphOf({
+    'pyproject.toml': '[tool.pytest.ini_options]\npython_files = ["*.py"]\n',
+    'src/pkg/__init__.py': '',
+    'src/pkg/core.py': 'X = 1\n',
+    'src/pkg/testing.py': 'from pkg.core import X\n',
+    'tests/check_core.py': 'from pkg.core import X\n',
+  });
+  assert.equal(g.kinds.get('src/pkg/core.py'), 'source');
+  assert.equal(g.kinds.get('src/pkg/testing.py'), 'source');
+  assert.deepEqual(testsOf(g, 'src/pkg/core.py'), ['tests/check_core.py']);
+});

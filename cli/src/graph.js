@@ -86,10 +86,19 @@ export function isTestHelper(path, ctx = null) {
   return TEST_HELPER_RE.test(path) && !matchesTestPatterns(path, ctx);
 }
 
+/* pytest collects python_files only under testpaths when the config sets
+   them. Without testpaths, a pattern that also matches __init__.py, such
+   as *.py, would make every module a test, so it names nothing. */
 function matchesTestPatterns(path, ctx) {
   if (!ctx?.testPatterns?.length || !/\.py$/.test(path)) return false;
   const base = posix.basename(path);
-  return ctx.testPatterns.some((re) => re.test(base));
+  for (const c of ctx.testPatterns) {
+    if (c.dir !== '.' && !path.startsWith(c.dir + '/')) continue;
+    const rel = c.dir === '.' ? path : path.slice(c.dir.length + 1);
+    if (c.testpaths.length && !c.testpaths.some((re) => re.test(rel))) continue;
+    for (const re of c.files) if (re.test(base) && (c.testpaths.length || !re.test('__init__.py'))) return true;
+  }
+  return false;
 }
 
 function underOutputDir(path, outputDirs) {
@@ -101,6 +110,16 @@ function underOutputDir(path, outputDirs) {
 // may continue on indented lines), or a TOML string or array.
 const PYTEST_SECTIONS = { 'pytest.ini': /^\[pytest\]/m, 'tox.ini': /^\[pytest\]/m, 'setup.cfg': /^\[tool:pytest\]/m, 'pyproject.toml': /^\[tool\.pytest\.ini_options\]/m };
 const OUTPUT_FIELDS = ['main', 'module', 'browser', 'types', 'typings', 'unpkg', 'jsdelivr', 'exports', 'bin', 'files'];
+
+function iniList(section, key) {
+  const m = new RegExp(`^${key}\\s*=\\s*((?:.*)(?:\\n[ \\t]+.*)*)`, 'm').exec(section);
+  return m ? m[1].replace(/[\[\]"',]/g, ' ').split(/\s+/).filter(Boolean) : [];
+}
+
+// A testpaths entry, which may be a glob, as a prefix of a repository path.
+function dirGlobToRe(g) {
+  return new RegExp('^' + g.replace(/[.+^${}()|\\]/g, '\\$&').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]') + '(/|$)');
+}
 
 function fnmatchToRe(g) {
   return new RegExp('^' + g.replace(/[.+^${}()|\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
@@ -134,8 +153,9 @@ export function loadClassifyContext(root, files) {
       const body = txt.slice(at).split('\n').slice(1);
       const end = body.findIndex((l) => /^\[/.test(l));
       const section = (end < 0 ? body : body.slice(0, end)).join('\n');
-      const m = /^python_files\s*=\s*((?:.*)(?:\n[ \t]+.*)*)/m.exec(section);
-      if (m) for (const g of m[1].replace(/[\[\]"',]/g, ' ').split(/\s+/)) if (g) testPatterns.push(fnmatchToRe(g));
+      const files = iniList(section, 'python_files').map(fnmatchToRe);
+      const testpaths = iniList(section, 'testpaths').map((t) => t.replace(/^\.\//, '').replace(/\/+$/, '')).filter((t) => t && t !== '.').map(dirGlobToRe);
+      if (files.length) testPatterns.push({ dir, files, testpaths });
     } else if (base === 'package.json') {
       let pkg;
       try { pkg = JSON.parse(read(f) || ''); } catch { continue; }
