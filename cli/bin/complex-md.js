@@ -21,7 +21,7 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  kiro,cline,openclaw,hermes
                                  (default: detect repo-local targets; openclaw/hermes are opt-in only and get
                                   .agents/skills/complex-md/SKILL.md; --mcp also adds their global registries)
-  npx complex-md check           report hotspots and untouched co-change partners in the current change
+  npx complex-md check           report hotspots, untouched co-change partners and hand edited briefs in the change
                                  --staged | --base <ref> | --json | --strict (exit 1 on findings)
   npx complex-md signals         print the signals table  (--json | --tsv)
   npx complex-md hook <kind>     hook handler: pre | stop | cursor-pre | cursor-stop   [--mode gate|warn|off]
