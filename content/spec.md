@@ -562,6 +562,12 @@ Where step 3 writes the briefs:
 | Kiro | `.kiro/` | `.kiro/steering/complex-md-*.md` | `inclusion: fileMatch`, `fileMatchPattern` |
 | Cline | a `.clinerules/` folder | `.clinerules/complex-md-*.md` | `paths` list |
 
+Each scope key reads a glob, and a brief matches its one path only. Write
+each `[`, `]`, `{`, `}`, `*` and `?` in the path as a one character class
+(`[[]`, `[]]`, `[{]`, `[}]`, `[*]`, `[?]`), and each comma as `?`, because
+a comma splits the glob list in several of these keys. `app/[id]/page.tsx`
+becomes `app/[[]id[]]/page.tsx`.
+
 A `.agents/` folder that holds only `.agents/skills/complex-md/` does not
 count as OpenHands.
 

@@ -75,7 +75,24 @@ function agentsInUse(root) {
   return readdirSync(d).some((e) => e !== 'skills' || !isDir(join(d, e)) || readdirSync(join(d, e)).some((s) => s !== 'complex-md'));
 }
 
-const globRule = (b) => `---\ntrigger: glob\nglobs: ${b.path}\n---\n`;
+/* A brief path is a literal file path, and every scope field below reads a
+   glob. There a route such as app/[id]/page.tsx is a character class: it
+   matches app/i/page.tsx and never itself. Each glob character becomes a
+   one character class, [[] []] [{] [}] [*] [?], which means the same in
+   VS Code's glob, minimatch, picomatch and fnmatch and needs no backslash;
+   VS Code's glob reads a backslash as a path separator. A comma splits the
+   glob list in Cursor, Windsurf, Devin and Copilot, and a class does not
+   protect it there, so a comma becomes ?. That ? also matches any other
+   character at that one position. */
+export function literalGlob(path) {
+  return path.replace(/[[\]{}*?,]/g, (c) => (c === ',' ? '?' : `[${c}]`));
+}
+
+/* An unquoted YAML value may not start with [ { * ? and the like, so a glob
+   that does is written as a quoted string. */
+const yamlValue = (v) => (/^[[\]{}*?&!|>'"%@`#,-]|: | #/.test(v) ? JSON.stringify(v) : v);
+
+const globRule = (b) => `---\ntrigger: glob\nglobs: ${literalGlob(b.path)}\n---\n`;
 
 export function write(p, content) {
   mkdirSync(dirname(p), { recursive: true });
@@ -180,15 +197,15 @@ function cliAvailable(bin) {
  * exactly what wire would write.
  */
 export const BRIEF_SPECS = {
-  claude: { dir: '.claude/rules/complex-md', ext: '.md', header: (b) => `---\nalwaysApply: false\npaths: ${b.path}\n---\n` },
-  cursor: { dir: '.cursor/rules/complex-md', ext: '.mdc', header: (b) => `---\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${b.path}\nalwaysApply: false\n---\n` },
-  openhands: { dir: '.agents/skills', ext: '.md', prefix: 'complex-md-', header: (b) => `---\nname: complex-md-${b.slug}\ndescription: COMPLEX.md brief for ${b.path}\npaths:\n  - "${b.path}"\n---\n` },
-  antigravity: { dir: '.agents/rules', ext: '.md', prefix: 'complex-md-', header: (b) => `---\ntrigger: glob\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${JSON.stringify(b.path)}\n---\n` },
-  copilot: { dir: '.github/instructions/complex-md', ext: '.instructions.md', header: (b) => `---\napplyTo: ${JSON.stringify(b.path)}\n---\n` },
+  claude: { dir: '.claude/rules/complex-md', ext: '.md', header: (b) => `---\nalwaysApply: false\npaths: ${yamlValue(literalGlob(b.path))}\n---\n` },
+  cursor: { dir: '.cursor/rules/complex-md', ext: '.mdc', header: (b) => `---\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${literalGlob(b.path)}\nalwaysApply: false\n---\n` },
+  openhands: { dir: '.agents/skills', ext: '.md', prefix: 'complex-md-', header: (b) => `---\nname: complex-md-${b.slug}\ndescription: COMPLEX.md brief for ${b.path}\npaths:\n  - ${JSON.stringify(literalGlob(b.path))}\n---\n` },
+  antigravity: { dir: '.agents/rules', ext: '.md', prefix: 'complex-md-', header: (b) => `---\ntrigger: glob\ndescription: COMPLEX.md brief for ${b.path}\nglobs: ${JSON.stringify(literalGlob(b.path))}\n---\n` },
+  copilot: { dir: '.github/instructions/complex-md', ext: '.instructions.md', header: (b) => `---\napplyTo: ${JSON.stringify(literalGlob(b.path))}\n---\n` },
   devin: { dir: '.devin/rules', ext: '.md', prefix: 'complex-md-', header: globRule },
-  kiro: { dir: '.kiro/steering', ext: '.md', prefix: 'complex-md-', header: (b) => `---\ninclusion: fileMatch\nfileMatchPattern: ${JSON.stringify(b.path)}\n---\n` },
+  kiro: { dir: '.kiro/steering', ext: '.md', prefix: 'complex-md-', header: (b) => `---\ninclusion: fileMatch\nfileMatchPattern: ${JSON.stringify(literalGlob(b.path))}\n---\n` },
   windsurf: { dir: '.windsurf/rules', ext: '.md', prefix: 'complex-md-', header: globRule },
-  cline: { dir: '.clinerules', ext: '.md', prefix: 'complex-md-', header: (b) => `---\npaths:\n  - ${JSON.stringify(b.path)}\n---\n` },
+  cline: { dir: '.clinerules', ext: '.md', prefix: 'complex-md-', header: (b) => `---\npaths:\n  - ${JSON.stringify(literalGlob(b.path))}\n---\n` },
 };
 
 /* The files one spec produces for these briefs, as relative path to
@@ -254,7 +271,7 @@ export const TARGETS = {
   cursor: {
     detect: (root) => existsSync(join(root, '.cursor')),
     rules({ root, block, paths, briefs, report, carried }) {
-      blockRule(root, '.cursor/rules/complex-md.mdc', `---\ndescription: COMPLEX.md structural risk map\nglobs: ${paths.join(', ')}\nalwaysApply: false\n---\n${block}`, carried, report);
+      blockRule(root, '.cursor/rules/complex-md.mdc', `---\ndescription: COMPLEX.md structural risk map\nglobs: ${paths.map(literalGlob).join(', ')}\nalwaysApply: false\n---\n${block}`, carried, report);
       writeSpec(root, BRIEF_SPECS.cursor, briefs, report);
     },
     hooks({ root, inv, report }) {
@@ -289,7 +306,7 @@ export const TARGETS = {
   openhands: {
     detect: (root) => existsSync(join(root, '.openhands')) || agentsInUse(root),
     rules({ root, block, paths, briefs, report, carried }) {
-      blockRule(root, '.agents/skills/complex-md.md', `---\nname: complex-md\npaths:\n${paths.map((p) => `  - "${p}"`).join('\n')}\n---\n${block}`, carried, report);
+      blockRule(root, '.agents/skills/complex-md.md', `---\nname: complex-md\npaths:\n${paths.map((p) => `  - ${JSON.stringify(literalGlob(p))}`).join('\n')}\n---\n${block}`, carried, report);
       writeSpec(root, BRIEF_SPECS.openhands, briefs, report);
     },
   },
@@ -389,7 +406,7 @@ export const TARGETS = {
   windsurf: {
     detect: (root) => existsSync(join(root, '.windsurf')),
     rules({ root, block, paths, briefs, report, carried }) {
-      blockRule(root, '.windsurf/rules/complex-md.md', `---\ntrigger: glob\nglobs: ${paths.join(', ')}\n---\n${block}`, carried, report);
+      blockRule(root, '.windsurf/rules/complex-md.md', `---\ntrigger: glob\nglobs: ${paths.map(literalGlob).join(', ')}\n---\n${block}`, carried, report);
       writeSpec(root, BRIEF_SPECS.windsurf, briefs, report);
     },
   },

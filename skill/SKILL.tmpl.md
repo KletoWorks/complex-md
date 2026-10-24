@@ -234,6 +234,12 @@ alwaysApply: false
 ---
 ```
 
+   `paths` and `globs` read a glob. Write each `[`, `]`, `{`, `}`, `*` and
+   `?` in the path as a one character class (`[[]`, `[]]`, `[{]`, `[}]`,
+   `[*]`, `[?]`) and each comma as `?`, so `app/[id]/page.tsx` becomes
+   `app/[[]id[]]/page.tsx`. Put a `paths` value that then starts with `[`
+   in double quotes.
+
    `npx -y complex-md wire` also writes briefs for OpenHands, Antigravity,
    Copilot code review, Devin Desktop, Windsurf, Kiro and Cline, each in
    its own folder.
