@@ -530,22 +530,8 @@ Stage 3 of generation, in full:
    `co_change`. A brief holds the path as its heading, the row's numbers,
    the file's paragraph from "Why these files are hot", its co-change
    partners and the directive. Write the briefs for each agent whose folder
-   exists, scoped to the one path by that agent's front matter key:
-
-   | Agent | Detected from | Brief files | Scope key |
-   | --- | --- | --- | --- |
-   | Claude Code | `.claude/` or `CLAUDE.md` | `.claude/rules/complex-md/*.md` | `paths` |
-   | Cursor | `.cursor/` | `.cursor/rules/complex-md/*.mdc` | `globs` |
-   | OpenHands | `.openhands/` or `.agents/` | `.agents/skills/complex-md-*.md` | `paths` list |
-   | Antigravity | `.agents/rules/` | `.agents/rules/complex-md-*.md` | `trigger: glob`, `globs` |
-   | Copilot code review and cloud agent | `.github/copilot-instructions.md` or `.github/instructions/` | `.github/instructions/complex-md/*.instructions.md` | `applyTo` |
-   | Devin Desktop | `.devin/` | `.devin/rules/complex-md-*.md` | `trigger: glob`, `globs` |
-   | Windsurf | `.windsurf/` | `.windsurf/rules/complex-md-*.md` | `trigger: glob`, `globs` |
-   | Kiro | `.kiro/` | `.kiro/steering/complex-md-*.md` | `inclusion: fileMatch`, `fileMatchPattern` |
-   | Cline | a `.clinerules/` folder | `.clinerules/complex-md-*.md` | `paths` list |
-
-   A `.agents/` folder that holds only `.agents/skills/complex-md/` does
-   not count as OpenHands.
+   exists, scoped to the one path by that agent's front matter key. The
+   table after this list names the folders and keys.
 4. Cursor, OpenHands, Windsurf and Cline read `AGENTS.md`. While
    `AGENTS.md` carries the block, write no rule file that holds only the
    block, because a copy would load it twice. When `AGENTS.md` does not
@@ -561,6 +547,23 @@ Stage 3 of generation, in full:
    project.
 8. Regeneration rewrites the briefs (the paths change) and leaves the
    primary files alone.
+
+Where step 3 writes the briefs:
+
+| Agent | Detected from | Brief files | Scope key |
+| --- | --- | --- | --- |
+| Claude Code | `.claude/` or `CLAUDE.md` | `.claude/rules/complex-md/*.md` | `paths` |
+| Cursor | `.cursor/` | `.cursor/rules/complex-md/*.mdc` | `globs` |
+| OpenHands | `.openhands/` or `.agents/` | `.agents/skills/complex-md-*.md` | `paths` list |
+| Antigravity | `.agents/rules/` | `.agents/rules/complex-md-*.md` | `trigger: glob`, `globs` |
+| Copilot code review and cloud agent | `.github/copilot-instructions.md` or `.github/instructions/` | `.github/instructions/complex-md/*.instructions.md` | `applyTo` |
+| Devin Desktop | `.devin/` | `.devin/rules/complex-md-*.md` | `trigger: glob`, `globs` |
+| Windsurf | `.windsurf/` | `.windsurf/rules/complex-md-*.md` | `trigger: glob`, `globs` |
+| Kiro | `.kiro/` | `.kiro/steering/complex-md-*.md` | `inclusion: fileMatch`, `fileMatchPattern` |
+| Cline | a `.clinerules/` folder | `.clinerules/complex-md-*.md` | `paths` list |
+
+A `.agents/` folder that holds only `.agents/skills/complex-md/` does not
+count as OpenHands.
 
 `npx complex-md wire` does steps 1 to 8 idempotently, and step 7 only with
 `--for openclaw,hermes`. When `npx` is unavailable, the skill writes the
