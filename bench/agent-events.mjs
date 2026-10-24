@@ -1,0 +1,68 @@
+// What a run did, read from the agent's stream-json events: tool calls,
+// tokens, cost, test runs and how the run ended. Kept apart from the process
+// handling in run.mjs so the accounting can be tested on recorded events.
+
+/* A Bash command that runs tests. */
+export const TEST_CMD = /\b(node\s+--test|npm\s+(run\s+)?(test|unit)\b|npx\s+(tap|borp|jest|vitest|mocha)\b|\b(tap|borp|jest|vitest|mocha)\s+\S)/;
+
+export const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+export const pathOf = (input = {}) => input.file_path || input.path || input.notebook_path || null;
+export const rel = (p, wt) => (p && p.startsWith(wt) ? p.slice(wt.length + 1) : p);
+
+/* Tokens are split by kind because they are not priced alike. tokens_in
+   used to sum fresh input, cache reads and cache creation together, which
+   counts a cached read at full weight and overstates what the map costs by
+   a wide margin: a map is byte identical across runs and is exactly the
+   kind of prefix a cache is for. cost_usd, which the agent prices itself,
+   stays the only figure to quote as money. */
+export function newMetrics() {
+  return { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, agent_test_runs: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: null };
+}
+
+/* One meter per run. onEvent returns 'first-edit' at the first edit when
+   the run stops there, so the caller can end the process. `killed` says
+   whether the harness already ended the run itself. */
+export function createMeter({ wt, gold, stopAt }) {
+  const m = newMetrics();
+  const goldSet = new Set(gold);
+  const isGold = (p) => p && (goldSet.has(p) || gold.some((g) => p.endsWith('/' + g)));
+  let firstEdit = false;
+  function onEvent(ev, { killed = false } = {}) {
+    let action = null;
+    if (ev.type === 'assistant') {
+      m.turns++;
+      const u = ev.message?.usage;
+      if (u) {
+        m.tokens_fresh += u.input_tokens || 0;
+        m.tokens_cache_read += u.cache_read_input_tokens || 0;
+        m.tokens_cache_write += u.cache_creation_input_tokens || 0;
+        /* Kept for continuity with runs recorded before the split. */
+        m.tokens_in += (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+        m.tokens_out += u.output_tokens || 0;
+      }
+      for (const c of ev.message?.content || []) {
+        if (c.type !== 'tool_use') continue;
+        m.steps++;
+        if (c.name?.startsWith('mcp__complex-md')) m.mcp_calls++;
+        if (c.name === 'Bash' && TEST_CMD.test(c.input?.command || '')) m.agent_test_runs++;
+        const p = rel(pathOf(c.input), wt);
+        if (c.name === 'Read' || EDIT_TOOLS.has(c.name)) {
+          if (isGold(p)) { m.first_gold_read ??= m.steps; if (EDIT_TOOLS.has(c.name)) m.first_gold_edit ??= m.steps; }
+          else if (c.name === 'Read' && m.first_gold_read === null && p && !/COMPLEX\.md$/.test(p)) m.wasted_reads++;
+          if (c.name === 'Read') m.reads.push(p);
+        }
+        if (EDIT_TOOLS.has(c.name) && stopAt === 'edit' && !killed && !firstEdit) { firstEdit = true; action = 'first-edit'; }
+      }
+    } else if (ev.type === 'user') {
+      for (const c of ev.message?.content || []) if (c.type === 'tool_result' && /COMPLEX\.md/.test(JSON.stringify(c.content || '')) && c.is_error) m.gate_fired++;
+    } else if (ev.type === 'result') {
+      m.cost_usd = ev.total_cost_usd ?? null;
+      m.result_turns = ev.num_turns;
+      m.duration_ms = ev.duration_ms;
+      // A run we stopped ourselves reports error_during_execution; that is the stop, not a failure.
+      if (ev.is_error && !killed) m.error = String(ev.result || ev.subtype).slice(0, 200);
+    }
+    return action;
+  }
+  return { m, onEvent };
+}

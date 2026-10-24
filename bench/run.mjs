@@ -29,6 +29,7 @@ import { computeSignals } from '../cli/src/signals.js';
 import { buildBundle, normalizeOutput } from '../cli/src/generate.js';
 import { wire } from '../cli/src/wire.js';
 import { detectRunner, listTestFiles, runSuite, confirm, goldTestFiles } from './suite.mjs';
+import { createMeter, newMetrics } from './agent-events.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '../cli/bin/complex-md.js');
@@ -166,8 +167,6 @@ async function armSetup(task, arm, wt) {
    reaches is part of what is measured. */
 const PROMPT = (t) => `Fix this issue in the repository. Find the code responsible and change it. Do not commit.\n\n# ${t.title}\n\n${t.text}`;
 
-const TEST_CMD = /\b(node\s+--test|npm\s+(run\s+)?(test|unit)\b|npx\s+(tap|borp|jest|vitest|mocha)\b|\b(tap|borp|jest|vitest|mocha)\s+\S)/;
-
 function agentCommand(task, arm, wt) {
   if (agent === 'mock') return ['node', [join(here, 'mock-agent.mjs')], { CX_GOLD: task.gold.join(',') }];
   const a = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'acceptEdits', '--setting-sources', 'project', '--max-budget-usd', String(budget),
@@ -177,25 +176,13 @@ function agentCommand(task, arm, wt) {
   return ['claude', a, {}];
 }
 
-const pathOf = (input = {}) => input.file_path || input.path || input.notebook_path || null;
-const rel = (p, wt) => (p && p.startsWith(wt) ? p.slice(wt.length + 1) : p);
-const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
-
 function runAgent(task, arm, wt) {
   return new Promise((resolvePromise) => {
     const [cmd, a, env] = agentCommand(task, arm, wt);
     const child = spawn(cmd, a, { cwd: wt, env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
     child.stdin.end(agent === 'mock' ? '' : PROMPT(task));
     const transcript = [];
-    /* Tokens are split by kind because they are not priced alike. tokens_in
-     used to sum fresh input, cache reads and cache creation together, which
-     counts a cached read at full weight and overstates what the map costs by
-     a wide margin: a map is byte identical across runs and is exactly the
-     kind of prefix a cache is for. cost_usd, which the agent prices itself,
-     stays the only figure to quote as money. */
-  const m = { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, agent_test_runs: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: null };
-    const goldSet = new Set(task.gold);
-    const isGold = (p) => p && (goldSet.has(p) || task.gold.some((g) => p.endsWith('/' + g)));
+    const { m, onEvent } = createMeter({ wt, gold: task.gold, stopAt });
     let buf = '';
     let killed = false;
     const timer = setTimeout(() => { m.stopped = 'timeout'; killed = true; child.kill('SIGTERM'); }, timeoutS * 1000);
@@ -209,41 +196,9 @@ function runAgent(task, arm, wt) {
         if (!line.trim()) continue;
         transcript.push(line);
         let ev; try { ev = JSON.parse(line); } catch { continue; }
-        if (ev.type === 'assistant') {
-          m.turns++;
-          const u = ev.message?.usage;
-          if (u) {
-            m.tokens_fresh += u.input_tokens || 0;
-            m.tokens_cache_read += u.cache_read_input_tokens || 0;
-            m.tokens_cache_write += u.cache_creation_input_tokens || 0;
-            /* Kept for continuity with runs recorded before the split. */
-            m.tokens_in += (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
-            m.tokens_out += u.output_tokens || 0;
-          }
-          for (const c of ev.message?.content || []) {
-            if (c.type !== 'tool_use') continue;
-            m.steps++;
-            if (c.name?.startsWith('mcp__complex-md')) m.mcp_calls++;
-            if (c.name === 'Bash' && TEST_CMD.test(c.input?.command || '')) m.agent_test_runs++;
-            const p = rel(pathOf(c.input), wt);
-            if (c.name === 'Read' || EDIT_TOOLS.has(c.name)) {
-              if (isGold(p)) { m.first_gold_read ??= m.steps; if (EDIT_TOOLS.has(c.name)) m.first_gold_edit ??= m.steps; }
-              else if (c.name === 'Read' && m.first_gold_read === null && p && !/COMPLEX\.md$/.test(p)) m.wasted_reads++;
-              if (c.name === 'Read') m.reads.push(p);
-            }
-            if (EDIT_TOOLS.has(c.name) && stopAt === 'edit' && !killed) {
-              m.stopped = 'first-edit'; killed = true;
-              setTimeout(() => child.kill('SIGTERM'), 1500); // let the tool result land so a gate denial is recorded
-            }
-          }
-        } else if (ev.type === 'user') {
-          for (const c of ev.message?.content || []) if (c.type === 'tool_result' && /COMPLEX\.md/.test(JSON.stringify(c.content || '')) && c.is_error) m.gate_fired++;
-        } else if (ev.type === 'result') {
-          m.cost_usd = ev.total_cost_usd ?? null;
-          m.result_turns = ev.num_turns;
-          m.duration_ms = ev.duration_ms;
-          // A run we stopped ourselves reports error_during_execution; that is the stop, not a failure.
-          if (ev.is_error && !killed) m.error = String(ev.result || ev.subtype).slice(0, 200);
+        if (onEvent(ev, { killed }) === 'first-edit' && !killed) {
+          m.stopped = 'first-edit'; killed = true;
+          setTimeout(() => child.kill('SIGTERM'), 1500); // let the tool result land so a gate denial is recorded
         }
       }
     });
@@ -334,7 +289,7 @@ for (const task of tasks) {
         await armSetup(task, arm, wt);
         m = await runAgent(task, arm, wt);
       } catch (e) {
-        m = { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, agent_test_runs: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: `harness: ${String(e.message || e).slice(0, 200)}` };
+        m = { ...newMetrics(), error: `harness: ${String(e.message || e).slice(0, 200)}` };
       }
       const edited = sh('git', ['diff', '--name-only', 'HEAD'], wt).split('\n').filter(Boolean);
       /* The patch itself is kept: a regression count is checkable only with
