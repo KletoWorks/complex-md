@@ -119,8 +119,22 @@ export function normalizeOutput(text, fm) {
   return fm + '\n' + prose + '\n';
 }
 
-// One model call has two minutes; a hung socket must not hang the run.
-const CALL_TIMEOUT_MS = 120000;
+/* The output cap for the Anthropic call. A whole trpc map was 12.1 KB,
+   about 3.5k tokens, and the prompt asks the model to echo the front
+   matter, which is 10 KB on django. Thinking, on by default for current
+   models, counts against the same cap. The old 4,000 cut big repositories.
+   Current models accept up to 128,000, but only with streaming; 16,000 is
+   the cap Anthropic recommends for a request without streaming. */
+export const MAX_OUTPUT_TOKENS = 16000;
+
+// One model call has five minutes, enough for a full 16,000 token reply at
+// about 60 tokens a second; a hung socket must not hang the run.
+const CALL_TIMEOUT_MS = 300000;
+
+// Stop reasons that mean the reply is complete. Anything else (max_tokens,
+// refusal, a context window limit) is a reply that must not become a map.
+const ANTHROPIC_DONE = new Set([undefined, null, 'end_turn', 'stop_sequence']);
+const OPENAI_DONE = new Set([undefined, null, 'stop']);
 
 async function readJson(res, label) {
   try {
@@ -134,12 +148,16 @@ async function callAnthropic(prompt, model) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model, max_tokens: 4000, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({ model, max_tokens: MAX_OUTPUT_TOKENS, messages: [{ role: 'user', content: prompt }] }),
     signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
   });
   const j = await readJson(res, 'Anthropic');
   if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${j.error?.message || JSON.stringify(j)}`);
   if (!Array.isArray(j.content)) throw new Error(`Anthropic API ${res.status}: malformed response, no content array (${JSON.stringify(j).slice(0, 200)})`);
+  if (!ANTHROPIC_DONE.has(j.stop_reason)) {
+    const why = j.stop_reason === 'max_tokens' ? `reply stopped at the ${MAX_OUTPUT_TOKENS} token output cap` : 'reply did not finish';
+    throw new Error(`Anthropic API: ${why} (stop_reason ${j.stop_reason}, ${j.usage?.output_tokens ?? '?'} output tokens); COMPLEX.md not written`);
+  }
   return { text: j.content.map((c) => c.text || '').join(''), usage: { input: j.usage?.input_tokens, output: j.usage?.output_tokens } };
 }
 
@@ -158,6 +176,13 @@ async function callOpenAICompat(prompt, p) {
   if (!res.ok) throw new Error(`${p.name} API ${res.status}: ${j.error?.message || JSON.stringify(j)}`);
   const content = j.choices?.[0]?.message?.content;
   if (typeof content !== 'string') throw new Error(`${p.name} API ${res.status}: malformed response, no choices[0].message.content (${JSON.stringify(j).slice(0, 200)})`);
+  // No max_tokens is sent here (OpenAI rejects it on current models), so
+  // the provider's own default caps the reply; finish_reason says if it hit.
+  const finish = j.choices[0].finish_reason;
+  if (!OPENAI_DONE.has(finish)) {
+    const why = finish === 'length' ? "reply stopped at the provider's output limit" : 'reply did not finish';
+    throw new Error(`${p.name} API: ${why} (finish_reason ${finish}, ${j.usage?.completion_tokens ?? '?'} output tokens); COMPLEX.md not written`);
+  }
   return { text: content, usage: { input: j.usage?.prompt_tokens, output: j.usage?.completion_tokens } };
 }
 
