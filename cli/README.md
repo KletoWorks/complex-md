@@ -85,6 +85,17 @@ edit. Hooks written by 0.9.2 and earlier ran an unpinned `npx -y complex-md`;
 run `npx complex-md wire --hooks` again to rewrite them in the pinned form.
 A run without `--hooks` leaves them as they are and says so.
 
+## Is the map still current?
+
+    npx complex-md verify [--json]
+
+`verify` recomputes the signals with no model call and compares them with
+the committed front matter. Exit 0 means fresh, 1 means drift past
+tolerance, and 2 means there is no map or the clone is shallow. A file joins
+a list only at 125% of the fresh cut and drops off only under 75%, so two
+files that trade the last place never flip the result. In CI, check out the
+full history (`fetch-depth: 0`) and run `npx complex-md verify`.
+
 ## Optional: the MCP server (`--mcp`)
 
 Off by default. `wire --mcp` registers it in `.mcp.json`, `.cursor/mcp.json`
