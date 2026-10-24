@@ -1,0 +1,50 @@
+{
+  "description": "A 0.4 map that writes empty lists as keys with no value. YAML reads them as null, so the map does not conform; a reader reads them as empty lists.",
+  "document": {
+    "valid": false,
+    "errors": [
+      "schema"
+    ]
+  },
+  "data": {
+    "complex_md": "0.4",
+    "generated": "2026-10-20",
+    "commit": "3f2a9c1",
+    "generator": {
+      "name": "complex-md",
+      "version": "0.10.0"
+    },
+    "window_commits": 120,
+    "files_analyzed": 14,
+    "profile": {
+      "confidence": "structure+history"
+    },
+    "hotspots": [
+      {
+        "path": "lib/router.js",
+        "kind": "source",
+        "loc": 412,
+        "churn": 31,
+        "churn_w": 9.25,
+        "fixes": 7,
+        "authors": 4,
+        "owner_share": 0.61,
+        "fan_in": 9,
+        "tests": 3,
+        "score": 4120
+      }
+    ],
+    "load_bearing": null,
+    "co_change": [],
+    "seams": null,
+    "blind_spots": []
+  },
+  "reader": {
+    "result": "map",
+    "front": {
+      "load_bearing": [],
+      "seams": [],
+      "co_change": []
+    }
+  }
+}

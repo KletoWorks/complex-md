@@ -1,0 +1,51 @@
+{
+  "description": "\"What to read first\" comes before \"Change coupling\".",
+  "document": {
+    "valid": false,
+    "errors": [
+      "sections"
+    ]
+  },
+  "data": {
+    "complex_md": "0.4",
+    "generated": "2026-10-20",
+    "commit": "3f2a9c1",
+    "generator": {
+      "name": "complex-md",
+      "version": "0.10.0"
+    },
+    "window_commits": 120,
+    "files_analyzed": 14,
+    "profile": {
+      "confidence": "structure+history"
+    },
+    "hotspots": [
+      {
+        "path": "lib/router.js",
+        "kind": "source",
+        "loc": 412,
+        "churn": 31,
+        "churn_w": 9.25,
+        "fixes": 7,
+        "authors": 4,
+        "owner_share": 0.61,
+        "fan_in": 9,
+        "tests": 3,
+        "score": 4120
+      }
+    ],
+    "load_bearing": [],
+    "co_change": [],
+    "seams": [],
+    "blind_spots": []
+  },
+  "reader": {
+    "result": "map",
+    "sections": [
+      "Where the risk lives",
+      "Why these files are hot",
+      "Change coupling",
+      "What to read first"
+    ]
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "description": "An all digit commit, a quoted date, a route path with brackets and parentheses, and a path with \" #\" inside a flow list. Each value that plain YAML would misread is double quoted.",
+  "document": {
+    "valid": true,
+    "errors": []
+  },
+  "data": {
+    "complex_md": "0.4",
+    "generated": "2026-10-19",
+    "commit": "1234567",
+    "generator": {
+      "name": "complex-md",
+      "version": "0.10.0"
+    },
+    "window_commits": 90,
+    "files_analyzed": 30,
+    "profile": {
+      "confidence": "structure+history"
+    },
+    "hotspots": [
+      {
+        "path": "app/(shop)/[slug]/page.tsx",
+        "kind": "source",
+        "loc": 210,
+        "churn": 18,
+        "churn_w": 6.5,
+        "fixes": 4,
+        "authors": 2,
+        "owner_share": 0.72,
+        "fan_in": 1,
+        "tests": 1,
+        "score": 1450
+      }
+    ],
+    "load_bearing": [],
+    "co_change": [
+      {
+        "files": [
+          "app/(shop)/[slug]/page.tsx",
+          "docs/notes #1.md"
+        ],
+        "count": 6,
+        "coupling": 50
+      }
+    ],
+    "seams": [],
+    "blind_spots": [
+      "1 file over 1 MB not read for dependencies"
+    ]
+  },
+  "reader": {
+    "result": "map",
+    "front": {
+      "generated": "2026-10-19",
+      "commit": "1234567",
+      "hotspots": [
+        {
+          "path": "app/(shop)/[slug]/page.tsx",
+          "score": 1450
+        }
+      ],
+      "co_change": [
+        {
+          "files": [
+            "app/(shop)/[slug]/page.tsx",
+            "docs/notes #1.md"
+          ],
+          "count": 6,
+          "coupling": 50
+        }
+      ]
+    },
+    "sections": [
+      "Where the risk lives",
+      "Why these files are hot",
+      "Change coupling",
+      "What to read first"
+    ],
+    "rows": {
+      "app/(shop)/[slug]/page.tsx": true,
+      "app/shop/slug/page.tsx": false
+    },
+    "directives": {
+      "app/(shop)/[slug]/page.tsx": "Before editing this file, run `npx playwright test e2e/product.spec.ts`."
+    }
+  }
+}

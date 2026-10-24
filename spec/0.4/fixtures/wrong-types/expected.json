@@ -1,0 +1,52 @@
+{
+  "description": "A row with a text loc, an owner_share above 1 and a kind that cannot rank. A reader does not fail.",
+  "document": {
+    "valid": false,
+    "errors": [
+      "schema"
+    ]
+  },
+  "data": {
+    "complex_md": "0.4",
+    "generated": "2026-10-20",
+    "commit": "3f2a9c1",
+    "generator": {
+      "name": "complex-md",
+      "version": "0.10.0"
+    },
+    "window_commits": 120,
+    "files_analyzed": 14,
+    "profile": {
+      "confidence": "structure+history"
+    },
+    "hotspots": [
+      {
+        "path": "lib/router.js",
+        "kind": "docs",
+        "loc": "many",
+        "churn": 31,
+        "churn_w": 9.25,
+        "fixes": 7,
+        "authors": 4,
+        "owner_share": 1.5,
+        "fan_in": 9,
+        "tests": 3,
+        "score": 4120
+      }
+    ],
+    "load_bearing": [],
+    "co_change": [],
+    "seams": [],
+    "blind_spots": []
+  },
+  "reader": {
+    "result": "map",
+    "front": {
+      "hotspots": [
+        {
+          "path": "lib/router.js"
+        }
+      ]
+    }
+  }
+}

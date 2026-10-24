@@ -1,0 +1,13 @@
+{
+  "description": "Prose with no front matter. Not a valid map.",
+  "document": {
+    "valid": false,
+    "errors": [
+      "no-front-matter"
+    ]
+  },
+  "data": null,
+  "reader": {
+    "result": "invalid"
+  }
+}
