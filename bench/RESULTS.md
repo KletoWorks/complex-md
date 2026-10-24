@@ -31,11 +31,11 @@ at the base commit. `fastify-complete` and `fastify-damage` share 13 tasks;
 
 ## Agents run the tests the map names
 
-A risky edit is an edit to a file whose paragraph in the map ends with
-"Before editing this file, run" and names test files. The edit counts as
-followed when the agent's shell commands ran every test file that sentence
-names. Advice that names a directory is not counted. The same map judges
-every arm of a task, including the arm that never saw it.
+A risky edit is an edit to a file whose paragraph in the map says "Before
+editing this file, run" and names test files or a test directory. The edit
+counts as followed when the agent's shell commands named every test file and
+directory that sentence names. The same map judges every arm of a task,
+including the arm that never saw it.
 
 | run | none | front | file | hooks | discordant pairs, arm only : none only |
 |---|---|---|---|---|---|
@@ -79,8 +79,10 @@ Rank based tests throughout, so one long run cannot decide a result.
 
 - Collateral damage could not be compared: no fastify run broke a test, and
   on undici both arms broke the same tests on the same 2 tasks.
-- The map costs more per run, at API equivalent prices: `file` 17% to 31% at
-  the median, `hooks` about 50%, with 62% to 100% more wall clock (p < 0.01).
+- The map costs more per run, at API equivalent prices. At the median,
+  `hooks` costs about 50% more and takes 62% to 100% more wall clock
+  (p < 0.01 in both fastify runs). `file` costs 17% to 31% more, a
+  difference that reaches p < 0.01 only in `fastify-damage`.
 - One agent and one model. Each task worktree shared the dataset clone's
   history, so in every arm an agent could read commits after its base.
 - A month's map is built at the base of the first task run in that month. For
