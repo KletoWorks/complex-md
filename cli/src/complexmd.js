@@ -25,10 +25,8 @@ export function parseComplexMd(text) {
   const sections = splitSections(prose);
   const hotspotParas = paragraphs(sections['Why these files are hot'] || '');
   const couplingParas = paragraphs(sections['Change coupling'] || '');
-  const paragraphFor = (path) => {
-    const hits = hotspotParas.filter((para) => mentions(para, path));
-    return hits.length ? hits[0] : null;
-  };
+  const mentions = mentionMatcher(fm);
+  const paragraphFor = (path) => hotspotParas.find((para) => mentions(para, path)) || null;
   const couplingFor = (path) => couplingParas.filter((para) => mentions(para, path));
   return {
     front: fm,
@@ -61,10 +59,31 @@ export function parseComplexMd(text) {
   };
 }
 
-function mentions(para, path) {
-  if (para.includes(path)) return true;
-  const base = path.split('/').pop();
-  return base.length > 6 && para.includes(base);
+/* Does a paragraph name this path? A paragraph names a path with the full
+   path, or with a shorter suffix such as its basename. A suffix counts only
+   when the path is in the map and no other mapped path ends with the same
+   suffix. A monorepo maps several index.ts or __init__.py files, and a plain
+   substring test gave every one of them the paragraph of the first. A full
+   path counts only as a whole token, so src/index.ts is not found inside
+   packages/a/src/index.ts. */
+function mentionMatcher(fm) {
+  const mapped = new Set([
+    ...(fm.hotspots || []).map((h) => h.path),
+    ...(fm.load_bearing || []).map((h) => h.path),
+    ...(fm.co_change || []).flatMap((c) => c.files || []),
+  ].filter((p) => typeof p === 'string'));
+  const endsWith = (p, suffix) => p === suffix || p.endsWith('/' + suffix);
+  const sharedSuffix = (path, suffix) => [...mapped].some((p) => p !== path && endsWith(p, suffix));
+  return (para, path) => pathTokens(para).some((t) => {
+    if (t === path) return true;
+    if (!mapped.has(path) || !endsWith(path, t)) return false;
+    if (!t.includes('/') && t.length <= 6) return false;
+    return !sharedSuffix(path, t);
+  });
+}
+
+function pathTokens(para) {
+  return (para.match(/[\w@.\/-]+/g) || []).map((t) => t.replace(/^\.\//, '').replace(/\.+$/, ''));
 }
 
 function lastSentence(para) {
