@@ -1,0 +1,52 @@
+{
+  "description": "Double quoted scalars with JSON escapes. A reader decodes the escapes.",
+  "document": {
+    "valid": true,
+    "errors": []
+  },
+  "data": {
+    "complex_md": "0.4",
+    "generated": "2026-10-18",
+    "commit": "b7e1f20",
+    "generator": {
+      "name": "complex-md",
+      "version": "0.10.0"
+    },
+    "window_commits": 80,
+    "files_analyzed": 12,
+    "profile": {
+      "confidence": "structure+history"
+    },
+    "hotspots": [
+      {
+        "path": "src/parse.js",
+        "kind": "source",
+        "loc": 150,
+        "churn": 20,
+        "churn_w": 7.0,
+        "fixes": 5,
+        "authors": 3,
+        "owner_share": 0.5,
+        "fan_in": 5,
+        "tests": 2,
+        "score": 2200
+      }
+    ],
+    "load_bearing": [],
+    "co_change": [],
+    "seams": [],
+    "blind_spots": [
+      "the word \"fix\" in 3 commit subjects names a product, not a repair",
+      "a path with a backslash: docs\\windows.md"
+    ]
+  },
+  "reader": {
+    "result": "map",
+    "front": {
+      "blind_spots": [
+        "the word \"fix\" in 3 commit subjects names a product, not a repair",
+        "a path with a backslash: docs\\windows.md"
+      ]
+    }
+  }
+}

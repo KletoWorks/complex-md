@@ -1,0 +1,6 @@
+{
+  "description": "The repository has complex.md in lower case. The name must be COMPLEX.md, so a reader finds no map.",
+  "reader": {
+    "result": "absent"
+  }
+}

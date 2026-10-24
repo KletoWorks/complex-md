@@ -1,0 +1,94 @@
+{
+  "description": "x- keys at the top level, in generator, in profile, in a row and as a top level block, plus a section after the 4 required ones. A reader ignores all of them.",
+  "document": {
+    "valid": true,
+    "errors": []
+  },
+  "data": {
+    "complex_md": "0.4",
+    "x-acme-run": "r-118",
+    "generated": "2026-10-21",
+    "commit": "a1b2c3d",
+    "generator": {
+      "name": "acme-map",
+      "version": "2.1.0",
+      "x-acme-build": 77
+    },
+    "window_commits": 300,
+    "files_analyzed": 40,
+    "profile": {
+      "confidence": "history-only",
+      "x-acme-skipped-files": 3
+    },
+    "hotspots": [
+      {
+        "path": "src/main.rs",
+        "kind": "source",
+        "loc": 1200,
+        "churn": 52,
+        "churn_w": 14.1,
+        "fixes": 11,
+        "authors": 3,
+        "owner_share": 0.8,
+        "fan_in": 0,
+        "tests": 0,
+        "score": 6100,
+        "x-acme-owner": "@core"
+      }
+    ],
+    "load_bearing": [],
+    "co_change": [],
+    "seams": [],
+    "blind_spots": [
+      "dependencies not resolved for 40 .rs files: their fan_in and covering tests are undercounted"
+    ],
+    "x-acme-teams": [
+      {
+        "path": "src",
+        "team": "core"
+      }
+    ]
+  },
+  "reader": {
+    "result": "map",
+    "front": {
+      "complex_md": "0.4",
+      "generated": "2026-10-21",
+      "commit": "a1b2c3d",
+      "generator": {
+        "name": "acme-map",
+        "version": "2.1.0"
+      },
+      "window_commits": 300,
+      "profile": {
+        "confidence": "history-only"
+      },
+      "hotspots": [
+        {
+          "path": "src/main.rs",
+          "tests": 0,
+          "score": 6100
+        }
+      ],
+      "load_bearing": [],
+      "co_change": [],
+      "seams": [],
+      "blind_spots": [
+        "dependencies not resolved for 40 .rs files: their fan_in and covering tests are undercounted"
+      ]
+    },
+    "sections": [
+      "Where the risk lives",
+      "Why these files are hot",
+      "Change coupling",
+      "What to read first"
+    ],
+    "rows": {
+      "src/main.rs": true,
+      "src": false
+    },
+    "directives": {
+      "src/main.rs": "Before editing this file, run `cargo test` and try the changed subcommand by hand."
+    }
+  }
+}

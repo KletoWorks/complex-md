@@ -1,0 +1,3 @@
+# The fixtures are exact bytes: CRLF line ends, a byte order mark and a size
+# cap are part of what they test. Never convert their line ends.
+* -text

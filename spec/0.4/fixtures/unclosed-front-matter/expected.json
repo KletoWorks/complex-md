@@ -1,0 +1,13 @@
+{
+  "description": "The front matter has no closing line. Not a valid map.",
+  "document": {
+    "valid": false,
+    "errors": [
+      "no-front-matter"
+    ]
+  },
+  "data": null,
+  "reader": {
+    "result": "invalid"
+  }
+}
