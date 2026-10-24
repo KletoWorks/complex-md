@@ -90,4 +90,7 @@ test('bench/results/e0.json is what the module computes from the committed runs'
   assert.ok(existsSync(path), 'bench/results/e0.json is missing');
   const onDisk = JSON.parse(readFileSync(path, 'utf8'));
   assert.deepEqual(onDisk, JSON.parse(JSON.stringify(e0Report(ROOT))));
+  /* The corrected definition came after the recorded result; the file says so. */
+  assert.equal(onDisk.primary, 'edit_recorded');
+  assert.match(onDisk.exploratory, /corrected/);
 });

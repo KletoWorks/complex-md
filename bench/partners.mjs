@@ -17,7 +17,10 @@
 //              count, and neither does a command that reads COMPLEX.md,
 //              because naming a path there is not opening the file. The
 //              recorded definition counts a partner viewed through Bash as
-//              missed.
+//              missed. This definition was set after the recorded result
+//              was known, so its p values are exploratory. A Bash command
+//              that names the partner without reading it, such as a test
+//              run, also counts as seen.
 // Two pairing units, each compared with McNemar's exact test:
 //   edit       one edited file in one task, paired when both arms edited
 //              that file (the pairing rule of bench/comply.mjs). Primary.
@@ -145,7 +148,7 @@ const VARIANTS = [
 ];
 const variantName = ([level, metric, o]) => `${level}_${metric}${o.skipErrors ? '_no_error_runs' : ''}`;
 
-/** The E0 result object, computed from the committed runs under `root`. */
+/** The partner miss result object, computed from the committed runs under `root`. */
 export function e0Report(root) {
   const read = (p) => JSON.parse(readFileSync(join(root, p), 'utf8'));
   const repos = [
@@ -169,6 +172,7 @@ export function e0Report(root) {
   return {
     question: 'When the agent edits one file of a source co-change pair, does it miss the partner less often with the map than without it?',
     primary: 'edit_recorded',
+    exploratory: 'every *_corrected comparison: the corrected definition was set after the edit_recorded result was known',
     definitions: {
       recorded: 'partner read with Read or edited with an edit tool (the harness partners_missed field)',
       corrected: 'a tool call targets the partner: Read or edit on it, Grep or Glob path, or a Bash command naming it (Grep patterns and commands on COMPLEX.md do not count)',

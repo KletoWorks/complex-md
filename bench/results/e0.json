@@ -1,6 +1,7 @@
 {
   "question": "When the agent edits one file of a source co-change pair, does it miss the partner less often with the map than without it?",
   "primary": "edit_recorded",
+  "exploratory": "every *_corrected comparison: the corrected definition was set after the edit_recorded result was known",
   "definitions": {
     "recorded": "partner read with Read or edited with an edit tool (the harness partners_missed field)",
     "corrected": "a tool call targets the partner: Read or edit on it, Grep or Glob path, or a Bash command naming it (Grep patterns and commands on COMPLEX.md do not count)",
