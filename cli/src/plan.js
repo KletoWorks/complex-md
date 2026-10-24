@@ -60,8 +60,8 @@ function snapshot(dir) {
 
 /**
  * The files wire(root, opts) would create, change or remove, with the map
- * `mapText` as COMPLEX.md. Global registry targets are listed as
- * registrations and never run.
+ * `mapText` as COMPLEX.md. The registry call of a global target is listed
+ * as a registration and never run.
  */
 export function planWire(root, mapText, { hooks = false, mcp = false, agents = null } = {}) {
   const scratch = mkdtempSync(join(tmpdir(), 'complex-md-plan-'));
@@ -70,9 +70,14 @@ export function planWire(root, mapText, { hooks = false, mcp = false, agents = n
     writeFileSync(join(scratch, 'COMPLEX.md'), mapText);
     const before = snapshot(scratch);
     const local = agents ? agents.filter((a) => !TARGETS[a]?.global) : null;
+    const global = (agents || []).filter((a) => TARGETS[a]?.global);
     const plan = [];
     try {
       wire(scratch, { hooks, mcp, agents: local });
+      /* A global target can also write into the repository. Its files are
+         planned from a second pass without --mcp, because the registry call
+         runs the target's own CLI and writes outside the repository. */
+      if (global.length) wire(scratch, { hooks, mcp: false, agents: global });
     } catch (e) {
       return [{ path: 'wiring', action: 'error', note: String(e.message || e).replace(scratch, '.') }];
     }
