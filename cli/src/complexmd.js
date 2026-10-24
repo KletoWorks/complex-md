@@ -11,6 +11,7 @@ export function loadComplexMd(cwd) {
 }
 
 export function parseComplexMd(text) {
+  text = normalizeNewlines(text);
   const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text);
   if (!m) return null;
   const fm = parseFrontMatter(m[1]);
@@ -86,6 +87,13 @@ function pathTokens(para) {
   return (para.match(/[\w@.\/-]+/g) || []).map((t) => t.replace(/^\.\//, '').replace(/\.+$/, ''));
 }
 
+/* A Windows checkout has CRLF line ends by default (core.autocrlf=true),
+   and some editors write a byte order mark. Either one made the map parse
+   to null, and every hook then went silent on that machine. */
+function normalizeNewlines(text) {
+  return text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+}
+
 function lastSentence(para) {
   const s = para.trim().split(/(?<=\.)\s+/);
   return s[s.length - 1];
@@ -116,7 +124,7 @@ function paragraphs(text) {
 /** Minimal parser for the spec's front matter shape: scalars, `hotspots` list of maps, `co_change` list with inline arrays. */
 export function parseFrontMatter(src) {
   const out = {};
-  const lines = src.split('\n');
+  const lines = normalizeNewlines(src).split('\n');
   let i = 0;
   const scalar = (v) => {
     v = v.trim();

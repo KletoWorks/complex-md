@@ -6,7 +6,10 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseComplexMd } from '../src/complexmd.js';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { parseComplexMd, loadComplexMd, parseFrontMatter } from '../src/complexmd.js';
 
 const MONOREPO = `---
 complex_md: "0.3"
@@ -77,4 +80,34 @@ test('a basename alone still finds the paragraph when no other mapped path share
 test('a basename alone never matches a path the map does not list', () => {
   const m = parseComplexMd(MONOREPO);
   assert.equal(m.paragraphFor('packages/client/src/router.ts'), null);
+});
+
+/* Git for Windows checks text out with CRLF line ends by default
+   (core.autocrlf=true). A teammate on Windows who cloned a repository with a
+   committed map got a map that parsed to null, so every hook went silent. */
+test('a CRLF checkout of the map parses the same as the LF original', () => {
+  const lf = parseComplexMd(MONOREPO);
+  const crlf = parseComplexMd(MONOREPO.replace(/\n/g, '\r\n'));
+  assert.ok(crlf, 'a CRLF map is still a map');
+  assert.deepEqual(crlf.front, lf.front);
+  assert.deepEqual(crlf.sections, lf.sections);
+  const path = 'packages/server/src/adapters/http/index.ts';
+  assert.equal(crlf.paragraphFor(path), lf.paragraphFor(path));
+  assert.equal(crlf.directive(path), 'Before editing this file, run the adapter tests.');
+  assert.ok(!/\r/.test(JSON.stringify(crlf.front)), 'no carriage return survives in a value');
+});
+
+test('a CRLF map on disk loads, and a leading byte order mark is ignored', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-crlf-'));
+  writeFileSync(join(dir, 'COMPLEX.md'), '\uFEFF' + MONOREPO.replace(/\n/g, '\r\n'));
+  const m = loadComplexMd(dir);
+  assert.ok(m, 'loadComplexMd returns the map');
+  assert.equal(m.hotspots.length, 4);
+  assert.equal(m.row('src/index.ts').score, 100);
+});
+
+test('parseFrontMatter accepts CRLF input on its own', () => {
+  const fm = parseFrontMatter('complex_md: "0.3"\r\nhotspots:\r\n  - path: a.js\r\n    score: 5\r\n');
+  assert.equal(fm.complex_md, '0.3');
+  assert.deepEqual(fm.hotspots, [{ path: 'a.js', score: 5 }]);
 });
