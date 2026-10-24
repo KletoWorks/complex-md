@@ -461,9 +461,10 @@ Three ways to produce a conforming COMPLEX.md:
 1. **The CLI**, the reference implementation. `npx complex-md` builds the
    dependency graph and reads the history locally, writes the front
    matter itself so no number
-   passes through a model, and makes one model call for the prose (or hands
-   the prompt bundle to the agent you are already using when no API key is
-   set). Without a key it sends nothing. With a key, the one call carries
+   passes through a model, and makes one model call for the prose (or, when
+   no API key is set, writes template prose from the computed numbers and
+   hands the prompt bundle to the agent you are already using). Without a
+   key it sends nothing. With a key, the one call carries
    the signals and excerpts of up to ten hotspot files, about 60,000
    characters in all. The same package provides the hooks described
    under "Enforcement and runtime".
