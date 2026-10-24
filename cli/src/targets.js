@@ -49,7 +49,7 @@ export function readJson(p, fallback) {
   try {
     return JSON.parse(readFileSync(p, 'utf8'));
   } catch (e) {
-    throw new Error(`${p} is not valid JSON; fix it or run with --no-hooks/--no-mcp. (${e.message})`);
+    throw new Error(`${p} is not valid JSON; fix it, or run with --no-hooks and without --mcp. (${e.message})`);
   }
 }
 

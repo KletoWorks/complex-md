@@ -4,8 +4,10 @@
 // repository checkout; the published package carries none of these files.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { readJson } from '../src/targets.js';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const inCheckout = existsSync(join(ROOT, 'scripts/build.mjs'));
@@ -78,6 +80,22 @@ for (const rule of BANNED) {
     assert.deepEqual(hits, [], `${rule.why}\n${hits.join('\n')}`);
   });
 }
+
+/* A message that names a flag the CLI does not parse sends the reader to a
+   dead end. The bin parses --no-hooks, --no-wire and --mcp; there is no
+   --no-mcp, because the MCP server is off unless --mcp asks for it. */
+test('the invalid JSON message names only flags the CLI parses', () => {
+  const d = mkdtempSync(join(tmpdir(), 'cx-json-'));
+  const p = join(d, 'settings.json');
+  writeFileSync(p, '{ not json');
+  assert.throws(() => readJson(p, {}), (e) => {
+    assert.doesNotMatch(e.message, /--no-mcp/);
+    assert.match(e.message, /--no-hooks/);
+    return true;
+  });
+  const bin = readFileSync(join(import.meta.dirname, '..', 'bin', 'complex-md.js'), 'utf8');
+  for (const f of ['--no-hooks', '--mcp']) assert.ok(bin.includes(`flag('${f}')`), `the bin parses ${f}`);
+});
 
 test('every listed public text exists', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
