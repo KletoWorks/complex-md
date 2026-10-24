@@ -268,19 +268,24 @@ alwaysApply: false
 ```json
 { "hooks": {
   "PreToolUse": [{ "matcher": "Edit|Write|MultiEdit|NotebookEdit",
-                   "hooks": [{ "type": "command", "command": "npx -y complex-md hook pre", "timeout": 30 }] }],
-  "Stop": [{ "hooks": [{ "type": "command", "command": "npx -y complex-md hook stop", "timeout": 60 }] }] } }
-```
-
+                   "hooks": [{ "type": "command", "timeout": 30,
+                               "command": "{{HOOK:hook pre}}" }] }],
+  "Stop": [{ "hooks": [{ "type": "command", "timeout": 60,
+                         "command": "{{HOOK:hook stop}}" }] }] } }
 ```
 
    `.cursor/hooks.json` when `.cursor/` exists:
 
 ```json
 { "version": 1, "hooks": {
-  "preToolUse": [{ "command": "npx -y complex-md hook cursor-pre", "matcher": "Write|StrReplace|Edit|MultiEdit|SearchReplace|Delete", "timeout": 30 }],
-  "stop": [{ "command": "npx -y complex-md hook cursor-stop", "timeout": 60, "loop_limit": 1 }] } }
+  "preToolUse": [{ "matcher": "Write|StrReplace|Edit|MultiEdit|SearchReplace|Delete", "timeout": 30,
+                   "command": "{{HOOK:hook cursor-pre}}" }],
+  "stop": [{ "timeout": 60, "loop_limit": 1,
+             "command": "{{HOOK:hook cursor-stop}}" }] } }
 ```
+
+   Each command runs the project's own install first, then a `complex-md`
+   on PATH, then `npx` pinned to the version that wrote this skill.
 
    The PreToolUse hook denies the first edit of a hotspot per session and
    returns the file's paragraph as the reason; the Stop hook refuses to end
