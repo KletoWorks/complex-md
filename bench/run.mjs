@@ -15,6 +15,7 @@
 //        file   COMPLEX.md at the task's base commit, wired for Claude Code (CLAUDE.md, per path briefs)
 //        hooks  file + the PreToolUse/Stop hooks
 //        mcp    hooks + the MCP server
+//        gold   no agent: the real fix's source diff, judged like a patch (an oracle)
 // --stop-at edit kills the run at the agent's first edit: localization only, cheapest.
 // --stop-at none runs to completion, which is what regressions, wall clock,
 // diff size and success rate need, and the only way the hooks arm can be
@@ -22,13 +23,19 @@
 // Runs are appended to <out>/runs.jsonl and skipped when already present, so it resumes.
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync, symlinkSync, realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { computeSignals } from '../cli/src/signals.js';
+import { computeSignals, findCoveringTests } from '../cli/src/signals.js';
 import { buildBundle, normalizeOutput } from '../cli/src/generate.js';
 import { wire } from '../cli/src/wire.js';
-import { detectRunner, listTestFiles, runSuite, confirm } from './suite.mjs';
+import { detectRunner, listTestFiles, runSuite, confirm, goldTestFiles } from './suite.mjs';
+import { createMeter, newMetrics, behaviour } from './agent-events.mjs';
+import { claudeCommand, mapCommand } from './claude-args.mjs';
+import { isolatedCheckout, fileAt, fixSourceDiff, applyPatch } from './isolate.mjs';
+import { mapAnchor, assertMapUsable, commitTime } from './maps.mjs';
+import { sandboxSupport, sandboxCommand, startProxy, innerPid, which, DEFAULT_ROOTS, DEFAULT_ALLOW } from './sandbox.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '../cli/bin/complex-md.js');
@@ -44,8 +51,16 @@ const flag = (k) => args.includes(k);
 const dataset = JSON.parse(readFileSync(opt('--dataset', 'bench/data/fastify.json'), 'utf8'));
 const arms = opt('--arms', 'none,file').split(',');
 const agent = opt('--agent', 'claude');
+/* Scripted agents stand in for a model when the harness itself is tested.
+   Any other name is refused: an unknown name used to fall through to a real
+   Claude Code run. CX_BENCH_NO_MODEL=1 refuses every model call outright. */
+const SCRIPTED = { mock: 'mock-agent.mjs', probe: 'leak-probe.mjs' };
+if (agent !== 'claude' && !SCRIPTED[agent]) { console.error(`unknown --agent ${agent}: claude, ${Object.keys(SCRIPTED).join(', ')}`); process.exit(2); }
+const noModel = () => { if (process.env.CX_BENCH_NO_MODEL === '1') throw new Error('a model call was refused: CX_BENCH_NO_MODEL=1'); };
 const budget = Number(opt('--budget', 0.6));
 const timeoutS = Number(opt('--timeout', 420));
+/* Seconds a timed out agent gets, after SIGINT, to print its result event (cost, turns) before SIGKILL. */
+const graceS = Number(opt('--grace', 30));
 const stopAt = opt('--stop-at', 'edit');
 const outDir = opt('--out', 'bench/results/run');
 const model = opt('--model', null);
@@ -58,7 +73,20 @@ const workRoot = opt('--work', '/tmp/cxbench');
    dir, and is shared when many small out dirs judge the same tasks. */
 const skillText = opt('--skill', null) ? readFileSync(opt('--skill'), 'utf8') : null;
 const cacheDir = opt('--cache', outDir);
-const suiteOn = stopAt === 'none' && !flag('--no-suite') && agent !== 'mock';
+/* Every agent runs in bench/sandbox.mjs: no network but the model API
+   hosts, and no files but its checkout and its own install. --no-sandbox
+   runs without it, and each row records which. --allow-host adds proxy
+   hosts (host, or host:port); --mask adds directories to hide (a colon
+   separated list). */
+const sandboxOn = !flag('--no-sandbox') && arms.some((a) => a !== 'gold');
+if (sandboxOn) {
+  const s = sandboxSupport();
+  if (!s.ok) { console.error(`the agent sandbox is not available on this host (${s.reason}). --no-sandbox runs without network and file isolation.`); process.exit(2); }
+}
+const allowHosts = [...DEFAULT_ALLOW, ...opt('--allow-host', '').split(',').filter(Boolean)];
+const maskRoots = () => [...DEFAULT_ROOTS, dataset.path, resolve(outDir), resolve(cacheDir), resolve(here, '..'), resolve(workRoot), ...opt('--mask', '').split(':').filter(Boolean)];
+/* A scripted agent skips the suite unless --suite asks for it (the harness tests do). */
+const suiteOn = stopAt === 'none' && !flag('--no-suite') && (agent === 'claude' || flag('--suite'));
 for (const d of ['transcripts', 'patches']) mkdirSync(join(outDir, d), { recursive: true });
 for (const d of ['maps', 'baseline']) mkdirSync(join(cacheDir, d), { recursive: true });
 const runsPath = join(outDir, 'runs.jsonl');
@@ -69,22 +97,42 @@ const sh = (cmd, a, cwd) => {
   if (r.status !== 0) throw new Error(`${cmd} ${a.join(' ')}: ${r.stderr}`);
   return r.stdout;
 };
+const untracked = (wt) => sh('git', ['ls-files', '--others', '--exclude-standard', '-z'], wt).split('\0').filter(Boolean);
 const log = (s) => process.stderr.write(`${new Date().toISOString().slice(11, 19)} ${s}\n`);
 
-/** COMPLEX.md for a task. One map per calendar month of task.date, the fix commit's date: the first task of a month generates it at that task's base commit, and the month's later tasks reuse it. Maps are regenerated periodically, not per commit. */
-async function mapFor(task, wt) {
-  const key = `${(dataset.repo || 'repo').replace('/', '-')}-${task.date.slice(0, 7)}.md`;
+/* COMPLEX.md as a user would have had it at the task's base commit. One map
+   per calendar month of task dates, built at the oldest base of that month
+   in the whole dataset (bench/maps.mjs), and refused for a task whose base
+   does not have that commit in its history. The cache key names the commit
+   the map was built at, so a map cached under the old rule is never read. */
+const commitTimes = new Map();
+const timeOf = (sha) => { if (!commitTimes.has(sha)) commitTimes.set(sha, commitTime(dataset.path, sha)); return commitTimes.get(sha); };
+
+async function mapFor(task) {
+  const anchor = mapAnchor(dataset.tasks, task, timeOf);
+  assertMapUsable(dataset.path, anchor, task);
+  const month = task.date.slice(0, 7);
+  const key = `${(dataset.repo || 'repo').replace('/', '-')}-${month}-${anchor.slice(0, 10)}.md`;
   const cached = join(cacheDir, 'maps', key);
-  if (existsSync(cached)) return readFileSync(cached, 'utf8');
-  log(`generating map for ${task.date.slice(0, 7)} at ${task.base.slice(0, 10)}`);
+  if (existsSync(cached)) return { text: readFileSync(cached, 'utf8'), anchor };
+  log(`generating map for ${month} at ${anchor.slice(0, 10)}`);
+  const wt = isolatedCheckout(dataset.path, anchor, join(workRoot, `.map-${anchor.slice(0, 12)}`));
+  try {
+    return { text: await writeMap(wt, cached), anchor };
+  } finally { rmSync(wt, { recursive: true, force: true }); }
+}
+
+async function writeMap(wt, cached) {
   const sig = computeSignals(wt);
   const { bundle, frontMatter } = buildBundle(wt, sig, 'complex-md/bench');
   let text;
-  if (agent === 'mock') {
+  if (SCRIPTED[agent]) {
     text = `${frontMatter}\n## Where the risk lives\n\n${sig.hotspots.slice(0, 3).map((h) => `${h.path} (${h.fixes} fixes)`).join(', ')} carry the fix history. Fixing a bug you have not located: start there.\n`;
   } else {
     // The prose model call goes through the same Claude Code login the agent runs use; no tools, one turn.
-    const r = spawnSync('claude', ['-p', '--output-format', 'json', '--tools', '', '--setting-sources', '', ...(model ? ['--model', model] : [])], { cwd: wt, input: bundle, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    noModel();
+    const [cmd, a, env] = mapCommand({ model });
+    const r = spawnSync(cmd, a, { cwd: wt, input: bundle, env: { ...process.env, ...env }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     let j; try { j = JSON.parse(r.stdout); } catch { throw new Error(`map generation failed: ${(r.stderr || r.stdout).trim().slice(0, 300)}`); }
     if (j.is_error) throw new Error(`map generation failed: ${j.result}`); // the harness reports the agent's own error text
     text = normalizeOutput(j.result, frontMatter);
@@ -94,18 +142,36 @@ async function mapFor(task, wt) {
   return text;
 }
 
+/* The dataset clone's install, copied once (hard links where the file
+   system allows) to a directory that holds nothing else. A link straight
+   into the clone led an agent from node_modules to the clone and its
+   future history. */
+let deps;
+function depsFor() {
+  if (deps !== undefined) return deps;
+  const src = join(dataset.path, 'node_modules');
+  if (!existsSync(src)) return (deps = null);
+  const dest = join(workRoot, '.deps', (dataset.repo || 'repo').replace('/', '-'), 'node_modules');
+  if (!existsSync(dest)) {
+    mkdirSync(dirname(dest), { recursive: true });
+    if (spawnSync('cp', ['-al', src, dest]).status !== 0) { rmSync(dest, { recursive: true, force: true }); sh('cp', ['-a', src, dest]); }
+  }
+  return (deps = dest);
+}
+
 function prepareWorktree(task, arm) {
   const wt = join(workRoot, `${task.id}-${arm}`);
-  if (existsSync(wt)) { spawnSync('git', ['worktree', 'remove', '--force', wt], { cwd: dataset.path }); rmSync(wt, { recursive: true, force: true }); }
-  sh('git', ['worktree', 'add', '--detach', '--quiet', wt, task.base], dataset.path);
+  /* A fresh repository with the history up to the base and nothing after
+     it, never a worktree of the dataset clone (bench/isolate.mjs). */
+  isolatedCheckout(dataset.path, task.base, wt);
   // No arm gets a pre-existing map or wiring from the repository itself.
   for (const f of ['COMPLEX.md', '.complex-md']) rmSync(join(wt, f), { recursive: true, force: true });
   /* A worktree has no node_modules of its own. Without this, every test the
      agent ran failed with a missing module in every arm, and the success
      metric could never be true. The link is the dataset checkout's install,
      made once; a repository without one records success as null. */
-  const nm = join(dataset.path, 'node_modules');
-  if (existsSync(nm) && !existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
+  const nm = depsFor();
+  if (nm && !existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
   /* Generated inputs the suite needs (test certificates, a bundled build):
      the dataset lists them as `prepare`, run once per worktree before any
      arm touches it. A failure here is the worktree's problem, not a row. */
@@ -120,13 +186,21 @@ function prepareWorktree(task, arm) {
    for the `none` arm and costs no model call. */
 async function baselineFor(task, wt) {
   const cached = join(cacheDir, 'baseline', `${task.base.slice(0, 12)}.json`);
-  if (existsSync(cached)) return JSON.parse(readFileSync(cached, 'utf8'));
+  /* The tests the map names for each risky file: the covering tests the
+     engine computes, which is the list the map's prose is written from. */
+  const namedTests = (paths) => Object.fromEntries(paths.map((p) => [p, findCoveringTests(wt, p)]));
+  if (existsSync(cached)) {
+    const b = JSON.parse(readFileSync(cached, 'utf8'));
+    if (!b.risky.tests) { b.risky.tests = namedTests([...b.risky.hotspots, ...b.risky.load_bearing]); writeFileSync(cached, JSON.stringify(b)); }
+    return b;
+  }
   const sig = computeSignals(wt);
   const risky = {
     hotspots: sig.hotspots.map((h) => h.path),
     load_bearing: sig.load_bearing.map((h) => h.path),
     co_change: sig.co_change.map((c) => c.files),
   };
+  risky.tests = namedTests([...risky.hotspots, ...risky.load_bearing]);
   const runner = suiteOn ? detectRunner(wt) : null;
   const files = runner ? listTestFiles(wt) : [];
   let results = null;
@@ -153,8 +227,8 @@ function frontMatterOnly(text) {
 }
 
 async function armSetup(task, arm, wt) {
-  if (arm === 'none') return;
-  const full = await mapFor(task, wt);
+  if (arm === 'none' || arm === 'gold') return;
+  const { text: full, anchor } = await mapFor(task);
   writeFileSync(join(wt, 'COMPLEX.md'), arm === 'front' ? frontMatterOnly(full) : full);
   /* The runs published in bench/results were wired when wire also wrote
      .claude/rules/complex-md.md: the integration block again, loaded when
@@ -171,45 +245,67 @@ async function armSetup(task, arm, wt) {
   // The map is context, not a change the agent made.
   sh('git', ['add', '-A'], wt);
   sh('git', ['-c', 'user.email=bench@complex.md', '-c', 'user.name=bench', 'commit', '-q', '-m', 'bench: COMPLEX.md and wiring'], wt);
+  return anchor;
 }
 
 /* No instruction about tests: whether the agent checks what its change
    reaches is part of what is measured. */
 const PROMPT = (t) => `Fix this issue in the repository. Find the code responsible and change it. Do not commit.\n\n# ${t.title}\n\n${t.text}`;
 
-const TEST_CMD = /\b(node\s+--test|npm\s+(run\s+)?(test|unit)\b|npx\s+(tap|borp|jest|vitest|mocha)\b|\b(tap|borp|jest|vitest|mocha)\s+\S)/;
-
 function agentCommand(task, arm, wt) {
-  if (agent === 'mock') return ['node', [join(here, 'mock-agent.mjs')], { CX_GOLD: task.gold.join(',') }];
-  const a = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'acceptEdits', '--setting-sources', 'project', '--max-budget-usd', String(budget),
-    '--tools', 'Read,Edit,Write,MultiEdit,Grep,Glob,Bash', '--allowedTools', 'Bash(git diff:*) Bash(git log:*) Bash(git grep:*) Bash(git show:*) Bash(node:*) Bash(npm test:*) Bash(ls:*) Bash(cat:*) Bash(rg:*) Bash(grep:*) Bash(find:*)'];
-  if (arm === 'mcp') a.push('--mcp-config', join(wt, '.mcp.json'), '--strict-mcp-config');
-  if (model) a.push('--model', model);
-  return ['claude', a, {}];
+  if (SCRIPTED[agent]) return [process.execPath, [join(here, SCRIPTED[agent])], { CX_GOLD: task.gold.join(',') }];
+  noModel();
+  return claudeCommand({ arm, wt, budget, model });
 }
 
-const pathOf = (input = {}) => input.file_path || input.path || input.notebook_path || null;
-const rel = (p, wt) => (p && p.startsWith(wt) ? p.slice(wt.length + 1) : p);
-const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+/* What the agent may see: its checkout, the dependency copy, the Node
+   install, and the agent's own install and credentials. The CLI checkout is
+   there for the hooks and MCP arms, which call its binary. */
+function agentKeeps(wt) {
+  const keeps = [wt, dirname(dirname(realpathSync(process.execPath)))];
+  if (depsFor()) keeps.push(depsFor());
+  if (SCRIPTED[agent]) return [...keeps, join(here, SCRIPTED[agent])];
+  const c = which('claude');
+  if (c) keeps.push(dirname(dirname(realpathSync(c))));
+  keeps.push(resolve(here, '../cli'));
+  for (const f of [join(homedir(), '.claude', '.credentials.json'), join(homedir(), '.claude.json')]) if (existsSync(f)) keeps.push(f);
+  return keeps;
+}
 
-function runAgent(task, arm, wt) {
+async function runAgent(task, arm, wt) {
+  let [cmd, a, env] = agentCommand(task, arm, wt);
+  let proxy = null;
+  const sbx = `${wt}.sandbox`;
+  if (sandboxOn) {
+    rmSync(sbx, { recursive: true, force: true });
+    mkdirSync(sbx, { recursive: true });
+    const [c2, a2, env2, { socket }] = sandboxCommand({ cmd, args: a, cwd: wt, dir: sbx, roots: maskRoots(), keeps: agentKeeps(wt) });
+    proxy = await startProxy({ socket, allow: allowHosts });
+    [cmd, a, env] = [c2, a2, { ...env, ...env2 }];
+  }
   return new Promise((resolvePromise) => {
-    const [cmd, a, env] = agentCommand(task, arm, wt);
     const child = spawn(cmd, a, { cwd: wt, env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
-    child.stdin.end(agent === 'mock' ? '' : PROMPT(task));
+    /* In the sandbox the agent is the child of unshare, which ignores
+       SIGINT and SIGTERM; SIGKILL to unshare takes the namespace down. */
+    const stop = (sig) => {
+      const pid = proxy && sig !== 'SIGKILL' ? innerPid(child.pid) : null;
+      try { if (pid) process.kill(pid, sig); else child.kill(sig); } catch {}
+    };
+    child.stdin.end(SCRIPTED[agent] ? '' : PROMPT(task));
     const transcript = [];
-    /* Tokens are split by kind because they are not priced alike. tokens_in
-     used to sum fresh input, cache reads and cache creation together, which
-     counts a cached read at full weight and overstates what the map costs by
-     a wide margin: a map is byte identical across runs and is exactly the
-     kind of prefix a cache is for. cost_usd, which the agent prices itself,
-     stays the only figure to quote as money. */
-  const m = { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, agent_test_runs: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: null };
-    const goldSet = new Set(task.gold);
-    const isGold = (p) => p && (goldSet.has(p) || task.gold.some((g) => p.endsWith('/' + g)));
+    const { m, onEvent } = createMeter({ wt, gold: task.gold, stopAt });
     let buf = '';
     let killed = false;
-    const timer = setTimeout(() => { m.stopped = 'timeout'; killed = true; child.kill('SIGTERM'); }, timeoutS * 1000);
+    const t0 = Date.now();
+    /* A timeout used to SIGTERM the agent, which then never printed its
+       result event, so the run had no cost and no duration. SIGINT asks it
+       to stop and report; SIGKILL follows if it does not. */
+    let hardKill = null;
+    const timer = setTimeout(() => {
+      m.stopped = 'timeout'; killed = true;
+      stop('SIGINT');
+      hardKill = setTimeout(() => stop('SIGKILL'), graceS * 1000);
+    }, timeoutS * 1000);
     const stderr = [];
     child.stderr.on('data', (d) => stderr.push(String(d)));
     child.stdout.on('data', (d) => {
@@ -220,51 +316,38 @@ function runAgent(task, arm, wt) {
         if (!line.trim()) continue;
         transcript.push(line);
         let ev; try { ev = JSON.parse(line); } catch { continue; }
-        if (ev.type === 'assistant') {
-          m.turns++;
-          const u = ev.message?.usage;
-          if (u) {
-            m.tokens_fresh += u.input_tokens || 0;
-            m.tokens_cache_read += u.cache_read_input_tokens || 0;
-            m.tokens_cache_write += u.cache_creation_input_tokens || 0;
-            /* Kept for continuity with runs recorded before the split. */
-            m.tokens_in += (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
-            m.tokens_out += u.output_tokens || 0;
-          }
-          for (const c of ev.message?.content || []) {
-            if (c.type !== 'tool_use') continue;
-            m.steps++;
-            if (c.name?.startsWith('mcp__complex-md')) m.mcp_calls++;
-            if (c.name === 'Bash' && TEST_CMD.test(c.input?.command || '')) m.agent_test_runs++;
-            const p = rel(pathOf(c.input), wt);
-            if (c.name === 'Read' || EDIT_TOOLS.has(c.name)) {
-              if (isGold(p)) { m.first_gold_read ??= m.steps; if (EDIT_TOOLS.has(c.name)) m.first_gold_edit ??= m.steps; }
-              else if (c.name === 'Read' && m.first_gold_read === null && p && !/COMPLEX\.md$/.test(p)) m.wasted_reads++;
-              if (c.name === 'Read') m.reads.push(p);
-            }
-            if (EDIT_TOOLS.has(c.name) && stopAt === 'edit' && !killed) {
-              m.stopped = 'first-edit'; killed = true;
-              setTimeout(() => child.kill('SIGTERM'), 1500); // let the tool result land so a gate denial is recorded
-            }
-          }
-        } else if (ev.type === 'user') {
-          for (const c of ev.message?.content || []) if (c.type === 'tool_result' && /COMPLEX\.md/.test(JSON.stringify(c.content || '')) && c.is_error) m.gate_fired++;
-        } else if (ev.type === 'result') {
-          m.cost_usd = ev.total_cost_usd ?? null;
-          m.result_turns = ev.num_turns;
-          m.duration_ms = ev.duration_ms;
-          // A run we stopped ourselves reports error_during_execution; that is the stop, not a failure.
-          if (ev.is_error && !killed) m.error = String(ev.result || ev.subtype).slice(0, 200);
+        if (onEvent(ev, { killed }) === 'first-edit' && !killed) {
+          m.stopped = 'first-edit'; killed = true;
+          setTimeout(() => stop('SIGTERM'), 1500); // let the tool result land so a gate denial is recorded
         }
       }
     });
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      if (code !== 0 && !killed && !m.error) m.error = (stderr.join('').trim() || `exit ${code}`).slice(0, 300);
+    child.on('close', async (code) => {
+      clearTimeout(timer); clearTimeout(hardKill);
+      /* Where the agent tried to connect: a denied host is a leak attempt
+         or a dependency the allowlist lacks, and either is worth reading. */
+      m.sandbox = Boolean(proxy);
+      if (proxy) {
+        await proxy.close();
+        m.net_allowed = [...proxy.allowed];
+        m.net_denied = [...proxy.denied];
+        rmSync(sbx, { recursive: true, force: true });
+      }
+      // The harness clock: the agent's own duration_ms comes only with its result event.
+      m.wall_ms = Date.now() - t0;
+      if (code !== 0 && !killed && !m.error && !m.stopped) m.error = (stderr.join('').trim() || `exit ${code}`).slice(0, 300);
       writeFileSync(join(outDir, 'transcripts', `${task.id}-${arm}.jsonl`), transcript.join('\n') + '\n');
       resolvePromise(m);
     });
   });
+}
+
+/* The oracle arm: the real fix's source change, applied with no agent and
+   no model, then judged like any agent's patch. It separates a regression
+   the agent caused from a test the real fix breaks too, or a flaky one. */
+function goldRun(task, wt) {
+  applyPatch(wt, fixSourceDiff(dataset.path, task.base, task.fix));
+  return { ...newMetrics(), cost_usd: 0 };
 }
 
 /* Success rate, the 2602.11988 metric: does the agent's patch pass the tests
@@ -275,13 +358,15 @@ function runAgent(task, arm, wt) {
    uses, detected from package.json rather than assumed. No test files, or no
    detectable runner, records null rather than a pass. */
 function runGoldTests(task, wt) {
-  const files = task.tests || [];
+  const files = goldTestFiles(task);
   if (!files.length) return { tests_run: 0, tests_passed: null, success: null };
   const runner = detectRunner(wt);
   if (!runner) return { tests_run: 0, tests_passed: null, success: null };
   let passed = 0, run = 0;
   for (const f of files) {
-    spawnSync('git', ['checkout', task.fix, '--', f], { cwd: wt, stdio: 'ignore' });
+    // The fix commit is not in the isolated checkout: its test file comes from the clone.
+    const body = fileAt(dataset.path, task.fix, f);
+    if (body) { mkdirSync(dirname(join(wt, f)), { recursive: true }); writeFileSync(join(wt, f), body); }
     if (!existsSync(join(wt, f))) continue;
     run++;
     const r = spawnSync(runner.cmd, [...runner.args, f], { cwd: wt, encoding: 'utf8', timeout: 120000, env: { ...process.env, CI: '1' }, maxBuffer: 64 * 1024 * 1024 });
@@ -307,29 +392,6 @@ async function runDamage(task, wt, baseline) {
   };
 }
 
-/* Did the agent behave the way the map asks: when it edits a file the map
-   calls risky, did it run any test, and when it edits one side of a
-   co-change pair, did it open the other. Judged against the computed risky
-   set from the baseline, the same for every arm. */
-function behaviour(edited, m, risky) {
-  const riskySet = new Set([...risky.hotspots, ...risky.load_bearing]);
-  const editedRisky = edited.filter((f) => riskySet.has(f));
-  const touched = new Set([...edited, ...m.reads]);
-  const missed = [];
-  /* Source partners only: a docs page that co-changes with a module is a
-     real pairing, but not opening it while fixing a bug is not a risk. */
-  const source = (f) => !/\.(md|mdx|txt|rst)$/i.test(f);
-  for (const [a, b] of risky.co_change.filter((pair) => pair.every(source))) {
-    if (edited.includes(a) && !touched.has(b)) missed.push(b);
-    if (edited.includes(b) && !touched.has(a)) missed.push(a);
-  }
-  return {
-    edited_risky: editedRisky,
-    risky_edit_untested: editedRisky.length > 0 && m.agent_test_runs === 0,
-    partners_missed: [...new Set(missed)],
-  };
-}
-
 for (const task of tasks) {
   for (const arm of arms) {
     if (done.has(`${task.id}/${arm}`)) continue;
@@ -339,13 +401,22 @@ for (const task of tasks) {
       /* A failure setting up or driving one run is that run's error, recorded
          as a row, and the pass continues. Before this, a transient exception
          here ended the whole pass. */
-      let m, baseline;
+      let m, baseline, before = null, mapCommit = null;
       try {
         baseline = await baselineFor(task, wt);
-        await armSetup(task, arm, wt);
-        m = await runAgent(task, arm, wt);
+        mapCommit = (await armSetup(task, arm, wt)) ?? null;
+        before = new Set(untracked(wt));
+        m = arm === 'gold' ? goldRun(task, wt) : await runAgent(task, arm, wt);
       } catch (e) {
-        m = { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, agent_test_runs: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: `harness: ${String(e.message || e).slice(0, 200)}` };
+        m = { ...newMetrics(), error: `harness: ${String(e.message || e).slice(0, 200)}` };
+      }
+      /* git diff HEAD leaves out untracked files, so a file the agent created
+         was missing from `edited`, the patch and diff_lines. Intent to add
+         puts it in the diff. Files untracked before the agent started (the
+         dataset's prepared inputs) stay out. */
+      if (before) {
+        const fresh = untracked(wt).filter((f) => !before.has(f));
+        if (fresh.length) sh('git', ['add', '-N', '--', ...fresh], wt);
       }
       const edited = sh('git', ['diff', '--name-only', 'HEAD'], wt).split('\n').filter(Boolean);
       /* The patch itself is kept: a regression count is checkable only with
@@ -361,12 +432,12 @@ for (const task of tasks) {
       }
       const damage = suiteOn && baseline && !m.error ? await runDamage(task, wt, baseline) : null;
       const success = stopAt === 'none' ? runGoldTests(task, wt) : null;
-      const conduct = baseline ? behaviour(edited, m, baseline.risky) : null;
-      const rec = { task: task.id, arm, agent, model, cli_version: CLI_VERSION, cli_commit: CLI_COMMIT, skill: skillText ? createHash('sha1').update(skillText).digest('hex').slice(0, 10) : null, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
+      const conduct = baseline ? behaviour(edited, m, baseline.risky, wt) : null;
+      const rec = { task: task.id, arm, agent, model: model ?? m.agent_model ?? null, cli_version: CLI_VERSION, cli_commit: CLI_COMMIT, skill: skillText ? createHash('sha1').update(skillText).digest('hex').slice(0, 10) : null, map_commit: mapCommit, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
       appendFileSync(runsPath, JSON.stringify(rec) + '\n');
       log(`  steps ${m.steps}, first gold read at ${m.first_gold_read ?? '-'}, gold edited ${rec.gold_edited}, success ${rec.success ?? '-'}, regressions ${rec.regressed_tests ?? '-'}, tests run by agent ${m.agent_test_runs}, $${m.cost_usd?.toFixed(3) ?? '?'}${m.gate_fired ? `, gate x${m.gate_fired}` : ''}${m.error ? `, error: ${m.error}` : ''}`);
     } finally {
-      if (!flag('--keep')) { spawnSync('git', ['worktree', 'remove', '--force', wt], { cwd: dataset.path }); rmSync(wt, { recursive: true, force: true }); }
+      if (!flag('--keep')) rmSync(wt, { recursive: true, force: true });
     }
   }
 }
