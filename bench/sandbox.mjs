@@ -43,8 +43,8 @@ const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 const real = (p) => { try { return realpathSync(p); } catch { return null; } };
 const under = (p, root) => p === root || p.startsWith(root.endsWith('/') ? root : root + '/');
 
-export function which(bin) {
-  for (const d of (process.env.PATH || '').split(delimiter)) {
+export function which(bin, path = process.env.PATH) {
+  for (const d of (path || '').split(delimiter)) {
     const p = join(d, bin);
     if (existsSync(p)) return p;
   }
@@ -128,8 +128,12 @@ function maskScript(ops, stageBase) {
  * The command that runs `cmd args` inside the sandbox, as [file, args, env].
  * `dir` is a fresh directory for the sandbox's own files (socket, stage
  * mounts); it is kept visible. Start the proxy on `socketOf(dir)` first.
+ * A bare `cmd` is looked up on `path` before the masks go up: a PATH entry
+ * is often a symlink in a masked directory (~/.local/bin/claude) to a kept
+ * install, and inside the sandbox the lookup would find nothing.
  */
-export function sandboxCommand({ cmd, args, cwd, dir, roots, keeps, port = PROXY_PORT }) {
+export function sandboxCommand({ cmd, args, cwd, dir, roots, keeps, port = PROXY_PORT, path = process.env.PATH }) {
+  if (!cmd.includes('/')) { const found = which(cmd, path); if (found) cmd = real(found) || found; }
   const net = join(dir, 'net');
   mkdirSync(net, { recursive: true });
   const socket = join(net, 'proxy.sock');
