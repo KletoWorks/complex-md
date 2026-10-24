@@ -19,6 +19,13 @@ agent runs from a clean worktree at the parent commit under two or more arms:
 | `hooks` | `file` plus the PreToolUse gate and Stop check |
 | `mcp` | `hooks` plus the MCP server |
 
+An arm gets what this checkout's `wire` writes. The published runs were
+wired when `wire` also wrote `.claude/rules/complex-md.md`: the
+integration block again, loaded when the agent touched a listed path.
+`wire` no longer writes it, so a rerun of the `file` arm is not the arm
+those runs measured. Each new row records `cli_version` and `cli_commit`,
+the CLI that wired it. Compare a rerun with rows wired the same way.
+
 One map serves each calendar month of fix dates, which is how often a map
 gets regenerated in practice. It is computed at the base commit of the first
 task the harness runs in that month, with the history window anchored there.
