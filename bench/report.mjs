@@ -36,6 +36,9 @@ for (const arm of arms) {
   console.log(`| ${arm} | ${rs.length} | ${rs.filter((r) => CAPPED.has(r.stopped)).length} | ${pct(found.length / rs.length)} | ${f1(median(steps))} / ${f1(mean(steps))} | ${f1(mean(rs.map((r) => r.wasted_reads)))} | ${pct(rs.filter((r) => r.gold_edited).length / rs.length)} | ${succ} | ${rs.filter((r) => r.gate_fired).length} | ${rs.reduce((a, r) => a + (r.mcp_calls || 0), 0)} | ${cost.length ? usd(mean(cost)) : '-'} |`);
 }
 
+const noCost = runs.filter((r) => !r.error && r.cost_usd == null);
+if (noCost.length) console.log(`\nCost is unknown for ${noCost.length} runs (no result event): ${noCost.map((r) => `${r.task}/${r.arm}`).join(', ')}`);
+
 // Paired: the same task under each arm versus `none`. Sign test on steps to first gold read.
 if (arms.includes('none')) {
   console.log(`\n## Paired against none (same task, same base commit)\n`);
@@ -72,7 +75,8 @@ if (arms.includes('none')) {
   const METRICS = [
     ['steps to first gold read', (r) => r.first_gold_read ?? (r.steps + 1)],
     ['output tokens', (r) => r.tokens_out],
-    ['wall clock ms', (r) => r.duration_ms],
+    // The harness clock where recorded: a timed out run has no duration_ms of its own.
+    ['wall clock ms', (r) => r.wall_ms ?? r.duration_ms],
     ['cost usd', (r) => r.cost_usd],
     ['diff lines', (r) => r.diff_lines],
     ['cache read tokens', (r) => r.tokens_cache_read],

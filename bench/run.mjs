@@ -42,6 +42,8 @@ const arms = opt('--arms', 'none,file').split(',');
 const agent = opt('--agent', 'claude');
 const budget = Number(opt('--budget', 0.6));
 const timeoutS = Number(opt('--timeout', 420));
+/* Seconds a timed out agent gets, after SIGINT, to print its result event (cost, turns) before SIGKILL. */
+const graceS = Number(opt('--grace', 30));
 const stopAt = opt('--stop-at', 'edit');
 const outDir = opt('--out', 'bench/results/run');
 const model = opt('--model', null);
@@ -186,7 +188,16 @@ function runAgent(task, arm, wt) {
     const { m, onEvent } = createMeter({ wt, gold: task.gold, stopAt });
     let buf = '';
     let killed = false;
-    const timer = setTimeout(() => { m.stopped = 'timeout'; killed = true; child.kill('SIGTERM'); }, timeoutS * 1000);
+    const t0 = Date.now();
+    /* A timeout used to SIGTERM the agent, which then never printed its
+       result event, so the run had no cost and no duration. SIGINT asks it
+       to stop and report; SIGKILL follows if it does not. */
+    let hardKill = null;
+    const timer = setTimeout(() => {
+      m.stopped = 'timeout'; killed = true;
+      child.kill('SIGINT');
+      hardKill = setTimeout(() => child.kill('SIGKILL'), graceS * 1000);
+    }, timeoutS * 1000);
     const stderr = [];
     child.stderr.on('data', (d) => stderr.push(String(d)));
     child.stdout.on('data', (d) => {
@@ -204,7 +215,9 @@ function runAgent(task, arm, wt) {
       }
     });
     child.on('close', (code) => {
-      clearTimeout(timer);
+      clearTimeout(timer); clearTimeout(hardKill);
+      // The harness clock: the agent's own duration_ms comes only with its result event.
+      m.wall_ms = Date.now() - t0;
       if (code !== 0 && !killed && !m.error && !m.stopped) m.error = (stderr.join('').trim() || `exit ${code}`).slice(0, 300);
       writeFileSync(join(outDir, 'transcripts', `${task.id}-${arm}.jsonl`), transcript.join('\n') + '\n');
       resolvePromise(m);

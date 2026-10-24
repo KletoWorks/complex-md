@@ -53,3 +53,15 @@ test('capped runs stay in the pairs and get their own column', () => {
   assert.match(out, /\| file \| 2 \| 1 \| 2 \|/);
   assert.doesNotMatch(out, /runs with errors/);
 });
+
+test('wall clock pairs use the harness clock, so timed out runs are not left out', () => {
+  const rows = [];
+  for (const t of ['a', 'b', 'c', 'd', 'e']) {
+    rows.push(row(t, 'none', { wall_ms: 1000, duration_ms: 900, tokens_out: 1, diff_lines: 1, tokens_cache_read: 1 }));
+    // A timeout never gets a result event, so it has no duration_ms.
+    rows.push(row(t, 'file', { wall_ms: 2000, stopped: t === 'a' ? 'timeout' : null, ...(t === 'a' ? {} : { duration_ms: 1900 }), tokens_out: 1, diff_lines: 1, tokens_cache_read: 1 }));
+  }
+  const out = report(rows);
+  assert.match(out, /\| file \| wall clock ms \| 5 \|/);
+  assert.match(out, /Cost is unknown for 10 runs/);
+});
