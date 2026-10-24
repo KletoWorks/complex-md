@@ -70,7 +70,7 @@ const BANNED = [
   { re: /--no-mcp/, why: 'there is no such flag; the MCP server is off unless --mcp asks for it' },
   { re: /query it mid-task|agents query mid-task/i, why: 'the MCP server is opt in, not the headline' },
   { re: /\bRoo\b|cline,roo/, files: ['README.md', 'cli/README.md', 'cli/bin/complex-md.js', ...WIRING], why: 'Roo reads AGENTS.md; its block-only rule file adds nothing and is not offered' },
-  { re: /\.roo\/rules|\.claude\/rules\/complex-md\.md/, why: 'wire writes neither file now, and a rewire removes the copies earlier versions wrote' },
+  { re: /\.roo\/rules|\.claude\/rules\/complex-md\.md/, files: ['README.md', 'cli/README.md', 'cli/bin/complex-md.js', 'content/index.html', ...WIRING], why: 'wire writes neither file now, and a rewire removes the copies earlier versions wrote' },
   { re: /\.mcp\.json|mcpServers|complex-md mcp|--mcp\b|MCP server/i, files: WIRING, why: 'the spec and the skill do not tell agents to wire the MCP server' },
   { re: /"mcp"/, files: ['cli/package.json'], why: 'the npm keywords do not lead with MCP' },
   { re: /names a directory is not counted/i, why: 'the scorer counts a test directory the map names, as in the fastify-damage edits to lib/reply.js' },
