@@ -155,7 +155,7 @@ async function armSetup(task, arm, wt) {
   // The package is not on npm yet: hooks and MCP call this checkout's binary.
   for (const f of ['.claude/settings.json', '.mcp.json']) {
     const p = join(wt, f);
-    if (existsSync(p)) writeFileSync(p, readFileSync(p, 'utf8').replace(/"npx -y complex-md/g, `"node ${BIN}`).replace(/"command": "npx",\s*"args": \[\s*"-y",\s*"complex-md",/g, `"command": "node", "args": ["${BIN}",`));
+    if (existsSync(p)) writeFileSync(p, readFileSync(p, 'utf8').replace(/"command": "[^"]*\bcomplex-md\b[^"]*?\b(hook [\w-]+)[^"]*"/g, `"command": "node ${BIN} $1"`).replace(/"command": "npx",\s*"args": \[[^\]]*?"complex-md(@[^"]*)?",/g, `"command": "node", "args": ["${BIN}",`));
   }
   // The map is context, not a change the agent made.
   sh('git', ['add', '-A'], wt);

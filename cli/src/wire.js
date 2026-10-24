@@ -10,12 +10,13 @@ import { integrationBlock, BLOCK_HEADING } from './prompts.js';
 import { loadComplexMd } from './complexmd.js';
 import { pathBriefs } from './brief.js';
 import { TARGETS, TARGET_NAMES } from './targets.js';
+import { registryInvocation } from './invoke.js';
 
 const PRIMARY = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.github/copilot-instructions.md'];
 
 /**
- * How hooks and the MCP entry invoke the CLI. `npx -y complex-md` when the
- * tool came from the registry; the checkout's own bin when it is being run
+ * How hooks and the MCP entry invoke the CLI. The pinned registry form
+ * (invoke.js) when the tool came from the registry; the checkout's own bin when it is being run
  * from inside the repository it is wiring (dogfooding, or a vendored copy),
  * since npx would fetch a different version or nothing at all. Global
  * registries (openclaw, hermes) launch from an arbitrary cwd, so they get
@@ -31,7 +32,7 @@ function invocation(root) {
       return { shell: `node ${p}`, command: 'node', args: [p], absShell: `node ${abs}`, absCommand: 'node', absArgs: [abs] };
     }
   } catch {}
-  return { shell: 'npx -y complex-md', command: 'npx', args: ['-y', 'complex-md'], absShell: 'npx -y complex-md', absCommand: 'npx', absArgs: ['-y', 'complex-md'] };
+  return registryInvocation();
 }
 
 /* Prepended only when wire CREATES AGENTS.md, never when it appends to one
