@@ -4,9 +4,9 @@
 // build` and rsyncs dist/ to the webroot, then fingerprints assets.
 import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
+import { parseMeta as meta, readArticles, faqItems, llmsFull } from './content.mjs';
 import { fileURLToPath } from 'node:url';
 import { registryInvocation, hookCommand } from '../cli/src/invoke.js';
-import { parseMeta as meta, readArticles, faqItems, llmsFull } from './content.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // --out <dir> builds somewhere other than dist/. --drafts also renders the
