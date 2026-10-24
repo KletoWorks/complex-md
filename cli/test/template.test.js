@@ -72,6 +72,28 @@ test('the prose says a template wrote it, stays under 700 words and uses no dash
   assert.ok(!/[–—]| -- | - /.test(prose), 'no dash as punctuation');
 });
 
+test('a repository with full lists still gets prose under 700 words', () => {
+  const p = (i) => `packages/area${i}/src/module${i}.ts`;
+  const row = (i) => ({ path: p(i), kind: 'source', loc: 900, churn: 40, churn_w: 20, fixes: 12, authors: 6, owner_share: 0.4, fan_in: 30, tests: 9, score: 1000 - i });
+  const big = {
+    ...sig,
+    hotspots: Array.from({ length: 15 }, (_, i) => row(i)),
+    table: Array.from({ length: 30 }, (_, i) => row(i)),
+    load_bearing: Array.from({ length: 5 }, (_, i) => ({ path: p(40 + i), kind: 'source', loc: 50, fan_in: 25, tests: 0 })),
+    co_change: Array.from({ length: 10 }, (_, i) => ({ files: [p(20 + i), p(30 + i)], count: 20, coupling: 80 })),
+    seams: Array.from({ length: 6 }, (_, i) => ({ dirs: [`packages/area${i}`, `packages/area${i + 1}`], count: 20, coupling: 60 })),
+    importers: Object.fromEntries(Array.from({ length: 15 }, (_, i) => [p(i), Array.from({ length: 30 }, (_, j) => `packages/user${j}/index.ts`)])),
+    tests: Object.fromEntries(Array.from({ length: 15 }, (_, i) => [p(i), Array.from({ length: 9 }, (_, j) => `packages/area${i}/test/t${j}.test.ts`)])),
+    profile: { ...sig.profile, authors_total: 6, confidence: 'structure-only' },
+    blind_spots: ['3 submodules not analyzed: a, b, c', '40 vendored files excluded'],
+  };
+  big.hotspots[0].owner_share = 0.9;
+  const text = templateProse(big);
+  assert.ok(text.split(/\s+/).filter(Boolean).length < 700, `${text.split(/\s+/).length} words`);
+  assert.deepEqual(validateOutput(text), []);
+  assert.ok(parseComplexMd(frontMatter(big, 't') + '\n' + text).paragraphFor(p(0)), 'the top hotspot keeps its paragraph');
+});
+
 test('a sentence in the prose has 25 words at most', () => {
   const text = prose.replace(/^#.*$/gm, '').replace(/^\d+\. /gm, '');
   for (const s of text.split(/(?<=\.)\s+/)) assert.ok(s.split(/\s+/).filter(Boolean).length <= 25, s);

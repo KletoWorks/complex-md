@@ -185,13 +185,13 @@ function directive({ viaRoot, tests, importers, fanIn, testCommand }) {
   return `${lead} decide how you will verify the change, because no test covers it.`;
 }
 
-function couplingSection(sig) {
+function couplingSection(sig, maxPairs = MAX_PAIRS, maxSeams = MAX_SEAMS) {
   const out = [];
-  for (const c of sig.co_change.slice(0, MAX_PAIRS)) {
+  for (const c of sig.co_change.slice(0, maxPairs)) {
     const [a, b] = c.files.map(code);
     out.push(`${a} and ${b} changed together in ${plural(c.count, 'commit')}, with ${c.coupling}% coupling. When you change one of them, open the other and check whether it needs the same change.`);
   }
-  for (const s of (sig.seams || []).slice(0, MAX_SEAMS)) {
+  for (const s of (sig.seams || []).slice(0, maxSeams)) {
     const [a, b] = s.dirs.map(code);
     out.push(`The areas ${a} and ${b} changed together in ${plural(s.count, 'commit')}, with ${s.coupling}% coupling. When you change a file in one area, check the other area for a matching change.`);
   }
@@ -219,14 +219,36 @@ function readFirstSection(sig) {
  */
 export function templateProse(sig, { reachable = new Set(), roots = [], testCommand = null } = {}) {
   const ctx = { mapped: mappedPaths(sig), reachable, roots: new Set(roots), testCommand };
-  const hot = sig.hotspots.slice(0, MAX_PARAGRAPHS).map((h) => hotParagraph(sig, h, ctx));
-  return [
-    '## Where the risk lives', '', riskSection(sig), '',
-    '## Why these files are hot', '', hot.length ? hot.join('\n\n') : 'No file ranks as a hotspot on this repository yet.', '',
-    '## Change coupling', '', couplingSection(sig), '',
-    '## What to read first', '', readFirstSection(sig), '',
-  ].join('\n');
+  const render = ({ paragraphs, pairs, seams }) => {
+    const hot = sig.hotspots.slice(0, paragraphs).map((h) => hotParagraph(sig, h, ctx));
+    return [
+      '## Where the risk lives', '', riskSection(sig), '',
+      '## Why these files are hot', '', hot.length ? hot.join('\n\n') : 'No file ranks as a hotspot on this repository yet.', '',
+      '## Change coupling', '', couplingSection(sig, pairs, seams), '',
+      '## What to read first', '', readFirstSection(sig), '',
+    ].join('\n');
+  };
+  /* The prose stays under 700 words, the limit the generation prompt sets
+     for a model. Full lists on a large
+     repository reach about 730, so seams go first, then pairs, then the
+     last hotspot paragraphs. The front matter still lists every row. */
+  const steps = [
+    { paragraphs: MAX_PARAGRAPHS, pairs: MAX_PAIRS, seams: MAX_SEAMS },
+    { paragraphs: MAX_PARAGRAPHS, pairs: MAX_PAIRS, seams: 1 },
+    { paragraphs: MAX_PARAGRAPHS, pairs: 3, seams: 0 },
+    { paragraphs: 4, pairs: 3, seams: 0 },
+    { paragraphs: 3, pairs: 2, seams: 0 },
+  ];
+  let text = '';
+  for (const step of steps) {
+    text = render(step);
+    if (words(text) < PROSE_WORDS) break;
+  }
+  return text;
 }
+
+const PROSE_WORDS = 700;
+const words = (text) => text.split(/\s+/).filter(Boolean).length;
 
 /** One computed fact about the repository, as a plain sentence for the end of a run. */
 export function repositoryFact(sig) {
