@@ -218,7 +218,7 @@ function resolveAlias(spec, fromDir, aliases, files, dirs) {
 const JS_SPEC_RE = /(?:import|export)\s*(?:[\w*\s{},$]*?\s*from\s*)?['"]([^'"\n]+)['"]|\brequire\s*\(\s*['"]([^'"\n]+)['"]\s*\)|\bimport\s*\(\s*['"]([^'"\n]+)['"]\s*\)/g;
 const HTML_SPEC_RE = /<(?:script|link|iframe|img|source|use|object|embed)\b[^>]*?\b(?:src|href|data)\s*=\s*["']([^"'\n]+)["']/gi;
 const CSS_SPEC_RE = /@(?:import|use|forward)\s+(?:url\()?["']([^"'\n]+)["']/g;
-const PY_SPEC_RE = /^\s*(?:from\s+([\w.]+)\s+import|import\s+([\w.]+(?:\s*,\s*[\w.]+)*))/gm;
+const PY_SPEC_RE = /^\s*(?:from\s+([\w.]+)\s+import\s+(\([^)]*\)|[^\n#;]*)|import\s+([\w.]+(?:\s*,\s*[\w.]+)*))/gm;
 const RB_SPEC_RE = /\brequire(_relative)?\s*\(?\s*['"]([^'"\n]+)['"]/g;
 const PHP_SPEC_RE = /\b(?:require|include)(?:_once)?\s*\(?\s*(?:__DIR__\s*\.\s*)?['"]([^'"\n]+)['"]/g;
 const SH_SPEC_RE = /(?:^|[;&|]\s*|\$\(|`)\s*(?:source|\.)\s+["']?([^\s"'`;)]+)/gm;
@@ -381,7 +381,18 @@ export function buildGraph(root, tracked) {
     } else if (family === 'py') {
       PY_SPEC_RE.lastIndex = 0;
       while ((m = PY_SPEC_RE.exec(text))) {
-        for (const mod of (m[1] || m[2]).split(/\s*,\s*/)) add(f, pyModuleToPath(mod.trim(), fromDir, files, pyRoots));
+        if (m[3]) { for (const mod of m[3].split(/\s*,\s*/)) add(f, pyModuleToPath(mod.trim(), fromDir, files, pyRoots)); continue; }
+        // `from M import a, b`: a name that is a submodule (M/a.py or
+        // M/a/__init__.py) is the dependency; any other name is an
+        // attribute of M. `from . import cli` used to land on __init__.py.
+        let attr = false;
+        for (const name of m[2].replace(/[()\\]/g, ' ').split(',')) {
+          const n = name.trim().split(/\s+/)[0];
+          if (!n || n === '*') { attr = true; continue; }
+          const sub = /^\w+$/.test(n) && pyModuleToPath(m[1].endsWith('.') ? m[1] + n : m[1] + '.' + n, fromDir, files, pyRoots);
+          if (sub) add(f, sub); else attr = true;
+        }
+        if (attr) add(f, pyModuleToPath(m[1], fromDir, files, pyRoots));
       }
     } else if (family === 'rb') {
       RB_SPEC_RE.lastIndex = 0;
