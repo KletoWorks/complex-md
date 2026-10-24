@@ -102,9 +102,9 @@ function validate(schema, v, at = '') {
 function documentErrors(bytes, data) {
   const errors = [];
   const raw = bytes.toString('utf8');
-  if (raw.startsWith('﻿')) errors.push('bom');
+  if (raw.startsWith('\uFEFF')) errors.push('bom');
   if (bytes.length > SIZE_CAP) errors.push('size');
-  const text = raw.replace(/^﻿/, '').replace(/\r\n/g, '\n');
+  const text = raw.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
   const m = /^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/.exec(text);
   if (!m) return [...errors, 'no-front-matter'];
   if (!data || !('complex_md' in data)) errors.push('no-version');
