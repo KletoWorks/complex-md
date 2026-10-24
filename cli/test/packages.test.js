@@ -33,13 +33,31 @@ export const SKILL_COPIES = ['skills/complex-md/SKILL.md', 'plugins/complex-md/s
 
 test('every shipped SKILL.md is the rendered template, byte for byte', async (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
-  const { renderSkill } = await import(join(ROOT, 'scripts/skill.mjs'));
-  const rendered = renderSkill();
+  const { renderSkill, renderReference } = await import(join(ROOT, 'scripts/skill.mjs'));
+  const rendered = renderSkill(ROOT, { split: true });
   assert.ok(!rendered.includes('{{'), 'the rendered skill still has a placeholder');
   for (const p of SKILL_COPIES) {
     assert.ok(existsSync(join(ROOT, p)), `${p} is missing; run npm run build`);
     assert.equal(read(p), rendered, `${p} is out of step with skill/SKILL.tmpl.md; run npm run build`);
+    const ref = join(dirname(p), 'references/generate.md');
+    assert.equal(read(ref), renderReference(ROOT), `${ref} is out of step with prompts/generate.md; run npm run build`);
   }
+});
+
+// The Agent Skills specification recommends a SKILL.md body under 5,000
+// tokens. The generation prompt sits in references/generate.md, which the
+// agent reads at Stage 2. The site download stays one file.
+test('each package SKILL.md stays under 5,000 tokens and names its reference file', async (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const { renderSkill } = await import(join(ROOT, 'scripts/skill.mjs'));
+  for (const p of SKILL_COPIES) {
+    const text = read(p);
+    assert.ok(Math.ceil(text.length / 4) < 5000, `${p} is about ${Math.ceil(text.length / 4)} tokens`);
+    assert.match(text, /references\/generate\.md/);
+  }
+  const whole = renderSkill(ROOT);
+  assert.ok(!whole.includes('references/generate.md'), 'the one file download carries the prompt itself');
+  assert.match(whole, /^# COMPLEX\.md generation prompt$/m);
 });
 
 test('every shipped SKILL.md meets the Agent Skills specification', (t) => {

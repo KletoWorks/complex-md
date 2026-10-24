@@ -1,7 +1,8 @@
 // The skill has one source: skill/SKILL.tmpl.md plus the two prompts in
 // prompts/. renderSkill() fills the template. The site build writes the
-// result to dist/complex-md.skill.md and to every SKILL_COPIES path, and a
-// test checks that each committed copy still matches.
+// whole skill to dist/complex-md.skill.md, and the split skill plus
+// references/generate.md to every SKILL_COPIES folder. A test checks that
+// each committed copy still matches.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,7 +30,17 @@ export function stampVersions(root = ROOT) {
   return version;
 }
 
-export function renderSkill(root = ROOT) {
+// The generation prompt without its own front matter.
+export function renderReference(root = ROOT) {
+  return readFileSync(join(root, 'prompts/generate.md'), 'utf8').replace(/^---[\s\S]*?---\n\n/, '');
+}
+
+/* With `split`, the generation prompt stays out of the body and the skill
+   points at references/generate.md, which the build writes beside each
+   package copy. That keeps the body under the 5,000 tokens the Agent Skills
+   specification recommends. Without it, the result is the one file that
+   the site offers as a download. */
+export function renderSkill(root = ROOT, { split = false } = {}) {
   const genPrompt = readFileSync(join(root, 'prompts/generate.md'), 'utf8');
   const promptVersion = /prompt_version:\s*([\d.]+)/.exec(genPrompt)?.[1] ?? '0.0.0';
   const specVersion = /spec_version:\s*"([\d.]+)"/.exec(genPrompt)?.[1] ?? '0.1';
@@ -41,5 +52,7 @@ export function renderSkill(root = ROOT) {
     // Hook entries an agent writes by hand: the exact command wire writes,
     // pinned to this CLI version, so the two never drift apart.
     .replace(/\{\{HOOK:([a-z -]+)\}\}/g, (_, sub) => hookCommand(registryInvocation(), sub))
-    .replace('{{GENERATE_PROMPT}}', genPrompt.replace(/^---[\s\S]*?---\n\n/, ''));
+    .replaceAll('{{PROMPT_REF}}', split ? 'the generation prompt in `references/generate.md`' : 'the generation prompt at the end of this document')
+    .replace(/\n---\n\n\{\{GENERATE_PROMPT\}\}\n?$/, split ? '\n' : (m) => m)
+    .replace('{{GENERATE_PROMPT}}', renderReference(root));
 }

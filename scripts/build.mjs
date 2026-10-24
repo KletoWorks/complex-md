@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderSkill, SKILL_COPIES, stampVersions } from './skill.mjs';
+import { renderSkill, renderReference, SKILL_COPIES, stampVersions } from './skill.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
@@ -295,12 +295,14 @@ if (existsSync(artDir)) {
 
 // The downloadable skill: template + the generation prompt + the canonical
 // integration block, all verbatim from their single sources in prompts/.
-// The same text ships as SKILL.md in each agent package.
+// Each agent package gets the same text split in two: SKILL.md, and the
+// generation prompt in references/generate.md beside it.
 const skill = renderSkill(ROOT);
 writeFileSync(join(DIST, 'complex-md.skill.md'), skill);
 for (const p of SKILL_COPIES) {
-  mkdirSync(dirname(join(ROOT, p)), { recursive: true });
-  writeFileSync(join(ROOT, p), skill);
+  mkdirSync(join(dirname(join(ROOT, p)), 'references'), { recursive: true });
+  writeFileSync(join(ROOT, p), renderSkill(ROOT, { split: true }));
+  writeFileSync(join(dirname(join(ROOT, p)), 'references', 'generate.md'), renderReference(ROOT));
 }
 stampVersions(ROOT);
 writeFileSync(join(DIST, 'integration.md'), integrationBlock + '\n');

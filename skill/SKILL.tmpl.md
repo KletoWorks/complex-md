@@ -7,8 +7,8 @@ description: Generate COMPLEX.md for the current repository. Computes hotspot si
 
 You are inside a git repository. Produce a `COMPLEX.md` at the repository root
 that conforms to spec {{SPEC_VERSION}} (https://complex.md/spec). Work in
-three stages: compute the signals with the shell, write the file with the
-generation prompt at the end of this document, then wire the file into the
+three stages: compute the signals with the shell, write the file with
+{{PROMPT_REF}}, then wire the file into the
 repository's agent context files. All three stages are one job; do not stop
 after the file is written.
 
@@ -164,7 +164,7 @@ awk -F'\t' 'function l2(x) { return log(x) / log(2) }
 
 ## Stage 2: write the file
 
-Follow the generation prompt below exactly, using `.complex-md/prompt.md`
+Read {{PROMPT_REF}} and follow it exactly, using `.complex-md/prompt.md`
 (or the signals and file text you computed by hand) as its inputs, and
 write the result to `COMPLEX.md` in the repository root. The front matter is
 copied verbatim from the tool's output; only `tool` changes, to
