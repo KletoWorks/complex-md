@@ -1,0 +1,115 @@
+// The report renderer: one self contained HTML page from a parsed map. It
+// must escape every string that came from the repository (file names are
+// attacker controlled on a hosted page), load nothing from the network, and
+// carry the treemap data a second time as a table.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseComplexMd } from '../src/complexmd.js';
+import { renderReport, squarify } from '../src/render.js';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const map = parseComplexMd(readFileSync(join(here, 'fixtures', 'render-map.md'), 'utf8'));
+const html = renderReport(map, { repo: 'acme/widgets' });
+
+test('the page is one complete HTML document with a title naming the repository', () => {
+  assert.match(html, /^<!doctype html>/i);
+  assert.match(html, /<title>acme\/widgets: COMPLEX\.md report<\/title>/);
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1">/);
+  assert.match(html, /<\/html>\s*$/);
+});
+
+test('the header names the repository, the commit and the generation date', () => {
+  const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
+  assert.match(header, /acme\/widgets/);
+  assert.match(header, /1234567/);
+  assert.match(header, /2026-10-20/);
+});
+
+test('the treemap draws one focusable tile per hotspot, sized by lines and colored by fixes', () => {
+  const tiles = html.match(/<a class="tile[^"]*"[^>]*>/g) || [];
+  assert.equal(tiles.length, map.hotspots.length);
+  for (const t of tiles) assert.match(t, /href="#f-\d+"/);
+  assert.match(html, /area: lines/i);
+  // engine.js has the most fixes, so it carries the top heat step.
+  const engine = tiles.find((t) => t.includes('data-path="src/core/engine.js"'));
+  assert.match(engine, /class="tile h4/);
+  const odd = tiles.find((t) => t.includes('data-fixes="0"'));
+  assert.match(odd, /class="tile h0/);
+});
+
+test('a table view carries the treemap data', () => {
+  const table = html.slice(html.indexOf('<table'), html.indexOf('</table>'));
+  for (const h of map.hotspots.filter((x) => !/[<>&"']/.test(x.path))) assert.ok(table.includes(h.path), h.path);
+  assert.match(table, /<th scope="col">Fixes<\/th>/);
+  assert.match(table, /820/);
+});
+
+test('every hot file gets its directive sentence, load bearing files included', () => {
+  assert.match(html, /Before editing this file, run <code>npm test -- engine<\/code> and keep the job order stable\./);
+  assert.match(html, /Before editing this file, run the archive round trip in test\/codec\.test\.js\./);
+  assert.ok(html.includes('src/legacy/codec.js'));
+});
+
+test('co-change pairs and seams are listed with count and coupling', () => {
+  const sec = html.slice(html.indexOf('id="co-change"'));
+  assert.match(sec, /src\/core\/engine\.js[\s\S]*src\/net\/parser\.js[\s\S]*7 commits[\s\S]*64%/);
+  assert.match(sec, /src\/core[\s\S]*src\/net/);
+});
+
+test('blind spots are listed, and files grep skips are named one by one', () => {
+  const sec = html.slice(html.indexOf('id="blind-spots"'));
+  assert.match(sec, /2 generated or lock files excluded/);
+  assert.match(sec, /<li><code>src\/net\/parser\.js<\/code><\/li>/);
+  // The tile of a file grep skips is marked as such, and the legend says so.
+  assert.match(html, /hatched: grep skips the file/);
+  assert.match(html, /<a class="tile[^"]*\bblind\b[^"]*"[^>]*data-path="src\/net\/parser\.js"/);
+});
+
+test('hostile file names are escaped in text and in attributes', () => {
+  assert.ok(!html.includes('<script>alert'), 'a file name never opens a script element');
+  assert.ok(!html.includes('<b>banner</b>'), 'prose never injects markup');
+  assert.ok(html.includes('src/&lt;script&gt;alert(1)&lt;/script&gt;.js'));
+  assert.ok(html.includes('lib/it&#39;s &quot;quoted&quot; &amp; odd.js'));
+  // Every attribute value stays inside its quotes: no raw quote in a data-path.
+  for (const m of html.matchAll(/data-path="([^"]*)"/g)) assert.ok(!/[<>']/.test(m[1]), m[1]);
+  // The page has exactly one script element, its own.
+  assert.equal((html.match(/<script\b/g) || []).length, 1);
+});
+
+test('the page loads nothing from the network', () => {
+  assert.match(html, /<meta http-equiv="Content-Security-Policy" content="default-src 'none';/);
+  assert.ok(!/<link\b/i.test(html), 'no stylesheet or icon links');
+  assert.ok(!/\bsrc=/i.test(html), 'no src attribute anywhere');
+  assert.ok(!/@import|url\(/i.test(html), 'no CSS fetches');
+  // The only http(s) text is the one outbound anchor to the project.
+  const urls = [...html.matchAll(/https?:\/\/[^\s"'<)]+/g)].map((m) => m[0]);
+  assert.deepEqual([...new Set(urls)], ['https://complex.md']);
+  assert.match(html, /<a href="https:\/\/complex\.md">/);
+});
+
+test('the renderer is pure: the same map renders the same bytes', () => {
+  assert.equal(renderReport(map, { repo: 'acme/widgets' }), html);
+});
+
+test('a hand written map without loc sizes tiles by churn and survives empty lists', () => {
+  const small = parseComplexMd(`---\ncomplex_md: "0.3"\nhotspots:\n  - path: a.js\n    churn: 4\n    fixes: 1\n  - path: b.js\n    churn: 2\n    fixes: 0\nco_change: []\n---\n\n## Why these files are hot\n\na.js is the hub. Before editing this file, run the tests.\n`);
+  const out = renderReport(small, { repo: 'x' });
+  assert.match(out, /area: commits/i);
+  assert.match(out, /Before editing this file, run the tests\./);
+  assert.match(out, /No co-change pairs/);
+  assert.match(out, /No blind spots/);
+});
+
+test('squarify fills the rectangle exactly and keeps every tile inside it', () => {
+  const rects = squarify([6, 6, 4, 3, 2, 2, 1], 0, 0, 6, 4);
+  const area = rects.reduce((s, r) => s + r.w * r.h, 0);
+  assert.ok(Math.abs(area - 24) < 1e-9);
+  for (const r of rects) {
+    assert.ok(r.x >= -1e-9 && r.y >= -1e-9 && r.x + r.w <= 6 + 1e-9 && r.y + r.h <= 4 + 1e-9);
+  }
+  assert.deepEqual(squarify([], 0, 0, 1, 1), []);
+});
