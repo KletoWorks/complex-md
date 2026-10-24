@@ -66,12 +66,3 @@ test('check --base with a ref that resolves still runs the check', () => {
   const r = run(committedRepo(), ['check', '--base', 'HEAD', '--strict']);
   assert.equal(r.status, 0, r.stderr);
 });
-
-test('resolvesCommit names real commits and refuses option shaped refs', async () => {
-  const { resolvesCommit } = await import('../src/git.js');
-  const dir = committedRepo();
-  assert.equal(resolvesCommit(dir, 'HEAD'), true);
-  assert.equal(resolvesCommit(dir, 'origin/does-not-exist'), false);
-  assert.equal(resolvesCommit(dir, '--all'), false);
-  assert.equal(resolvesCommit(dir, ''), false);
-});

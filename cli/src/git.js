@@ -24,12 +24,9 @@ export function hasCommits(cwd) {
   return r.status === 0;
 }
 
-/** True when ref names a commit in this checkout. A ref that starts with
-    a dash is refused here instead of with --end-of-options, which git
-    rev-parse accepts only from 2.30. */
+/** True when ref names a commit in this checkout. */
 export function resolvesCommit(cwd, ref) {
-  if (!ref || String(ref).startsWith('-')) return false;
-  const r = spawnSync('git', ['rev-parse', '--verify', '-q', `${ref}^{commit}`], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const r = spawnSync('git', ['rev-parse', '--verify', '-q', '--end-of-options', `${ref}^{commit}`], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   return r.status === 0;
 }
 
