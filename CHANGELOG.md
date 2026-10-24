@@ -4,6 +4,119 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-10-24  Texts match the code, six CLI fixes, briefs for review bots, a report page, scored claims
+
+**Intent:** several public texts said things the code or the finished runs
+contradict, six defects gave agents wrong or no advice, review bots never saw
+the map, and two claims about the map had no measurement behind them.
+
+**Change:** the README, the CLI README, the site, the spec, the skill and
+`bench/RESULTS.md` now say what the code does and what the runs show. Without
+a key, the CLI sends nothing. With a key, its one model call carries the
+signals and excerpts of up to ten hotspot files, about 60,000 characters of
+code at most. RESULTS.md reports the three finished runs: on two repositories
+with no shared tasks, agents ran the tests the map names on 14 of 15 risky
+edits, against 3 of 17 without it (11 of 11 discordant pairs, p about 0.001),
+with Claude Opus 5 in Claude Code. Success on the real fix's own tests stayed
+within one task in every run. The scorer also counts advice that names a test
+directory, and the cost lines separate the arms. The NUL byte blind spot now
+names ripgrep, which Claude Code's Grep tool runs and which skips such a file
+with no match and no warning; GNU grep prints a binary file notice and no
+line. `bench/repro/nul-byte.sh` shows what each tool does. MCP is documented
+as an opt in (`--mcp`), and `--help` lists `impact`, `report` and `--mcp`.
+`cli/test/truth.test.js` fails when a public text brings back a sentence the
+code or a run contradicts.
+
+**Change:** a map paragraph matches a path only as a whole name, with a
+boundary on each side, and a shorter suffix such as the basename counts only
+when no other mapped path shares it. Before this, a monorepo with two mapped
+`index.ts` files gave the second file the first file's paragraph and
+directive. A file that an earlier paragraph named as a partner got that
+paragraph instead of its own. A paragraph that names the full path now ranks ahead of one
+that names a suffix, and the earliest mention wins within each kind. Route
+paths with brackets, parentheses or a plus sign (`app/[slug]/page.tsx`) still
+match. That text reaches the edit gate, the Stop report, `check`, the briefs
+and the MCP lookup.
+
+**Change:** `check --base <ref>` exits 2 when the ref is not in the checkout,
+and the message says to fetch the history (`fetch-depth: 0`). Before this, a
+missing ref gave an empty diff, the report said "clean", and `--strict` exited
+0 on every shallow CI checkout.
+
+**Change:** COMPLEX.md parses with CRLF line ends and a leading byte order
+mark. Before this, a Windows checkout (`core.autocrlf=true`) parsed the map
+to null and every hook went silent.
+
+**Change:** wired hooks run `node_modules/.bin/complex-md` first, then a
+`complex-md` on PATH, then `npx -y --prefer-offline complex-md@<version>`.
+Before this, every edit ran an unpinned `npx -y complex-md`: 0.76 s per call,
+whatever version was published last, and with the registry unreachable it
+waited out the 30 s hook timeout. With a project install a hook takes 84 ms,
+and the pinned npx answers from the cache in 0.73 s, measured on one machine.
+Running `wire` again rewrites the hooks that 0.9.2 and earlier wrote and keeps
+their flags. The skill's hand written hooks are built from the same command.
+
+**Change:** the NUL byte blind spot names only files with a source, style or
+markup extension outside fixture and data directories. Before this,
+compressed test corpora, `.mo` catalogs and archives under `tests/` were
+listed as source files to fix; on ripgrep the list goes from 7 to 0. Commits
+that a bot authored or committed no longer count toward churn, fixes,
+authors or co-change, and a blind spot line states how many were left out
+(3 on ripgrep).
+
+**Change:** `wire` writes one brief per hot file where review bots and more
+agents read them. Copilot code review and the Copilot cloud agent get
+`.github/instructions/complex-md/<slug>.instructions.md`, with `applyTo` set to
+that one path. Antigravity gets `.agents/rules/complex-md-<slug>.md` with a
+glob trigger. Devin Desktop and Windsurf get `trigger: glob` rules in
+`.devin/rules/` and `.windsurf/rules/`, Kiro gets `inclusion: fileMatch`
+steering files, and Cline gets conditional rules with a `paths:` list. Each
+channel turns on only when its own config exists, or with `--for`;
+`.github/` alone does not turn Copilot on. A `REVIEW.md` that exists gets one
+`@COMPLEX.md` line, so Claude Code Review includes the map; `wire` never
+creates one. `--for openclaw,hermes` did nothing without `--mcp`; it now
+writes the portable skill `.agents/skills/complex-md/SKILL.md`, and a
+`.agents/` folder that holds only that skill does not turn OpenHands on.
+
+**Change:** the integration block loads once per agent. Before this, a
+CLAUDE.md or GEMINI.md that imports AGENTS.md got a second copy, and rule
+files that held only the block (Claude Code, Cursor, OpenHands, Windsurf,
+Cline, Roo) repeated it. Claude Code and Roo get no such file now. Cursor,
+OpenHands, Windsurf and Cline get one only when AGENTS.md does not carry the
+block, and a rewire removes the old copies. `check` names
+any generated brief in the change that differs from what `wire` writes,
+because Copilot review reads instructions from the pull request's head
+branch. A single `.clinerules` file no longer makes `wire` fail. The spec's
+Stage 3 and the skill describe all of this. The benchmark's `file` arm wires
+through the same code, so a rerun no longer gets
+`.claude/rules/complex-md.md`; new rows record `cli_version` and
+`cli_commit`.
+
+**Change:** `complex-md report` renders COMPLEX.md as a local page at
+`.complex-md/report.html` and prints its path. The page is one self contained
+HTML file. It shows a treemap of the hotspots (area by lines, color by bug
+fixes, with a table view), the directive for each hot or load bearing file,
+the co-change pairs and seams, and the blind spots. It names each file that
+search tools skip. The page loads nothing over the network, escapes every
+file name, follows the system light or dark theme and fits a 390 px screen.
+
+**Change:** the benchmark scores three claims from committed runs and fix
+history, with no model call. `bench/comply.mjs` reproduces the compliance
+result above from the transcripts. `bench/partners.mjs` asks whether agents
+miss a co-change partner less often with the map. Under the definition set
+before the analysis (a Read or an edit of the partner), the result is null for
+the file arm: 7 pairs for the map against 2, pooled, p 0.18. The hooks arm on
+fastify gives 6 against 0, p 0.031. A wider definition, chosen after that
+result was known, gives 16 against 1; it is exploratory and decides nothing.
+`bench/selectors.mjs` backtests five test selectors on 360 fixes in undici,
+fastify and nodemon. In the band of files with 1 to 5 importers, the direct
+importers the map names today find 29% of the tests a fix changed, at 3% of
+the suite. The full reverse closure finds 97% at 80%, and the cuts at 15% of
+the suite find 70% to 73%. No selector reached the bar of 80% recall at 15%
+of the suite or less, so the map keeps naming direct importers. Method and
+tables: `bench/SELECTORS.md`. Results: `bench/results/partners.json` and
+`bench/results/selectors/`.
+
 ## Unreleased
 
 - The generation prompt (0.4.0) writes the prose to the sentence rules of
