@@ -12,6 +12,8 @@ import { pathBriefs } from './brief.js';
 import { TARGETS, TARGET_NAMES } from './targets.js';
 
 const PRIMARY = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.github/copilot-instructions.md'];
+/* Files whose agents expand an `@AGENTS.md` line into the text of AGENTS.md. */
+const IMPORTERS = ['CLAUDE.md', 'GEMINI.md'];
 
 /**
  * How hooks and the MCP entry invoke the CLI. `npx -y complex-md` when the
@@ -81,17 +83,18 @@ export function wire(root, { hooks = true, mcp = false, rules = true, agents = n
   const briefs = pathBriefs(map);
   const report = { primary: [], created: [], rules: [], hooks: [], mcp: [], skipped: [] };
 
-  // 1. Primary files. A CLAUDE.md that imports AGENTS.md already carries
-  // the block through that import (the shape this function creates), so
-  // it is wired, not a candidate for a second copy.
+  // 1. Primary files. AGENTS.md comes first in PRIMARY, so once it exists
+  // it carries the block by the time the others are read. A CLAUDE.md or
+  // GEMINI.md that imports it (the shape this function creates) loads the
+  // block through that import; a second copy would load it twice.
   let any = false;
-  const agentsWired = existsSync(join(root, 'AGENTS.md')) && readFileSync(join(root, 'AGENTS.md'), 'utf8').includes(BLOCK_HEADING);
+  const agentsCarries = existsSync(join(root, 'AGENTS.md'));
   for (const f of PRIMARY) {
     const p = join(root, f);
     if (!existsSync(p)) continue;
     any = true;
     const cur = readFileSync(p, 'utf8');
-    if (cur.includes(BLOCK_HEADING) || (f === 'CLAUDE.md' && agentsWired && /^@AGENTS\.md\s*$/m.test(cur))) {
+    if (cur.includes(BLOCK_HEADING) || (IMPORTERS.includes(f) && agentsCarries && /^@(\.\/)?AGENTS\.md\s*$/m.test(cur))) {
       report.skipped.push(f);
     } else {
       appendFileSync(p, (cur.endsWith('\n') ? '' : '\n') + '\n' + block);
