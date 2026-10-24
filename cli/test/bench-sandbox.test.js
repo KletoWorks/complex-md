@@ -141,6 +141,33 @@ test('the network: no route out, and the proxy admits only listed hosts', ns, as
   } finally { server.close(); rmSync(t, { recursive: true, force: true }); }
 });
 
+/* A native Claude Code install puts a symlink on PATH (~/.local/bin/claude)
+   and the binary elsewhere (~/.local/share/claude). The harness keeps the
+   binary, so the masks hide the PATH entry, and a lookup by name inside the
+   sandbox finds nothing. */
+test('a command named by PATH runs even when the masks hide its PATH entry', ns, async () => {
+  const t = layout();
+  try {
+    mkdirSync(join(t, 'bin'));
+    writeFileSync(join(t, 'keep', 'deep', 'tool.sh'), '#!/bin/sh\necho tool ran\n', { mode: 0o755 });
+    symlinkSync(join(t, 'keep', 'deep', 'tool.sh'), join(t, 'bin', 'cxtool'));
+    const dir = join(t, 'sbx');
+    mkdirSync(dir, { recursive: true });
+    const [cmd, args, env, { socket }] = sandboxCommand({ cmd: 'cxtool', args: [], cwd: join(t, 'keep'), dir, roots: [t], keeps: [join(t, 'keep', 'deep')], path: `${join(t, 'bin')}:${process.env.PATH}` });
+    const proxy = await startProxy({ socket });
+    const r = await new Promise((res) => {
+      const child = spawn(cmd, args, { env: { ...process.env, ...env, PATH: `${join(t, 'bin')}:${process.env.PATH}` }, stdio: ['ignore', 'pipe', 'pipe'] });
+      let out = '', err = '';
+      child.stdout.on('data', (d) => { out += d; });
+      child.stderr.on('data', (d) => { err += d; });
+      child.on('close', (code) => res({ code, out, err }));
+    });
+    await proxy.close();
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /tool ran/);
+  } finally { rmSync(t, { recursive: true, force: true }); }
+});
+
 test('a stop signal reaches the agent inside the namespace', ns, async () => {
   const t = layout();
   try {
