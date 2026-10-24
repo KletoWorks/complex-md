@@ -18,7 +18,8 @@ Do not report a vulnerability in a public issue, discussion or pull request.
 Report it in private through GitHub:
 https://github.com/KletoWorks/complex-md/security/advisories/new.
 On the repository page, this is Security, then "Report a vulnerability".
-Only the maintainer and the reporter can read the report.
+Only the reporter and the people who administer the repository's
+security can read the report.
 
 Put these facts in the report:
 
