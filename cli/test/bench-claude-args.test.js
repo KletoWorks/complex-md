@@ -22,6 +22,15 @@ test('every arm runs with a strict MCP config: empty, or the checkout\'s own for
   assert.deepEqual(claudeCommand({ arm: 'none', wt, budget: 1, model: 'm' })[1].slice(-2), ['--model', 'm']);
 });
 
+test('no arm can reach the web through the server side tools', () => {
+  // A web search runs on the provider's side, past the sandbox proxy, so
+  // an agent could read the upstream fix through it.
+  for (const arm of ['none', 'front', 'file', 'hooks']) {
+    const args = claudeCommand({ arm, wt, budget: 5 })[1];
+    assert.equal(args[args.indexOf('--disallowedTools') + 1], 'WebFetch,WebSearch', arm);
+  }
+});
+
 test('the init event records what the agent loaded: tools, MCP servers and skills', () => {
   const { m, onEvent } = createMeter({ wt, gold: [], stopAt: 'none' });
   onEvent({ type: 'system', subtype: 'init', model: 'x', tools: ['Read', 'Bash', 'mcp__claude_ai_Figma__get_screenshot'], mcp_servers: [{ name: 'claude.ai Figma', status: 'connected' }], skills: ['dataviz', 'loop'] });
