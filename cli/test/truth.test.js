@@ -56,6 +56,7 @@ const BANNED = [
   { re: /costs nothing per edit/i, why: 'an agent with the map spends more per run (bench/RESULTS.md)' },
   { re: /never leaks into its own/i, why: 'a month\'s map can include a later run task\'s fix' },
   { re: /fewer regressions|breaks? less|reduces? (collateral )?damage/i, why: 'no run shows fewer regressions yet' },
+  { re: /gets safer/i, why: 'no run shows fewer regressions yet; state what agents do with the map' },
 ];
 
 for (const rule of BANNED) {
