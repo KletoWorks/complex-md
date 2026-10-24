@@ -82,6 +82,27 @@ test('a basename alone never matches a path the map does not list', () => {
   assert.equal(m.paragraphFor('packages/client/src/router.ts'), null);
 });
 
+/* Route based frameworks name files with brackets, parentheses and a plus
+   sign: app/[slug]/page.tsx, app/(shop)/cart/page.tsx, src/routes/+page.svelte.
+   A paragraph that names such a path in full must still be found. */
+test('a path with brackets, parentheses or a plus sign finds its paragraph', () => {
+  const paths = ['app/[slug]/page.tsx', 'app/(shop)/cart/page.tsx', 'src/routes/+page.svelte', 'lib/a b.ts'];
+  const map = '---\ncomplex_md: "0.3"\nhotspots:\n' + paths.map((p) => `  - path: ${p}\n    score: 1\n`).join('') +
+    '---\n\n## Why these files are hot\n\n' + paths.map((p, i) => `\`${p}\` is hot for reason ${i}.`).join('\n\n') + '\n';
+  const m = parseComplexMd(map);
+  paths.forEach((p, i) => assert.match(m.paragraphFor(p) || '', new RegExp(`reason ${i}\\.`), p));
+  assert.equal(m.paragraphFor('app/(shop)/page.tsx'), null, 'a path is not found inside a longer one');
+});
+
+test('a full path counts after ./ and before sentence punctuation, never inside a longer name', () => {
+  const map = '---\ncomplex_md: "0.3"\nhotspots:\n  - path: src/a.ts\n    score: 1\n  - path: src/b.ts\n    score: 1\n  - path: src/c.ts\n    score: 1\n' +
+    '---\n\n## Why these files are hot\n\nEdit ./src/a.ts with care.\n\nThe last one is src/b.ts.\n\nSee src/c.ts.bak and lib/src/c.ts only.\n';
+  const m = parseComplexMd(map);
+  assert.match(m.paragraphFor('src/a.ts') || '', /with care/);
+  assert.match(m.paragraphFor('src/b.ts') || '', /last one/);
+  assert.equal(m.paragraphFor('src/c.ts'), null);
+});
+
 /* Git for Windows checks text out with CRLF line ends by default
    (core.autocrlf=true). A teammate on Windows who cloned a repository with a
    committed map got a map that parsed to null, so every hook went silent. */

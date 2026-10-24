@@ -64,9 +64,11 @@ export function parseComplexMd(text) {
    path, or with a shorter suffix such as its basename. A suffix counts only
    when the path is in the map and no other mapped path ends with the same
    suffix. A monorepo maps several index.ts or __init__.py files, and a plain
-   substring test gave every one of them the paragraph of the first. A full
-   path counts only as a whole token, so src/index.ts is not found inside
-   packages/a/src/index.ts. */
+   substring test gave every one of them the paragraph of the first. A name
+   counts only with a boundary on each side, so src/index.ts is not found
+   inside packages/a/src/index.ts. The search looks for the path itself
+   rather than splitting prose into words, because route files carry
+   brackets, parentheses and plus signs (app/[slug]/page.tsx). */
 function mentionMatcher(fm) {
   const mapped = new Set([
     ...(fm.hotspots || []).map((h) => h.path),
@@ -75,16 +77,35 @@ function mentionMatcher(fm) {
   ].filter((p) => typeof p === 'string'));
   const endsWith = (p, suffix) => p === suffix || p.endsWith('/' + suffix);
   const sharedSuffix = (path, suffix) => [...mapped].some((p) => p !== path && endsWith(p, suffix));
-  return (para, path) => pathTokens(para).some((t) => {
-    if (t === path) return true;
-    if (!mapped.has(path) || !endsWith(path, t)) return false;
-    if (!t.includes('/') && t.length <= 6) return false;
-    return !sharedSuffix(path, t);
-  });
+  return (para, path) => {
+    if (names(para, path)) return true;
+    if (!mapped.has(path)) return false;
+    const parts = path.split('/');
+    for (let k = 1; k < parts.length; k++) {
+      const suffix = parts.slice(k).join('/');
+      if (!suffix.includes('/') && suffix.length <= 6) continue;
+      if (!sharedSuffix(path, suffix) && names(para, suffix)) return true;
+    }
+    return false;
+  };
 }
 
-function pathTokens(para) {
-  return (para.match(/[\w@.\/-]+/g) || []).map((t) => t.replace(/^\.\//, '').replace(/\.+$/, ''));
+/* True when para holds name with no path character joined to either end.
+   A leading ./ is allowed, and so is a full stop that ends a sentence. */
+function names(para, name) {
+  if (!name) return false;
+  for (let i = para.indexOf(name); i !== -1; i = para.indexOf(name, i + 1)) {
+    let start = i;
+    if (para.slice(i - 2, i) === './') start = i - 2;
+    const before = para[start - 1];
+    const end = i + name.length;
+    const after = para[end];
+    if (before !== undefined && /[\w@.\/+~$-]/.test(before)) continue;
+    if (after !== undefined && /[\w@\/+~$-]/.test(after)) continue;
+    if (after === '.' && /\w/.test(para[end + 1] || '')) continue;
+    return true;
+  }
+  return false;
 }
 
 /* A Windows checkout has CRLF line ends by default (core.autocrlf=true),
