@@ -28,6 +28,20 @@ const TEST_FILE = /\.(test|spec)\.(m?js|cjs|ts|mts)$/;
 /* Suites that need a network, a browser, a fuzzer or another runner. */
 const OUTSIDE = /wpt|web-platform|autobahn|fuzz|jest|benchmark|\.d\.ts$|\.ts$/;
 
+/* A file the detected runner can execute: JavaScript, outside the suites
+   above. Certificates, JSON fixtures and `.test-d.ts` type tests sit under
+   test/ too, and `node --test` can never pass them. */
+export function isRunnableTest(f) {
+  return /\.(m?js|cjs)$/.test(f) && !OUTSIDE.test(f);
+}
+
+/* The gold tests of a task: the test files its real fix changed, kept only
+   when runnable. A dataset built before this filter listed every changed
+   file under test/, which made five tasks unpassable in every arm. */
+export function goldTestFiles(task) {
+  return (task.tests || []).filter(isRunnableTest);
+}
+
 /* The globs the repository's own scripts hand to its runner (`borp -p
    "test/*.js"`, `node --test test/**`), expanded and deduplicated. That is
    the suite as the maintainers define it. Falls back to a walk of test/,
@@ -46,7 +60,7 @@ export function listTestFiles(wt) {
     for (const g of globs) {
       let hits = [];
       try { hits = globSync(g, { cwd: wt }); } catch { continue; }
-      for (const f of hits) if (!OUTSIDE.test(f) && /\.(m?js|cjs)$/.test(f)) found.add(f);
+      for (const f of hits) if (isRunnableTest(f)) found.add(f);
     }
     if (found.size) return [...found].sort();
   }

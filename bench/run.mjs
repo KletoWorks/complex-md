@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { computeSignals } from '../cli/src/signals.js';
 import { buildBundle, normalizeOutput } from '../cli/src/generate.js';
 import { wire } from '../cli/src/wire.js';
-import { detectRunner, listTestFiles, runSuite, confirm } from './suite.mjs';
+import { detectRunner, listTestFiles, runSuite, confirm, goldTestFiles } from './suite.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '../cli/bin/complex-md.js');
@@ -264,7 +264,7 @@ function runAgent(task, arm, wt) {
    uses, detected from package.json rather than assumed. No test files, or no
    detectable runner, records null rather than a pass. */
 function runGoldTests(task, wt) {
-  const files = task.tests || [];
+  const files = goldTestFiles(task);
   if (!files.length) return { tests_run: 0, tests_passed: null, success: null };
   const runner = detectRunner(wt);
   if (!runner) return { tests_run: 0, tests_passed: null, success: null };
