@@ -2,6 +2,7 @@
 // tokens, cost, test runs and how the run ended. Kept apart from the process
 // handling in run.mjs so the accounting can be tested on recorded events.
 
+import { matchesGlob } from 'node:path';
 import { TEST_FILE_RE } from '../cli/src/signals.js';
 
 /* A Bash command that runs tests through a runner or a package script.
@@ -108,11 +109,52 @@ function viewed(m, edited) {
   return (f) => paths.has(f) || commands.some((c) => new RegExp(`(^|[\\s"'=/])${escapeRe(f)}($|[\\s"':;|&)<>])`).test(c));
 }
 
+/* The whole suite: npm test (or t, or unit) with no file after `--`, or
+   node --test with flags only. */
+const WHOLE_SUITE = /\bnpm\s+(run\s+)?(test|t|unit)\b(?!\s+--\s+[^-\s])|\bnode\s+--test((\s+--[\w-]+(=\S+)?)*)\s*($|[|&;>])/;
+
+/* Does a test command run test file `t`: by its path, a glob that matches
+   it, or a directory that holds it. */
+function runs(command, t, wt) {
+  for (let tok of command.split(/\s+/)) {
+    tok = tok.replace(/^["']|["']$/g, '');
+    if (wt && tok.startsWith(wt + '/')) tok = tok.slice(wt.length + 1);
+    tok = tok.replace(/^\.\//, '');
+    if (!tok || tok.startsWith('-')) continue;
+    if (tok === t || t.endsWith('/' + tok)) return true;
+    if (/[*?[{]/.test(tok) && matchesGlob(t, tok)) return true;
+    // A directory: written with a slash, so the word 'test' in 'npm test' is not one.
+    if (tok.includes('/') && t.startsWith(tok.endsWith('/') ? tok : tok + '/')) return true;
+  }
+  return false;
+}
+
+/* Edited risky files whose named tests did not all run after the last edit
+   to the file. A file with no named tests needs the whole suite. An edit
+   made outside the edit tools has no step, so any test run counts. */
+function unverified(m, editedRisky, tests, wt) {
+  const log = m.log || [];
+  const out = [];
+  for (const f of editedRisky) {
+    const last = Math.max(0, ...log.filter((e) => EDIT_TOOLS.has(e.name) && e.path === f).map((e) => e.step));
+    const after = log.filter((e) => e.name === 'Bash' && e.step > last && isTestCommand(e.command)).map((e) => e.command);
+    if (after.some((c) => WHOLE_SUITE.test(c))) continue;
+    const named = tests[f] || [];
+    if (named.length && named.every((t) => after.some((c) => runs(c, t, wt)))) continue;
+    out.push(f);
+  }
+  return out;
+}
+
 /* Did the agent behave the way the map asks: when it edits a file the map
-   calls risky, did it run any test, and when it edits one side of a
-   co-change pair, did it look at the other. Judged against the computed
-   risky set from the baseline, the same for every arm. */
-export function behaviour(edited, m, risky) {
+   calls risky, did it run the tests named for it after the edit, and when
+   it edits one side of a co-change pair, did it look at the other. Judged
+   against the computed risky set from the baseline, the same for every arm.
+   risky_edit_untested, kept for older rows, only asked whether any test ran
+   anywhere in the run, which a strong agent always does. */
+const verdict = (u) => ({ risky_edit_unverified: u.length > 0, risky_unverified: u });
+
+export function behaviour(edited, m, risky, wt) {
   const riskySet = new Set([...risky.hotspots, ...risky.load_bearing]);
   const editedRisky = edited.filter((f) => riskySet.has(f));
   const seen = viewed(m, edited);
@@ -127,6 +169,7 @@ export function behaviour(edited, m, risky) {
   return {
     edited_risky: editedRisky,
     risky_edit_untested: editedRisky.length > 0 && m.agent_test_runs === 0,
+    ...(risky.tests ? verdict(unverified(m, editedRisky, risky.tests, wt)) : {}),
     partners_missed: [...new Set(missed)],
   };
 }

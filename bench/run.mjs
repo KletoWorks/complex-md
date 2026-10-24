@@ -25,7 +25,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync, symlinkSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { computeSignals } from '../cli/src/signals.js';
+import { computeSignals, findCoveringTests } from '../cli/src/signals.js';
 import { buildBundle, normalizeOutput } from '../cli/src/generate.js';
 import { wire } from '../cli/src/wire.js';
 import { detectRunner, listTestFiles, runSuite, confirm, goldTestFiles } from './suite.mjs';
@@ -120,13 +120,21 @@ function prepareWorktree(task, arm) {
    for the `none` arm and costs no model call. */
 async function baselineFor(task, wt) {
   const cached = join(cacheDir, 'baseline', `${task.base.slice(0, 12)}.json`);
-  if (existsSync(cached)) return JSON.parse(readFileSync(cached, 'utf8'));
+  /* The tests the map names for each risky file: the covering tests the
+     engine computes, which is the list the map's prose is written from. */
+  const namedTests = (paths) => Object.fromEntries(paths.map((p) => [p, findCoveringTests(wt, p)]));
+  if (existsSync(cached)) {
+    const b = JSON.parse(readFileSync(cached, 'utf8'));
+    if (!b.risky.tests) { b.risky.tests = namedTests([...b.risky.hotspots, ...b.risky.load_bearing]); writeFileSync(cached, JSON.stringify(b)); }
+    return b;
+  }
   const sig = computeSignals(wt);
   const risky = {
     hotspots: sig.hotspots.map((h) => h.path),
     load_bearing: sig.load_bearing.map((h) => h.path),
     co_change: sig.co_change.map((c) => c.files),
   };
+  risky.tests = namedTests([...risky.hotspots, ...risky.load_bearing]);
   const runner = suiteOn ? detectRunner(wt) : null;
   const files = runner ? listTestFiles(wt) : [];
   let results = null;
@@ -306,7 +314,7 @@ for (const task of tasks) {
       }
       const damage = suiteOn && baseline && !m.error ? await runDamage(task, wt, baseline) : null;
       const success = stopAt === 'none' ? runGoldTests(task, wt) : null;
-      const conduct = baseline ? behaviour(edited, m, baseline.risky) : null;
+      const conduct = baseline ? behaviour(edited, m, baseline.risky, wt) : null;
       const rec = { task: task.id, arm, agent, model: model ?? m.agent_model ?? null, skill: skillText ? createHash('sha1').update(skillText).digest('hex').slice(0, 10) : null, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
       appendFileSync(runsPath, JSON.stringify(rec) + '\n');
       log(`  steps ${m.steps}, first gold read at ${m.first_gold_read ?? '-'}, gold edited ${rec.gold_edited}, success ${rec.success ?? '-'}, regressions ${rec.regressed_tests ?? '-'}, tests run by agent ${m.agent_test_runs}, $${m.cost_usd?.toFixed(3) ?? '?'}${m.gate_fired ? `, gate x${m.gate_fired}` : ''}${m.error ? `, error: ${m.error}` : ''}`);

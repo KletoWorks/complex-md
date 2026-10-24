@@ -65,3 +65,16 @@ test('wall clock pairs use the harness clock, so timed out runs are not left out
   assert.match(out, /\| file \| wall clock ms \| 5 \|/);
   assert.match(out, /Cost is unknown for 10 runs/);
 });
+
+test('conduct in the damage table is the named test check, with the old flag as a fallback', () => {
+  const d = (task, arm, extra) => row(task, arm, { regressed_tests: 0, regressed_files: 0, edited_risky: ['lib/a.js'], partners_missed: [], agent_test_runs: 3, ...extra });
+  const out = report([
+    d('a', 'none', { risky_edit_untested: false, risky_edit_unverified: true }),
+    d('a', 'file', { risky_edit_untested: false, risky_edit_unverified: false }),
+    d('b', 'none', { risky_edit_untested: true }),
+    d('b', 'file', { risky_edit_untested: false }),
+  ]);
+  assert.match(out, /named tests not run after it/);
+  assert.match(out, /\| none \| 2 \| 0 \(0%\) \| 0\.0 \| 0\.0 \| 2 \| 2 \|/);
+  assert.match(out, /\| file \| 2 \| 0 \(0%\) \| 0\.0 \| 0\.0 \| 2 \| 0 \|/);
+});
