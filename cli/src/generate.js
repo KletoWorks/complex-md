@@ -202,7 +202,7 @@ export async function generate(root, { model = null, provider = null, agent = fa
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'prompt.md'), bundle);
     writeFileSync(join(dir, 'front-matter.yaml'), fm);
-    if (ignoreWorkDir(root)) log(`added ${WORK_DIR}/ to .gitignore, so its 2 working files stay out of commits.`);
+    if (ignoreWorkDir(root)) log(`added ${WORK_DIR}/* to .gitignore, so its working files stay out of commits; ${WORK_DIR}/bounds.json stays committable.`);
     return join(dir, 'prompt.md');
   };
   const writeBundle = (why) => {

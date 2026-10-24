@@ -2,7 +2,8 @@
 // `git add -A` committed it, because nothing told git to ignore it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ignoresWorkDir, ignoreWorkDir, gitignoreAction } from '../src/gitignore.js';
@@ -13,7 +14,7 @@ test('a repository with no .gitignore gets one that ignores .complex-md/', () =>
   const d = dir();
   assert.equal(gitignoreAction(d), 'create');
   assert.equal(ignoreWorkDir(d), 'create');
-  assert.match(readFileSync(join(d, '.gitignore'), 'utf8'), /^\.complex-md\/$/m);
+  assert.match(readFileSync(join(d, '.gitignore'), 'utf8'), /^\.complex-md\/\*$/m);
   assert.equal(gitignoreAction(d), null);
 });
 
@@ -23,7 +24,7 @@ test('an existing .gitignore gets one entry appended, after a newline it lacked'
   assert.equal(ignoreWorkDir(d), 'change');
   const text = readFileSync(join(d, '.gitignore'), 'utf8');
   assert.ok(text.startsWith('node_modules/\n'));
-  assert.equal(text.match(/^\.complex-md\/$/gm).length, 1);
+  assert.equal(text.match(/^\.complex-md\/\*$/gm).length, 1);
   assert.equal(ignoreWorkDir(d), null, 'a second run adds nothing');
   assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), text);
 });
@@ -39,4 +40,15 @@ test('each common spelling of the entry counts as present', () => {
   writeFileSync(join(d, '.gitignore'), '# .complex-md/\n!.complex-md/\n');
   assert.ok(!ignoresWorkDir(d), 'a comment or a negation is not the entry');
   assert.ok(!existsSync(join(d, '.gitignore.bak')));
+});
+
+test('the entry ignores the working files and leaves .complex-md/bounds.json to commit', () => {
+  const d = dir();
+  execFileSync('git', ['init', '-q'], { cwd: d });
+  ignoreWorkDir(d);
+  mkdirSync(join(d, '.complex-md'));
+  for (const f of ['prompt.md', 'front-matter.yaml', 'report.html', 'bounds.json']) writeFileSync(join(d, '.complex-md', f), '{}\n');
+  const untracked = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: d, encoding: 'utf8' });
+  assert.match(untracked, /^\?\? \.complex-md\/bounds\.json$/m, 'bounds.json is an engineer file that CI reads');
+  assert.ok(!/prompt\.md|front-matter\.yaml|report\.html/.test(untracked), untracked);
 });

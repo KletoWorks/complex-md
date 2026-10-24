@@ -1,12 +1,16 @@
 // The CLI writes its working files (the prompt bundle, the computed front
 // matter) to .complex-md/ at the repository root. They are inputs for one
 // run and belong to no commit, so the directory goes into .gitignore when
-// the CLI writes there.
+// the CLI writes there. One file in it is the engineer's own and is not
+// ignored: bounds.json, which `impact` reads and CI needs in the commit.
+// Git cannot re-include a file under an ignored directory, so the entry
+// ignores the directory's content (`.complex-md/*`), not the directory.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const WORK_DIR = '.complex-md';
-const ENTRY = `${WORK_DIR}/`;
+const ENTRY = `${WORK_DIR}/*`;
+const KEEP = `!${WORK_DIR}/bounds.json`;
 const SPELLINGS = new Set(['', '/', '/*', '/**'].flatMap((tail) => [`${WORK_DIR}${tail}`, `/${WORK_DIR}${tail}`]));
 
 function read(root) {
@@ -32,6 +36,6 @@ export function ignoreWorkDir(root) {
   if (!action) return null;
   const text = read(root) || '';
   const sep = text && !text.endsWith('\n') ? '\n' : '';
-  writeFileSync(join(root, '.gitignore'), `${text}${sep}# complex-md working files\n${ENTRY}\n`);
+  writeFileSync(join(root, '.gitignore'), `${text}${sep}# complex-md working files; bounds.json stays committable\n${ENTRY}\n${KEEP}\n`);
   return action;
 }

@@ -185,7 +185,7 @@ test('a run that writes .complex-md/ adds it to .gitignore once', async () => {
   await withoutKeys(() => generate(dir));
   await withoutKeys(() => generate(dir, { agent: true }));
   const text = readFileSync(join(dir, '.gitignore'), 'utf8');
-  assert.equal(text.match(/^\.complex-md\/$/gm)?.length, 1);
+  assert.equal(text.match(/^\.complex-md\/\*$/gm)?.length, 1);
   assert.equal(execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: dir, encoding: 'utf8' }).includes('.complex-md/'), false);
 });
 

@@ -27,7 +27,7 @@ const parsed = parseComplexMd(map);
 test('the first run exits 0 and lands COMPLEX.md, AGENTS.md and the .gitignore entry, nothing else in git', () => {
   assert.equal(first.status, 0, first.stderr);
   assert.deepEqual(status(dir), ['?? .gitignore', '?? AGENTS.md', '?? COMPLEX.md']);
-  assert.match(readFileSync(join(dir, '.gitignore'), 'utf8'), /^\.complex-md\/$/m);
+  assert.match(readFileSync(join(dir, '.gitignore'), 'utf8'), /^\.complex-md\/\*$/m);
   assert.match(readFileSync(join(dir, 'AGENTS.md'), 'utf8'), /## COMPLEX\.md: the structural risk map/);
 });
 
