@@ -73,6 +73,14 @@ test('the wiring plan matches what wire then writes, for every repo local target
   assert.deepEqual(planWire(dir, MAP, opts), [], 'a second wire changes nothing, and the plan says so');
 });
 
+test('the default plan writes no hooks; --hooks adds the settings file', () => {
+  const files = { 'COMPLEX.md': MAP, 'CLAUDE.md': '# house rules\n', '.claude/settings.json': '{\n  "permissions": {}\n}\n' };
+  const plain = planWire(repoWith(files), MAP, {});
+  assert.ok(!plain.some((e) => e.path === '.claude/settings.json'), JSON.stringify(plain));
+  const hooked = planWire(repoWith(files), MAP, { hooks: true });
+  assert.ok(hooked.some((e) => e.path === '.claude/settings.json' && e.action === 'change'), JSON.stringify(hooked));
+});
+
 test('the dry run sees the repository as wire does, so a file where wire expects a folder fails in the plan too', () => {
   const files = { 'COMPLEX.md': MAP, '.clinerules': 'my own rules\n' };
   const plan = planWire(repoWith(files), MAP, {});
