@@ -3,7 +3,7 @@
 // no map it says how to make one and exits 2.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, copyFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -36,6 +36,21 @@ test('report writes .complex-md/report.html from COMPLEX.md and prints its path'
   const html = readFileSync(out, 'utf8');
   assert.match(html, /<title>acme\/widgets: COMPLEX\.md report<\/title>/);
   assert.match(html, /Before editing this file, run <code>npm test -- engine<\/code>/);
+});
+
+test('report keeps its page out of git and leaves bounds.json committable', () => {
+  const dir = repo();
+  copyFileSync(join(here, 'fixtures', 'render-map.md'), join(dir, 'COMPLEX.md'));
+  mkdirSync(join(dir, '.complex-md'));
+  writeFileSync(join(dir, '.complex-md', 'bounds.json'), '{ "reach": 40 }\n');
+  const r = run(dir, ['report']);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(readFileSync(join(dir, '.gitignore'), 'utf8'), /^\.complex-md\/\*\n!\.complex-md\/bounds\.json$/m);
+  const untracked = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: dir, encoding: 'utf8' }).stdout;
+  assert.match(untracked, /\.complex-md\/bounds\.json/);
+  assert.doesNotMatch(untracked, /report\.html/);
+  assert.equal(run(dir, ['report']).status, 0);
+  assert.equal(readFileSync(join(dir, '.gitignore'), 'utf8').match(/^\.complex-md\/\*$/gm).length, 1, 'added once');
 });
 
 test('report runs from a subdirectory and still reads the map at the root', () => {

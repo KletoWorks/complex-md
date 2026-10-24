@@ -108,7 +108,7 @@ async function main() {
     const { join } = await import('node:path');
     const { writeReport } = await import('../src/report.js');
     const dir = repoRoot(process.cwd()) || process.cwd();
-    const out = writeReport(dir, { version: pkg.version });
+    const out = writeReport(dir, { version: pkg.version, log });
     if (!out) {
       log(existsSync(join(dir, 'COMPLEX.md'))
         ? `complex-md: ${join(dir, 'COMPLEX.md')} has no front matter block to read. Regenerate it with npx complex-md, then run npx complex-md report again.`
