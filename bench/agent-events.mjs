@@ -29,7 +29,7 @@ export const rel = (p, wt) => (p && p.startsWith(wt) ? p.slice(wt.length + 1) : 
    kind of prefix a cache is for. cost_usd, which the agent prices itself,
    stays the only figure to quote as money. */
 export function newMetrics() {
-  return { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, agent_test_runs: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: null };
+  return { steps: 0, turns: 0, reads: [], first_gold_read: null, first_gold_edit: null, wasted_reads: 0, gate_fired: 0, mcp_calls: 0, agent_test_runs: 0, cost_usd: null, tokens_in: 0, tokens_fresh: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_out: 0, stopped: null, error: null, agent_model: null, agent_version: null };
 }
 
 /* One meter per run. onEvent returns 'first-edit' at the first edit when
@@ -42,7 +42,12 @@ export function createMeter({ wt, gold, stopAt }) {
   let firstEdit = false;
   function onEvent(ev, { killed = false } = {}) {
     let action = null;
-    if (ev.type === 'assistant') {
+    /* The model the agent actually ran, and the agent's version: --model is
+       usually not passed, so the row recorded model: null. */
+    if (ev.type === 'system' && ev.subtype === 'init') {
+      m.agent_model = ev.model ?? null;
+      m.agent_version = ev.claude_code_version ?? null;
+    } else if (ev.type === 'assistant') {
       m.turns++;
       const u = ev.message?.usage;
       if (u) {

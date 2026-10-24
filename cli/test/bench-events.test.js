@@ -41,3 +41,10 @@ test('an error result is the run\'s error unless the harness stopped the run', (
   b.onEvent({ type: 'result', is_error: true, subtype: 'error_during_execution' }, { killed: true });
   assert.equal(b.m.error, null);
 });
+
+test('the model and the agent version come from the init event', () => {
+  const { m, onEvent } = createMeter({ wt: WT, gold: [], stopAt: 'none' });
+  onEvent({ type: 'system', subtype: 'init', model: 'claude-opus-5[1m]', claude_code_version: '2.1.260', tools: ['Read', 'Bash'] });
+  assert.equal(m.agent_model, 'claude-opus-5[1m]');
+  assert.equal(m.agent_version, '2.1.260');
+});

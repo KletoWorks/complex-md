@@ -30,6 +30,8 @@ test('a mock run records one row per arm with the edit the agent made', () => {
       assert.deepEqual(r.edited, ['lib/a.js']);
       assert.ok(r.steps >= 2);
       assert.equal(r.cost_usd, 0.01);
+      assert.equal(r.model, 'mock-model');
+      assert.equal(r.agent_version, '0.0.0-mock');
     }
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });

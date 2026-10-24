@@ -5,7 +5,7 @@ const gold = process.env.CX_GOLD.split(',');
 const hasMap = existsSync('COMPLEX.md');
 const emit = (o) => process.stdout.write(JSON.stringify(o) + '\n');
 const use = (name, input) => emit({ type: 'assistant', message: { usage: { input_tokens: 1000, output_tokens: 50 }, content: [{ type: 'tool_use', id: 'x', name, input }] } });
-emit({ type: 'system', subtype: 'init' });
+emit({ type: 'system', subtype: 'init', model: 'mock-model', claude_code_version: '0.0.0-mock' });
 if (hasMap) use('Read', { file_path: `${process.cwd()}/COMPLEX.md` });
 else for (const f of ['README.md', 'lib/hooks.js', 'lib/route.js']) use('Read', { file_path: `${process.cwd()}/${f}` });
 use('Read', { file_path: `${process.cwd()}/${gold[0]}` });
