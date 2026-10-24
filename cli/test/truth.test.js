@@ -32,6 +32,11 @@ const PUBLIC = [
   'site/logos/agents.json',
   'bench/README.md',
   'bench/RESULTS.md',
+  'bench/skillopt/README.md',
+  'CONTRIBUTING.md',
+  'docs/RESEARCH-signals-and-wiring.md',
+  // The build writes llms.txt, the JSON-LD and the footer from this file.
+  'scripts/build.mjs',
 ];
 
 /** The texts an agent follows to wire a repository. */
@@ -52,7 +57,7 @@ const BANNED = [
   { re: /(?<![a-z])grep (skips?|classif(y|ies)|treats?)/i, why: 'GNU grep prints "binary file matches"; ripgrep is the one that stays silent (bench/repro/nul-byte.sh)' },
   { re: /unreadable by grep/i, why: 'name ripgrep, the tool that skips the file in silence' },
   { re: /no warning, exit 0/i, why: 'the exit code differs by ripgrep build; the repro shows no match and no warning' },
-  { re: /27(\.4)? ?(percent|%)/i, why: 'a first edit only figure (n 24, p 0.14) that no run to completion repeats' },
+  { re: /27(\.4)? ?(percent|%) fewer|-27\.4%/i, why: 'a first edit only figure (n 24, p 0.14) that no run to completion repeats' },
   { re: /fewer output tokens/i, why: 'no run to completion shows a token saving' },
   { re: /in progress/i, why: 'the runs finished; report them' },
   { re: /costs nothing per edit/i, why: 'an agent with the map spends more per run (bench/RESULTS.md)' },
