@@ -209,6 +209,24 @@ const CASES = [
       ['src/pkg/blueprints.py', 'src/pkg/sansio/__init__.py'],
     ],
   },
+  {
+    name: 'python from-import: comments in a name list and backslash continuations keep every submodule',
+    files: {
+      'pkg/__init__.py': '',
+      'pkg/a.py': 'from . import (  # the views\n    b,  # first\n    c,\n)\nfrom . import d, \\\n    e\n',
+      'pkg/b.py': '',
+      'pkg/c.py': '',
+      'pkg/d.py': '',
+      'pkg/e.py': '',
+    },
+    edges: [
+      ['pkg/a.py', 'pkg/b.py'],
+      ['pkg/a.py', 'pkg/c.py'],
+      ['pkg/a.py', 'pkg/d.py'],
+      ['pkg/a.py', 'pkg/e.py'],
+    ],
+    notEdges: [['pkg/a.py', 'pkg/__init__.py']],
+  },
 ];
 
 for (const c of CASES) {
