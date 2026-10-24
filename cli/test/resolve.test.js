@@ -183,10 +183,8 @@ const CASES = [
       'src/mypkg/core.py': 'X = 1\n',
       'scripts/tool.py': 'import mypkg.core\nfrom mypkg import core\n',
     },
-    edges: [
-      ['scripts/tool.py', 'src/mypkg/core.py'],
-      ['scripts/tool.py', 'src/mypkg/__init__.py'],
-    ],
+    edges: [['scripts/tool.py', 'src/mypkg/core.py']],
+    notEdges: [['scripts/tool.py', 'src/mypkg/__init__.py']],
   },
   {
     name: 'python nested root: a deeper parent of a top-level package is also a root',
@@ -238,6 +236,52 @@ const CASES = [
       ['src/app.js', 'src/weird-name.v2.js'],
       ['src/app.js', 'src/@scoped.thing/index.js'],
     ],
+  },
+  {
+    name: 'python from-import: imported names that are submodules resolve to the submodule, not __init__.py',
+    files: {
+      'src/pkg/__init__.py': 'from .app import App\n',
+      'src/pkg/app.py': 'from . import cli\nfrom . import typing as ft\nfrom .helpers import (\n    get_debug,\n    sub as s,\n)\nfrom .. import top\n',
+      'src/pkg/cli.py': 'X = 1\n',
+      'src/pkg/typing.py': 'T = 1\n',
+      'src/pkg/helpers.py': 'def get_debug(): pass\n',
+      'src/pkg/blueprints.py': 'from pkg import cli, App\nfrom pkg.sansio import scaffold\n',
+      'src/pkg/sansio/__init__.py': '',
+      'src/pkg/sansio/scaffold.py': 'S = 1\n',
+      'src/top.py': 'TOP = 1\n',
+    },
+    edges: [
+      ['src/pkg/app.py', 'src/pkg/cli.py'],
+      ['src/pkg/app.py', 'src/pkg/typing.py'],
+      ['src/pkg/app.py', 'src/pkg/helpers.py'],
+      ['src/pkg/app.py', 'src/top.py'],
+      ['src/pkg/blueprints.py', 'src/pkg/cli.py'],
+      ['src/pkg/blueprints.py', 'src/pkg/__init__.py'],
+      ['src/pkg/blueprints.py', 'src/pkg/sansio/scaffold.py'],
+      ['src/pkg/__init__.py', 'src/pkg/app.py'],
+    ],
+    notEdges: [
+      ['src/pkg/app.py', 'src/pkg/__init__.py'],
+      ['src/pkg/blueprints.py', 'src/pkg/sansio/__init__.py'],
+    ],
+  },
+  {
+    name: 'python from-import: comments in a name list and backslash continuations keep every submodule',
+    files: {
+      'pkg/__init__.py': '',
+      'pkg/a.py': 'from . import (  # the views\n    b,  # first\n    c,\n)\nfrom . import d, \\\n    e\n',
+      'pkg/b.py': '',
+      'pkg/c.py': '',
+      'pkg/d.py': '',
+      'pkg/e.py': '',
+    },
+    edges: [
+      ['pkg/a.py', 'pkg/b.py'],
+      ['pkg/a.py', 'pkg/c.py'],
+      ['pkg/a.py', 'pkg/d.py'],
+      ['pkg/a.py', 'pkg/e.py'],
+    ],
+    notEdges: [['pkg/a.py', 'pkg/__init__.py']],
   },
 ];
 

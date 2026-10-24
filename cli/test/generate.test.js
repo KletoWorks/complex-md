@@ -121,3 +121,47 @@ test('generate: a complete reply is written with the computed front matter and a
   assert.ok(!out.includes('bogus'));
   assert.ok(out.endsWith(FULL + '\n'));
 });
+
+// A reply cut at the output cap can still carry all four headings, so the
+// section check alone would write a truncated map. The stop reason decides.
+test('generate: the Anthropic call asks for a 16,000 token output cap', async () => {
+  const dir = makeRepo();
+  let body;
+  await withFetch(async (url, i) => { body = JSON.parse(i.body); return jsonResponse(200, { content: [{ type: 'text', text: FULL }], stop_reason: 'end_turn', usage: {} }); }, () => generate(dir, { provider: 'anthropic' }));
+  assert.equal(body.max_tokens, 16000);
+});
+
+test('generate: an Anthropic reply stopped at max_tokens is never written, even with all four sections', async () => {
+  const dir = makeRepo();
+  writeFileSync(join(dir, 'COMPLEX.md'), 'KEEP ME\n');
+  const logs = [];
+  const r = await withFetch(async () => jsonResponse(200, { content: [{ type: 'text', text: FULL + '\n2. src/b' }], stop_reason: 'max_tokens', usage: { input_tokens: 9, output_tokens: 16000 } }), () => generate(dir, { provider: 'anthropic', log: (s) => logs.push(s) }));
+  assert.equal(r.written, false);
+  assert.match(r.fallback, /reply stopped at the 16000 token output cap \(stop_reason max_tokens, 16000 output tokens\)/);
+  assert.equal(readFileSync(join(dir, 'COMPLEX.md'), 'utf8'), 'KEEP ME\n');
+  assert.ok(logs.some((l) => /model call failed: .*max_tokens/.test(l)));
+});
+
+test('generate: an Anthropic refusal is not written', async () => {
+  const dir = makeRepo();
+  const r = await withFetch(async () => jsonResponse(200, { content: [{ type: 'text', text: FULL }], stop_reason: 'refusal', usage: {} }), () => generate(dir, { provider: 'anthropic' }));
+  assert.equal(r.written, false);
+  assert.match(r.fallback, /stop_reason refusal/);
+});
+
+test('generate: an OpenAI-compatible reply with finish_reason length is never written', async () => {
+  const dir = makeRepo();
+  const realKey = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = 'test-key';
+  try {
+    const r = await withFetch(async () => jsonResponse(200, { choices: [{ message: { content: FULL }, finish_reason: 'length' }], usage: { completion_tokens: 4096 } }), () => generate(dir, { provider: 'openai' }));
+    assert.equal(r.written, false);
+    assert.match(r.fallback, /openai API: reply stopped at the provider's output limit \(finish_reason length, 4096 output tokens\)/);
+    assert.ok(!existsSync(join(dir, 'COMPLEX.md')));
+    const ok = await withFetch(async () => jsonResponse(200, { choices: [{ message: { content: FULL }, finish_reason: 'stop' }], usage: {} }), () => generate(dir, { provider: 'openai' }));
+    assert.equal(ok.written, true);
+  } finally {
+    if (realKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = realKey;
+  }
+});
