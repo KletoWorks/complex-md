@@ -4,6 +4,129 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## Unreleased
+
+**Intent:** a first run with no key ended with a prompt file and no map, a
+keyed run whose call failed ended the same way, and a default wire wrote
+hooks into committed settings. Users of an agent CLI with no API key had no
+path to a written map. A committed map could go stale with no signal. The
+benchmark let an agent see commits after its task, and the repository had
+no private report path, no conduct rules and no AI policy.
+
+**Change:** a run with no provider key writes COMPLEX.md with template prose
+built from the computed numbers, marks it `prose: template` in the front
+matter, and wires it. Each hotspot paragraph gives the file's commits, fixes,
+importers and covering tests and ends with a "Before editing this file,"
+directive. The same commit gives byte identical output, and the prose stays
+under 700 words. Template prose never replaces prose that a model or a
+person wrote; `--template` does. A keyed call that fails (a network error, a
+non 2xx status, a stop at the output cap, a refusal, or a reply that is not
+a map) also lands template prose, exits 0 and prints one warning line with
+the reason. The prompt bundle is still written, so an agent can replace the
+prose.
+
+**Change:** a run prints its file plan before the first write: one line per
+file it will create, change or remove. The wiring lines come from a dry run
+of the wiring itself, and on a keyed run they come under "After the model
+call". In a terminal the run asks once; `--yes` skips the question, and a
+stdin that is not a terminal never blocks. `.complex-md/*` goes into
+`.gitignore` when generate or report writes there, and
+`.complex-md/bounds.json` stays committable. A run ends with one computed
+fact and https://complex.md/?utm_source=cli. A first argument that is a flag
+runs generate, so `npx complex-md --yes` works.
+
+**Change:** `generate --via <cli>` writes the prose with an agent CLI the
+user already runs: claude, codex, gemini, opencode, qwen, kimi, crush, goose,
+cursor-agent, copilot, hermes or openclaw. It runs the user's own binary
+once in its print mode, under the user's own login, with an argument array
+and no shell, and in a read only or plan mode where the CLI has one. The
+reply is written only if it keeps the computed front matter, has the four
+sections and names no path the repository lacks. A CLI that writes
+COMPLEX.md itself has the previous file put back. The run stops after 600 s
+(`--via-timeout`), and Ctrl-C stops the agent CLI too. A bare `--via` is
+refused before any provider is picked. hermes runs as `hermes chat --source
+tool`, which keeps the run out of the user's session list.
+
+**Change:** six providers detect from their key: `moonshot`, `qwen` (the
+international DashScope endpoint), `zai`, `minimax`, `fireworks` and
+`cerebras`. `huggingface` and `lmstudio` work only with `--provider`, like
+`ollama`. The Anthropic default model is `claude-sonnet-5-5`. The Anthropic
+call asks for 16,000 output tokens instead of 4,000, with a 300 s timeout
+instead of 120 s. A reply that stops at the cap, or that is refused, is never
+written; the same holds for `finish_reason: length` on OpenAI compatible
+providers.
+
+**Change:** `complex-md verify` checks a committed map against the code with
+no model call. Exit 0 is fresh, 1 is drift past tolerance, 2 is no map or a
+shallow clone, and `--json` prints each change. A file joins a list only at
+125% of the fresh cut and leaves only under 75% of it, and a pair also needs
+10 points of coupling past the 34% floor. On a history where two files swap
+the last hotspot place, a plain list comparison flips 9 times in 10 commits
+and verify stays fresh. verify passes the front matter's commit to git only
+when it is a hex SHA.
+
+**Change:** `wire` writes no hooks by default. `--hooks` writes them to
+`.claude/settings.json` and `.cursor/hooks.json`, and `--hooks --local`
+writes the Claude Code hooks to `.claude/settings.local.json` and adds that
+path to `.git/info/exclude`. On the fastify runs the hooks arm cost about 50%
+more per run at the median and passed no more fix tests than the briefs
+alone. A rewire leaves hooks that an earlier version wrote and logs one line.
+This repository no longer commits its own hooks or `.mcp.json`.
+
+**Change:** classification and graph fixes. testing.py, test_utils.py,
+conftest.py, helpers.py and spec_helper.rb are no longer covering tests
+unless pytest's `python_files` names them; on flask, src/flask/testing.py is
+now source and 6 test files cover it. Code under data/ ranks. build/ and out/
+count as generated only when a package.json or a tsconfig names them as
+output. Python `from M import x` resolves to the submodule x, also in
+commented, continued and trailing comma lists; on flask the fan_in of
+`__init__.py` goes from 9 to 5. `require('..')`, `'.'` and `'../lib/'`
+resolve through package.json main, then the index file. A blobless clone
+reads history with exact renames only: 0.48 s instead of 10.2 s on a fresh
+flask clone. A treeless clone skips history and adds a blind spot with the
+refetch command. Brief scopes escape `[ ] { } * ?` and commas, so
+`app/[id]/page.tsx` scopes to itself. Quoted front matter values read back
+without escapes, a top level `@types/` path no longer splits a commit, and
+`--help` builds its `--for` list from the target table. With the graph
+fixed, the selector backtest's direct list names 35% of fix tests at 6% of
+the suite, where 0.10.0 reported 29% at 3%. No selector meets the bar.
+
+**Change:** the skill installs as a package in four tools from one template,
+with no hooks and no MCP server: a Claude Code plugin with its own
+marketplace, an Agent Plugins manifest for Codex, a Gemini CLI extension, and
+an Agent Skills folder. At session start each tool loads 74 to 141 tokens.
+Each package keeps the generation prompt in `references/generate.md`, so its
+SKILL.md is about 4,490 tokens, under the 5,000 that Agent Skills recommends.
+The site download stays one file.
+
+**Change:** the benchmark isolates each agent run. Each run gets a fresh
+repository at the task's base with no remotes, tags or reflog, and the
+harness refuses a run that holds any later object. Each agent runs in its own
+network, mount and PID namespaces, reaches only the model API through a
+proxy, and gets `--disallowedTools WebFetch,WebSearch` and no MCP servers or
+connectors. One recorded agent had fetched upstream main with a Node
+`fetch`. A seeded leak test plants a marker in every later commit, ref and on
+a loopback server, and no route reaches it. Each month's map is built at the
+oldest base in that month; before, 8 of 30 undici tasks got a map built after
+their own fix. A budget, turn or time cap is judged as a stop, not dropped.
+`--arms gold` judges the real fix with no agent, and the `mcp` arm is
+retired. The node install's built in undici remains readable to an agent, so
+undici results carry that limit. `bench/models.mjs` scores maps from 15
+models on 3 pinned repositories with 6 deterministic checks. It prices the
+run before the first call and refuses a `--budget` or `--max-tokens` that is
+not a number and a model with no fixed price.
+
+**Change:** the repository has a security policy with a private report path
+and a 7 day first answer, the Contributor Covenant 2.1, issue forms for a
+wrong map, a new language and a benchmark task with their own labels, and a
+pull request template. CONTRIBUTING.md states the AI assistance policy:
+disclose the tool in the pull request, add an `Assisted-by:` or a
+`Co-Authored-By:` trailer, and have a person read the diff and answer the
+review. Every workflow action runs from a full commit SHA, Dependabot
+proposes new ones weekly, the release installs npm 11.21.1 instead of
+`npm@latest`, and OpenSSF Scorecard runs weekly. `cli/test/telemetry.test.js`
+fails on any network request other than the model call a key selects.
+
 ## 2026-10-24  0.10.0: texts match the code, six CLI fixes, briefs for review bots, a report page, scored claims
 
 **Intent:** several public texts said things the code or the finished runs
