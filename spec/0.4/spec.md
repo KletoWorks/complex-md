@@ -35,9 +35,12 @@ Terms:
 
 This document defines three conformance targets.
 
-1. A **conforming map** meets every MUST in sections 3 to 9.
+1. A **conforming map** meets every MUST in sections 3 to 9 and every MUST
+   for a map in section 12.
 2. A **conforming producer** writes only conforming maps.
 3. A **conforming reader** meets every MUST in section 10 and section 11.
+   A reader that supports workspaces also meets every MUST for a reader in
+   section 12.
 
 A reader is conforming at Level 1 when it gives the expected result for
 every fixture in [fixtures/](fixtures/). Later versions add Level 2 (the
