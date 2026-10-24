@@ -168,7 +168,7 @@ test('seeded leak test: no arm reaches the future through git, the disk or the n
     const env = { CX_PROBE_MARKER: MARKER, CX_PROBE_PATHS: fx.dir, CX_PROBE_URL: `http://127.0.0.1:${server.address().port}/` };
     const { status, stderr, rows, out } = await runHarnessAsync(fx, env);
     assert.equal(status, 0, stderr);
-    assert.deepEqual(rows.map((r) => r.arm), ['none', 'front', 'file', 'hooks', 'mcp']);
+    assert.deepEqual(rows.map((r) => r.arm), ['none', 'front', 'file', 'hooks']);
     for (const r of rows) {
       assert.equal(r.error, null, `${r.arm}: ${r.error}`);
       assert.equal(r.sandbox, true);
@@ -210,7 +210,7 @@ test('a timed out agent in the sandbox gets SIGINT and its result is kept', ns, 
 
 /* The marker server runs in this process, so the harness must run without
    blocking the event loop: spawnSync would starve the server. */
-function runHarnessAsync(fx, env, extra = ['--arms', 'none,front,file,hooks,mcp']) {
+function runHarnessAsync(fx, env, extra = ['--arms', 'none,front,file,hooks']) {
   return new Promise((res) => {
     const child = spawn(process.execPath, [join(import.meta.dirname, 'fixtures', 'run-harness.mjs'), JSON.stringify({ fx, extra: ['--agent', 'probe', '--stop-at', 'none', ...extra], env, sandbox: !extra.includes('--no-sandbox') })], { stdio: ['ignore', 'pipe', 'inherit'] });
     let o = '';

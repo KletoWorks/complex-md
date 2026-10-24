@@ -103,6 +103,19 @@ test('an unknown agent name is refused instead of running a model', () => {
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });
 
+test('the retired mcp arm and unknown arm names are refused before any run', () => {
+  const fx = buildBenchRepo();
+  try {
+    const mcp = runHarness(fx, ['--agent', 'mock', '--arms', 'none,mcp']);
+    assert.equal(mcp.status, 2);
+    assert.match(mcp.stderr, /the mcp arm is retired/);
+    assert.deepEqual(mcp.rows, []);
+    const typo = runHarness(fx, ['--agent', 'mock', '--arms', 'fiel']);
+    assert.equal(typo.status, 2);
+    assert.match(typo.stderr, /unknown arm fiel: none, front, file, hooks, gold/);
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
+
 test('CX_BENCH_NO_MODEL=1 turns a real agent run into a recorded harness error', () => {
   const fx = buildBenchRepo();
   try {

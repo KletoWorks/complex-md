@@ -14,7 +14,6 @@
 //        front  COMPLEX.md front matter only: computed numbers, no generated prose
 //        file   COMPLEX.md at the task's base commit, wired for Claude Code (CLAUDE.md, per path briefs)
 //        hooks  file + the PreToolUse/Stop hooks
-//        mcp    hooks + the MCP server
 //        gold   no agent: the real fix's source diff, judged like a patch (an oracle)
 // --stop-at edit kills the run at the agent's first edit: localization only, cheapest.
 // --stop-at none runs to completion, which is what regressions, wall clock,
@@ -50,6 +49,13 @@ const flag = (k) => args.includes(k);
 
 const dataset = JSON.parse(readFileSync(opt('--dataset', 'bench/data/fastify.json'), 'utf8'));
 const arms = opt('--arms', 'none,file').split(',');
+/* The mcp arm (hooks plus the MCP server) is retired. Its rows in
+   bench/results stay readable, but no new run can add to them. */
+const ARMS = ['none', 'front', 'file', 'hooks', 'gold'];
+for (const a of arms) {
+  if (a === 'mcp') { console.error('the mcp arm is retired; run hooks for the wired map with its hooks.'); process.exit(2); }
+  if (!ARMS.includes(a)) { console.error(`unknown arm ${a}: ${ARMS.join(', ')}`); process.exit(2); }
+}
 const agent = opt('--agent', 'claude');
 /* Scripted agents stand in for a model when the harness itself is tested.
    Any other name is refused: an unknown name used to fall through to a real
@@ -236,12 +242,10 @@ async function armSetup(task, arm, wt) {
      CLAUDE.md carries the block, so a rerun of the file arm is not the arm
      those runs measured. Compare a rerun with rows of the same
      cli_version and cli_commit, not with the published rows. */
-  wire(wt, { agents: ['claude'], hooks: arm === 'hooks' || arm === 'mcp', mcp: arm === 'mcp', block: skillText });
-  // The package is not on npm yet: hooks and MCP call this checkout's binary.
-  for (const f of ['.claude/settings.json', '.mcp.json']) {
-    const p = join(wt, f);
-    if (existsSync(p)) writeFileSync(p, readFileSync(p, 'utf8').replace(/"command": "[^"]*\bcomplex-md\b[^"]*?\b(hook [\w-]+)[^"]*"/g, `"command": "node ${BIN} $1"`).replace(/"command": "npx",\s*"args": \[[^\]]*?"complex-md(@[^"]*)?",/g, `"command": "node", "args": ["${BIN}",`));
-  }
+  wire(wt, { agents: ['claude'], hooks: arm === 'hooks', block: skillText });
+  // The hooks call this checkout's binary, so a run measures this CLI.
+  const settings = join(wt, '.claude/settings.json');
+  if (existsSync(settings)) writeFileSync(settings, readFileSync(settings, 'utf8').replace(/"command": "[^"]*\bcomplex-md\b[^"]*?\b(hook [\w-]+)[^"]*"/g, `"command": "node ${BIN} $1"`));
   // The map is context, not a change the agent made.
   sh('git', ['add', '-A'], wt);
   sh('git', ['-c', 'user.email=bench@complex.md', '-c', 'user.name=bench', 'commit', '-q', '-m', 'bench: COMPLEX.md and wiring'], wt);
@@ -260,7 +264,7 @@ function agentCommand(task, arm, wt) {
 
 /* What the agent may see: its checkout, the dependency copy, the Node
    install, and the agent's own install and credentials. The CLI checkout is
-   there for the hooks and MCP arms, which call its binary. */
+   there for the hooks arm, which calls its binary. */
 function agentKeeps(wt) {
   const keeps = [wt, dirname(dirname(realpathSync(process.execPath)))];
   if (depsFor()) keeps.push(depsFor());

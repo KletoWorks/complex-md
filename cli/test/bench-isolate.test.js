@@ -66,12 +66,12 @@ test('gold test files come from the clone at the fix commit, not from the checko
 test('seeded leak test: no arm reaches the future through git or the checkout\'s links', () => {
   const fx = buildBenchRepo();
   try {
-    const { status, stderr, rows, out } = runHarness(fx, ['--agent', 'probe', '--arms', 'none,front,file,hooks,mcp', '--stop-at', 'none', '--no-sandbox'], { env: { CX_PROBE_MARKER: MARKER } });
+    const { status, stderr, rows, out } = runHarness(fx, ['--agent', 'probe', '--arms', 'none,front,file,hooks', '--stop-at', 'none', '--no-sandbox'], { env: { CX_PROBE_MARKER: MARKER } });
     assert.equal(status, 0, stderr);
-    assert.deepEqual(rows.map((r) => r.arm), ['none', 'front', 'file', 'hooks', 'mcp']);
+    assert.deepEqual(rows.map((r) => r.arm), ['none', 'front', 'file', 'hooks']);
     for (const r of rows) assert.equal(r.error, null, `${r.arm}: ${r.error}`);
     const transcripts = readdirSync(join(out, 'transcripts'));
-    assert.equal(transcripts.length, 5);
+    assert.equal(transcripts.length, 4);
     for (const t of transcripts) {
       const events = readFileSync(join(out, 'transcripts', t), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((e) => e.type === 'probe');
       assert.ok(events.length >= 9, t);

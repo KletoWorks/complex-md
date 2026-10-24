@@ -17,7 +17,9 @@ agent runs from a clean worktree at the parent commit under two or more arms:
 | `front` | COMPLEX.md front matter only: the computed numbers, no prose |
 | `file` | COMPLEX.md computed as of that commit, wired (`CLAUDE.md`, path-scoped rule) |
 | `hooks` | `file` plus the PreToolUse gate and Stop check |
-| `mcp` | `hooks` plus the MCP server |
+
+The `mcp` arm (`hooks` plus the MCP server) is retired. Its published rows
+stay readable, and `run.mjs` refuses `--arms mcp`.
 
 An arm gets what this checkout's `wire` writes. The published runs were
 wired when `wire` also wrote `.claude/rules/complex-md.md`: the

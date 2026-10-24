@@ -7,13 +7,13 @@ import { createMeter } from '../../bench/agent-events.mjs';
 
 const wt = '/w/task-arm';
 
-test('every arm runs with a strict MCP config: empty, or the checkout\'s own for the mcp arm', () => {
-  for (const arm of ['none', 'front', 'file', 'hooks', 'mcp']) {
+test('every arm runs with a strict, empty MCP config', () => {
+  for (const arm of ['none', 'front', 'file', 'hooks']) {
     const [cmd, args, env] = claudeCommand({ arm, wt, budget: 5 });
     assert.equal(cmd, 'claude');
     assert.ok(args.includes('--strict-mcp-config'), arm);
     const cfg = args[args.indexOf('--mcp-config') + 1];
-    assert.equal(cfg, arm === 'mcp' ? `${wt}/.mcp.json` : '{"mcpServers":{}}', arm);
+    assert.equal(cfg, '{"mcpServers":{}}', arm);
     assert.equal(args.filter((a) => a === '--mcp-config').length, 1, arm);
     assert.equal(env.ENABLE_CLAUDEAI_MCP_SERVERS, 'false', 'claude.ai connectors off');
     assert.deepEqual(args.slice(args.indexOf('--setting-sources'), args.indexOf('--setting-sources') + 2), ['--setting-sources', 'project']);
