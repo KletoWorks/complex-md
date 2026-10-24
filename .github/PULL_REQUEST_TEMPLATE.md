@@ -8,4 +8,8 @@
 
 ## AI assistance
 
-- [ ] An AI tool helped write this change. The tool and what it did are stated above. See [AI assistance](https://github.com/KletoWorks/complex-md/blob/main/CONTRIBUTING.md#ai-assistance).
+<!-- The policy: https://github.com/KletoWorks/complex-md/blob/main/CONTRIBUTING.md#ai-assistance -->
+
+- [ ] An AI tool helped write this change. The tool and the part it wrote are stated above.
+- [ ] Each commit the tool helped write has an `Assisted-by:` or a `Co-Authored-By:` trailer.
+- [ ] A person read the whole diff and will answer the review comments.
