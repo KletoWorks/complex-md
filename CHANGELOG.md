@@ -32,8 +32,9 @@ boundary on each side, and a shorter suffix such as the basename counts only
 when no other mapped path shares it. Before this, a monorepo with two mapped
 `index.ts` files gave the second file the first file's paragraph and
 directive. A file that an earlier paragraph named as a partner got that
-paragraph instead of its own. A paragraph that names the full path now ranks ahead of one
-that names a suffix, and the earliest mention wins within each kind. Route
+paragraph instead of its own. A paragraph that names the full path now
+ranks ahead of one that names a suffix, and the earliest mention wins
+within each kind. Route
 paths with brackets, parentheses or a plus sign (`app/[slug]/page.tsx`) still
 match. That text reaches the edit gate, the Stop report, `check`, the briefs
 and the MCP lookup.
@@ -59,10 +60,10 @@ their flags. The skill's hand written hooks are built from the same command.
 **Change:** the NUL byte blind spot names only files with a source, style or
 markup extension outside fixture and data directories. Before this,
 compressed test corpora, `.mo` catalogs and archives under `tests/` were
-listed as source files to fix; on ripgrep the list goes from 7 to 0. Commits
-that a bot authored or committed no longer count toward churn, fixes,
-authors or co-change, and a blind spot line states how many were left out
-(3 on ripgrep).
+listed as source files to fix; in the ripgrep repository the list goes from
+7 to 0. Commits that a bot authored or committed no longer count toward
+churn, fixes, authors or co-change, and a blind spot line states how many
+were left out (3 in the ripgrep repository).
 
 **Change:** `wire` writes one brief per hot file where review bots and more
 agents read them. Copilot code review and the Copilot cloud agent get
@@ -112,8 +113,9 @@ result was known, gives 16 against 1; it is exploratory and decides nothing.
 fastify and nodemon. In the band of files with 1 to 5 importers, the direct
 importers the map names today find 29% of the tests a fix changed, at 3% of
 the suite. The full reverse closure finds 97% at 80%, and the cuts at 15% of
-the suite find 70% to 73%. No selector reached the bar of 80% recall at 15%
-of the suite or less, so the map keeps naming direct importers. Method and
+the suite find 70% to 73%. The bar was 80% recall at 15% of the suite or
+less, in both the 1 to 5 and the 6 to 20 importer bands. No selector reached
+it, so the map keeps naming direct importers. Method and
 tables: `bench/SELECTORS.md`. Results: `bench/results/partners.json` and
 `bench/results/selectors/`.
 
