@@ -1,6 +1,6 @@
-// Content helpers for the site build: the meta block and draft articles.
-// No file system writes here, so the tests can call each function on a
-// scratch folder.
+// Content helpers for the site build: the meta block, draft articles, the
+// FAQ as plain text and llms-full.txt. No file system writes here, so the
+// tests can call each function on a scratch folder.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -31,4 +31,37 @@ export function readArticles(dir, { drafts = false } = {}) {
     list.push({ slug: file.replace(/\.md$/, ''), meta, body, draft });
   }
   return list.sort((a, b) => (a.meta.date < b.meta.date ? 1 : -1));
+}
+
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", middot: '·', nbsp: ' ' };
+const plain = (html) => html
+  .replace(/<code>([\s\S]*?)<\/code>/g, '`$1`')
+  .replace(/<[^>]+>/g, '')
+  .replace(/&([a-z]+|#\d+);/g, (all, e) => ENTITIES[e] ?? all)
+  .replace(/\s+/g, ' ')
+  .trim();
+
+/** The home page FAQ as `{ q, a }` pairs of plain text, code kept in
+ *  backticks. */
+export function faqItems(html) {
+  return [...html.matchAll(/<details class="faq-item"><summary>([\s\S]*?)<\/summary><p>([\s\S]*?)<\/p>/g)]
+    .map(([, q, a]) => ({ q: plain(q), a: plain(a) }));
+}
+
+/** llms-full.txt: every published page's text in one markdown file, for an
+ *  agent that wants the site without crawling it. `docs` holds
+ *  `{ url, body }` entries whose bodies start with their own h1. */
+export function llmsFull({ origin, summary, docs, faq }) {
+  const parts = [`# complex.md\n\n> ${summary}\n\nThis file holds the full text of ${origin}: the spec, the skill page, the questions from the home page and every published article. The short index is ${origin}/llms.txt.`];
+  if (faq.length) {
+    parts.push(`# Questions\n\nSource: ${origin}/#faq\n\n${faq.map(({ q, a }) => `### ${q}\n\n${a}`).join('\n\n')}`);
+  }
+  for (const d of docs) {
+    const body = d.body.trim();
+    const nl = body.indexOf('\n');
+    const [h1, rest] = nl === -1 ? [body, ''] : [body.slice(0, nl), body.slice(nl + 1).trim()];
+    parts.push(`${h1}\n\nSource: ${d.url}${rest ? `\n\n${rest}` : ''}`);
+  }
+  // Site relative links mean nothing outside the site.
+  return parts.join('\n\n---\n\n').replace(/\]\(\//g, `](${origin}/`) + '\n';
 }

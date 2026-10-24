@@ -1,5 +1,6 @@
-// The site build: draft articles stay unpublished. Runs only inside the
-// repository checkout; the published CLI package has no scripts/ folder.
+// The site build: draft articles stay unpublished, and llms-full.txt carries
+// the published text in one file. Runs only inside the repository checkout;
+// the published CLI package has no scripts/ folder.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, mkdtempSync, writeFileSync } from 'node:fs';
@@ -42,6 +43,27 @@ test('only draft: true marks a draft', async (t) => {
   for (const m of [{}, { draft: 'false' }, { draft: '' }]) assert.equal(isDraft(m), false, JSON.stringify(m));
 });
 
+test('faqItems reads each question and its answer as plain text', async (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const { faqItems } = await content();
+  const html = '<details class="faq-item"><summary>Is it <em>free</em>?</summary><p>Yes. Run <code>npx complex-md</code> &amp; read the <a href="/spec/">spec</a>.</p></details>';
+  assert.deepEqual(faqItems(html), [{ q: 'Is it free?', a: 'Yes. Run `npx complex-md` & read the spec.' }]);
+});
+
+test('llmsFull puts each page under its own h1 with its URL, links made absolute', async (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const { llmsFull } = await content();
+  const text = llmsFull({
+    origin: 'https://example.test', summary: 'S.',
+    docs: [{ url: 'https://example.test/a/', body: '# Page A\n\nSee [the spec](/spec/).' }],
+    faq: [{ q: 'Why?', a: 'Because.' }],
+  });
+  assert.match(text, /^# complex\.md\n\n> S\.\n/);
+  assert.ok(text.includes('### Why?\n\nBecause.'));
+  assert.ok(text.includes('# Page A\n\nSource: https://example.test/a/\n\nSee [the spec](https://example.test/spec/).'));
+  assert.ok(text.endsWith('\n') && !text.endsWith('\n\n'));
+});
+
 test('the build publishes no draft and lists none', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const out = build();
@@ -68,6 +90,29 @@ test('--drafts renders a draft with noindex, still unlisted', (t) => {
   assert.ok(!readFileSync(join(out, 'sitemap.xml'), 'utf8').includes('/articles/hidden/'), 'the sitemap does not list the draft');
 });
 
+test('llms-full.txt carries the spec, the skill, the FAQ and every published article', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const out = build();
+  const full = readFileSync(join(out, 'llms-full.txt'), 'utf8');
+  assert.match(full, /^# complex\.md\n/);
+  assert.ok(full.includes('# COMPLEX.md spec '), 'the spec');
+  assert.ok(full.includes('# The complex-md skill'), 'the skill page');
+  assert.ok(!full.includes('{{'), 'no placeholder is left');
+  assert.ok(!full.includes('<!-- meta'), 'no front matter block is left');
+  const home = readFileSync(join(ROOT, 'content/index.html'), 'utf8');
+  for (const [, q] of home.matchAll(/<details class="faq-item"><summary>([\s\S]*?)<\/summary>/g)) {
+    assert.ok(full.includes(`### ${q.replace(/<[^>]+>/g, '')}`), `the FAQ question "${q}"`);
+  }
+  const drafts = new Set(draftSlugs());
+  for (const f of readdirMd('content/articles')) {
+    const title = /^title: (.*)$/m.exec(readFileSync(join(ROOT, 'content/articles', f), 'utf8'))[1];
+    const slug = f.replace(/\.md$/, '');
+    if (drafts.has(slug)) assert.ok(!full.includes(`https://complex.md/articles/${slug}/`), `draft ${slug} is left out`);
+    else assert.ok(full.includes(`# ${title}`) && full.includes(`https://complex.md/articles/${slug}/`), `article ${slug}`);
+  }
+  assert.match(readFileSync(join(out, 'llms.txt'), 'utf8'), /\(https:\/\/complex\.md\/llms-full\.txt\)/, 'llms.txt links it');
+});
+
 test('a draft in a scratch content folder stays out of a real build', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   // Guards the build itself, whatever content/articles holds today.
@@ -77,6 +122,9 @@ test('a draft in a scratch content folder stays out of a real build', (t) => {
   const out = build('--articles', dir);
   assert.ok(existsSync(join(out, 'articles/shown/index.html')));
   assert.ok(!existsSync(join(out, 'articles/hidden')));
+  const full = readFileSync(join(out, 'llms-full.txt'), 'utf8');
+  assert.ok(full.includes('Public text.'));
+  assert.ok(!full.includes('Secret text.'));
 });
 
 function readdirMd(d) {

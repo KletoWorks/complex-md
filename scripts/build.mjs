@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, ex
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registryInvocation, hookCommand } from '../cli/src/invoke.js';
-import { parseMeta as meta, readArticles } from './content.mjs';
+import { parseMeta as meta, readArticles, faqItems, llmsFull } from './content.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // --out <dir> builds somewhere other than dist/. --drafts also renders the
@@ -251,7 +251,10 @@ function emit(path, html) {
 rmSync(DIST, { recursive: true, force: true });
 mkdirSync(DIST, { recursive: true });
 
-// Top level pages: .md rendered, .html wrapped as is.
+// Top level pages: .md rendered, .html wrapped as is. llms-full.txt takes
+// the markdown pages' text and the home page's FAQ.
+const fullDocs = [];
+let faq = [];
 for (const file of readdirSync(join(ROOT, 'content'))) {
   if (!/\.(md|html)$/.test(file)) continue;
   const { meta: m, body } = meta(readFileSync(join(ROOT, 'content', file), 'utf8').replaceAll('{{INTEGRATION_BLOCK}}', integrationBlock));
@@ -260,14 +263,17 @@ for (const file of readdirSync(join(ROOT, 'content'))) {
   const doc = file.endsWith('.md') ? docify(markdown(body), { kicker }) : { body: body.replace('{{AGENT_MARQUEE}}', agentMarquee()), toc: false };
   emit(path, shell({ title: m.title, description: m.description, path, layout: m.layout, ...doc }));
   if (file === 'spec.md') writeFileSync(join(DIST, 'spec.md'), body);
+  if (file.endsWith('.md')) fullDocs.push({ url: ORIGIN + path + '/', body, order: file === 'spec.md' ? 0 : 1 });
+  if (path === '/') faq = faqItems(body);
 }
+fullDocs.sort((a, b) => a.order - b.order);
 
 // Articles: content/articles/<slug>.md -> /articles/<slug>/ plus the index.
 const articles = [];
 const artDir = opt('--articles') ? resolve(opt('--articles')) : join(ROOT, 'content/articles');
 if (existsSync(artDir)) {
   // A draft (draft: true) gets a page only with --drafts, and never a place
-  // in the index or the sitemap.
+  // in the index, the sitemap or llms-full.txt.
   for (const { slug, meta: m, body, draft } of readArticles(artDir, { drafts: WITH_DRAFTS })) {
     const path = `/articles/${slug}`;
     const dateline = `<a href="${AUTHOR_URL}" rel="author">${AUTHOR}</a> &middot; <time datetime="${m.date}">${m.date}</time>`;
@@ -278,6 +284,7 @@ if (existsSync(artDir)) {
     }));
     if (draft) continue;
     articles.push({ slug, ...m });
+    fullDocs.push({ url: `${ORIGIN}${path}/`, body });
   }
   const list = articles.map((a) =>
     `<li><a href="/articles/${a.slug}/">${a.title}</a><br><span class="dim">${a.description}</span> <time datetime="${a.date}">${a.date}</time></li>`).join('\n');
@@ -325,6 +332,13 @@ writeFileSync(join(DIST, 'llms.txt'), `# complex.md
 - [The spec (raw markdown)](${ORIGIN}/spec.md)
 - [The skill: generate COMPLEX.md with any coding agent](${ORIGIN}/complex-md.skill.md)
 - [Articles](${ORIGIN}/articles/)
+- [All of the above in one file](${ORIGIN}/llms-full.txt)
 `);
+writeFileSync(join(DIST, 'llms-full.txt'), llmsFull({
+  origin: ORIGIN,
+  summary: `COMPLEX.md is a markdown file at the root of a repository, computed from git history, that tells a coding agent where the structural risk in a codebase lives. Spec ${specVersion}.`,
+  docs: fullDocs,
+  faq,
+}));
 
 console.log(`built dist/ (spec ${specVersion}, prompt ${promptVersion}, ${articles.length} articles)`);
