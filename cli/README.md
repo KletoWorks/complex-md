@@ -77,11 +77,13 @@ runs it on stdio. Six tools:
 
     npx complex-md check [--staged | --base main] [--json] [--strict]
     npx complex-md signals [--json | --tsv]
+    npx complex-md impact <path> [--json] [--strict]
     npx complex-md wire [--no-hooks] [--mcp]
                         [--for claude,cursor,openhands,codex,windsurf,cline,openclaw,hermes]
     npx complex-md generate --agent      # write the prompt bundle, no model call
 
-`check --strict` exits 1 on findings, for pre-commit and CI. `wire` detects
+`check --strict` exits 1 on findings, for pre-commit and CI. `impact --strict`
+exits 1 when a bound in `.complex-md/bounds.json` is exceeded. `wire` detects
 which agents a repository already uses from its config directories; `--for`
 overrides that. Wiring for Claude Code creates a `CLAUDE.md` that imports
 COMPLEX.md when there is none.

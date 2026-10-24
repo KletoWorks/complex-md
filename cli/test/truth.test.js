@@ -102,6 +102,21 @@ test('the invalid JSON message names only flags the CLI parses', () => {
   for (const f of ['--no-hooks', '--mcp']) assert.ok(bin.includes(`flag('${f}')`), `the bin parses ${f}`);
 });
 
+/* The root README features `impact`; a reader who runs --help to find it
+   must see it there too, with the flags the bin parses for it. */
+test('--help and the CLI README name every command the bin runs', () => {
+  const bin = readFileSync(join(import.meta.dirname, '..', 'bin', 'complex-md.js'), 'utf8');
+  const help = /const HELP = `([\s\S]*?)`;/.exec(bin)[1];
+  const readme = readFileSync(join(import.meta.dirname, '..', 'README.md'), 'utf8');
+  const commands = [...bin.matchAll(/cmd === '([a-z]+)'/g)].map((m) => m[1]).filter((c) => !['help', 'mcp'].includes(c));
+  assert.ok(commands.includes('impact'));
+  for (const c of commands) {
+    assert.match(help, new RegExp(`npx complex-md ${c}\\b`), `--help names ${c}`);
+    if (c !== 'hook') assert.match(readme, new RegExp(`complex-md ${c}\\b`), `the CLI README names ${c}`);
+  }
+  assert.match(help, /impact <path>[\s\S]*--strict/);
+});
+
 test('every listed public text exists', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const missing = [...PUBLIC, ...WIRING].filter((f) => !existsSync(join(ROOT, f)));

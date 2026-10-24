@@ -20,7 +20,10 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  --no-hooks  --for claude,cursor,openhands,codex,windsurf,cline,openclaw,hermes
                                  (default: detect repo-local targets)
                                  --mcp also registers the MCP server; openclaw/hermes are global
-                                 registries, wired with --mcp --for openclaw,hermes through their own CLIs  npx complex-md check           report hotspots and untouched co-change partners in the current change
+                                 registries, wired with --mcp --for openclaw,hermes through their own CLIs
+  npx complex-md impact <path>   what changing a file reaches, against .complex-md/bounds.json
+                                 --json | --strict (exit 1 when a declared bound is exceeded)
+  npx complex-md check           report hotspots and untouched co-change partners in the current change
                                  --staged | --base <ref> | --json | --strict (exit 1 on findings)
   npx complex-md signals         print the signals table  (--json | --tsv)
   npx complex-md hook <kind>     hook handler: pre | stop | cursor-pre | cursor-stop   [--mode gate|warn|off]
