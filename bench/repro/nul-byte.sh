@@ -18,7 +18,7 @@
 #   routes.js: 61440 bytes, NUL at offset 53248
 #
 #   $ rg -n /api/widgets          (ripgrep 14.1.0)
-#     exit:   0
+#     exit:   1
 #     stdout: (empty)
 #     stderr: (empty)
 #
@@ -43,34 +43,34 @@
 #     stderr: (empty)
 #
 #   $ rg -n /api/widgets          (ripgrep 14.1.1 (rev 0049fd75eb), inside claude.exe)
-#     exit:   0
+#     exit:   1
 #     stdout: (empty)
 #     stderr: (empty)
 #
 #   $ grep -rn /api/widgets .     (ugrep 7.8.4, as Claude Code's shell runs grep)
-#     exit:   0
+#     exit:   1
 #     stdout: (empty)
 #     stderr: (empty)
 #
 #   $ rg -n /api/widgets          (ripgrep 15.2.0 (rev e89fff89ac), the rg on Codex's PATH)
-#     exit:   0
+#     exit:   1
 #     stdout: (empty)
 #     stderr: (empty)
 #
 #   $ Grep tool, content mode       (ripgrep 15.1.0-cursor5 (rev c3e3c2f7ec), next to cursor-agent)
-#     exit:   0
+#     exit:   1
 #     stdout: (empty)
 #     stderr: (empty)
 #
 #   $ Grep tool, files mode         (the same rg with -l)
-#     exit:   0
+#     exit:   1
 #     stdout: (empty)
 #     stderr: (empty)
 #
 # What the run shows:
-# - ripgrep, searching a directory, prints nothing for the file: no match
-#   and no warning. Claude Code's built in copy does the same, and so do
-#   the copies that Codex CLI and Cursor's agent CLI ship. The Cursor
+# - ripgrep, searching a directory, prints nothing for the file and exits
+#   1, the code for "no match". Claude Code's built in copy does the same,
+#   and so do the copies that Codex CLI and Cursor's agent CLI ship. The Cursor
 #   lines use the arguments its Grep tool builds. Codex runs the rg command
 #   its model writes, so the Codex line runs a plain rg -n. The script does
 #   not run the agents themselves, because each one needs a login.
@@ -78,7 +78,7 @@
 #   and then prints no line.
 # - GNU grep prints no line either. It writes one notice to stderr.
 # - grep in Claude Code's Bash tool is a shell function that runs the
-#   ugrep built into claude.exe with -I. It prints nothing for the file.
+#   ugrep built into claude.exe with -I. It prints nothing and exits 1.
 # - git grep prints the line, with and without -I --text. Git looks for a NUL
 #   in the first 8000 bytes only, and this NUL sits at offset 53248.
 set -u
@@ -108,8 +108,10 @@ echo
 search() {
   label=$1
   shift
-  out=$("$@" < /dev/null 2> "$dir/err" | cat)
-  code=${PIPESTATUS[0]}
+  # The search writes into a pipe, as in an agent's shell. Its exit code is
+  # saved inside the pipe; PIPESTATUS after the assignment would read 0.
+  out=$( { "$@" < /dev/null 2> "$dir/err"; echo $? > "$dir/code"; } | cat)
+  code=$(cat "$dir/code")
   err=$(cat "$dir/err")
   echo "\$ $label"
   echo "  exit:   $code"
