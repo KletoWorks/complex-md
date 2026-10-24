@@ -47,3 +47,35 @@ test('a CLAUDE.md without the import still gets the block', () => {
   assert.equal(count(read(dir, 'AGENTS.md'), HEADING), 1);
   assert.equal(count(read(dir, 'CLAUDE.md'), HEADING), 1);
 });
+
+/* Block only rule files repeated what AGENTS.md or CLAUDE.md already loads.
+   The per path briefs carry the value, so the copies go, including the
+   ones an earlier version wrote. A file of the user's at one of those
+   paths has no heading of ours and stays. */
+test('no block only rule files when AGENTS.md carries the block, and old copies are removed', () => {
+  const block = `---\nalwaysApply: false\n---\n${HEADING}\n\nold copy\n`;
+  const dir = repo({
+    '.claude/rules/complex-md.md': block,
+    '.cursor/rules/complex-md.mdc': block,
+    '.windsurf/rules/complex-md.md': block,
+    '.agents/skills/complex-md.md': block,
+    '.clinerules/complex-md.md': '# my own notes on complex-md\n',
+  });
+  const r = wire(dir, { agents: ['claude', 'cursor', 'windsurf', 'openhands', 'cline'] });
+  for (const p of ['.claude/rules/complex-md.md', '.cursor/rules/complex-md.mdc', '.windsurf/rules/complex-md.md', '.agents/skills/complex-md.md']) {
+    assert.ok(!existsSync(join(dir, p)), `${p} is gone`);
+    assert.ok(!r.rules.includes(p), `${p} is not reported as written`);
+  }
+  assert.ok(r.removed.includes('.claude/rules/complex-md.md'));
+  assert.equal(read(dir, '.clinerules/complex-md.md'), '# my own notes on complex-md\n', 'a file without our heading is not ours');
+  assert.ok(readdirSync(join(dir, '.claude/rules/complex-md')).length > 0, 'the briefs stay');
+  assert.ok(readdirSync(join(dir, '.cursor/rules/complex-md')).length > 0, 'the briefs stay');
+});
+
+test('a block only rule file is still written when no AGENTS.md carries the block', () => {
+  const dir = repo({ 'GEMINI.md': '# Gemini\n', '.cursor': null });
+  const r = wire(dir, { agents: ['cursor'] });
+  assert.ok(!existsSync(join(dir, 'AGENTS.md')));
+  assert.ok(r.rules.includes('.cursor/rules/complex-md.mdc'), 'Cursor does not read GEMINI.md');
+  assert.match(read(dir, '.cursor/rules/complex-md.mdc'), new RegExp(HEADING));
+});

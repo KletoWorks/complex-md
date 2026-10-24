@@ -81,7 +81,7 @@ export function wire(root, { hooks = true, mcp = false, rules = true, agents = n
      and directive, so a scoped rule delivers the answer rather than a pointer
      to the document holding it. */
   const briefs = pathBriefs(map);
-  const report = { primary: [], created: [], rules: [], hooks: [], mcp: [], skipped: [] };
+  const report = { primary: [], created: [], rules: [], removed: [], hooks: [], mcp: [], skipped: [] };
 
   // 1. Primary files. AGENTS.md comes first in PRIMARY, so once it exists
   // it carries the block by the time the others are read. A CLAUDE.md or
@@ -127,11 +127,13 @@ export function wire(root, { hooks = true, mcp = false, rules = true, agents = n
     report.created.push('CLAUDE.md');
   }
 
-  // 3-7. Per-target rules, hooks, MCP.
+  // 3-7. Per-target rules, hooks, MCP. `carried` says AGENTS.md now holds
+  // the block, so an agent that reads AGENTS.md needs no copy of its own.
+  const carried = existsSync(join(root, 'AGENTS.md')) && readFileSync(join(root, 'AGENTS.md'), 'utf8').includes(BLOCK_HEADING);
   for (const name of active) {
     const t = TARGETS[name];
     const tinv = t.global ? { shell: inv.absShell, command: inv.absCommand, args: inv.absArgs } : inv;
-    const ctx = { root, inv: tinv, block, paths, briefs, report, log };
+    const ctx = { root, inv: tinv, block, paths, briefs, report, log, carried };
     if (rules && t.rules) t.rules(ctx);
     if (hooks && t.hooks) t.hooks(ctx);
     if (mcp && t.mcp) t.mcp(ctx);

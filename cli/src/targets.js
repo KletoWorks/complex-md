@@ -7,6 +7,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { BLOCK_HEADING } from './prompts.js';
 
 /* One rule file per briefed path, in a directory of their own.
  *
@@ -37,6 +38,28 @@ export function writeBriefs(dir, briefs, header, report, label) {
     write(join(dir, `${prefix}${b.slug}${label.ext}`), header(b) + b.text);
   }
   report.rules.push(`${label.name} (${briefs.length} paths)`);
+}
+
+/* A rule file that holds only the integration block. Every agent that gets
+ * one also reads AGENTS.md, so while AGENTS.md carries the block the copy
+ * loads it a second time for no gain: the per path briefs carry the value.
+ * The copy is then not written, and one an earlier version wrote is removed.
+ * Without the block in AGENTS.md the copy is the agent's only source of it.
+ */
+function blockRule(root, rel, content, carried, report) {
+  if (carried) return dropBlockCopy(root, rel, report);
+  write(join(root, rel), content);
+  report.rules.push(rel);
+}
+
+/* Removes a file at a path complex-md once wrote, but only when it still
+   holds our heading; a file of the user's at the same path stays. */
+export function dropBlockCopy(root, rel, report) {
+  const p = join(root, rel);
+  if (existsSync(p) && readFileSync(p, 'utf8').includes(BLOCK_HEADING)) {
+    rmSync(p);
+    report.removed.push(rel);
+  }
 }
 
 export function write(p, content) {
@@ -92,15 +115,16 @@ function cliAvailable(bin) {
  *   rules(ctx)        path-scoped rule file
  *   hooks(ctx)        deterministic edit gates
  *   mcp(ctx)          MCP server registration
- * ctx = { root, inv, block, paths, report, log }. All writers are
+ * ctx = { root, inv, block, paths, briefs, report, log, carried }. All writers are
  * idempotent: existing entries are recognized, never duplicated.
  */
 export const TARGETS = {
   claude: {
     detect: (root) => existsSync(join(root, '.claude')) || existsSync(join(root, 'CLAUDE.md')),
-    rules({ root, block, paths, briefs, report }) {
-      write(join(root, '.claude/rules/complex-md.md'), `---\nalwaysApply: false\npaths: ${paths.join(', ')}\n---\n${block}`);
-      report.rules.push('.claude/rules/complex-md.md');
+    rules({ root, briefs, report }) {
+      // CLAUDE.md always carries the block once wire has run: appended,
+      // imported from AGENTS.md, or written when CLAUDE.md is created.
+      dropBlockCopy(root, '.claude/rules/complex-md.md', report);
       writeBriefs(
         join(root, '.claude/rules/complex-md'),
         briefs,
@@ -130,9 +154,8 @@ export const TARGETS = {
 
   cursor: {
     detect: (root) => existsSync(join(root, '.cursor')),
-    rules({ root, block, paths, briefs, report }) {
-      write(join(root, '.cursor/rules/complex-md.mdc'), `---\ndescription: COMPLEX.md structural risk map\nglobs: ${paths.join(', ')}\nalwaysApply: false\n---\n${block}`);
-      report.rules.push('.cursor/rules/complex-md.mdc');
+    rules({ root, block, paths, briefs, report, carried }) {
+      blockRule(root, '.cursor/rules/complex-md.mdc', `---\ndescription: COMPLEX.md structural risk map\nglobs: ${paths.join(', ')}\nalwaysApply: false\n---\n${block}`, carried, report);
       writeBriefs(
         join(root, '.cursor/rules/complex-md'),
         briefs,
@@ -170,9 +193,8 @@ export const TARGETS = {
      directory too and only ours may be cleared. */
   openhands: {
     detect: (root) => existsSync(join(root, '.openhands')) || existsSync(join(root, '.agents')),
-    rules({ root, block, paths, briefs, report }) {
-      write(join(root, '.agents/skills/complex-md.md'), `---\nname: complex-md\npaths:\n${paths.map((p) => `  - "${p}"`).join('\n')}\n---\n${block}`);
-      report.rules.push('.agents/skills/complex-md.md');
+    rules({ root, block, paths, briefs, report, carried }) {
+      blockRule(root, '.agents/skills/complex-md.md', `---\nname: complex-md\npaths:\n${paths.map((p) => `  - "${p}"`).join('\n')}\n---\n${block}`, carried, report);
       writeBriefs(
         join(root, '.agents/skills'),
         briefs,
@@ -198,19 +220,15 @@ export const TARGETS = {
 
   windsurf: {
     detect: (root) => existsSync(join(root, '.windsurf')),
-    rules({ root, block, paths, report }) {
-      write(join(root, '.windsurf/rules/complex-md.md'), `---\ntrigger: glob\nglobs: ${paths.join(', ')}\n---\n${block}`);
-      report.rules.push('.windsurf/rules/complex-md.md');
+    rules({ root, block, paths, report, carried }) {
+      blockRule(root, '.windsurf/rules/complex-md.md', `---\ntrigger: glob\nglobs: ${paths.join(', ')}\n---\n${block}`, carried, report);
     },
   },
 
   cline: {
     detect: (root) => existsSync(join(root, '.clinerules')),
-    rules({ root, block, report }) {
-      // Cline rules are plain markdown, no path scoping; the block itself
-      // tells the agent which files it applies to.
-      write(join(root, '.clinerules/complex-md.md'), block);
-      report.rules.push('.clinerules/complex-md.md');
+    rules({ root, block, report, carried }) {
+      blockRule(root, '.clinerules/complex-md.md', block, carried, report);
     },
   },
 
