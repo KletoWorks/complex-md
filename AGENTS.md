@@ -31,9 +31,8 @@ These rules are for a coding agent that works on either part.
   the body, state the problem before the fix. Use numbers, not adjectives.
 - A change to the spec or a signal cites a benchmark run or a source, and
   adds a line to `CHANGELOG.md`.
-- A person reviews the diff and opens the pull request. Fill in each
-  section of `.github/PULL_REQUEST_TEMPLATE.md`, including the AI
-  assistance box.
+- Fill in each section of `.github/PULL_REQUEST_TEMPLATE.md`, including
+  the AI assistance box.
 
 ## COMPLEX.md: the structural risk map
 
