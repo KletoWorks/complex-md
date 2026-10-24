@@ -104,3 +104,24 @@ test('the bin serves the six tools over stdio, with or without the word mcp', as
     assert.deepEqual(list.result.tools.map((t) => t.name).sort(), ['complex_check', 'complex_impact', 'complex_lookup', 'complex_refresh', 'complex_refs', 'complex_where_to_look']);
   }
 });
+
+test('the core hands `complex-md mcp` over to this package when both are installed', () => {
+  const dir = repo();
+  // An install layout: the core copied into node_modules, this package
+  // beside it. The core's bin resolves complex-md-mcp from there.
+  const nm = join(mkdtempSync(join(tmpdir(), 'cx-mcp-side-')), 'node_modules');
+  const core = join(nm, 'complex-md');
+  const cli = join(pkgRoot, '..', '..', 'cli');
+  for (const d of ['bin', 'src', 'prompts']) cpSync(join(cli, d), join(core, d), { recursive: true });
+  cpSync(join(cli, 'package.json'), join(core, 'package.json'));
+  symlinkSync(pkgRoot, join(nm, 'complex-md-mcp'));
+  const req = [
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } } },
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+    { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+  ].map((m) => JSON.stringify(m)).join('\n') + '\n';
+  const r = spawnSync(process.execPath, [join(core, 'bin', 'complex-md.js'), 'mcp', '--root', dir], { input: req, encoding: 'utf8', timeout: 15000 });
+  const list = r.stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l)).find((x) => x.id === 2);
+  assert.ok(list, `tools/list answered (exit ${r.status}: ${r.stderr})`);
+  assert.equal(list.result.tools.length, 6);
+});
