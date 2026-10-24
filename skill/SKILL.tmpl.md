@@ -202,8 +202,8 @@ paths: <every hotspot, load_bearing and co_change path, deduplicated, comma sepa
 <the block>
 ```
 
-   The `paths` line must be a single unquoted comma separated line; the YAML
-   list form does not load in current Claude Code.
+   Write `paths` as a single unquoted comma separated line, the form
+   `npx complex-md wire` writes.
 
 4. Cursor rule. If `.cursor/` exists, write `.cursor/rules/complex-md.mdc`
    (create the directory if needed), overwriting any previous version:
@@ -231,8 +231,8 @@ paths:
 <the block>
 ```
 
-   Windsurf (`.windsurf/`), Cline (`.clinerules/`) and Roo (`.roo/`) rule
-   files are written by the CLI only: run `npx -y complex-md wire`.
+   Windsurf (`.windsurf/`) and Cline (`.clinerules/`) rule files are
+   written by the CLI only: run `npx -y complex-md wire`.
 
 6. Hooks. Rules are advisory; the research puts
    compliance near half when an agent edits existing code late in a session.

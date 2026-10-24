@@ -19,10 +19,11 @@ agent runs from a clean worktree at the parent commit under two or more arms:
 | `hooks` | `file` plus the PreToolUse gate and Stop check |
 | `mcp` | `hooks` plus the MCP server |
 
-The map is computed at the task's base commit with the history window
-anchored there, so the fix being tested never leaks into its own `fixes`
-count. One map per calendar month of base dates, which is how often a map
-gets regenerated in practice.
+One map serves each calendar month of fix dates, which is how often a map
+gets regenerated in practice. It is computed at the base commit of the first
+task the harness runs in that month, with the history window anchored there.
+When a later run task in the same month has an earlier fix, that fix is
+inside the map's history.
 
 **Task selection.** `make-dataset.mjs --danger` keeps the fixes that touched
 a file the map calls risky (a hotspot, a load-bearing file, one side of a

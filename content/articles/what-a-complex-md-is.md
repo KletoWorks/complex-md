@@ -14,7 +14,7 @@ nobody hands it to the agent.
 
 COMPLEX.md is a markdown file at the repository root that carries exactly that
 knowledge. It is computed, not remembered. YAML front matter holds the
-numbers: lines of code, commit churn over the last twelve months weighted
+numbers: lines of code, commit churn over the last 2,000 commits weighted
 toward recent commits, how many people touched each file and how much one
 of them owns it, co-change pairs, fan-in, and a hotspot score. Four short
 prose sections explain what the numbers mean and what to do about them:
@@ -43,11 +43,13 @@ how a plausible looking change ships a regression.
 
 ## Why computed beats written
 
-A hotspot is a file that is both large and currently changing. The score is
-recency-weighted churn multiplied by lines of code, the shape of the method
-Adam Tornhill describes in Your Code as a Crime Scene with the frequency
-term decayed the way Graves et al. found fault potential decays: a commit's
-weight halves every year. Change history is the best validated predictor of
+A hotspot is a file that is both large and currently changing. The score
+multiplies lines of code, recency-weighted churn and the number of files that
+depend on it. Size times churn is the shape of the method Adam Tornhill
+describes in Your Code as a Crime Scene, with the frequency term decayed the
+way Graves et al. found fault potential decays: a commit's weight halves
+every quarter of the history window, every 500 commits in a full window of
+2,000. Change history is the best validated predictor of
 where faults appear; forty years of defect-prediction studies agree on that
 much, and disagree about most else. The score is a crude number and it is
 reliably right about one thing: where the next change will happen and where

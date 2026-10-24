@@ -17,9 +17,12 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
   npx complex-md generate        same; --agent writes the prompt bundle for your agent instead of calling a model
                                  --model <id>  --provider <name>  --no-wire  --no-hooks
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
-                                 --for claude,cursor,openhands,codex,windsurf,cline,roo,openclaw,hermes
-                                 (default: detect repo-local targets; openclaw/hermes are global registries,
-                                  opt-in only, wired through their own CLIs)
+                                 --no-hooks  --for claude,cursor,openhands,codex,windsurf,cline,openclaw,hermes
+                                 (default: detect repo-local targets)
+                                 --mcp also registers the MCP server; openclaw/hermes are global
+                                 registries, wired with --mcp --for openclaw,hermes through their own CLIs
+  npx complex-md impact <path>   what changing a file reaches, against .complex-md/bounds.json
+                                 --json | --strict (exit 1 when a declared bound is exceeded)
   npx complex-md check           report hotspots and untouched co-change partners in the current change
                                  --staged | --base <ref> | --json | --strict (exit 1 on findings)
   npx complex-md signals         print the signals table  (--json | --tsv)
@@ -30,7 +33,8 @@ Keys: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, XAI
 DEEPSEEK_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, TOGETHER_API_KEY; local Ollama via OLLAMA_HOST;
 any OpenAI-compatible endpoint via COMPLEX_MD_BASE_URL (+ COMPLEX_MD_API_KEY).
 Without any of them the prompt bundle goes to .complex-md/prompt.md for the agent you already run.
-Nothing leaves the machine except the signals table and the top hotspot files, in that one call.`;
+Without a key nothing is sent. With one, that call sends the signals and excerpts of up to ten
+hotspot files, about 60,000 characters of code at most, to the provider you chose.`;
 
 async function main() {
   if (cmd === '--version' || cmd === '-v') return console.log(pkg.version);

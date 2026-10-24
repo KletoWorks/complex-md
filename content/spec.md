@@ -267,7 +267,7 @@ compiler, a language server, tree-sitter with resolvers, or a code
 intelligence index, and the spec does not pretend otherwise. The line
 matters in both directions.
 
-What the text level buys: the whole analysis runs locally in seconds on any
+What the text level buys: the whole analysis runs locally on any
 repository in any mix of languages, with no build, no dependency install,
 and no toolchain. That is what lets one `npx` run work on a Go module, a
 pnpm monorepo and a pile of Caddy configs alike.
@@ -459,12 +459,13 @@ editing this file, open lib/route.js and fastify.d.ts alongside it, and run
 Three ways to produce a conforming COMPLEX.md:
 
 1. **The CLI**, the reference implementation. `npx complex-md` builds the
-   dependency graph and reads the history locally (about a second on a
-   1,300-file repository), writes the front matter itself so no number
+   dependency graph and reads the history locally, writes the front
+   matter itself so no number
    passes through a model, and makes one model call for the prose (or hands
    the prompt bundle to the agent you are already using when no API key is
-   set). Nothing but the top hotspot files and the signals table leaves the
-   machine. The same package provides the hooks described
+   set). Without a key it sends nothing. With a key, the one call carries
+   the signals and excerpts of up to ten hotspot files, about 60,000
+   characters in all. The same package provides the hooks described
    under "Enforcement and runtime".
 2. **The skill.** Download the [complex-md skill](/skill) and run it with any
    coding agent inside the repo. Where Node is available the skill runs the
@@ -523,8 +524,8 @@ Stage 3 of generation, in full:
    after the block, unless the file already imports it.
 3. If `.claude/` exists, write `.claude/rules/complex-md.md` with the front
    matter `alwaysApply: false` and a single line `paths:` listing every
-   hotspot and co-change path, comma separated and unquoted (the YAML list
-   form does not load), followed by the block.
+   hotspot and co-change path, comma separated and unquoted, followed by
+   the block.
 4. If `.cursor/` exists, write `.cursor/rules/complex-md.mdc` with the front
    matter `description: COMPLEX.md structural risk map`, `alwaysApply: false`
    and `globs:` listing the same paths, followed by the block.
@@ -674,9 +675,11 @@ that: an algorithm that flags too much loses all impact.
 
 ### Does the whole repo get sent to a model?
 
-No. The signals are computed
-locally by git and grep. Only the signals table and the text of the top 5 to
-10 hotspot files go into the model call, capped around 15k tokens.
+No. The signals are computed locally by git and Node.js. Without a key,
+nothing is sent. With a key, one model call carries the generation prompt,
+the signals table and excerpts of up to ten hotspot files: about 14,000
+characters each and 60,000 in all. On undici that request is about 80,000
+characters, about 20,000 tokens.
 
 ### Can I write one for a repo I do not own?
 

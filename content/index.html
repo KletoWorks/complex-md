@@ -60,8 +60,8 @@ each risky file.</p>
 <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Warns before a change reaches everything that depends on it.</li>
 <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>Keeps files that change together, together.</li>
 </ul>
-<p>Every number on this page comes from a real run. Nothing is uploaded; the
-analysis takes about a second on your machine.</p>
+<p>Every number on this page comes from a real run. The analysis runs on your
+machine.</p>
 </div>
 </section>
 
@@ -72,9 +72,10 @@ analysis takes about a second on your machine.</p>
 the route, for the handler, and for the feature's name. Nothing matched. It
 reported the endpoint as unimplemented and offered to build it.</p>
 <p>The endpoint existed. It was implemented, routed and mounted. One module in
-that package carried a single NUL byte at offset 53248, and grep skips a file
-containing a NUL in silence: no match, no warning, exit 0. Every search had
-stepped over the one file that held the answer.</p>
+that package carried a single NUL byte at offset 53248. ripgrep, the search
+behind Claude Code's Grep tool, skips a file containing a NUL in silence: no
+match, no warning. Every search had stepped over the one file that held the
+answer.</p>
 <p>COMPLEX.md had that module ranked, with a paragraph written about it,
 because the signals come from the dependency graph and the commit history
 rather than from a text search. The file was in the map the whole time.</p>
@@ -89,6 +90,9 @@ where you cannot see.</p>
 <section class="section" id="compatibility">
 <div class="inner narrow">
 <h2>Works with the agents you already use.</h2>
+<p class="lede">Claude Code and Cursor get rules and hooks. OpenHands, Windsurf
+and Cline get rules. Every other agent here reads COMPLEX.md through AGENTS.md
+or its own instructions file.</p>
 </div>
 {{AGENT_MARQUEE}}
 </section>
@@ -142,7 +146,7 @@ commits. Before editing this file, open lib/route.js and fastify.d.ts alongside 
 <a class="example" href="https://github.com/KletoWorks/complex-md/blob/main/examples/fastify-COMPLEX.md"><h3>fastify/fastify</h3><p>A web framework for Node.js. 62 files, 1,871 commits analyzed.</p><div class="meta">JavaScript</div></a>
 <a class="example" href="https://github.com/KletoWorks/complex-md/blob/main/COMPLEX.md"><h3>KletoWorks/complex-md</h3><p>This project, mapping itself.</p><div class="meta">JavaScript</div></a>
 </div>
-<p class="centered"><a href="https://github.com/KletoWorks/complex-md/tree/main/examples">More examples on GitHub</a></p>
+<p class="centered"><a href="#how-to-use">Map your own repository</a></p>
 </div>
 </section>
 
@@ -159,7 +163,7 @@ hand it to any coding agent. It does the same analysis with git alone.</p>
 <p>A note in your agent files. Rules that wake up when a risky file is
 opened. Where your agent supports it, a pause before the first risky edit.</p>
 <h3>4. Run it again after big changes</h3>
-<p>The map rebuilds in a second. Commit it with your change.</p>
+<p>Run <code>npx complex-md</code> again and commit the new map with your change.</p>
 </div>
 </section>
 
@@ -171,7 +175,10 @@ to work. Nothing tells them where the danger is.</p>
 <p>That gap costs every team the same bugs, twice. COMPLEX.md closes it: an
 open format any repository can adopt in a minute, and a standard we believe
 every codebase should carry.</p>
-<p>If your agent reads it, your code gets safer. Help make that normal.</p>
+<p>Agents follow it. On two repositories with no shared tasks, agents ran the
+tests the map names on 14 of 15 risky edits, against 3 of 17 without it.
+<a href="https://github.com/KletoWorks/complex-md/blob/main/bench/RESULTS.md">The results</a>
+name the model and every run.</p>
 </div>
 </section>
 
@@ -180,13 +187,13 @@ every codebase should carry.</p>
 <h2>FAQ</h2>
 <div class="faq-list">
 <details class="faq-item"><summary>How is this different from AGENTS.md?</summary><p>AGENTS.md says how to work in the project. COMPLEX.md says where the risk is. They link to each other.</p></details>
-<details class="faq-item"><summary>Do I need an API key?</summary><p>No. With one, the tool writes the explanations itself. Without one, your agent does. Your code never leaves your machine.</p></details>
+<details class="faq-item"><summary>Do I need an API key?</summary><p>No. Without a key, your agent writes the explanations and the tool sends nothing. With a key, the tool writes them in one call to the provider you chose. That call carries the computed signals and excerpts of up to ten hotspot files, about 60,000 characters of code at most.</p></details>
 <details class="faq-item"><summary>What does the score mean?</summary><p>A ranking, not a prediction. Higher means an edit has more ways to go wrong. The <a href="/spec/">spec</a> shows the formula.</p></details>
 <details class="faq-item"><summary>What about languages it cannot read?</summary><p>They are listed under <code>blind_spots</code>, and the file says so when they dominate.</p></details>
-<details class="faq-item"><summary>What if a file is unreadable by grep?</summary><p>A single NUL byte makes grep treat a source file as binary and skip it in silence. Those files are named under <code>blind_spots</code>, with <code>git grep -I --text</code> as the way to read them.</p></details>
+<details class="faq-item"><summary>What if a search cannot read a file?</summary><p>A single NUL byte makes ripgrep, which Claude Code's Grep tool runs, treat a source file as binary and skip it with no match and no warning. GNU grep prints "binary file matches" and not the line. Those files are named under <code>blind_spots</code>, with <code>git grep -I --text</code> as the way to read them.</p></details>
 <details class="faq-item"><summary>Can I write one by hand?</summary><p>Yes. Plain markdown with a YAML header. The <a href="/articles/write-complex-md-by-hand/">walkthrough</a> takes seven git commands.</p></details>
 <details class="faq-item"><summary>npx says "No versions available". Why?</summary><p>Your npm config sets <code>min-release-age</code>, which refuses packages published this week. Run <code>npm_config_min_release_age=0 npx -y complex-md</code> once.</p></details>
-<details class="faq-item"><summary>How do I keep it out of my agent's way?</summary><p><code>--no-hooks</code> skips the edit pause. <code>--no-wire</code> only writes the file. Everything added is marked and safe to remove.</p></details>
+<details class="faq-item"><summary>How do I keep it out of my agent's way?</summary><p><code>--no-hooks</code> skips the edit pause. <code>--no-wire</code> only writes the file. A full run appends one section, headed "COMPLEX.md: the structural risk map", to <code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>GEMINI.md</code> and <code>.github/copilot-instructions.md</code> where they exist, and an <code>@COMPLEX.md</code> line to <code>CLAUDE.md</code>. It creates <code>AGENTS.md</code> when none of them exists, and <code>CLAUDE.md</code> when <code>.claude/</code> exists without one. For each agent it finds, it writes rule files named <code>complex-md</code> in <code>.claude/rules/</code>, <code>.cursor/rules/</code>, <code>.agents/skills/</code>, <code>.windsurf/rules/</code>, <code>.clinerules/</code> or <code>.roo/rules/</code>, and <code>complex-md hook</code> entries in <code>.claude/settings.json</code> and <code>.cursor/hooks.json</code>. To remove it, delete those.</p></details>
 </div>
 </div>
 </section>
