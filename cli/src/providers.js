@@ -5,7 +5,7 @@
 // pin (together, ollama, custom) require an explicit --model, which is an
 // error message, not a guess.
 export const PROVIDERS = [
-  { name: 'anthropic', env: 'ANTHROPIC_API_KEY', model: 'claude-sonnet-5' },
+  { name: 'anthropic', env: 'ANTHROPIC_API_KEY', model: 'claude-sonnet-5-5' },
   { name: 'openai', env: 'OPENAI_API_KEY', base: 'https://api.openai.com/v1', model: 'gpt-5.6-terra' },
   { name: 'openrouter', env: 'OPENROUTER_API_KEY', base: 'https://openrouter.ai/api/v1', model: 'deepseek/deepseek-v4-pro', headers: { 'HTTP-Referer': 'https://complex.md', 'X-Title': 'complex-md' } },
   { name: 'gemini', env: 'GEMINI_API_KEY', base: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-3.6-flash' },

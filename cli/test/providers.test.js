@@ -13,7 +13,7 @@ test('detection: first provider in table order with a key set wins', () => {
 test('anthropic outranks everything and keeps its default model', () => {
   const r = resolveProvider({ env: { ANTHROPIC_API_KEY: 'a', OPENAI_API_KEY: 'o', XAI_API_KEY: 'x' } });
   assert.equal(r.name, 'anthropic');
-  assert.equal(r.model, 'claude-sonnet-5');
+  assert.equal(r.model, 'claude-sonnet-5-5');
 });
 
 test('nothing configured resolves to null, never a guess', () => {
