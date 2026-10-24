@@ -21,8 +21,8 @@ The CLI writes the front matter from its own computation, so no number
 passes through a language model. It then gets the prose in 1 of 2 ways:
 
 1. With an API key, it makes 1 model call. The call carries the generation
-   prompt, the signals table and excerpts of up to 10 hotspot files, about
-   60,000 characters in all.
+   prompt, the signals table and excerpts of up to 10 hotspot files. The
+   excerpts hold at most 60,000 characters.
 2. With no key, it sends nothing. It writes a prompt bundle for the agent
    that the user already runs, and that agent writes the prose.
 
