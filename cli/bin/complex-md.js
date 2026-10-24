@@ -48,6 +48,8 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  --json | --strict (exit 1 when a declared bound is exceeded)
   npx complex-md check           report hotspots, untouched co-change partners and hand edited briefs in the change
                                  --staged | --base <ref> | --json | --strict (exit 1 on findings)
+  npx complex-md verify          recompute the signals and compare them with COMPLEX.md, no model call
+                                 exit 0 fresh, 1 drift past tolerance, 2 cannot verify  (--json)
   npx complex-md signals         print the signals table  (--json | --tsv)
   npx complex-md report          render COMPLEX.md as a page: .complex-md/report.html (treemap, directives,
                                  co-change, blind spots); one self contained file, no network
@@ -159,6 +161,16 @@ async function main() {
     if (flag('--json')) console.log(JSON.stringify(f, null, 2));
     else console.log(formatCheck(f));
     if (flag('--strict') && !f.clean) process.exit(1);
+    return;
+  }
+
+  if (cmd === 'verify') {
+    const { verifyMap, formatVerify } = await import('../src/verify.js');
+    const r = verifyMap(root);
+    if (flag('--json')) console.log(JSON.stringify(r, null, 2));
+    else if (r.status === 'error') log(formatVerify(r));
+    else console.log(formatVerify(r));
+    process.exitCode = r.status === 'fresh' ? 0 : r.status === 'drift' ? 1 : 2;
     return;
   }
 
