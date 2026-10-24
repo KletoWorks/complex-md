@@ -26,3 +26,11 @@ test('every workflow action is pinned by a full commit SHA with its version besi
   assert.ok(workflows().length > 0, 'the repository has workflows');
   assert.deepEqual(bad, [], 'pin as owner/repo@<40 hex SHA> # vX.Y.Z');
 });
+
+/* A workflow with no permissions block gets the repository's default
+   token, which can be read and write. Each workflow states its own. */
+test('every workflow declares its token permissions at the top level', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const missing = workflows().filter((f) => !/^permissions:/m.test(readFileSync(join(WORKFLOWS, f), 'utf8')));
+  assert.deepEqual(missing, [], 'add a top level permissions: block');
+});
