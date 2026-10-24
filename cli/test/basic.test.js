@@ -306,6 +306,8 @@ test('blind spots name source files that a NUL byte hides from ripgrep and grep'
   // its backslash, so the note carries none.
   assert.doesNotMatch(note, /"/);
   assert.doesNotMatch(note, /grep treats/);
+  // The file list reads as its own clause after the colon.
+  assert.match(note, /no line: \S/);
 });
 
 /* Wiring must never look like it owns the repository's conventions. Two

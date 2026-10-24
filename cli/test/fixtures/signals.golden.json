@@ -147,7 +147,7 @@
   },
   "conventions": [],
   "blind_spots": [
-    "1 source file contains a NUL byte, so ripgrep, which Claude Code's Grep tool runs, skips it with no match and no warning, and GNU grep prints a binary file notice and no line:src/opaque.js. Search with git grep -I --text, and fix the byte: it is almost always a separator that should have been written as an escape."
+    "1 source file contains a NUL byte, so ripgrep, which Claude Code's Grep tool runs, skips it with no match and no warning, and GNU grep prints a binary file notice and no line: src/opaque.js. Search with git grep -I --text, and fix the byte: it is almost always a separator that should have been written as an escape."
   ],
   "profile": {
     "files_total": 13,
