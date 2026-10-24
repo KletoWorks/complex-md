@@ -11,6 +11,12 @@ const opt = (name) => {
 };
 const log = (s) => process.stderr.write(s + '\n');
 
+/* The MCP server ships as complex-md-mcp, so a plain `npx complex-md`
+   installs no dependency at all. Both old ways in say where it went. */
+const MCP_MOVED = `complex-md: the MCP server ships as its own package, complex-md-mcp, so this one installs with no dependencies.
+  register it with your agents:  npx -y complex-md-mcp@${pkg.version} register [--for claude,cursor,codex,openclaw,hermes]
+  or keep it in the project:     npm install --save-dev complex-md-mcp@${pkg.version}`;
+
 const HELP = `complex-md ${pkg.version}  https://complex.md
 
   npx complex-md                 generate COMPLEX.md, then wire it in (rules per hot path, hooks)
@@ -26,6 +32,8 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  exit 0 fresh, 1 drift past tolerance, 2 cannot verify  (--json)
   npx complex-md signals         print the signals table  (--json | --tsv)
   npx complex-md hook <kind>     hook handler: pre | stop | cursor-pre | cursor-stop   [--mode gate|warn|off]
+
+The MCP server is a separate package: npx complex-md-mcp --help
 
 Model call: the first configured provider wins, or pick one with --provider / --model provider/id.
 Keys: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, XAI_API_KEY,
@@ -43,11 +51,18 @@ async function main() {
     return runHook(args[0], args.slice(1));
   }
 
-  // Global MCP registries (openclaw, hermes) launch the server from an
-  // arbitrary cwd; --root pins it to the repository it was wired for.
+  // An agent config written before the split starts the server as
+  // `complex-md mcp`. Hand over to complex-md-mcp when it is installed next
+  // to this package; otherwise say how to get it, on stderr only, because
+  // an MCP client reads stdout as protocol.
   if (cmd === 'mcp') {
-    const { serveStdio } = await import('../src/mcp.js');
-    return serveStdio(opt('--root') || process.cwd());
+    let server = null;
+    try {
+      server = await import('complex-md-mcp');
+    } catch {}
+    if (server?.serveStdio) return server.serveStdio(opt('--root') || process.cwd());
+    log(MCP_MOVED);
+    process.exit(2);
   }
 
   const root = repoRoot(process.cwd());
@@ -119,9 +134,11 @@ async function main() {
     return;
   }
 
+  if (flag('--mcp')) log(MCP_MOVED);
+
   if (cmd === 'wire') {
     const { wire } = await import('../src/wire.js');
-    wire(root, { hooks: !flag('--no-hooks'), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
+    wire(root, { hooks: !flag('--no-hooks'), agents: opt('--for')?.split(','), log });
     return;
   }
 
@@ -130,7 +147,7 @@ async function main() {
     const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), log });
     if (r.written && !flag('--no-wire')) {
       const { wire } = await import('../src/wire.js');
-      wire(root, { hooks: !flag('--no-hooks'), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
+      wire(root, { hooks: !flag('--no-hooks'), agents: opt('--for')?.split(','), log });
     }
     return;
   }

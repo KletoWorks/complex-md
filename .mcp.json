@@ -3,7 +3,7 @@
     "complex-md": {
       "command": "node",
       "args": [
-        "cli/bin/complex-md.js",
+        "packages/complex-md-mcp/bin/complex-md-mcp.js",
         "mcp"
       ]
     }

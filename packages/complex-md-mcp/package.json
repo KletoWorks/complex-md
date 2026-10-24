@@ -1,0 +1,51 @@
+{
+  "name": "complex-md-mcp",
+  "version": "0.9.2",
+  "description": "MCP server for COMPLEX.md: six tools a coding agent calls mid-task to look up a file's risk, blast radius, references and covering tests. The map comes from complex-md.",
+  "license": "MIT",
+  "author": "James L. Cowan Jr.",
+  "homepage": "https://complex.md",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KletoWorks/complex-md.git",
+    "directory": "packages/complex-md-mcp"
+  },
+  "type": "module",
+  "bin": {
+    "complex-md-mcp": "bin/complex-md-mcp.js"
+  },
+  "exports": {
+    ".": "./src/server.js",
+    "./register": "./src/register.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "coding-agents",
+    "claude-code",
+    "cursor",
+    "codex",
+    "hotspots",
+    "COMPLEX.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "complex-md": "^0.9.2",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "complex-md": "file:../../cli"
+  }
+}

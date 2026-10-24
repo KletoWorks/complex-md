@@ -6,9 +6,9 @@ import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { buildServer } from '../src/mcp.js';
-import { computeSignals } from '../src/signals.js';
-import { frontMatter } from '../src/generate.js';
+import { buildServer } from '../src/server.js';
+import { computeSignals } from 'complex-md/src/signals.js';
+import { frontMatter } from 'complex-md/src/generate.js';
 
 function makeRepo() {
   const dir = mkdtempSync(join(tmpdir(), 'cx-mcp-'));

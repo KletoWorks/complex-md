@@ -1,7 +1,7 @@
 {
   "name": "complex-md",
   "version": "0.9.2",
-  "description": "COMPLEX.md: a computed map of where edits are risky and where bugs get fixed, for coding agents. Signals from git, hooks that gate hotspot edits, an MCP server agents query mid-task.",
+  "description": "COMPLEX.md: a computed map of where edits are risky and where bugs get fixed, for coding agents. Signals from git, hooks that gate hotspot edits, a drift check for CI. No runtime dependencies; the MCP server is the complex-md-mcp package.",
   "license": "MIT",
   "author": "James L. Cowan Jr.",
   "homepage": "https://complex.md",
@@ -36,9 +36,5 @@
   "scripts": {
     "prepack": "node scripts/sync-prompts.mjs",
     "test": "node --test"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
-    "zod": "^3.25.0"
   }
 }
