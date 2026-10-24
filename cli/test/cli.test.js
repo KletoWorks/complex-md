@@ -3,7 +3,7 @@
 // nothing from git itself.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +22,23 @@ test('a fresh git init with no commits exits 2 with the no-commits message', () 
   assert.equal(r.status, 2);
   assert.equal(r.stderr.trim(), 'complex-md: this repository has no commits yet; the map needs history. Make a first commit and run again.');
   assert.ok(!/fatal:/.test(r.stderr + r.stdout), 'no raw git error leaks');
+});
+
+test('a run with no provider key writes COMPLEX.md with template prose and wires it', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-nokey-'));
+  const env = { GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' };
+  const g = (...a) => spawnSync('git', a, { cwd: dir, env: { ...process.env, ...env } });
+  g('init', '-q');
+  mkdirSync(join(dir, 'src'));
+  writeFileSync(join(dir, 'src/a.js'), 'export const a = 1;\n');
+  writeFileSync(join(dir, 'src/b.js'), "import { a } from './a.js';\nexport const b = a;\n");
+  g('add', '.');
+  g('commit', '-q', '-m', 'init');
+  const clean = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/_API_KEY$|^COMPLEX_MD_|^OLLAMA_HOST$/.test(k)));
+  const r = spawnSync(process.execPath, [BIN, 'generate'], { cwd: dir, encoding: 'utf8', env: { ...clean, GIT_CEILING_DIRECTORIES: dirname(dir) } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(readFileSync(join(dir, 'COMPLEX.md'), 'utf8'), /^prose: template$/m);
+  assert.match(readFileSync(join(dir, 'AGENTS.md'), 'utf8'), /## COMPLEX\.md: the structural risk map/);
 });
 
 test('outside a git repository exits 2 with the not-a-repository message and no git stderr', () => {
