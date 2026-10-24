@@ -82,7 +82,7 @@ test('scoreRuns pairs edits by task and file and compares each arm with none', a
   assert.equal(cmp.p, 0.5);
 });
 
-test('the committed runs reproduce claim 1: 14 of 15 edits with the map, 3 of 17 without', async (t) => {
+test('the committed runs reproduce the compliance result: 14 of 15 edits with the map, 3 of 17 without', async (t) => {
   if (!existsSync(BENCH) || !existsSync(join(RESULTS, 'undici-damage/runs.jsonl'))) return t.skip('bench results are not in this checkout');
   const { scoreDir, compareArms, poolUnits } = await load();
   const undici = scoreDir(join(RESULTS, 'undici-damage'), dataset('undici-danger.json'));

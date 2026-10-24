@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// E1, the test selection backtest. For each bug fix commit, at the fix's
+// The test selection backtest. For each bug fix commit, at the fix's
 // parent: which test files would each selector tell an agent to run for
 // the files the fix changed, and does that set contain the test files the
 // fix itself changed. No model, no agent: the graph and the history.
