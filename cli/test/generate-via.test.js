@@ -119,6 +119,14 @@ test('the bin passes --via and --via-timeout, and names every CLI in --help', { 
   for (const n of VIA_NAMES) assert.ok(help.includes(n), `--help names ${n}`);
 });
 
+test('npx complex-md --via claude runs generate with no command word', { skip: !posix }, () => {
+  const root = makeRepo();
+  const r = spawnSync(process.execPath, [BIN, '--via', 'claude', '--no-wire'], { cwd: root, env: { ...process.env, PATH: stubPath() }, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(r.stderr, /unknown command/);
+  assert.ok(readFileSync(join(root, 'COMPLEX.md'), 'utf8').endsWith(PROSE));
+});
+
 test('a bare --via is refused before any provider is picked', { skip: !posix }, () => {
   // Without the guard, "generate --via" with no name fell through to the
   // provider call and sent the bundle with whatever key was set. The key
