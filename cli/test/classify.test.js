@@ -138,3 +138,12 @@ test('build/ named as output by tsconfig outDir or package exports stays generat
   assert.equal(g.kinds.get('packages/ui/build/index.mjs'), 'generated');
   assert.equal(g.kinds.get('packages/ui/src/index.ts'), 'source');
 });
+
+test('a NUL byte in a script under a build/ directory that is not output is still reported', () => {
+  const g = graphOf({
+    'package.json': '{ "name": "x", "main": "dist/index.js" }',
+    'build/release.js': "const SEP = '\u0000';\n",
+    'dist/index.js': "const SEP = '\u0000';\n",
+  });
+  assert.deepEqual(g.grepBlind, ['build/release.js']);
+});

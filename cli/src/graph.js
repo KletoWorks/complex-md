@@ -299,7 +299,7 @@ export function buildGraph(root, tracked) {
          hides a file that grep is also skipping without a word, so the
          repository ends up with a module nothing can find. Classify it as an
          asset as before, and say so. */
-      if (TEXT_KINDS.has(classify(f))) grepBlind.push(f);
+      if (TEXT_KINDS.has(classify(f, null, ctx))) grepBlind.push(f);
       kinds.set(f, 'asset');
       continue;
     }
