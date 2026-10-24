@@ -32,6 +32,7 @@ import { wire } from '../cli/src/wire.js';
 import { detectRunner, listTestFiles, runSuite, confirm, goldTestFiles } from './suite.mjs';
 import { createMeter, newMetrics, behaviour } from './agent-events.mjs';
 import { isolatedCheckout, fileAt, fixSourceDiff, applyPatch } from './isolate.mjs';
+import { mapAnchor, assertMapUsable, commitTime } from './maps.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '../cli/bin/complex-md.js');
@@ -79,12 +80,29 @@ const sh = (cmd, a, cwd) => {
 const untracked = (wt) => sh('git', ['ls-files', '--others', '--exclude-standard', '-z'], wt).split('\0').filter(Boolean);
 const log = (s) => process.stderr.write(`${new Date().toISOString().slice(11, 19)} ${s}\n`);
 
-/** COMPLEX.md as of the task's base commit. One map per calendar month of base dates: maps are regenerated periodically, not per commit. */
-async function mapFor(task, wt) {
-  const key = `${(dataset.repo || 'repo').replace('/', '-')}-${task.date.slice(0, 7)}.md`;
+/* COMPLEX.md as a user would have had it at the task's base commit. One map
+   per calendar month of task dates, built at the oldest base of that month
+   in the whole dataset (bench/maps.mjs), and refused for a task whose base
+   does not have that commit in its history. The cache key names the commit
+   the map was built at, so a map cached under the old rule is never read. */
+const commitTimes = new Map();
+const timeOf = (sha) => { if (!commitTimes.has(sha)) commitTimes.set(sha, commitTime(dataset.path, sha)); return commitTimes.get(sha); };
+
+async function mapFor(task) {
+  const anchor = mapAnchor(dataset.tasks, task, timeOf);
+  assertMapUsable(dataset.path, anchor, task);
+  const month = task.date.slice(0, 7);
+  const key = `${(dataset.repo || 'repo').replace('/', '-')}-${month}-${anchor.slice(0, 10)}.md`;
   const cached = join(cacheDir, 'maps', key);
-  if (existsSync(cached)) return readFileSync(cached, 'utf8');
-  log(`generating map for ${task.date.slice(0, 7)} at ${task.base.slice(0, 10)}`);
+  if (existsSync(cached)) return { text: readFileSync(cached, 'utf8'), anchor };
+  log(`generating map for ${month} at ${anchor.slice(0, 10)}`);
+  const wt = isolatedCheckout(dataset.path, anchor, join(workRoot, `.map-${anchor.slice(0, 12)}`));
+  try {
+    return { text: await writeMap(wt, cached), anchor };
+  } finally { rmSync(wt, { recursive: true, force: true }); }
+}
+
+async function writeMap(wt, cached) {
   const sig = computeSignals(wt);
   const { bundle, frontMatter } = buildBundle(wt, sig, 'complex-md/bench');
   let text;
@@ -189,7 +207,7 @@ function frontMatterOnly(text) {
 
 async function armSetup(task, arm, wt) {
   if (arm === 'none' || arm === 'gold') return;
-  const full = await mapFor(task, wt);
+  const { text: full, anchor } = await mapFor(task);
   writeFileSync(join(wt, 'COMPLEX.md'), arm === 'front' ? frontMatterOnly(full) : full);
   wire(wt, { agents: ['claude'], hooks: arm === 'hooks' || arm === 'mcp', mcp: arm === 'mcp', block: skillText });
   // The package is not on npm yet: hooks and MCP call this checkout's binary.
@@ -200,6 +218,7 @@ async function armSetup(task, arm, wt) {
   // The map is context, not a change the agent made.
   sh('git', ['add', '-A'], wt);
   sh('git', ['-c', 'user.email=bench@complex.md', '-c', 'user.name=bench', 'commit', '-q', '-m', 'bench: COMPLEX.md and wiring'], wt);
+  return anchor;
 }
 
 /* No instruction about tests: whether the agent checks what its change
@@ -321,10 +340,10 @@ for (const task of tasks) {
       /* A failure setting up or driving one run is that run's error, recorded
          as a row, and the pass continues. Before this, a transient exception
          here ended the whole pass. */
-      let m, baseline, before = null;
+      let m, baseline, before = null, mapCommit = null;
       try {
         baseline = await baselineFor(task, wt);
-        await armSetup(task, arm, wt);
+        mapCommit = (await armSetup(task, arm, wt)) ?? null;
         before = new Set(untracked(wt));
         m = arm === 'gold' ? goldRun(task, wt) : await runAgent(task, arm, wt);
       } catch (e) {
@@ -353,7 +372,7 @@ for (const task of tasks) {
       const damage = suiteOn && baseline && !m.error ? await runDamage(task, wt, baseline) : null;
       const success = stopAt === 'none' ? runGoldTests(task, wt) : null;
       const conduct = baseline ? behaviour(edited, m, baseline.risky, wt) : null;
-      const rec = { task: task.id, arm, agent, model: model ?? m.agent_model ?? null, skill: skillText ? createHash('sha1').update(skillText).digest('hex').slice(0, 10) : null, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
+      const rec = { task: task.id, arm, agent, model: model ?? m.agent_model ?? null, skill: skillText ? createHash('sha1').update(skillText).digest('hex').slice(0, 10) : null, map_commit: mapCommit, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
       appendFileSync(runsPath, JSON.stringify(rec) + '\n');
       log(`  steps ${m.steps}, first gold read at ${m.first_gold_read ?? '-'}, gold edited ${rec.gold_edited}, success ${rec.success ?? '-'}, regressions ${rec.regressed_tests ?? '-'}, tests run by agent ${m.agent_test_runs}, $${m.cost_usd?.toFixed(3) ?? '?'}${m.gate_fired ? `, gate x${m.gate_fired}` : ''}${m.error ? `, error: ${m.error}` : ''}`);
     } finally {
