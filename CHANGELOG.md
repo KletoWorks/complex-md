@@ -32,16 +32,18 @@ call". In a terminal the run asks once; `--yes` skips the question, and a
 stdin that is not a terminal never blocks. `.complex-md/*` goes into
 `.gitignore` when generate or report writes there, and
 `.complex-md/bounds.json` stays committable. A run ends with one computed
-fact and https://complex.md/?utm_source=cli. A first argument that is a flag
-runs generate, so `npx complex-md --yes` works.
+fact and https://complex.md/?utm_source=cli. The plan also lists the files a
+global target such as openclaw writes into the repository. A first argument
+that is a flag runs generate, so `npx complex-md --yes` works.
 
 **Change:** `generate --via <cli>` writes the prose with an agent CLI the
 user already runs: claude, codex, gemini, opencode, qwen, kimi, crush, goose,
-cursor-agent, copilot, hermes or openclaw. It runs the user's own binary
-once in its print mode, under the user's own login, with an argument array
-and no shell, and in a read only or plan mode where the CLI has one. The
-reply is written only if it keeps the computed front matter, has the four
-sections and names no path the repository lacks. A CLI that writes
+cursor-agent, copilot, hermes or openclaw. It runs the user's own binary once
+in its print mode, under the user's own login, with an argument array and no
+shell, and in a read only or plan mode where the CLI has one. The reply is
+written only if it keeps the computed front matter, has the four sections and
+names no path the repository lacks. A backticked code name such as
+`ky.create` or `json.dumps` does not count as a path. A CLI that writes
 COMPLEX.md itself has the previous file put back. The run stops after 600 s
 (`--via-timeout`), and Ctrl-C stops the agent CLI too. A bare `--via` is
 refused before any provider is picked. hermes runs as `hermes chat --source
@@ -76,20 +78,23 @@ This repository no longer commits its own hooks or `.mcp.json`.
 **Change:** classification and graph fixes. testing.py, test_utils.py,
 conftest.py, helpers.py and spec_helper.rb are no longer covering tests
 unless pytest's `python_files` names them; on flask, src/flask/testing.py is
-now source and 6 test files cover it. Code under data/ ranks. build/ and out/
-count as generated only when a package.json or a tsconfig names them as
-output. Python `from M import x` resolves to the submodule x, also in
-commented, continued and trailing comma lists; on flask the fan_in of
-`__init__.py` goes from 9 to 5. `require('..')`, `'.'` and `'../lib/'`
-resolve through package.json main, then the index file. A blobless clone
-reads history with exact renames only: 0.48 s instead of 10.2 s on a fresh
-flask clone. A treeless clone skips history and adds a blind spot with the
-refetch command. Brief scopes escape `[ ] { } * ?` and commas, so
-`app/[id]/page.tsx` scopes to itself. Quoted front matter values read back
-without escapes, a top level `@types/` path no longer splits a commit, and
-`--help` builds its `--for` list from the target table. With the graph
-fixed, the selector backtest's direct list names 35% of fix tests at 6% of
-the suite, where 0.10.0 reported 29% at 3%. No selector meets the bar.
+now source and 6 test files cover it. `python_files` applies only under the
+`testpaths` of the same config, so `python_files = *.py` no longer makes
+every module a test. test.<ext> and tests.<ext>, such as a Rust tests.rs,
+stay tests. Code under data/ ranks. build/ and out/ count as generated only
+when a package.json or a tsconfig names them as output. Python `from M import
+x` resolves to the submodule x, also in commented, continued and trailing
+comma lists; on flask the fan_in of `__init__.py` goes from 9 to 5.
+`require('..')`, `'.'` and `'../lib/'` resolve through package.json main,
+then the index file. A blobless clone reads history with exact renames only:
+0.48 s instead of 10.2 s on a fresh flask clone. A treeless clone skips
+history and adds a blind spot with the refetch command. Brief scopes escape
+`[ ] { } * ?` and commas, so `app/[id]/page.tsx` scopes to itself. Quoted
+front matter values read back without escapes, a top level `@types/` path no
+longer splits a commit, and `--help` builds its `--for` list from the target
+table. With the graph fixed, the selector backtest's direct list names 35% of
+fix tests at 6% of the suite, where 0.10.0 reported 29% at 3%. No selector
+meets the bar.
 
 **Change:** the skill installs as a package in four tools from one template,
 with no hooks and no MCP server: a Claude Code plugin with its own
@@ -104,17 +109,19 @@ repository at the task's base with no remotes, tags or reflog, and the
 harness refuses a run that holds any later object. Each agent runs in its own
 network, mount and PID namespaces, reaches only the model API through a
 proxy, and gets `--disallowedTools WebFetch,WebSearch` and no MCP servers or
-connectors. One recorded agent had fetched upstream main with a Node
-`fetch`. A seeded leak test plants a marker in every later commit, ref and on
-a loopback server, and no route reaches it. Each month's map is built at the
-oldest base in that month; before, 8 of 30 undici tasks got a map built after
-their own fix. A budget, turn or time cap is judged as a stop, not dropped.
-`--arms gold` judges the real fix with no agent, and the `mcp` arm is
-retired. The node install's built in undici remains readable to an agent, so
-undici results carry that limit. `bench/models.mjs` scores maps from 15
-models on 3 pinned repositories with 6 deterministic checks. It prices the
-run before the first call and refuses a `--budget` or `--max-tokens` that is
-not a number and a model with no fixed price.
+connectors. The agent command is resolved on PATH before the mounts are
+masked, so an install whose PATH entry is a symlink still starts. One
+recorded agent had fetched upstream main with a Node `fetch`. A seeded leak
+test plants a marker in every later commit, ref and on a loopback server, and
+no route reaches it. Each month's map is built at the oldest base in that
+month; before, 8 of 30 undici tasks got a map built after their own fix. A
+budget, turn or time cap is judged as a stop, not dropped. `--arms gold`
+judges the real fix with no agent, and the `mcp` arm is retired. The node
+install's built in undici remains readable to an agent, so undici results
+carry that limit. `bench/models.mjs` scores maps from 15 models on 3 pinned
+repositories with 6 deterministic checks. It prices the run before the first
+call and refuses a `--budget` or `--max-tokens` that is not a number and a
+model with no fixed price.
 
 **Change:** the repository has a security policy with a private report path
 and a 7 day first answer, the Contributor Covenant 2.1, issue forms for a
