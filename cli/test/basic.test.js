@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { parseComplexMd, parseFrontMatter } from '../src/complexmd.js';
@@ -347,6 +347,35 @@ test('the NUL blind spot ignores binary formats and fixture or data paths', () =
   assert.match(note, /src\/late\.js/);
   assert.match(note, /tests\/test_parse\.py/);
   for (const f of ['sherlock', 'django.mo', 'archive.tar', 'payload.py', 'input.go', '__mocks__']) assert.ok(!note.includes(f), `${f} is not a source file to fix`);
+});
+
+/* A data/ folder outside a test tree is application code: src/data/ holds
+   loaders and schemas, not fixtures. Only data folders inside a test tree
+   are exempt. */
+test('the NUL blind spot exempts data folders inside test trees only', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-nul-data-'));
+  const g = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' } });
+  g('init', '-q');
+  const files = {
+    'src/data/x.ts': 'export const s = "a\0b";\n',
+    'lib/datasets/load.py': 'S = "a\0b"\n',
+    'app/seed-data/seed.js': 'export const s = "\0";\n',
+    'tests/data/blob.py': 'B = "\0"\n',
+    'test/unit/data/case.js': 'export const b = "\0";\n',
+    'spec/datasets/rows.rb': 'R = "\0"\n',
+  };
+  for (const [p, s] of Object.entries(files)) {
+    mkdirSync(join(dir, dirname(p)), { recursive: true });
+    writeFileSync(join(dir, p), s);
+  }
+  g('add', '.');
+  g('commit', '-q', '-m', 'init');
+
+  const note = computeSignals(dir).blind_spots.find((b) => /NUL byte/.test(b));
+  assert.ok(note, 'source under a data folder outside tests is reported');
+  assert.match(note, /3 source files contain/);
+  for (const f of ['src/data/x.ts', 'lib/datasets/load.py', 'app/seed-data/seed.js']) assert.ok(note.includes(f), `${f} is application code`);
+  for (const f of ['tests/data/blob.py', 'test/unit/data/case.js', 'spec/datasets/rows.rb']) assert.ok(!note.includes(f), `${f} is a test fixture`);
 });
 
 /* Wiring must never look like it owns the repository's conventions. Two

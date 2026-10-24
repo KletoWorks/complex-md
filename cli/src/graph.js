@@ -30,9 +30,11 @@ const MAX_READ = 1024 * 1024;
    test directory holds binary fixtures by design: compressed corpora,
    compiled .mo catalogs, archives. One repository listed 93 of them and
    advised fixing the byte in each. A file counts only when its extension
-   is a code extension and it sits outside a fixture or data directory. */
-const FIXTURE_DIR_RE = /(^|\/)(fixtures?|testdata|test[_-]?data|__fixtures__|__snapshots__|data|datasets?|seed-data|mocks?|__mocks__)\//;
-const CODE_KINDS = new Set(['source', 'style', 'markup', 'test']);
+   is a code extension and it sits outside a fixture tree. A data folder is
+   a fixture tree only inside a test tree: src/data/ holds application
+   code, and classify gives it the data kind by its folder alone. */
+const FIXTURE_DIR_RE = /(^|\/)(fixtures?|testdata|test[_-]?data|__fixtures__|__snapshots__|mocks?|__mocks__)\/|(^|\/)(tests?|__tests__|specs?)\/(.+\/)?(data|datasets?|seed-data)\//;
+const CODE_KINDS = new Set(['source', 'style', 'markup', 'test', 'data']);
 
 function namesAsGrepBlind(path, kind) {
   return CODE_KINDS.has(kind) && (SOURCE_EXT_RE.test(path) || STYLE_RE.test(path) || MARKUP_RE.test(path)) && !FIXTURE_DIR_RE.test(path);
