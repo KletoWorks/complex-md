@@ -96,3 +96,17 @@ test('the pull request template asks for the change, the test and an AI disclosu
   assert.match(s, /CONTRIBUTING\.md#ai-assistance/);
   assert.match(read('CONTRIBUTING.md'), /^## AI assistance$/m, 'CONTRIBUTING.md has the section the template links to');
 });
+
+/* Scorecard rejects a published result from a workflow with write
+   permissions at the top level, and only its own job may hold id-token. */
+test('the Scorecard workflow publishes with no token permissions at the top level', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const s = read('.github/workflows/scorecard.yml');
+  assert.match(s, /^permissions: \{\}$/m);
+  assert.match(s, /uses: ossf\/scorecard-action@[0-9a-f]{40}/);
+  assert.match(s, /publish_results: true/);
+  assert.match(s, /persist-credentials: false/);
+  for (const f of workflows().filter((w) => w !== 'scorecard.yml' && w !== 'release.yml')) {
+    assert.doesNotMatch(read(`.github/workflows/${f}`), /id-token: write/, `${f} does not ask for id-token`);
+  }
+});
