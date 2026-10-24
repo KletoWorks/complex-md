@@ -3,7 +3,11 @@ import { createRequire } from 'node:module';
 import { repoRoot, hasCommits } from '../src/git.js';
 
 const pkg = createRequire(import.meta.url)('../package.json');
-const [, , cmd = 'generate', ...args] = process.argv;
+/* `npx complex-md --no-wire` is the default command with a flag, so a first
+   argument that is a flag, other than --version and --help, means generate. */
+const argv = process.argv.slice(2);
+const bare = /^-/.test(argv[0] || '') && !['--version', '-v', '--help', '-h'].includes(argv[0]);
+const [cmd = 'generate', ...args] = bare ? ['generate', ...argv] : argv;
 const flag = (name) => args.includes(name);
 const opt = (name) => {
   const i = args.indexOf(name);
