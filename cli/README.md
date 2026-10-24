@@ -68,6 +68,13 @@ Modes: `--mode gate` (default), `--mode warn` (let the edit through with the
 paragraph attached), `--mode off`. Edit the command in `.claude/settings.json`
 or `.cursor/hooks.json`, or set `COMPLEX_MD_GATE`.
 
+A wired hook runs the project's own install (`node_modules/.bin/complex-md`)
+when there is one. Otherwise it runs a `complex-md` found on PATH, and
+otherwise `npx -y --prefer-offline complex-md@<version>`, pinned to the
+version that wired it. With a local install, a hook takes about 80 ms per
+edit. Hooks written by 0.9.2 and earlier ran an unpinned `npx -y complex-md`;
+run `npx complex-md wire` again to rewrite them in the pinned form.
+
 ## Optional: the MCP server (`--mcp`)
 
 Off by default. `wire --mcp` registers it in `.mcp.json`, `.cursor/mcp.json`
@@ -95,7 +102,9 @@ runs it on stdio. Six tools:
                         [--for claude,cursor,openhands,antigravity,codex,copilot,review,devin,windsurf,kiro,cline,openclaw,hermes]
     npx complex-md generate --agent      # write the prompt bundle, no model call
 
-`check --strict` exits 1 on findings, for pre-commit and CI. `check` also
+`check --strict` exits 1 on findings, for pre-commit and CI.
+`check --base <ref>` exits 2 when the ref is not in the checkout. In GitHub
+Actions, check out with `fetch-depth: 0` so `origin/main` exists. `check` also
 names a generated brief that differs from what `wire` writes, since review
 bots read those files from the pull request. `impact --strict`
 exits 1 when a bound in `.complex-md/bounds.json` is exceeded. `wire` detects
