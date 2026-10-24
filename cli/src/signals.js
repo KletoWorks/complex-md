@@ -232,13 +232,17 @@ export function computeSignals(cwd, opts = {}) {
   // the teens and is already excluded as a convention.
   const N = counted || 1;
   const pairMin = Math.min(10, Math.max(3, Math.round(N / 150)));
+  /* `pairFloor` lowers the shared commit cut for a caller that needs the
+     candidates under it (verify compares a listed pair that slipped under
+     the cut). pair_min in the profile stays the cut a map is written with. */
+  const pairFloor = o.pairFloor ?? pairMin;
   const conf = (count, ca, cb) => Math.round((100 * count) / Math.max(Math.min(ca || count, cb || count), count));
   const coChange = [...pairs.entries()]
     .map(([k, count]) => {
       const [a, b] = k.split('\t');
       return { files: [a, b], count, coupling: conf(count, perFile.get(a), perFile.get(b)) };
     })
-    .filter((p) => p.count >= pairMin && p.coupling >= o.minCoupling)
+    .filter((p) => p.count >= pairFloor && p.coupling >= o.minCoupling)
     .sort((a, b) => b.count - a.count || b.coupling - a.coupling || a.files[0].localeCompare(b.files[0]))
     .slice(0, o.pairRows);
   const seams = [...dirPairs.entries()]
@@ -246,7 +250,7 @@ export function computeSignals(cwd, opts = {}) {
       const [a, b] = k.split('\t');
       return { dirs: [a, b], count, coupling: conf(count, perDir.get(a), perDir.get(b)) };
     })
-    .filter((p) => p.count >= pairMin && p.coupling >= o.minCoupling)
+    .filter((p) => p.count >= pairFloor && p.coupling >= o.minCoupling)
     .sort((a, b) => b.count - a.count || b.coupling - a.coupling || a.dirs[0].localeCompare(b.dirs[0]))
     .slice(0, o.seamRows);
 

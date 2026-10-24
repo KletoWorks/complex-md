@@ -119,6 +119,15 @@ test('signals on a synthetic repo: churn, fixes, pairs, fan-in, covering tests, 
   assert.equal(s.window_commits, 6);
 });
 
+test('pairFloor lists the pairs under the shared commit cut and leaves pair_min alone', () => {
+  const dir = makeRepo();
+  const plain = computeSignals(dir);
+  const all = computeSignals(dir, { pairFloor: 1 });
+  assert.deepEqual(plain.co_change.map((c) => c.files.join('+')), ['src/a.js+src/b.js']);
+  assert.ok(all.co_change.some((c) => c.count === 1 && c.files.join('+') === 'README.md+src/a.js'), 'the first commit pairs every file once');
+  assert.equal(all.profile.pair_min, plain.profile.pair_min);
+});
+
 test('file kinds: tests, docs, manifests, generated, vendored, config, style, markup, data, source', async () => {
   const { classify } = await import('../src/graph.js');
   assert.equal(classify('src/app.test.js'), 'test');
