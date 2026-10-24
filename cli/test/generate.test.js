@@ -168,7 +168,7 @@ test('generate: an OpenAI-compatible reply with finish_reason length is never wr
 
 /* Every provider key the resolver reads, cleared for one call, so a key in
    the developer's own shell cannot turn a no-key test into a model call. */
-const KEY_ENV = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'XAI_API_KEY', 'DEEPSEEK_API_KEY', 'MISTRAL_API_KEY', 'GROQ_API_KEY', 'TOGETHER_API_KEY', 'COMPLEX_MD_API_KEY', 'COMPLEX_MD_BASE_URL', 'COMPLEX_MD_PROVIDER', 'COMPLEX_MD_MODEL'];
+const KEY_ENV = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'XAI_API_KEY', 'DEEPSEEK_API_KEY', 'MISTRAL_API_KEY', 'GROQ_API_KEY', 'TOGETHER_API_KEY', 'MOONSHOT_API_KEY', 'DASHSCOPE_API_KEY', 'ZAI_API_KEY', 'MINIMAX_API_KEY', 'FIREWORKS_API_KEY', 'CEREBRAS_API_KEY', 'COMPLEX_MD_API_KEY', 'COMPLEX_MD_BASE_URL', 'COMPLEX_MD_PROVIDER', 'COMPLEX_MD_MODEL'];
 async function withoutKeys(fn) {
   const saved = Object.fromEntries(KEY_ENV.map((k) => [k, process.env[k]]));
   const realFetch = globalThis.fetch;

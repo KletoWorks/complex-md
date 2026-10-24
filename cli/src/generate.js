@@ -9,6 +9,7 @@ import { loadComplexMd } from './complexmd.js';
 import { ignoreWorkDir, gitignoreAction, WORK_DIR } from './gitignore.js';
 import { generatePrompt, promptVersion } from './prompts.js';
 import { resolveProvider, PROVIDERS } from './providers.js';
+import { runVia, viaSelection } from './via.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json');
@@ -211,7 +212,7 @@ function holdsOtherProse(root) {
 
 /* `approve({ files, fallback, mapText })` sees the file plan before the
    first write and returns false to stop the run. */
-export async function generate(root, { model = null, provider = null, agent = false, template = false, approve = async () => true, log = () => {} } = {}) {
+export async function generate(root, { model = null, provider = null, agent = false, template = false, via = null, viaTimeoutMs, approve = async () => true, log = () => {} } = {}) {
   const t0 = Date.now();
   const sig = computeSignals(root);
   log(`signals: ${sig.files_analyzed} files in scope, ${sig.profile.dependency_edges} dependency edges, ${sig.commits_analyzed} commits (${sig.fix_commits} fixes), ${sig.hotspots.length} hotspots, ${sig.co_change.length} pairs, confidence ${sig.profile.confidence}, ${Date.now() - t0} ms`);
@@ -238,7 +239,8 @@ export async function generate(root, { model = null, provider = null, agent = fa
   };
 
   const keys = PROVIDERS.filter((p) => p.env).map((p) => p.env).join(', ');
-  const sel = agent || template ? null : resolveProvider({ model, provider });
+  // --via names an agent CLI on this machine; it replaces the provider call.
+  const sel = agent || template ? null : via ? viaSelection(via, model) : resolveProvider({ model, provider });
   const mode = agent ? 'agent' : sel ? 'model' : !template && holdsOtherProse(root) ? 'keep' : 'template';
 
   /* The file plan, before the first write. `mapText` is the map the wiring
@@ -285,7 +287,7 @@ export async function generate(root, { model = null, provider = null, agent = fa
   let out;
   let r;
   try {
-    r = sel.name === 'anthropic' ? await callAnthropic(bundle, sel.model) : await callOpenAICompat(bundle, sel);
+    r = sel.via ? await runVia(sel.via, { root, bundle, fm, model, timeoutMs: viaTimeoutMs, log }) : sel.name === 'anthropic' ? await callAnthropic(bundle, sel.model) : await callOpenAICompat(bundle, sel);
     out = normalizeOutput(r.text, fm);
   } catch (e) {
     // Network error, non-2xx, malformed body, or prose that is not a map:

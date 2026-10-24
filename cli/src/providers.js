@@ -14,19 +14,33 @@ export const PROVIDERS = [
   { name: 'mistral', env: 'MISTRAL_API_KEY', base: 'https://api.mistral.ai/v1', model: 'mistral-large-latest' },
   { name: 'groq', env: 'GROQ_API_KEY', base: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile' },
   { name: 'together', env: 'TOGETHER_API_KEY', base: 'https://api.together.xyz/v1', model: null },
-  // Local and self-configured endpoints never auto-detect from a key: ollama
-  // opts in via OLLAMA_HOST or --provider, custom via COMPLEX_MD_BASE_URL.
-  { name: 'ollama', env: null, hostEnv: 'OLLAMA_HOST', base: 'http://localhost:11434/v1', model: null },
+  // Open model vendors, as of 2026-10. Base URL, key variable and default
+  // model are the ones each vendor's quickstart uses. Qwen's base is the
+  // DashScope international endpoint; a workspace specific endpoint goes
+  // through custom (COMPLEX_MD_BASE_URL).
+  { name: 'moonshot', env: 'MOONSHOT_API_KEY', base: 'https://api.moonshot.ai/v1', model: 'kimi-k3.1-pro' },
+  { name: 'qwen', env: 'DASHSCOPE_API_KEY', base: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', model: 'qwen3.8-max' },
+  { name: 'zai', env: 'ZAI_API_KEY', base: 'https://api.z.ai/api/paas/v4', model: 'glm-5.3' },
+  { name: 'minimax', env: 'MINIMAX_API_KEY', base: 'https://api.minimax.io/v1', model: 'MiniMax-M3.1-Flash' },
+  { name: 'fireworks', env: 'FIREWORKS_API_KEY', base: 'https://api.fireworks.ai/inference/v1', model: 'accounts/fireworks/models/glm-5p3-flash' },
+  { name: 'cerebras', env: 'CEREBRAS_API_KEY', base: 'https://api.cerebras.ai/v1', model: 'qwen-3.8-27b' },
+  // Explicit only: these never auto-detect. HF_TOKEN is exported for model
+  // downloads as often as for inference, and OLLAMA_HOST for the ollama CLI;
+  // detecting either would send code to a model when the user expected the
+  // no-key bundle. keyEnv is read only after --provider names the entry.
+  { name: 'huggingface', env: null, keyEnv: 'HF_TOKEN', explicit: true, base: 'https://router.huggingface.co/v1', model: 'openai/gpt-oss-120b' },
+  { name: 'ollama', env: null, hostEnv: 'OLLAMA_HOST', explicit: true, base: 'http://localhost:11434/v1', model: null },
+  { name: 'lmstudio', env: null, explicit: true, base: 'http://localhost:1234/v1', model: null },
+  // A self-configured endpoint is detected from COMPLEX_MD_BASE_URL.
   { name: 'custom', env: 'COMPLEX_MD_API_KEY', baseEnv: 'COMPLEX_MD_BASE_URL', model: null },
 ];
 
 const byName = new Map(PROVIDERS.map((p) => [p.name, p]));
 
 function detected(p, env) {
-  // ollama never auto-detects: OLLAMA_HOST is commonly exported for the
-  // ollama CLI itself, and detecting it here would hijack the no-key
-  // agent-bundle fallback. Select it with --provider ollama.
-  if (p.name === 'ollama') return false;
+  // An explicit entry never auto-detects (see the table). Select it with
+  // --provider, or with --model <name>/<id>.
+  if (p.explicit) return false;
   if (p.name === 'custom') return Boolean(env[p.baseEnv]);
   return Boolean(env[p.env]);
 }
@@ -52,7 +66,7 @@ export function resolveProvider({ model = null, provider = null, env = process.e
   if (!want && mdl && mdl.includes('/')) {
     const head = mdl.slice(0, mdl.indexOf('/'));
     const p = byName.get(head);
-    if (p && (detected(p, env) || head === 'ollama')) {
+    if (p && (detected(p, env) || p.explicit)) {
       want = head;
       mdl = mdl.slice(head.length + 1);
     }
@@ -68,7 +82,8 @@ export function resolveProvider({ model = null, provider = null, env = process.e
   const chosen = mdl || p.model;
   if (!chosen) throw new Error(`provider "${p.name}" has no default model; pass --model (or COMPLEX_MD_MODEL)`);
   const base = (p.baseEnv && env[p.baseEnv]) || (p.hostEnv && env[p.hostEnv] ? env[p.hostEnv].replace(/\/$/, '') + '/v1' : null) || p.base || null;
-  const key = p.env ? env[p.env] || null : null;
-  if (p.env && !key && p.name !== 'ollama') throw new Error(`provider "${p.name}" selected but ${p.env} is not set`);
+  const keyVar = p.env || p.keyEnv || null;
+  const key = keyVar ? env[keyVar] || null : null;
+  if (keyVar && !key) throw new Error(`provider "${p.name}" selected but ${keyVar} is not set`);
   return { name: p.name, model: chosen, base, key, headers: p.headers || {} };
 }

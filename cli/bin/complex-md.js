@@ -32,6 +32,10 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  --template writes template prose from the computed numbers, with no model call
                                  --model <id>  --provider <name>  --no-wire  --hooks  --local
                                  prints the file plan first; asks once in a terminal, --yes skips the question
+                                 --via <cli> writes the prose with an agent CLI you already run, in its print
+                                 mode, under your own login: claude, codex, gemini, opencode, qwen, kimi, crush,
+                                 goose, cursor-agent, copilot, hermes, openclaw (--model is passed to it;
+                                 --via-timeout <s>, default 600)
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
                                  --hooks also writes the edit hooks: .claude/settings.json, .cursor/hooks.json
                                  --hooks --local writes them to .claude/settings.local.json only, kept out of git
@@ -51,13 +55,16 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
 
 Model call: the first configured provider wins, or pick one with --provider / --model provider/id.
 Keys: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, XAI_API_KEY,
-DEEPSEEK_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, TOGETHER_API_KEY; local Ollama via OLLAMA_HOST;
-any OpenAI-compatible endpoint via COMPLEX_MD_BASE_URL (+ COMPLEX_MD_API_KEY).
+DEEPSEEK_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, TOGETHER_API_KEY, MOONSHOT_API_KEY (Kimi),
+DASHSCOPE_API_KEY (Qwen), ZAI_API_KEY (GLM), MINIMAX_API_KEY, FIREWORKS_API_KEY, CEREBRAS_API_KEY.
+Named only with --provider: huggingface (HF_TOKEN), ollama (OLLAMA_HOST), lmstudio (LM Studio on
+localhost:1234). Any OpenAI-compatible endpoint via COMPLEX_MD_BASE_URL (+ COMPLEX_MD_API_KEY).
 Without any of them, COMPLEX.md gets template prose built from the computed numbers, and the
 prompt bundle goes to .complex-md/prompt.md for the agent you already run. Template prose never
 replaces prose that a model or a person wrote; --template does.
 Without a key nothing is sent. With one, that call sends the signals and excerpts of up to ten
-hotspot files, about 60,000 characters of code at most, to the provider you chose.`;
+hotspot files, about 60,000 characters of code at most, to the provider you chose.
+With --via, the same bundle goes to the agent CLI you named, which sends it to the model it uses.`;
 
 /* The --for names come from the target table, so the list in --help
    cannot drift from what wire accepts. targets.js loads only when help
@@ -199,7 +206,19 @@ async function main() {
       log(formatPlan(all, fallback));
       return confirmPlan({ yes: flag('--yes') || (!all.length && !fallback.length) });
     };
-    const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), template: flag('--template'), approve, log });
+    // A bare --via must not fall through to a provider call with a set key.
+    const via = opt('--via');
+    if (flag('--via') && (!via || via.startsWith('-'))) {
+      const { VIA_NAMES } = await import('../src/via.js');
+      log(`complex-md: --via needs the name of an agent CLI: ${VIA_NAMES.join(', ')}.`);
+      process.exit(2);
+    }
+    const viaTimeout = opt('--via-timeout');
+    if (flag('--via-timeout') && !(Number(viaTimeout) > 0)) {
+      log('complex-md: --via-timeout needs a number of seconds, for example --via-timeout 900.');
+      process.exit(2);
+    }
+    const r = await generate(root, { model: opt('--model'), provider: opt('--provider'), agent: flag('--agent'), template: flag('--template'), via, viaTimeoutMs: viaTimeout ? Number(viaTimeout) * 1000 : undefined, approve, log });
     if (r.written && !flag('--no-wire')) {
       const { wire } = await import('../src/wire.js');
       wire(root, { ...wireOpts, log });
