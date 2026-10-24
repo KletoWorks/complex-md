@@ -4,10 +4,13 @@
 // carry the treemap data a second time as a table.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { parseComplexMd } from '../src/complexmd.js';
+import { computeSignals } from '../src/signals.js';
 import { renderReport, squarify } from '../src/render.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -67,6 +70,37 @@ test('blind spots are listed, and files grep skips are named one by one', () => 
   // The tile of a file grep skips is marked as such, and the legend says so.
   assert.match(html, /hatched: grep skips the file/);
   assert.match(html, /<a class="tile[^"]*\bblind\b[^"]*"[^>]*data-path="src\/net\/parser\.js"/);
+});
+
+// The renderer reads the file names out of the NUL byte blind spot sentence.
+// The sentence explains what each search tool does, and that explanation
+// changes; the list after the colon and the git grep advice do not.
+const grepList = (note) => {
+  const out = renderReport({ front: { hotspots: [], blind_spots: [note] } }, { repo: 'x' });
+  const sec = out.slice(out.indexOf('id="blind-spots"'));
+  return [...sec.matchAll(/<li><code>([^<]*)<\/code><\/li>/g)].map((m) => m[1]);
+};
+
+test('files that search tools skip are found whatever the sentence says about the tools', () => {
+  const files = 'src/a.js, src/b.js';
+  const tail = '. Search with git grep -I --text, and fix the byte.';
+  assert.deepEqual(grepList(`2 source files contain a NUL byte, so grep treats them as binary and skips them in silence: ${files}${tail}`), ['src/a.js', 'src/b.js']);
+  assert.deepEqual(grepList(`2 source files contain a NUL byte, so ripgrep skips them with no match and no warning, and GNU grep prints a binary file notice and no line: ${files}${tail}`), ['src/a.js', 'src/b.js']);
+  assert.deepEqual(grepList('2 generated or lock files excluded'), []);
+});
+
+test('the files a NUL byte hides are found in the blind spot the signals write', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cx-render-nul-'));
+  const g = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' } });
+  g('init', '-q');
+  mkdirSync(join(dir, 'src'));
+  writeFileSync(join(dir, 'src/clean.js'), 'export const a = 1;\n');
+  writeFileSync(join(dir, 'src/late.js'), `// ${'x'.repeat(9000)}\nconst k = \`a\0b\`;\n`);
+  g('add', '.');
+  g('commit', '-q', '-m', 'init');
+  const note = computeSignals(dir).blind_spots.find((b) => /NUL byte/.test(b));
+  assert.ok(note);
+  assert.deepEqual(grepList(note), ['src/late.js']);
 });
 
 test('hostile file names are escaped in text and in attributes', () => {
