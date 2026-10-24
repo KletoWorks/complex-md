@@ -18,7 +18,7 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  --model <id>  --provider <name>  --no-wire  --no-hooks
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
                                  --for claude,cursor,openhands,antigravity,codex,copilot,review,devin,windsurf,
-                                 cline,openclaw,hermes
+                                 kiro,cline,openclaw,hermes
                                  (default: detect repo-local targets; openclaw/hermes are opt-in only and get
                                   .agents/skills/complex-md/SKILL.md; --mcp also adds their global registries)
   npx complex-md check           report hotspots and untouched co-change partners in the current change

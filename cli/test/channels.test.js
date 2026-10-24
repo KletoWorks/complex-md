@@ -110,9 +110,9 @@ test('--for openclaw,hermes writes the portable skill without --mcp', () => {
 
 /* Briefs as files in a directory, each with its front matter parsed:
    { file: { front: {key: raw value}, body } }. */
-function briefsIn(dir, rel, suffix = '.md') {
+function briefsIn(dir, rel, suffix = '.md', prefix = '') {
   const out = {};
-  for (const f of readdirSync(join(dir, rel)).filter((x) => x.endsWith(suffix))) {
+  for (const f of readdirSync(join(dir, rel)).filter((x) => x.endsWith(suffix) && x.startsWith(prefix))) {
     const m = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(read(dir, join(rel, f)));
     assert.ok(m, `${f} starts with front matter`);
     const front = {};
@@ -223,6 +223,19 @@ test('devin and windsurf: one glob triggered brief per path in each rules folder
     assert.equal(read(dir, `${folder}/rules/house.md`), '---\ntrigger: always_on\n---\nmine\n');
     assert.ok(r.rules.includes(`${folder}/rules/complex-md-* (4 paths)`));
   }
+});
+
+/* Kiro steering: .kiro/steering/*.md with `inclusion: fileMatch` load
+   when a file matching `fileMatchPattern` is in the conversation. */
+test('kiro: one fileMatch steering file per brief', () => {
+  const dir = repo({ '.kiro/steering/product.md': '# Product\n' });
+  const r = wire(dir, {});
+  const ours = Object.entries(briefsIn(dir, '.kiro/steering', '.md', 'complex-md-'));
+  assert.equal(ours.length, BRIEFED.length);
+  for (const [, b] of ours) assert.equal(b.front.inclusion, 'fileMatch');
+  assert.deepEqual(ours.map(([, b]) => b.front.fileMatchPattern).sort(), BRIEFED.map((p) => `"${p}"`));
+  assert.equal(read(dir, '.kiro/steering/product.md'), '# Product\n');
+  assert.ok(r.rules.includes('.kiro/steering/complex-md-* (4 paths)'));
 });
 
 test('a block only rule file is still written when no AGENTS.md carries the block', () => {

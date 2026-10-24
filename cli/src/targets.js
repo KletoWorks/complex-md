@@ -328,6 +328,24 @@ export const TARGETS = {
     },
   },
 
+  /* Kiro steering (kiro.dev/docs/steering). A file in .kiro/steering/ with
+     `inclusion: fileMatch` loads when a file that `fileMatchPattern`
+     matches is in the conversation. The folder holds the user's own
+     steering too, so the briefs carry the complex-md- prefix and only
+     prefixed files are cleared. */
+  kiro: {
+    detect: (root) => existsSync(join(root, '.kiro')),
+    rules({ root, briefs, report }) {
+      writeBriefs(
+        join(root, '.kiro/steering'),
+        briefs,
+        (b) => `---\ninclusion: fileMatch\nfileMatchPattern: ${JSON.stringify(b.path)}\n---\n`,
+        report,
+        { name: '.kiro/steering/complex-md-*', ext: '.md', prefix: 'complex-md-' },
+      );
+    },
+  },
+
   windsurf: {
     detect: (root) => existsSync(join(root, '.windsurf')),
     rules({ root, block, paths, briefs, report, carried }) {
