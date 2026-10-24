@@ -134,6 +134,14 @@ test('the agent marquee is captioned and lists only agents that read the map', (
   for (const s of slugs) assert.ok(existsSync(join(ROOT, 'site/logos', `${s}.svg`)), `${s}.svg exists`);
 });
 
+/* "More examples" must lead to more than one example. */
+test('a link to the examples folder leads to more than one example', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const home = readFileSync(join(ROOT, 'content/index.html'), 'utf8');
+  const examples = readdirSync(join(ROOT, 'examples')).filter((f) => f.endsWith('.md'));
+  if (/tree\/main\/examples/.test(home)) assert.ok(examples.length > 1, `examples/ holds ${examples.length} file`);
+});
+
 test('every listed public text exists', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const missing = [...PUBLIC, ...WIRING].filter((f) => !existsSync(join(ROOT, f)));
