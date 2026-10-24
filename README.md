@@ -14,7 +14,11 @@ npx complex-md
 
 One run computes the signals, writes COMPLEX.md, and wires it in: the
 integration block in the agent files, a rule per hot path carrying that
-file's own brief, and the PreToolUse and Stop hooks. The package lives in `cli/`. Without `npx`,
+file's own brief, and the PreToolUse and Stop hooks. The briefs go where
+each agent or review bot the repository uses reads them: Claude Code,
+Cursor, Copilot code review and cloud agent, OpenHands, Antigravity, Devin
+Desktop, Windsurf, Kiro and Cline. A `REVIEW.md` that exists gets an
+`@COMPLEX.md` line for Claude Code Review. The package lives in `cli/`. Without `npx`,
 the skill does the same by hand: download https://complex.md/complex-md.skill.md
 and run it with any coding agent inside the repo.
 
