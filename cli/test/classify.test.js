@@ -147,3 +147,14 @@ test('a NUL byte in a script under a build/ directory that is not output is stil
   });
   assert.deepEqual(g.grepBlind, ['build/release.js']);
 });
+
+test('tests.rs, tests.js and test.go stay tests', () => {
+  const g = graphOf({
+    'src/parser/tests.rs': '',
+    'lib/tests.js': '',
+    'cmd/test.go': 'package main\n',
+  });
+  assert.equal(g.kinds.get('src/parser/tests.rs'), 'test');
+  assert.equal(g.kinds.get('lib/tests.js'), 'test');
+  assert.equal(g.kinds.get('cmd/test.go'), 'test');
+});

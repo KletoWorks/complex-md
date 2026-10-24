@@ -10,7 +10,7 @@ export const BINARY_RE = /\.(png|jpg|jpeg|gif|svg|ico|woff2?|ttf|otf|eot|pdf|zip
 
 const VENDORED_RE = /(^|\/)(vendor|node_modules|third[_-]?party|external|bower_components|\.yarn\/|\.pnpm\/)(\/|$)|\.min\.(js|css)$|(^|\/)[^/]*\.bundle\.js$/;
 const GENERATED_RE = /(^|\/)(dist|target|coverage|\.next|\.nuxt|\.svelte-kit|__pycache__|\.cache|generated|__generated__)\/|\.generated\.[a-z]+$|_pb2?\.(py|js|ts)$|\.pb\.go$|\.d\.ts\.map$|\.map$|\.snap$|(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|composer\.lock|Cargo\.lock|poetry\.lock|Gemfile\.lock|go\.sum|bun\.lockb?|uv\.lock)$/;
-export const TEST_FILE_RE = /(^|\/)(tests?|__tests__|specs?|test_?utils?|e2e|cypress|playwright)\/|\.(test|spec|tst|e2e)\.[a-z]+$|_test\.[a-z]+$|(^|\/)test(?:[_-](?!(?:utils?|helpers?|support|common)\.)[a-z0-9_-]+)?\.(m?js|cjs|ts|mts|py|rb|go|rs|java|kt|php|ex|exs|sh)$|(^|\/)(conftest\.py|tests?\.py|spec_helper\.rb|jest\.setup\.[a-z]+)$/;
+export const TEST_FILE_RE = /(^|\/)(tests?|__tests__|specs?|test_?utils?|e2e|cypress|playwright)\/|\.(test|spec|tst|e2e)\.[a-z]+$|_test\.[a-z]+$|(^|\/)(?:tests|test(?:[_-](?!(?:utils?|helpers?|support|common)\.)[a-z0-9_-]+)?)\.(m?js|cjs|ts|mts|py|rb|go|rs|java|kt|php|ex|exs|sh)$|(^|\/)(conftest\.py|tests?\.py|spec_helper\.rb|jest\.setup\.[a-z]+)$/;
 // Files a test suite loads but never runs as a test: fixtures, setup and
 // shared helpers. Inside a test directory they keep the test kind, so they
 // never rank, but they are never named as a covering test either. Before
