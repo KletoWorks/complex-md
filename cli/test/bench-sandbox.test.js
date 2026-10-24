@@ -195,6 +195,19 @@ test('control: without the sandbox the same probe finds the future on disk and o
   } finally { server.close(); rmSync(fx.dir, { recursive: true, force: true }); }
 });
 
+test('a timed out agent in the sandbox gets SIGINT and its result is kept', ns, () => {
+  const fx = buildBenchRepo();
+  try {
+    const { status, stderr, rows } = runHarness(fx, ['--agent', 'mock', '--arms', 'none', '--stop-at', 'none', '--timeout', '2', '--grace', '10'], { env: { CX_MOCK_END: 'hang' }, sandbox: true });
+    assert.equal(status, 0, stderr);
+    const [r] = rows;
+    assert.equal(r.sandbox, true);
+    assert.equal(r.stopped, 'timeout');
+    assert.equal(r.cost_usd, 0.42, 'the stop reached the agent inside the namespace');
+    assert.ok(r.wall_ms < 10000, `wall_ms ${r.wall_ms}`);
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
+
 /* The marker server runs in this process, so the harness must run without
    blocking the event loop: spawnSync would starve the server. */
 function runHarnessAsync(fx, env, extra = ['--arms', 'none,front,file,hooks,mcp']) {
