@@ -96,9 +96,10 @@ test('a failed --via run keeps COMPLEX.md and writes the bundle instead', { skip
 test('a --via reply that names a missing file is not written', { skip: !posix }, async () => {
   const root = makeRepo();
   const r = await withEnv({ PATH: stubPath(PROSE.replace('read src/b.js', 'read src/c.js')) }, () => generate(root, { via: 'claude' }));
-  assert.equal(r.written, false);
   assert.match(r.fallback, /src\/c\.js/);
-  assert.ok(!existsSync(join(root, 'COMPLEX.md')));
+  // The reply is refused; with no earlier map the run lands template prose.
+  assert.equal(r.prose, 'template');
+  assert.ok(!readFileSync(join(root, 'COMPLEX.md'), 'utf8').endsWith(PROSE));
 });
 
 test('the bin passes --via and --via-timeout, and names every CLI in --help', { skip: !posix }, () => {

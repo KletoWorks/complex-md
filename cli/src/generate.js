@@ -290,12 +290,21 @@ export async function generate(root, { model = null, provider = null, agent = fa
     r = sel.via ? await runVia(sel.via, { root, bundle, fm, model, timeoutMs: viaTimeoutMs, log }) : sel.name === 'anthropic' ? await callAnthropic(bundle, sel.model) : await callOpenAICompat(bundle, sel);
     out = normalizeOutput(r.text, fm);
   } catch (e) {
-    // Network error, non-2xx, malformed body, or prose that is not a map:
-    // the existing COMPLEX.md stays as it is and the bundle goes to the agent.
+    /* Network error, non-2xx, a stop at the cap, a malformed body, or prose
+       that is not a map: the reply is never written. A map whose prose a
+       model or a person wrote stays as it is. Otherwise the run lands
+       template prose, so a keyed run also ends with a map to wire. */
     const reason = e?.name === 'TimeoutError' ? `model call timed out after ${CALL_TIMEOUT_MS / 1000} s` : String(e?.message || e);
-    log(`model call failed: ${reason}`);
-    const promptPath = writeBundle('falling back to the prompt bundle');
-    return { sig, written: false, fallback: reason, promptPath };
+    if (holdsOtherProse(root)) {
+      log(`model call failed: ${reason}`);
+      const promptPath = writeBundle('falling back to the prompt bundle');
+      return { sig, written: false, fallback: reason, promptPath };
+    }
+    const promptPath = saveBundle();
+    writeFileSync(join(root, 'COMPLEX.md'), mapText);
+    log(`warning: model call failed (${reason}); wrote COMPLEX.md with template prose instead.`);
+    log(`Rerun to try the model call again. Or use the agent you already run. ${TELL}`);
+    return { sig, written: true, prose: 'template', fallback: reason, promptPath };
   }
   writeFileSync(join(root, 'COMPLEX.md'), out);
   log(`wrote COMPLEX.md (${out.split('\n').length} lines); tokens in ${r.usage.input ?? '?'} out ${r.usage.output ?? '?'}; prompt ${promptVersion()}; ${Date.now() - t0} ms`);

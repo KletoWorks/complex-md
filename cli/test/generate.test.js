@@ -78,6 +78,18 @@ async function withFetch(fake, fn) {
 
 const jsonResponse = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 
+/* A failed model call never writes the reply. With no map whose prose a
+   model or a person wrote, the run lands template prose instead. */
+function assertTemplateFallback(dir, r) {
+  assert.equal(r.written, true);
+  assert.equal(r.prose, 'template');
+  assert.ok(r.fallback, 'the failure reason is returned');
+  const out = readFileSync(join(dir, 'COMPLEX.md'), 'utf8');
+  assert.match(out, /^prose: template$/m);
+  assert.ok(!out.includes(FULL), 'the failed reply is not in the map');
+  assert.ok(existsSync(join(dir, '.complex-md/prompt.md')));
+}
+
 test('generate: a malformed 200 body falls back to the bundle and leaves COMPLEX.md alone', async () => {
   const dir = makeRepo();
   writeFileSync(join(dir, 'COMPLEX.md'), 'KEEP ME\n');
@@ -94,20 +106,38 @@ test('generate: a malformed 200 body falls back to the bundle and leaves COMPLEX
 test('generate: a network error and a non-2xx both fall back with the reason', async () => {
   const dir = makeRepo();
   const net = await withFetch(async () => { throw new TypeError('fetch failed'); }, () => generate(dir, { provider: 'anthropic' }));
-  assert.equal(net.written, false);
+  assertTemplateFallback(dir, net);
   assert.equal(net.fallback, 'fetch failed');
   const bad = await withFetch(async () => jsonResponse(529, { error: { message: 'overloaded' } }), () => generate(dir, { provider: 'anthropic' }));
-  assert.equal(bad.written, false);
+  assertTemplateFallback(dir, bad);
   assert.match(bad.fallback, /Anthropic API 529: overloaded/);
-  assert.ok(!existsSync(join(dir, 'COMPLEX.md')));
 });
 
 test('generate: a reply without the four sections is not written', async () => {
   const dir = makeRepo();
   const r = await withFetch(async () => jsonResponse(200, { content: [{ type: 'text', text: 'Sorry, no.' }], usage: {} }), () => generate(dir, { provider: 'anthropic' }));
-  assert.equal(r.written, false);
+  assertTemplateFallback(dir, r);
   assert.match(r.fallback, /missing required sections/);
-  assert.ok(!existsSync(join(dir, 'COMPLEX.md')));
+  assert.ok(!readFileSync(join(dir, 'COMPLEX.md'), 'utf8').includes('Sorry, no.'));
+});
+
+test('generate: a failed call warns with the stop reason and lands template prose', async () => {
+  const dir = makeRepo();
+  const logs = [];
+  const r = await withFetch(async () => jsonResponse(200, { content: [{ type: 'text', text: FULL }], stop_reason: 'max_tokens', usage: { output_tokens: 16000 } }), () => generate(dir, { provider: 'anthropic', log: (s) => logs.push(s) }));
+  assertTemplateFallback(dir, r);
+  assert.ok(logs.some((l) => /^warning: model call failed \(.*stop_reason max_tokens.*\); wrote COMPLEX\.md with template prose instead/.test(l)), logs.join('\n'));
+});
+
+test('generate: a failed call replaces a map that a template wrote, never one a model wrote', async () => {
+  const dir = makeRepo();
+  await withFetch(async () => { throw new TypeError('fetch failed'); }, () => generate(dir, { provider: 'anthropic' }));
+  const again = await withFetch(async () => { throw new TypeError('fetch failed'); }, () => generate(dir, { provider: 'anthropic' }));
+  assertTemplateFallback(dir, again);
+  writeFileSync(join(dir, 'COMPLEX.md'), FM + '\n' + FULL + '\n');
+  const kept = await withFetch(async () => { throw new TypeError('fetch failed'); }, () => generate(dir, { provider: 'anthropic' }));
+  assert.equal(kept.written, false);
+  assert.equal(readFileSync(join(dir, 'COMPLEX.md'), 'utf8'), FM + '\n' + FULL + '\n');
 });
 
 test('generate: a complete reply is written with the computed front matter and a timeout signal on the call', async () => {
@@ -145,7 +175,7 @@ test('generate: an Anthropic reply stopped at max_tokens is never written, even 
 test('generate: an Anthropic refusal is not written', async () => {
   const dir = makeRepo();
   const r = await withFetch(async () => jsonResponse(200, { content: [{ type: 'text', text: FULL }], stop_reason: 'refusal', usage: {} }), () => generate(dir, { provider: 'anthropic' }));
-  assert.equal(r.written, false);
+  assertTemplateFallback(dir, r);
   assert.match(r.fallback, /stop_reason refusal/);
 });
 
@@ -155,9 +185,8 @@ test('generate: an OpenAI-compatible reply with finish_reason length is never wr
   process.env.OPENAI_API_KEY = 'test-key';
   try {
     const r = await withFetch(async () => jsonResponse(200, { choices: [{ message: { content: FULL }, finish_reason: 'length' }], usage: { completion_tokens: 4096 } }), () => generate(dir, { provider: 'openai' }));
-    assert.equal(r.written, false);
+    assertTemplateFallback(dir, r);
     assert.match(r.fallback, /openai API: reply stopped at the provider's output limit \(finish_reason length, 4096 output tokens\)/);
-    assert.ok(!existsSync(join(dir, 'COMPLEX.md')));
     const ok = await withFetch(async () => jsonResponse(200, { choices: [{ message: { content: FULL }, finish_reason: 'stop' }], usage: {} }), () => generate(dir, { provider: 'openai' }));
     assert.equal(ok.written, true);
   } finally {
