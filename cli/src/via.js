@@ -56,7 +56,9 @@ export const VIA_CLIS = [
   { name: 'copilot', bins: ['copilot'], input: 'stdin', docs: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/automate-copilot-cli/run-cli-programmatically',
     args: ({ model }) => ['--silent', '--no-ask-user', '--deny-tool=shell,write', ...(model ? [`--model=${model}`] : [])] },
   { name: 'hermes', bins: ['hermes'], input: 'stdin', docs: 'https://hermes-agent.nousresearch.com/docs/reference/cli-commands',
-    args: ({ model }) => ['-z', ARG_INSTRUCTION, ...m('--model', model)] },
+    // -z reads no stdin; --query-file - does. --source tool keeps the run
+    // out of the user's session lists.
+    args: ({ model }) => ['chat', '--oneshot', '-Q', '--query-file', '-', '--source', 'tool', ...m('--model', model)] },
   { name: 'openclaw', bins: ['openclaw'], input: 'stdin', docs: 'https://docs.openclaw.ai/cli/agent',
     args: ({ model }) => ['agent', 'exec', '--message-file', '-', ...m('--model', model)] },
 ];

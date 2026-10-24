@@ -84,7 +84,10 @@ test('each CLI gets the headless argv its docs give, and no write permission', (
   assert.deepEqual(args('openclaw'), ['agent', 'exec', '--message-file', '-']);
   assert.deepEqual(args('copilot'), ['--silent', '--no-ask-user', '--deny-tool=shell,write']);
   assert.equal(args('crush')[0], 'run');
-  assert.equal(args('hermes')[0], '-z');
+  // hermes -z takes the prompt only as its argument and does not read stdin;
+  // chat --query-file - reads the query from stdin.
+  assert.deepEqual(args('hermes'), ['chat', '--oneshot', '-Q', '--query-file', '-', '--source', 'tool']);
+  assert.deepEqual(args('hermes', 'm').slice(-2), ['--model', 'm']);
   // The CLIs that take the prompt only as an argument read the bundle from a file.
   assert.ok(args('opencode').includes('--file') && args('opencode').includes('.complex-md/prompt.md'));
   assert.match(args('kimi').at(-1), /\.complex-md\/prompt\.md/);
