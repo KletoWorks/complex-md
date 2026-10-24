@@ -2,7 +2,7 @@
    connectors or skills from outside the task's checkout. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { claudeCommand } from '../../bench/claude-args.mjs';
+import { claudeCommand, mapCommand } from '../../bench/claude-args.mjs';
 import { createMeter } from '../../bench/agent-events.mjs';
 
 const wt = '/w/task-arm';
@@ -28,4 +28,14 @@ test('the init event records what the agent loaded: tools, MCP servers and skill
   assert.equal(m.agent_tools, 3);
   assert.deepEqual(m.agent_mcp, ['claude.ai Figma']);
   assert.equal(m.agent_skills, 2);
+});
+
+test('the map prose call has no tools, no MCP servers and no connectors', () => {
+  const [cmd, args, env] = mapCommand();
+  assert.equal(cmd, 'claude');
+  assert.equal(args[args.indexOf('--tools') + 1], '');
+  assert.ok(args.includes('--strict-mcp-config'));
+  assert.equal(args[args.indexOf('--mcp-config') + 1], '{"mcpServers":{}}');
+  assert.equal(env.ENABLE_CLAUDEAI_MCP_SERVERS, 'false');
+  assert.deepEqual(mapCommand({ model: 'm' })[1].slice(-2), ['--model', 'm']);
 });

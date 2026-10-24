@@ -32,7 +32,7 @@ import { buildBundle, normalizeOutput } from '../cli/src/generate.js';
 import { wire } from '../cli/src/wire.js';
 import { detectRunner, listTestFiles, runSuite, confirm, goldTestFiles } from './suite.mjs';
 import { createMeter, newMetrics, behaviour } from './agent-events.mjs';
-import { claudeCommand } from './claude-args.mjs';
+import { claudeCommand, mapCommand } from './claude-args.mjs';
 import { isolatedCheckout, fileAt, fixSourceDiff, applyPatch } from './isolate.mjs';
 import { mapAnchor, assertMapUsable, commitTime } from './maps.mjs';
 import { sandboxSupport, sandboxCommand, startProxy, innerPid, which, DEFAULT_ROOTS, DEFAULT_ALLOW } from './sandbox.mjs';
@@ -126,7 +126,8 @@ async function writeMap(wt, cached) {
   } else {
     // The prose model call goes through the same Claude Code login the agent runs use; no tools, one turn.
     noModel();
-    const r = spawnSync('claude', ['-p', '--output-format', 'json', '--tools', '', '--setting-sources', '', ...(model ? ['--model', model] : [])], { cwd: wt, input: bundle, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const [cmd, a, env] = mapCommand({ model });
+    const r = spawnSync(cmd, a, { cwd: wt, input: bundle, env: { ...process.env, ...env }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     let j; try { j = JSON.parse(r.stdout); } catch { throw new Error(`map generation failed: ${(r.stderr || r.stdout).trim().slice(0, 300)}`); }
     if (j.is_error) throw new Error(`map generation failed: ${j.result}`); // the harness reports the agent's own error text
     text = normalizeOutput(j.result, frontMatter);

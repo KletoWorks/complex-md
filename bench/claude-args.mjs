@@ -18,3 +18,12 @@ export function claudeCommand({ arm, wt, budget, model = null }) {
   if (model) a.push('--model', model);
   return ['claude', a, { ENABLE_CLAUDEAI_MCP_SERVERS: 'false' }];
 }
+
+/* [cmd, args, env] for the one call that writes a map's prose. It has no
+   tools, and like the agent runs it loads no MCP servers and no claude.ai
+   connectors: tools from those could reach outside the bundle it is given. */
+export function mapCommand({ model = null } = {}) {
+  const a = ['-p', '--output-format', 'json', '--tools', '', '--setting-sources', '', '--mcp-config', '{"mcpServers":{}}', '--strict-mcp-config'];
+  if (model) a.push('--model', model);
+  return ['claude', a, { ENABLE_CLAUDEAI_MCP_SERVERS: 'false' }];
+}
