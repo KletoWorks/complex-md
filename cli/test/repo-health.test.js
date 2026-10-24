@@ -47,3 +47,15 @@ test('SECURITY.md gives a private report path and the supported versions', (t) =
   assert.match(s, /https:\/\/github\.com\/KletoWorks\/complex-md\/security\/advisories\/new/);
   assert.match(s, /^## Supported versions/m);
 });
+
+/* The covenant ships with a placeholder for the enforcement contact. A
+   copy that keeps it gives a reporter nowhere to go. */
+test('CODE_OF_CONDUCT.md is Contributor Covenant 2.1 with a real contact', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  assert.ok(existsSync(join(ROOT, 'CODE_OF_CONDUCT.md')), 'CODE_OF_CONDUCT.md exists');
+  const s = read('CODE_OF_CONDUCT.md');
+  assert.match(s, /Contributor Covenant\]\[homepage\], version 2\.1/);
+  assert.doesNotMatch(s, /\[INSERT CONTACT METHOD\]|^\+\+\+/m);
+  assert.doesNotMatch(s, /[\w.+-]+@[\w-]+\.[\w.]+/, 'no email address');
+  assert.match(s, /https:\/\/github\.com\/jameslcowan/);
+});
