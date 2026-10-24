@@ -160,3 +160,31 @@ test('the Gemini CLI extension manifest uses documented fields and a small conte
   for (const d of ['hooks', 'commands', 'agents', 'policies', 'GEMINI.md']) assert.ok(!existsSync(join(ROOT, d)), `${d} at the repository root would load into the extension`);
   assert.ok(existsSync(join(ROOT, 'skills/complex-md/SKILL.md')));
 });
+
+// --------------------------------------------------------- always-on cost
+// Each tool loads a fixed text into every session before the skill fires:
+// the skill's name and description (Agent Skills progressive disclosure),
+// plus, for Gemini CLI, the extension context file. The skill body loads
+// only when the skill runs. Estimate: characters / 4, rounded up.
+const tokens = (s) => Math.ceil(s.length / 4);
+const ALWAYS_ON_BUDGET = 300;
+
+export function alwaysOn(root = ROOT) {
+  const r = (p) => readFileSync(join(root, p), 'utf8');
+  const listing = (p, prefix = '') => {
+    const fm = frontMatter(r(p));
+    return `${prefix}${fm.name}: ${fm.description}`;
+  };
+  const gemini = JSON.parse(r('gemini-extension.json'));
+  return {
+    'claude-code': tokens(listing('plugins/complex-md/skills/complex-md/SKILL.md', 'complex-md:')),
+    codex: tokens(listing('plugins/complex-md/skills/complex-md/SKILL.md', 'complex-md:')),
+    'gemini-cli': tokens(r(gemini.contextFileName) + listing('skills/complex-md/SKILL.md')),
+    'agent-skills': tokens(listing('skills/complex-md/SKILL.md')),
+  };
+}
+
+test(`each tool loads under ${ALWAYS_ON_BUDGET} tokens at session start`, (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  for (const [tool, n] of Object.entries(alwaysOn())) assert.ok(n < ALWAYS_ON_BUDGET, `${tool} loads about ${n} tokens`);
+});
