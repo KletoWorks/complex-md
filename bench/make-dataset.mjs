@@ -13,10 +13,19 @@
 // the checkout's HEAD) and puts first the ones a later fix had to touch again
 // within 90 days. Those are the edits where collateral damage is plausible,
 // which is what the map exists to prevent.
+//
+// --min-fan-in N keeps only fixes that changed a source file with at least N
+// importers at the fix's parent, counted as the map counts fan_in, and
+// --min-tests M (default 1) asks that file to have M covering tests there
+// too, so a break it causes can show in the suite. Each task records the
+// fan_in of its changed files.
 import { spawnSync } from 'node:child_process';
-import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { writeFileSync, mkdirSync, existsSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { FIX_RE, EXCLUDE_RE, TEST_FILE_RE as TEST_RE, BINARY_RE, computeSignals } from '../cli/src/signals.js';
+import { buildGraph } from '../cli/src/graph.js';
+import { trackedFiles } from '../cli/src/git.js';
 import { isRunnableTest } from './suite.mjs';
 
 const args = process.argv.slice(2);
@@ -29,6 +38,8 @@ const maxGold = Number(opt('--max-gold', 3));
 /* A file that gets fixed every month would otherwise fill the set on its own. */
 const maxPerFile = Number(opt('--max-per-file', 0));
 const out = opt('--out', `bench/data/${(slug || 'repo').replace('/', '-')}.json`);
+const minFanIn = opt('--min-fan-in', null) === null ? null : Number(opt('--min-fan-in'));
+const minTests = Number(opt('--min-tests', 1));
 
 function git(a) {
   const r = spawnSync('git', a, { cwd: repoPath, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
@@ -96,12 +107,34 @@ async function gh(path) {
   return j;
 }
 
+/* Fan-in and covering tests of each changed file at the fix's parent, from
+   a detached worktree of the clone, removed again before the next one. */
+const scratch = join(tmpdir(), `cx-make-dataset-${process.pid}`);
+function structureAt(base, files) {
+  rmSync(scratch, { recursive: true, force: true });
+  git(['worktree', 'add', '-q', '--detach', scratch, base]);
+  try {
+    const g = buildGraph(scratch, trackedFiles(scratch));
+    return Object.fromEntries(files.map((f) => [f, { fan_in: g.fanIn.get(f)?.size || 0, tests: g.tests.get(f)?.size || 0 }]));
+  } finally {
+    spawnSync('git', ['worktree', 'remove', '--force', scratch], { cwd: repoPath });
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
 const tasks = [];
-let limited = false;
+let limited = false, fanChecked = 0, fanKept = 0;
 const perFile = new Map();
 for (const c of candidates) {
   if (tasks.length >= max) break;
   if (maxPerFile && c.gold.some((g) => (perFile.get(g) || 0) >= maxPerFile)) continue;
+  if (minFanIn !== null) {
+    const at = structureAt(c.base, c.gold);
+    fanChecked++;
+    if (!c.gold.some((g) => at[g].fan_in >= minFanIn && at[g].tests >= minTests)) continue;
+    c.fan_in = Object.fromEntries(c.gold.map((g) => [g, at[g].fan_in]));
+    fanKept++;
+  }
   let title = c.subject.replace(/\s*\(#\d+\)\s*$/, '');
   let text = c.body.trim();
   let source = 'commit';
@@ -125,10 +158,11 @@ for (const c of candidates) {
   if (text.length < 40) continue; // a bare title is too thin to stand in for an issue
   const namesGold = c.gold.some((g) => text.includes(g) || title.includes(g) || text.includes(g.split('/').pop()));
   for (const g of c.gold) perFile.set(g, (perFile.get(g) || 0) + 1);
-  tasks.push({ id: c.sha.slice(0, 10), repo: slug, base: c.base, fix: c.sha, date: c.date, title, text, source, gold: c.gold, tests: c.tests, names_gold: namesGold, ...(c.risky_gold ? { risky_gold: c.risky_gold, refixed: c.refixed } : {}) });
+  tasks.push({ id: c.sha.slice(0, 10), repo: slug, base: c.base, fix: c.sha, date: c.date, title, text, source, gold: c.gold, tests: c.tests, names_gold: namesGold, ...(c.risky_gold ? { risky_gold: c.risky_gold, refixed: c.refixed } : {}), ...(c.fan_in ? { fan_in: c.fan_in } : {}) });
   console.error(`${tasks.length}. ${c.sha.slice(0, 10)} [${source}${namesGold ? ', names gold' : ''}${c.refixed ? ', refixed' : ''}] ${title.slice(0, 70)} -> ${c.gold.join(', ')}`);
 }
 
+if (minFanIn !== null) console.error(`--min-fan-in ${minFanIn}: ${fanKept} of ${fanChecked} checked fixes changed a file with ${minFanIn} importers or more and ${minTests} covering tests or more`);
 mkdirSync(dirname(out), { recursive: true });
-writeFileSync(out, JSON.stringify({ repo: slug, path: repoPath, created: new Date().toISOString().slice(0, 10), months, tasks }, null, 2) + '\n');
+writeFileSync(out, JSON.stringify({ repo: slug, path: repoPath, created: new Date().toISOString().slice(0, 10), months, ...(minFanIn !== null ? { min_fan_in: minFanIn, min_tests: minTests } : {}), tasks }, null, 2) + '\n');
 console.error(`wrote ${out}: ${tasks.length} tasks, ${tasks.filter((t) => t.names_gold).length} name a gold file in the text`);

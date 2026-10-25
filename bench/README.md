@@ -103,6 +103,10 @@ a file the map calls risky (a hotspot, a load-bearing file, one side of a
 co-change pair) and puts first the ones a later fix had to touch again within
 90 days. Those are the edits where collateral damage is plausible. Without
 the flag the miner takes every fix, which suits the localization question.
+`--min-fan-in N` keeps the fixes that changed a source file with N
+importers or more at the fix's parent, and `--min-tests M` (default 1) asks
+that file to have M covering tests there, so a break it causes can show in
+the suite. Each task records the `fan_in` of the files its fix changed.
 
 **Primary outcome: collateral damage.** After the agent finishes, the test
 suite as it stood at the base commit runs again, file by file. A regression
