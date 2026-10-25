@@ -4,6 +4,14 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## Unreleased
+
+**Intent:** the reader in `cli/src/complexmd.js` failed 5 checks of the spec 0.4 draft, and `cli/test/spec-fixtures.test.js` ran them as todos. It returned a map for front matter with no `complex_md` key, did not read the 0.3 key `tool` as `generator`, and split a flow list at a comma inside a double quoted path.
+
+**Change:** front matter with no `complex_md` key is not a valid map, and the reader returns null for it. A 0.3 map with `tool` and no `generator` reads `tool` as `generator`: the text before the first `/` is `name`, and the text after it is `version`. A flow list splits only at a comma outside a double quoted item. A quote opens a quoted item only as its first character, so the plain path `lib/a"b.js` stays 1 path. `[]` inside a list item reads as the empty list. The 5 fixture checks now run, with 0 todo.
+
+**Change:** the report footer names the producer from `generator.name` and `generator.version`, with `tool` as the fallback. A 0.3 map written by complex-md 0.9.2 still shows `complex-md/0.9.2` there.
+
 ## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
 
 **Intent:** wire appended a block with a heading but no end, deleted any file in a brief folder whose name had the complex-md- prefix, created CLAUDE.md beside AGENTS.md, and had no way back. A default wire could add 40 or more files to a repository, a rewire never updated an old block, and a Windows checkout could leave mixed line endings.
