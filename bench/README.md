@@ -71,6 +71,12 @@ CX_PROBE_MARKER=<a string from a later commit> node bench/run.mjs --agent probe 
 
 Every `probe` event in the transcripts must say `leaked: false`.
 
+The probe looks for one marker. `node bench/leak-lines.mjs <dataset>
+<dir>...` looks for every line each fix adds to a source file, 30
+characters or more, in the directories given: the clone's `node_modules`
+and the Node install are the two the sandbox leaves readable. It names each
+task whose fixed code is there and exits 1 when any is.
+
 Known gaps in the isolation:
 
 - The Node install stays visible, and Node ships its own copy of undici
