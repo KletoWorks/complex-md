@@ -227,7 +227,7 @@ test('windsurf, cline and roo read the created AGENTS.md; unknown target errors;
   mkdirSync(join(dir, '.windsurf'));
   mkdirSync(join(dir, '.clinerules'));
   mkdirSync(join(dir, '.roo'));
-  const report = wire(dir, {});
+  const report = wire(dir, { profile: 'full' });
   // The created AGENTS.md carries the block, which both agents read.
   assert.ok(!report.rules.includes('.windsurf/rules/complex-md.md'));
   assert.ok(!report.rules.includes('.clinerules/complex-md.md'));

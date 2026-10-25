@@ -170,7 +170,7 @@ runs it on stdio. Six tools:
     npx complex-md signals [--json | --tsv]
     npx complex-md impact <path> [--json] [--strict]
     npx complex-md report                # write .complex-md/report.html, a page of the map
-    npx complex-md wire [--dry-run] [--hooks [--local]] [--mcp]
+    npx complex-md wire [--profile minimal|full] [--dry-run] [--hooks [--local]] [--mcp]
                         [--for claude,cursor,openhands,antigravity,codex,copilot,review,devin,windsurf,kiro,cline,openclaw,hermes]
     npx complex-md unwire [--dry-run]    # remove what wire wrote, as its manifest records it
     npx complex-md generate --agent      # write the prompt bundle, no model call

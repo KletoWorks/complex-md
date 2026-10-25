@@ -28,7 +28,7 @@ test('the first run exits 0 and lands COMPLEX.md, AGENTS.md, the wiring manifest
   assert.equal(first.status, 0, first.stderr);
   assert.deepEqual(status(dir), ['?? .complex-md/manifest.json', '?? .gitignore', '?? AGENTS.md', '?? COMPLEX.md']);
   assert.match(readFileSync(join(dir, '.gitignore'), 'utf8'), /^\.complex-md\/\*$/m);
-  assert.match(readFileSync(join(dir, 'AGENTS.md'), 'utf8'), /## COMPLEX\.md: the structural risk map/);
+  assert.match(readFileSync(join(dir, 'AGENTS.md'), 'utf8'), /^<!-- BEGIN complex-md \(spec [\d.]+\) -->[\s\S]*^COMPLEX\.md at the repository root maps where edits are risky\./m);
 });
 
 test('the front matter is the computed one, marked as template prose', () => {

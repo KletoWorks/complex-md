@@ -6,16 +6,20 @@
 import { readFileSync, writeFileSync, existsSync, realpathSync, mkdirSync } from 'node:fs';
 import { join, dirname, relative, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { integrationBlock, BLOCK_HEADING } from './prompts.js';
+import { integrationBlock, BLOCK_HEADING, INTEGRATION_LINE } from './prompts.js';
 import { SPEC_VERSION } from './signals.js';
 import { readManifest, writeManifest, MANIFEST_PATH } from './manifest.js';
 import { createOwner, ensureDir } from './own.js';
 import { git } from './git.js';
-import { findRegion, outsideRegion, upsertRegion, removeRegion, renderRegion, eolOf, normalizedHash } from './markers.js';
+import { findRegion, outsideRegion, upsertRegion, renderRegion, eolOf, normalizedHash } from './markers.js';
 import { loadComplexMd } from './complexmd.js';
 import { wiredBriefs } from './brief.js';
-import { TARGETS, TARGET_NAMES, holdsOurHooks } from './targets.js';
+import { TARGETS, TARGET_NAMES, holdsOurHooks, cleanTarget } from './targets.js';
 import { registryInvocation } from './invoke.js';
+
+/* minimal: one line near the top of AGENTS.md, and no brief. full: the
+   integration block in each agent file, and at most ten briefs per agent. */
+export const PROFILES = ['minimal', 'full'];
 
 const PRIMARY = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.github/copilot-instructions.md'];
 /* Files whose agents expand an `@AGENTS.md` line into the text of AGENTS.md. */
@@ -73,9 +77,8 @@ const IMPORTS_MAP = /^@COMPLEX\.md\s*$/m;
 /**
  * Write `content` as the marked region of `rel`, creating the file when
  * `create` is set. `legacy` lists unmarked texts an earlier version wrote;
- * one found verbatim is replaced by the region in place. An empty content
- * removes a region that is there. Returns 'written', 'unchanged',
- * 'removed', 'absent' or 'broken'.
+ * one found verbatim is replaced by the region in place. Returns
+ * 'written', 'unchanged', 'absent' or 'broken'.
  */
 export function markBlock(root, rel, content, { place = 'end', style = 'html', legacy = [], create = false, created = false, ledger, log = () => {} } = {}) {
   const p = join(root, rel);
@@ -83,12 +86,6 @@ export function markBlock(root, rel, content, { place = 'end', style = 'html', l
   if (!exists && !create) return 'absent';
   const cur = exists ? readFileSync(p, 'utf8') : '';
   const prev = ledger?.previous?.blocks?.find((b) => b.path === rel);
-  if (!content) {
-    if (!findRegion(cur) || findRegion(cur).broken) return 'absent';
-    const out = removeRegion(cur, prev || {});
-    writeFileSync(p, out.text);
-    return 'removed';
-  }
   const eol = cur.includes('\n') ? eolOf(cur) : '\n';
   let next = null;
   let sep = { before: prev?.before ?? '', after: prev?.after ?? '' };
@@ -146,7 +143,12 @@ function manifestCommittable(root, log) {
 /* `block` replaces the integration text for this call only: the benchmark
    uses it to try candidate wordings against the same map. The heading is
    kept so a second wire() still recognises the block as present. */
-export function wire(root, { hooks = false, mcp = false, rules = true, agents = null, block: blockText = null, log = () => {} } = {}) {
+/* `profile`: 'minimal' or 'full'. Naming targets with `agents` asks for
+   their files, so it implies 'full' unless a profile is given. */
+export function wire(root, { profile = null, hooks = false, mcp = false, rules = true, agents = null, block: blockText = null, log = () => {} } = {}) {
+  profile ??= agents ? 'full' : 'minimal';
+  if (!PROFILES.includes(profile)) throw new Error(`unknown profile "${profile}"; one of: ${PROFILES.join(', ')}`);
+  const full = profile === 'full';
   const map = loadComplexMd(root);
   if (!map) throw new Error('No COMPLEX.md at the repository root; generate it first.');
   for (const name of agents || []) if (!TARGETS[name]) throw new Error(`unknown wiring target "${name}"; one of: ${TARGET_NAMES.join(', ')}`);
@@ -170,10 +172,11 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
   const active = TARGET_NAMES.filter((name) => (agents ? agents.includes(name) : !TARGETS[name].global && TARGETS[name].detect(root)));
 
   // 1. Primary files. AGENTS.md comes first in PRIMARY, so once it exists
-  // it carries the block by the time the others are read. A CLAUDE.md or
-  // GEMINI.md that imports it (the shape this function creates) loads the
-  // block through that import; a second copy would load it twice. Each
-  // file gets one marked region; text outside it is never changed.
+  // it carries our text by the time the others are read. A CLAUDE.md or
+  // GEMINI.md that imports it loads that text through the import; a second
+  // copy would load it twice. Each file gets one marked region; text
+  // outside it is never changed. The minimal profile writes one line near
+  // the top; the full profile writes the block at the end.
   const ledger = { blocks: [], files: [], entries: [], dirs: [], previous: readManifest(root) };
   if (ledger.previous?.invalid) {
     log(`${MANIFEST_PATH} is not readable JSON; wire writes a new one and removes no file it cannot prove it wrote.`);
@@ -181,12 +184,17 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
   }
   const own = createOwner({ root, ledger, report, log });
   const mark = (rel, content, opts = {}) => markBlock(root, rel, content, { ledger, log, ...opts });
+  const text = full ? block : `${INTEGRATION_LINE}\n`;
+  const place = full ? 'end' : 'top';
   let any = false;
   const agentsCarries = existsSync(join(root, 'AGENTS.md'));
   for (const f of PRIMARY) {
     const p = join(root, f);
     if (!existsSync(p)) continue;
     any = true;
+    /* Copilot reads AGENTS.md as well; the minimal line goes into its own
+       file only when there is no AGENTS.md to carry it. */
+    if (!full && f === '.github/copilot-instructions.md' && agentsCarries) continue;
     const cur = readFileSync(p, 'utf8');
     const outside = outsideRegion(cur);
     const hasRegion = !!findRegion(cur);
@@ -201,12 +209,16 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
       continue;
     }
     const parts = [];
-    if (!importsAgents) parts.push(ours ? CREATED_PREAMBLE + '\n' + block : block);
-    if (f === 'CLAUDE.md' && !IMPORTS_MAP.test(outside)) parts.push('@COMPLEX.md\n');
+    if (!importsAgents) parts.push(ours ? CREATED_PREAMBLE + '\n' + text : text);
+    if (full && f === 'CLAUDE.md' && !IMPORTS_MAP.test(outside)) parts.push('@COMPLEX.md\n');
+    if (!parts.length) {
+      report.skipped.push(f);
+      continue;
+    }
     const content = parts.join('\n');
     const r = ours && !hasRegion
       ? mark(f, content, { legacy: [LEGACY_PREAMBLE + block], created: true })
-      : mark(f, content, { legacy });
+      : mark(f, content, { legacy, place });
     if (r === 'written') {
       if (!importsAgents) report.primary.push(f);
       if (f === 'CLAUDE.md' && content.includes('@COMPLEX.md')) report.primary.push('CLAUDE.md (@COMPLEX.md import)');
@@ -225,7 +237,7 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
        take the absence of house rules for their absence in the project, and
        so the next person knows where to put them. Wiring a repository that
        already has a contract adds a marked section to it instead. */
-    mark('AGENTS.md', CREATED_PREAMBLE + '\n' + block, { create: true, created: true });
+    mark('AGENTS.md', CREATED_PREAMBLE + '\n' + text, { create: true, created: true });
     report.created.push('AGENTS.md');
   }
 
@@ -237,7 +249,10 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
     const tinv = t.global ? { shell: inv.absShell, command: inv.absCommand, args: inv.absArgs } : inv;
     const ctx = { root, inv: tinv, block, paths, briefs, report, log, carried, ledger, mark, own };
     ledger.target = name;
-    if (rules && t.rules) t.rules(ctx);
+    /* The minimal profile writes no brief; it clears the ones an earlier
+       wire wrote, which finish() and cleanTarget() find. */
+    if (rules && full && t.rules) t.rules(ctx);
+    else if (rules) cleanTarget(ctx, name);
     if (hooks && t.hooks) t.hooks({ ...ctx, local: hooks === 'local' });
     else if (!hooks && t.hookFile && holdsOurHooks(root, t.hookFile)) {
       log(`${t.hookFile} holds complex-md hooks from an earlier wire, left as they are: run wire --hooks to update them, or delete those entries.`);
@@ -247,7 +262,7 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
 
   ledger.target = null;
   own.finish(new Set(active));
-  writeManifest(root, ledger);
+  writeManifest(root, ledger, { profile });
   manifestCommittable(root, log);
 
   for (const [k, v] of Object.entries(report)) if (v.length) log(`${k}: ${v.join(', ')}`);

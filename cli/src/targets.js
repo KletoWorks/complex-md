@@ -59,6 +59,26 @@ function blockRule(ctx, rel, content) {
   if (ctx.own.write(rel, withNotice(content))) ctx.report.rules.push(rel);
 }
 
+/* The block only rule file each target may have, from this version or an
+   earlier one. */
+const BLOCK_COPIES = {
+  claude: '.claude/rules/complex-md.md',
+  cursor: '.cursor/rules/complex-md.mdc',
+  openhands: '.agents/skills/complex-md.md',
+  windsurf: '.windsurf/rules/complex-md.md',
+  cline: '.clinerules/complex-md.md',
+  roo: '.roo/rules/complex-md.md',
+};
+
+/* For a profile that writes no brief: remove the target's briefs and block
+   copy that an earlier wire wrote and the manifest does not list. Listed
+   ones are removed by the owner's finish(), with their hash checked. */
+export function cleanTarget(ctx, name) {
+  const spec = BRIEF_SPECS[name];
+  if (spec) ctx.own.clear(spec.dir, (n) => specOwns(spec, `${spec.dir}/${n}`));
+  if (BLOCK_COPIES[name]) dropBlockCopy(ctx, BLOCK_COPIES[name]);
+}
+
 /* Removes a file at a path complex-md once wrote, but only when it is ours:
    it holds our heading, or the manifest lists it. A file of the user's at
    the same path stays. */
