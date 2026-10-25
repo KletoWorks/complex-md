@@ -46,6 +46,20 @@ test('GitHub Actions on another checkout, such as a test repository, is not this
   assert.equal(regenerationBlocked(dir, { GITHUB_ACTIONS: 'true', GITHUB_SHA: 'f'.repeat(40), GITHUB_EVENT_NAME: 'pull_request', GITHUB_HEAD_REF: 'x' }), null);
 });
 
+/* A workflow that checks out the pull request's head, as one that commits
+   the regenerated files back must, builds a commit other than GITHUB_SHA.
+   The checkout still sits in GITHUB_WORKSPACE, so the build is still this
+   repository's. */
+test('a pull request build that checked out its head branch is still this build', () => {
+  const { dir } = committed();
+  const other = 'f'.repeat(40);
+  assert.match(regenerationBlocked(dir, { GITHUB_ACTIONS: 'true', GITHUB_SHA: other, GITHUB_WORKSPACE: dir, GITHUB_EVENT_NAME: 'pull_request', GITHUB_HEAD_REF: 'topic' }), /pull request/);
+  assert.match(regenerationBlocked(join(dir, 'src'), { GITHUB_ACTIONS: 'true', GITHUB_SHA: other, GITHUB_WORKSPACE: dir, GITHUB_EVENT_NAME: 'pull_request', GITHUB_HEAD_REF: 'topic' }), /pull request/);
+  assert.match(regenerationBlocked(dir, { GITLAB_CI: 'true', CI_COMMIT_SHA: other, CI_PROJECT_DIR: dir, CI_MERGE_REQUEST_IID: '3' }), /merge request/);
+  const elsewhere = committed().dir;
+  assert.equal(regenerationBlocked(elsewhere, { GITHUB_ACTIONS: 'true', GITHUB_SHA: other, GITHUB_WORKSPACE: dir, GITHUB_EVENT_NAME: 'pull_request', GITHUB_HEAD_REF: 'topic' }), null);
+});
+
 test('GitHub Actions without a known default branch does not regenerate', () => {
   const { dir, sha } = committed();
   const env = { GITHUB_ACTIONS: 'true', GITHUB_SHA: sha, GITHUB_EVENT_NAME: 'push', GITHUB_REF: 'refs/heads/main', GITHUB_REF_NAME: 'main' };
