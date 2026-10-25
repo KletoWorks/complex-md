@@ -66,9 +66,13 @@ async function withEnv(vars, fn) {
   }
 }
 
-const posix = process.platform !== 'win32';
+/* The stand-in agent CLIs are #! scripts. Windows starts no script as a
+   program without a shell, and runVia starts a CLI without one, so these
+   tests skip there. runVia's Windows lookup and its refusal of a .cmd
+   shim are tested on every OS through the platform option. */
+const SCRIPT_CLI = process.platform === 'win32' && 'Windows cannot start a #! stand-in CLI without a shell';
 
-test('generate --via writes the computed front matter and the CLI prose', { skip: !posix }, async () => {
+test('generate --via writes the computed front matter and the CLI prose', { skip: SCRIPT_CLI }, async () => {
   const root = makeRepo();
   const realFetch = globalThis.fetch;
   globalThis.fetch = async () => assert.fail('--via makes no API call');
@@ -83,7 +87,7 @@ test('generate --via writes the computed front matter and the CLI prose', { skip
   assert.ok(out.endsWith(PROSE));
 });
 
-test('a failed --via run keeps COMPLEX.md and writes the bundle instead', { skip: !posix }, async () => {
+test('a failed --via run keeps COMPLEX.md and writes the bundle instead', { skip: SCRIPT_CLI }, async () => {
   const root = makeRepo();
   writeFileSync(join(root, 'COMPLEX.md'), 'the reviewed map\n');
   const r = await withEnv({ PATH: stubPath(), STUB_FAIL: '1' }, () => generate(root, { via: 'claude' }));
@@ -93,7 +97,7 @@ test('a failed --via run keeps COMPLEX.md and writes the bundle instead', { skip
   assert.ok(existsSync(join(root, '.complex-md/prompt.md')));
 });
 
-test('a --via reply that names a missing file is not written', { skip: !posix }, async () => {
+test('a --via reply that names a missing file is not written', { skip: SCRIPT_CLI }, async () => {
   const root = makeRepo();
   const r = await withEnv({ PATH: stubPath(PROSE.replace('read src/b.js', 'read src/c.js')) }, () => generate(root, { via: 'claude' }));
   assert.match(r.fallback, /src\/c\.js/);
@@ -102,7 +106,7 @@ test('a --via reply that names a missing file is not written', { skip: !posix },
   assert.ok(!readFileSync(join(root, 'COMPLEX.md'), 'utf8').endsWith(PROSE));
 });
 
-test('a file input --via CLI has the bundle files in the plan, written before the call', { skip: !posix }, async () => {
+test('a file input --via CLI has the bundle files in the plan, written before the call', { skip: SCRIPT_CLI }, async () => {
   const root = makeRepo();
   let seen = null;
   await generate(root, { via: 'opencode', approve: async (plan) => { seen = plan; return false; } });
@@ -120,7 +124,7 @@ test('a file input --via CLI has the bundle files in the plan, written before th
   assert.match(readFileSync(join(root, '.gitignore'), 'utf8'), /^\.complex-md\/\*$/m);
 });
 
-test('the bin passes --via and --via-timeout, and names every CLI in --help', { skip: !posix }, () => {
+test('the bin passes --via and --via-timeout, and names every CLI in --help', { skip: SCRIPT_CLI }, () => {
   const root = makeRepo();
   const env = { ...process.env, PATH: stubPath() };
   const ok = spawnSync(process.execPath, [BIN, 'generate', '--via', 'claude', '--via-timeout', '30', '--no-wire'], { cwd: root, env, encoding: 'utf8' });
@@ -137,7 +141,7 @@ test('the bin passes --via and --via-timeout, and names every CLI in --help', { 
   for (const n of VIA_NAMES) assert.ok(help.includes(n), `--help names ${n}`);
 });
 
-test('npx complex-md --via claude runs generate with no command word', { skip: !posix }, () => {
+test('npx complex-md --via claude runs generate with no command word', { skip: SCRIPT_CLI }, () => {
   const root = makeRepo();
   const r = spawnSync(process.execPath, [BIN, '--via', 'claude', '--no-wire'], { cwd: root, env: { ...process.env, PATH: stubPath() }, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
@@ -145,7 +149,7 @@ test('npx complex-md --via claude runs generate with no command word', { skip: !
   assert.ok(readFileSync(join(root, 'COMPLEX.md'), 'utf8').endsWith(PROSE));
 });
 
-test('a bare --via is refused before any provider is picked', { skip: !posix }, () => {
+test('a bare --via is refused before any provider is picked', { skip: SCRIPT_CLI }, () => {
   // Without the guard, "generate --via" with no name fell through to the
   // provider call and sent the bundle with whatever key was set. The key
   // here points at a closed local port, so a regression reaches no network.
