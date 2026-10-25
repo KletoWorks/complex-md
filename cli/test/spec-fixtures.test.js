@@ -12,21 +12,22 @@
  * READER_GAPS. A todo reports its failure and does not fail the suite. When
  * the reader is fixed, the todo passes, and the entry comes out of the list.
  *
- * The schema check uses a small validator for the keywords the schema uses,
- * so the test needs no dependency. It throws on any other keyword, so the
- * schema cannot use a keyword that this test silently skips.
+ * The schema check uses the small validator in src/schema.js, which throws
+ * on any keyword it does not implement.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseComplexMd, loadComplexMd } from '../src/complexmd.js';
+import { validate as validateSchema, typeOf } from '../src/schema.js';
 
 const SPEC = join(import.meta.dirname, '..', '..', 'spec', '0.4');
 const FIXTURES = join(SPEC, 'fixtures');
 const SCHEMA = JSON.parse(readFileSync(join(SPEC, 'complex-md.schema.json'), 'utf8'));
 const SIZE_CAP = 8192;
 const REQUIRED_SECTIONS = ['Where the risk lives', 'Why these files are hot', 'Change coupling', 'What to read first'];
+const validate = (schema, v) => validateSchema(schema, v);
 const DIRECTIVE = 'Before editing this file,';
 
 const READER_GAPS = {
@@ -38,66 +39,6 @@ const READER_GAPS = {
 };
 /* The gaps above that also change the front matter the reader returns. */
 const FRONT_GAPS = new Set(['comma-path', 'escaped-string', 'empty-test-files']);
-
-/* ---------- a validator for the JSON Schema keywords the schema uses ---------- */
-
-const ANNOTATIONS = new Set(['$schema', '$id', 'title', 'description', '$defs']);
-
-function typeOf(v) {
-  if (v === null) return 'null';
-  if (Array.isArray(v)) return 'array';
-  return typeof v;
-}
-
-function hasType(v, t) {
-  if (t === 'integer') return Number.isInteger(v);
-  if (t === 'number') return typeof v === 'number' && Number.isFinite(v);
-  return typeOf(v) === t;
-}
-
-function resolveRef(ref) {
-  const m = /^#\/\$defs\/([\w]+)$/.exec(ref);
-  if (!m || !SCHEMA.$defs[m[1]]) throw new Error(`unsupported $ref ${ref}`);
-  return SCHEMA.$defs[m[1]];
-}
-
-function validate(schema, v, at = '') {
-  if (schema === true) return [];
-  if (schema === false) return [`${at || '/'}: no value is allowed here`];
-  const errs = [];
-  for (const [k, s] of Object.entries(schema)) {
-    if (ANNOTATIONS.has(k)) continue;
-    switch (k) {
-      case '$ref': errs.push(...validate(resolveRef(s), v, at)); break;
-      case 'type': if (!hasType(v, s)) errs.push(`${at}: expected ${s}, got ${typeOf(v)}`); break;
-      case 'const': if (v !== s) errs.push(`${at}: expected ${JSON.stringify(s)}`); break;
-      case 'enum': if (!s.includes(v)) errs.push(`${at}: ${JSON.stringify(v)} is not one of ${s.join(', ')}`); break;
-      case 'pattern': if (typeof v === 'string' && !new RegExp(s, 'u').test(v)) errs.push(`${at}: ${JSON.stringify(v)} does not match ${s}`); break;
-      case 'minLength': if (typeof v === 'string' && [...v].length < s) errs.push(`${at}: shorter than ${s}`); break;
-      case 'minimum': if (typeof v === 'number' && v < s) errs.push(`${at}: below ${s}`); break;
-      case 'maximum': if (typeof v === 'number' && v > s) errs.push(`${at}: above ${s}`); break;
-      case 'minItems': if (Array.isArray(v) && v.length < s) errs.push(`${at}: fewer than ${s} items`); break;
-      case 'maxItems': if (Array.isArray(v) && v.length > s) errs.push(`${at}: more than ${s} items`); break;
-      case 'uniqueItems': if (s && Array.isArray(v) && new Set(v.map((x) => JSON.stringify(x))).size !== v.length) errs.push(`${at}: items repeat`); break;
-      case 'items': if (Array.isArray(v)) v.forEach((x, i) => errs.push(...validate(s, x, `${at}/${i}`))); break;
-      case 'required': if (typeOf(v) === 'object') for (const r of s) if (!(r in v)) errs.push(`${at}: missing ${r}`); break;
-      case 'properties': case 'patternProperties': break;
-      case 'additionalProperties': break;
-      default: throw new Error(`the schema uses ${k}, which this validator does not implement`);
-    }
-  }
-  if (typeOf(v) === 'object') {
-    const props = schema.properties || {};
-    const patterns = Object.entries(schema.patternProperties || {}).map(([p, s]) => [new RegExp(p, 'u'), s]);
-    for (const [key, val] of Object.entries(v)) {
-      let matched = false;
-      if (key in props) { matched = true; errs.push(...validate(props[key], val, `${at}/${key}`)); }
-      for (const [re, s] of patterns) if (re.test(key)) { matched = true; errs.push(...validate(s, val, `${at}/${key}`)); }
-      if (!matched && 'additionalProperties' in schema) errs.push(...validate(schema.additionalProperties, val, `${at}/${key}`));
-    }
-  }
-  return errs;
-}
 
 /* ---------- the document rules of the draft that the schema cannot see ---------- */
 

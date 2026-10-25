@@ -6,6 +6,12 @@ format.
 
 ## Unreleased
 
+**Change:** `complex-md lint [path]` checks a map against the spec 0.4 JSON
+Schema and the rules the schema cannot state (relative paths, listed paths
+that exist, sections and directives), and warns on a file over 8,192 bytes.
+The schema validator moves from `cli/test/spec-fixtures.test.js` to
+`cli/src/schema.js`, and the schema ships in the package.
+
 **Change:** a brief's partner line now reads "4 commits together, 100% of
 the less active file's commits". It said "100% of this file's commits",
 which overstated coupling whenever the brief's file was the busier one of

@@ -18,6 +18,7 @@
     "bin",
     "src",
     "prompts",
+    "schema",
     "README.md"
   ],
   "engines": {
