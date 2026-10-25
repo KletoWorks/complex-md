@@ -1,0 +1,43 @@
+name: A conformance case
+description: Propose a spec 0.4 fixture that a reader or a linter of COMPLEX.md must get right.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Each folder in `spec/0.4/fixtures/` is a repository root with a `COMPLEX.md`, or no map, and an `expected.json`. `spec/0.4/fixtures/README.md` describes the keys and the error codes. `cli/test/spec-fixtures.test.js` runs every folder against the JSON Schema and the reader.
+        The bar for a conformance case is the fixture folder and its entry in the fixture test. When the reader does not give the expected result yet, the entry is a line in `READER_GAPS` that names the gap.
+  - type: input
+    id: rule
+    attributes:
+      label: The rule it tests
+      description: The section of `spec/0.4/spec.md` and the sentence that the case tests.
+      placeholder: "4.4: a reader warns on a map larger than 8,192 bytes and still reads it"
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: COMPLEX.md
+      description: The exact bytes of the file. Say so if the case depends on bytes that a paste loses, such as CRLF line ends or a byte order mark. Leave this empty for a case with no map.
+      render: markdown
+  - type: textarea
+    id: expected
+    attributes:
+      label: expected.json
+      description: The `description`, `document`, `data` and `reader` keys, as in the other fixtures.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What the reader gives now
+      description: The result from `cli/src/complexmd.js` or `complex-md lint`, when it differs from expected.json.
+      render: text
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I can send a pull request with the fixture folder and its entry in the fixture test.

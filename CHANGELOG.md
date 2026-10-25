@@ -21,9 +21,26 @@ runs on merge request pipelines. It installs a pinned complex-md outside the
 checkout, runs `check --note` against the target branch's map with the
 token removed from the CLI's environment, and creates, edits or clears one
 note through the notes API with curl. One run makes 2 reads, 1 more for each
-100 notes past the first 100, and 1 write at most. It needs a token with the `api` scope and the Reporter role, because
-`CI_JOB_TOKEN` cannot write notes. It pins 0.12.0, the first release with
-`--note`.
+100 notes past the first 100, and 1 write at most. It needs a token with the
+`api` scope and the Reporter role, because `CI_JOB_TOKEN` cannot write notes.
+It pins 0.12.0, the first release with `--note`.
+
+**Change:** the map reader keeps the leading zero of an all digit commit
+sha. `commit: 0179008` came back as `179008`, which names no commit, so a
+check of the map's age found the commit missing from the history.
+
+**Intent:** an outside contributor had no clear first step, and the issue
+forms did not say what a pull request must bring
+([issue #29](https://github.com/KletoWorks/complex-md/issues/29)).
+
+**Change:** CONTRIBUTING.md has a "Ways to contribute" section that links
+4 issue forms in order, each with a test as its bar: a wrong map (a
+fixture or a test that shows the wrong output), a language module (an
+edge fixture like those in `cli/test/resolve.test.js`, tested on 3 public
+repositories), a conformance case (a `spec/0.4/fixtures/` folder and its
+entry in the fixture test) and a spec proposal (a benchmark run or a
+source). The conformance case and spec proposal forms are new. The issue
+chooser links the section.
 
 **Intent:** CI ran the tests on Ubuntu with Node 22 only. The CLI writes
 files with line ending rules, runs git and builds paths, and none of that
