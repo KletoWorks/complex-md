@@ -1,6 +1,6 @@
 {
   "name": "complex-md",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "One skill that writes COMPLEX.md, a computed map of where edits in a repository are risky, and wires it into the agent context files. No hooks, no MCP server.",
   "contextFileName": "GEMINI-EXTENSION.md"
 }
