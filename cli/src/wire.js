@@ -3,7 +3,7 @@
 // the MCP server are written only when asked for. Per-harness knowledge
 // lives in targets.js; this file decides which targets are active and what
 // invocation they get.
-import { readFileSync, writeFileSync, existsSync, realpathSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
 import { join, dirname, relative, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { integrationBlock, BLOCK_HEADING, INTEGRATION_LINE } from './prompts.js';

@@ -5,12 +5,11 @@
 // opt-in only via --for. In the repository they get the portable skill;
 // their MCP registry is configured through their own CLI, never by
 // editing another tool's global file behind the user's back.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, statSync } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { git } from './git.js';
 import { hookCommand } from './invoke.js';
-import { BLOCK_HEADING } from './prompts.js';
 import { outsideRegion } from './markers.js';
 
 /* One rule file per briefed path, in a directory of their own.
@@ -21,16 +20,17 @@ import { outsideRegion } from './markers.js';
  * moment any one path is touched. Scoped files cost nothing to the paths that
  * are not being edited.
  *
- * The directory is cleared first. Hot paths move between runs, and a brief
- * left behind for a file that is no longer listed is worse than no brief: it
- * is advice that nothing recomputes.
+ * Briefs this run does not write are removed. Hot paths move between runs,
+ * and a brief left behind for a file that is no longer listed is worse than
+ * no brief: it is advice that nothing recomputes.
  */
 export function writeBriefs(ctx, spec) {
   const { briefs, report, own } = ctx;
   const files = briefFiles(spec, briefs);
-  /* Only files complex-md wrote are cleared: the manifest's, or ones that
-     carry the notice or an earlier version's brief shape. A file of the
-     user's in the same folder, prefix or not, stays. */
+  /* Only files complex-md wrote are removed: unlisted ones that carry the
+     notice or an earlier version's brief shape here, listed ones in the
+     owner's finish(). A file of the user's in the same folder, prefix or
+     not, stays. */
   own.clear(spec.dir, (name) => specOwns(spec, `${spec.dir}/${name}`) && !files.has(`${spec.dir}/${name}`));
   if (!briefs.length) return;
   let n = 0;
@@ -335,7 +335,6 @@ export const TARGETS = {
   claude: {
     detect: (root) => existsSync(join(root, '.claude')) || existsSync(join(root, 'CLAUDE.md')),
     rules(ctx) {
-      const { root, briefs, report } = ctx;
       // CLAUDE.md always carries the block once wire has run: appended,
       // imported from AGENTS.md, or written when CLAUDE.md is created.
       dropBlockCopy(ctx, '.claude/rules/complex-md.md');
@@ -372,7 +371,7 @@ export const TARGETS = {
   cursor: {
     detect: (root) => existsSync(join(root, '.cursor')),
     rules(ctx) {
-      const { root, block, paths, briefs, report, carried } = ctx;
+      const { block, paths } = ctx;
       blockRule(ctx, '.cursor/rules/complex-md.mdc', `---\ndescription: COMPLEX.md structural risk map\nglobs: ${paths.map(literalGlob).join(', ')}\nalwaysApply: false\n---\n${block}`);
       writeSpec(ctx, BRIEF_SPECS.cursor);
     },
@@ -415,7 +414,7 @@ export const TARGETS = {
        OpenClaw and Hermes, and is no sign of OpenHands. */
     detect: (root) => isDir(join(root, '.openhands')),
     rules(ctx) {
-      const { root, block, paths, briefs, report, carried } = ctx;
+      const { block, paths } = ctx;
       blockRule(ctx, '.agents/skills/complex-md.md', `---\nname: complex-md\npaths:\n${paths.map((p) => `  - ${JSON.stringify(literalGlob(p))}`).join('\n')}\n---\n${block}`);
       writeSpec(ctx, BRIEF_SPECS.openhands);
     },
@@ -431,7 +430,6 @@ export const TARGETS = {
   antigravity: {
     detect: (root) => existsSync(join(root, '.agents/rules')),
     rules(ctx) {
-      const { root, briefs, report } = ctx;
       writeSpec(ctx, BRIEF_SPECS.antigravity);
     },
   },
@@ -462,7 +460,6 @@ export const TARGETS = {
   copilot: {
     detect: (root) => existsSync(join(root, '.github/copilot-instructions.md')) || existsSync(join(root, '.github/instructions')),
     rules(ctx) {
-      const { root, briefs, report } = ctx;
       writeSpec(ctx, BRIEF_SPECS.copilot);
     },
   },
@@ -503,7 +500,6 @@ export const TARGETS = {
   devin: {
     detect: (root) => existsSync(join(root, '.devin')),
     rules(ctx) {
-      const { root, briefs, report } = ctx;
       writeSpec(ctx, BRIEF_SPECS.devin);
     },
   },
@@ -516,7 +512,6 @@ export const TARGETS = {
   kiro: {
     detect: (root) => existsSync(join(root, '.kiro')),
     rules(ctx) {
-      const { root, briefs, report } = ctx;
       writeSpec(ctx, BRIEF_SPECS.kiro);
     },
   },
@@ -524,7 +519,7 @@ export const TARGETS = {
   windsurf: {
     detect: (root) => existsSync(join(root, '.windsurf')),
     rules(ctx) {
-      const { root, block, paths, briefs, report, carried } = ctx;
+      const { block, paths } = ctx;
       blockRule(ctx, '.windsurf/rules/complex-md.md', `---\ntrigger: glob\nglobs: ${paths.map(literalGlob).join(', ')}\n---\n${block}`);
       writeSpec(ctx, BRIEF_SPECS.windsurf);
     },
@@ -539,7 +534,7 @@ export const TARGETS = {
   cline: {
     detect: (root) => isDir(join(root, '.clinerules')),
     rules(ctx) {
-      const { root, block, briefs, report, carried } = ctx;
+      const { root, block, report } = ctx;
       if (existsSync(join(root, '.clinerules')) && !isDir(join(root, '.clinerules'))) {
         return void report.skipped.push('.clinerules (a file, not a folder)');
       }
@@ -556,7 +551,6 @@ export const TARGETS = {
     retired: true,
     detect: (root) => existsSync(join(root, '.roo')),
     rules(ctx) {
-      const { root, report } = ctx;
       dropBlockCopy(ctx, '.roo/rules/complex-md.md');
     },
   },
