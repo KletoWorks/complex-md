@@ -6,6 +6,10 @@ format.
 
 ## Unreleased
 
+**Intent:** /map refused every repository outside GitHub with "complex.md maps repositories on GitHub", though `npx complex-md` works in a clone from any host and the request route counts requests for GitLab, Codeberg and Bitbucket.
+
+**Change:** /map reads gitlab.com (1 to 3 groups and a project), codeberg.org and bitbucket.org URLs and SSH remotes. For those it skips the hosted map index, says that hosted pages cover GitHub first, shows the command and sends the request with its `host`. A GitHub request now names `host: github` too. The removal form still takes GitHub repositories only.
+
 **Intent:** CI ran the tests on Ubuntu with Node 22 only. The CLI writes
 files with line ending rules, runs git and builds paths, and none of that
 ran on Windows or macOS. The first run there failed 4 tests on each macOS

@@ -15,17 +15,18 @@ const say = (text) => { status.textContent = text; };
 const initial = new URLSearchParams(location.search).get('repo');
 if (initial) {
   const r = normaliseRepo(initial);
-  repo.value = r.key || initial;
+  repo.value = r.host === 'github' ? r.key : initial;
 }
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const r = normaliseRepo(repo.value);
-  if (r.error) {
+  if (r.error || r.host !== 'github') {
     repo.setAttribute('aria-invalid', 'true');
     repo.focus();
-    return say(r.error === 'host'
-      ? 'complex.md hosts pages for repositories on GitHub only. That address points somewhere else.'
+    // Hosted pages exist for GitHub repositories only, so only those can go.
+    return say(r.error !== 'shape' && r.error !== 'empty'
+      ? 'complex.md hosts pages for GitHub repositories only, so that address has no page to remove.'
       : 'Enter the repository as owner/name or a GitHub URL.');
   }
   repo.removeAttribute('aria-invalid');
