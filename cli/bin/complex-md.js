@@ -231,6 +231,14 @@ async function main() {
     return;
   }
 
+  /* In CI, regeneration writes on the default branch only (branch.js). A
+     dry run still prints its plan. */
+  if ((cmd === 'wire' || cmd === 'generate') && !flag('--dry-run')) {
+    const { regenerationBlocked } = await import('../src/branch.js');
+    const why = regenerationBlocked(root);
+    if (why) return log(why);
+  }
+
   if (cmd === 'wire') {
     if (flag('--dry-run')) {
       const { readFileSync, existsSync } = await import('node:fs');
