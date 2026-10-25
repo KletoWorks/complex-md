@@ -111,6 +111,13 @@ instead). Reported as runs with any regression, paired by McNemar, and as the
 count of regressed tests, paired by Wilcoxon. The patch that produced every
 count is kept in `patches/`.
 
+The runner comes from the repository's `package.json` scripts. A dataset
+whose repository no rule reads names its own in a `suite` object:
+`runner` (`cmd`, `args`, `env`, and `tap: false` when the output is not
+TAP), `files` (globs), and `include` and `exclude` (patterns that decide
+which hits, and which of a fix's test files, are tests). mocha, which tests
+itself with its own `bin/mocha.js`, needs this.
+
 **Conduct.** Whether the agent did what the map asks: a test run before
 finishing an edit to a risky file, and the other side of a co-change pair
 opened. Judged against the computed risky set at the base commit, the same

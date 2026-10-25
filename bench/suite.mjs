@@ -10,8 +10,12 @@ import { join } from 'node:path';
 
 /* The runner the repository uses, from every script value in package.json:
    a `test` script that runs `npm run unit` names no runner itself. Nothing
-   detected is null, never a guess. */
-export function detectRunner(wt) {
+   detected is null, never a guess. A dataset may name the runner instead
+   (`suite.runner`), for a repository whose scripts no rule here reads,
+   such as mocha testing itself with its own bin. Its output is read as TAP
+   unless it says `tap: false`, and its `env` reaches every test file. */
+export function detectRunner(wt, suite = null) {
+  if (suite?.runner) return { tap: true, args: [], ...suite.runner };
   let scripts = '';
   try { scripts = Object.values(JSON.parse(readFileSync(join(wt, 'package.json'), 'utf8')).scripts || {}).join(' '); } catch {}
   if (/\btap\b/.test(scripts)) return { name: 'tap', cmd: 'npx', args: ['tap', '--no-coverage', '--reporter=tap'], tap: true };
@@ -31,22 +35,30 @@ const OUTSIDE = /wpt|web-platform|autobahn|fuzz|jest|benchmark|\.d\.ts$|\.ts$/;
 /* A file the detected runner can execute: JavaScript, outside the suites
    above. Certificates, JSON fixtures and `.test-d.ts` type tests sit under
    test/ too, and `node --test` can never pass them. */
-export function isRunnableTest(f) {
+export function isRunnableTest(f, suite = null) {
+  if (suite?.include) return new RegExp(suite.include).test(f) && !(suite.exclude && new RegExp(suite.exclude).test(f));
   return /\.(m?js|cjs)$/.test(f) && !OUTSIDE.test(f);
 }
 
 /* The gold tests of a task: the test files its real fix changed, kept only
    when runnable. A dataset built before this filter listed every changed
    file under test/, which made five tasks unpassable in every arm. */
-export function goldTestFiles(task) {
-  return (task.tests || []).filter(isRunnableTest);
+export function goldTestFiles(task, suite = null) {
+  return (task.tests || []).filter((f) => isRunnableTest(f, suite));
 }
 
 /* The globs the repository's own scripts hand to its runner (`borp -p
    "test/*.js"`, `node --test test/**`), expanded and deduplicated. That is
    the suite as the maintainers define it. Falls back to a walk of test/,
-   tests/ and __tests__/ for `.test.*` files when the scripts name none. */
-export function listTestFiles(wt) {
+   tests/ and __tests__/ for `.test.*` files when the scripts name none.
+   A dataset suite's `files` globs replace the scripts, and its `include`
+   and `exclude` patterns decide which hits are tests. */
+export function listTestFiles(wt, suite = null) {
+  if (suite?.files) {
+    const found = new Set();
+    for (const g of suite.files) for (const f of globSync(g, { cwd: wt })) if (isRunnableTest(f, suite)) found.add(f);
+    return [...found].sort();
+  }
   let scripts = {};
   try { scripts = JSON.parse(readFileSync(join(wt, 'package.json'), 'utf8')).scripts || {}; } catch {}
   const globs = new Set();
@@ -78,11 +90,12 @@ export function listTestFiles(wt) {
   return out.sort();
 }
 
-/* Top level TAP lines only; nested subtests are indented. */
-function parseTap(stdout) {
+/* Top level TAP lines only; nested subtests are indented. node --test
+   writes `ok 1 - name`, and mocha's tap reporter `ok 1 name`. */
+export function parseTap(stdout) {
   const tests = {};
   for (const line of stdout.split('\n')) {
-    const m = /^(not )?ok \d+ - (.+?)\s*(#.*)?$/.exec(line);
+    const m = /^(not )?ok \d+ (?:- )?(.+?)\s*(#.*)?$/.exec(line);
     if (m) tests[m[2]] = !m[1];
   }
   return tests;
@@ -93,7 +106,7 @@ function parseTap(stdout) {
    a pool of these actually overlaps; spawnSync would serialise the pool. */
 export function runTestFile(wt, runner, file, { timeout = 240000 } = {}) {
   return new Promise((res) => {
-    const child = spawn(runner.cmd, [...runner.args, file], { cwd: wt, env: { ...process.env, CI: '1' }, stdio: ['ignore', 'pipe', 'ignore'] });
+    const child = spawn(runner.cmd, [...runner.args, file], { cwd: wt, env: { ...process.env, CI: '1', ...runner.env }, stdio: ['ignore', 'pipe', 'ignore'] });
     let out = '';
     child.stdout.on('data', (d) => { out += d; });
     const timer = setTimeout(() => child.kill('SIGKILL'), timeout);

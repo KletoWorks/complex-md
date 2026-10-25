@@ -231,8 +231,8 @@ async function baselineFor(task, wt) {
     co_change: sig.co_change.map((c) => c.files),
   };
   risky.tests = namedTests([...risky.hotspots, ...risky.load_bearing]);
-  const runner = suiteOn ? detectRunner(wt) : null;
-  const files = runner ? listTestFiles(wt) : [];
+  const runner = suiteOn ? detectRunner(wt, dataset.suite) : null;
+  const files = runner ? listTestFiles(wt, dataset.suite) : [];
   let results = null;
   if (runner && files.length) {
     log(`baseline suite at ${task.base.slice(0, 10)}: ${files.length} files`);
@@ -387,9 +387,9 @@ function goldRun(task, wt) {
    uses, detected from package.json rather than assumed. No test files, or no
    detectable runner, records null rather than a pass. */
 function runGoldTests(task, wt) {
-  const files = goldTestFiles(task);
+  const files = goldTestFiles(task, dataset.suite);
   if (!files.length) return { tests_run: 0, tests_passed: null, success: null };
-  const runner = detectRunner(wt);
+  const runner = detectRunner(wt, dataset.suite);
   if (!runner) return { tests_run: 0, tests_passed: null, success: null };
   let passed = 0, run = 0;
   for (const f of files) {
@@ -398,7 +398,7 @@ function runGoldTests(task, wt) {
     if (body) { mkdirSync(dirname(join(wt, f)), { recursive: true }); writeFileSync(join(wt, f), body); }
     if (!existsSync(join(wt, f))) continue;
     run++;
-    const r = spawnSync(runner.cmd, [...runner.args, f], { cwd: wt, encoding: 'utf8', timeout: 120000, env: { ...process.env, CI: '1' }, maxBuffer: 64 * 1024 * 1024 });
+    const r = spawnSync(runner.cmd, [...runner.args, f], { cwd: wt, encoding: 'utf8', timeout: 120000, env: { ...process.env, CI: '1', ...runner.env }, maxBuffer: 64 * 1024 * 1024 });
     if (r.status === 0) passed++;
   }
   return { tests_run: run, tests_passed: passed, success: run ? passed === run : null };
@@ -410,7 +410,7 @@ function runGoldTests(task, wt) {
    from the fix commit. Every regression is confirmed on a second run. */
 async function runDamage(task, wt, baseline) {
   if (!baseline.results) return { suite_files: null, regressions: null, regressed_tests: null, regressed_files: null };
-  const runner = detectRunner(wt);
+  const runner = detectRunner(wt, dataset.suite);
   const after = await runSuite(wt, runner, baseline.files);
   const keys = await confirm(wt, runner, baseline.results, after, new Set(task.tests || []));
   return {

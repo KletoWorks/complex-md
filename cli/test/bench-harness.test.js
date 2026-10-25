@@ -2,7 +2,7 @@
    in place of a model. No network and no model call. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildBenchRepo, runHarness } from './fixtures/bench-repo.mjs';
 
@@ -166,5 +166,21 @@ test('--maps-only logs a month whose map fails, goes on and exits 4', () => {
     assert.equal(status, 4, stderr);
     assert.match(stderr, /over the 100 byte cap/);
     assert.equal(rows.length, 0);
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
+
+test('a dataset suite decides the runner and the files of the damage suite', () => {
+  const fx = buildBenchRepo();
+  try {
+    const ds = JSON.parse(readFileSync(fx.datasetPath, 'utf8'));
+    ds.suite = { runner: { name: 'dataset-node', cmd: process.execPath, args: ['--test', '--test-reporter=tap'], env: { CX_SUITE_ENV: 'on' } }, files: ['test/*.test.js'], include: '\\.test\\.js$' };
+    writeFileSync(fx.datasetPath, JSON.stringify(ds));
+    const { status, stderr, rows, out } = runHarness(fx, ['--agent', 'mock', '--arms', 'none', '--stop-at', 'none', '--suite']);
+    assert.equal(status, 0, stderr);
+    assert.equal(rows[0].suite_files, 1);
+    assert.equal(rows[0].regressed_tests, 0);
+    assert.equal(rows[0].tests_run, 1, 'the gold test runs with the dataset runner');
+    const [b] = readdirSync(join(out, 'baseline'));
+    assert.equal(JSON.parse(readFileSync(join(out, 'baseline', b), 'utf8')).runner, 'dataset-node');
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });
