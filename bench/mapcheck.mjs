@@ -100,7 +100,10 @@ export function scoreMap({ reply, fm, files, hot }) {
   const { fm: got, prose } = splitReply(reply);
   const out = {};
 
-  out.front_matter = got === null ? result(false, 'no front matter block') : got === fm ? result(true) : result(false, firstDiff(got, fm));
+  // A rescore of an old results.json may have no computed front matter to
+  // compare with; the check then fails and the other checks still run.
+  if (typeof fm !== 'string') out.front_matter = result(false, 'no computed front matter to compare with');
+  else out.front_matter = got === null ? result(false, 'no front matter block') : got === fm ? result(true) : result(false, firstDiff(got, fm));
 
   const missing = validateOutput(prose);
   out.sections = missing.length ? result(false, `missing ${missing.join(', ')}`) : result(true);

@@ -253,3 +253,22 @@ test('--rescore leaves a failed call failed, even when an earlier run left a rep
   assert.equal(b.checks, null);
   assert.match(readFileSync(join(out, 'summary.md'), 'utf8'), /0 of 0 scored maps/);
 });
+
+test('--rescore fails the front matter check, and does not stop, when no computed front matter was saved', async (t) => {
+  if (!existsSync(BENCH)) return t.skip('not a repository checkout');
+  const { rescoreResults } = await load();
+  // A legacy results.json: no files and no front matter per repository, and
+  // no reply that passed the front matter check to take it from.
+  const legacy = { front_matter: { pass: false, detail: 'line 3' }, sections: { pass: true }, paths: { pass: true, detail: '' }, directives: { pass: true }, sentences: { pass: true }, em_dashes: { pass: true } };
+  const out = savedResults({
+    repo: { name: 'fixture', hot: ['src/a.js'] },
+    rows: [{ model: 'open/model-a', repo: 'fixture', error: null, checks: legacy }],
+    maps: { 'open/model-a': RESCORE_FM + '\n' + RESCORE_PROSE },
+  });
+  const [row] = rescoreResults(out).rows;
+  assert.equal(row.checks.raw.front_matter.pass, false);
+  assert.match(row.checks.raw.front_matter.detail, /computed front matter/);
+  assert.equal(row.checks.raw.sections.pass, true);
+  assert.equal(row.checks.written.front_matter.pass, false);
+  assert.match(row.checks.written.sections.detail, /not written/);
+});
