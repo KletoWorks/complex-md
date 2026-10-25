@@ -51,6 +51,11 @@ the row's error. `--map-cap` sets the cap (0 turns it off). Each row records
 `map_bytes` and `map_cap`. `--max-runs` stops a pass after that many rows,
 and `--maps-only` builds the maps before parallel workers share a cache.
 
+**Fix (2026-10-24):** the agent sandbox gave the agent no stdin, so every
+real benchmark run in it ended at 0 steps with "Input must be provided
+either through stdin". `bench/comply.mjs` did not find maps named after
+their month and commit, so it scored no run made since that name.
+
 **Intent:** a first run with no key ended with a prompt file and no map, a
 keyed run whose call failed ended the same way, and a default wire wrote
 hooks into committed settings. Users of an agent CLI with no API key had no
