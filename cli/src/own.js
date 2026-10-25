@@ -7,11 +7,43 @@
 // generated notice, the integration block's heading or the shape of an
 // earlier brief. A file the manifest lists whose text no longer matches
 // the recorded hash was edited by someone: it is reported and left.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, rmdirSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, rmdirSync, statSync, lstatSync, realpathSync } from 'node:fs';
+import { join, dirname, sep } from 'node:path';
 import { BLOCK_HEADING } from './prompts.js';
 import { GENERATED_NOTICE, ENTRY_KINDS, jsonText, getPath } from './targets.js';
 import { findRegion, removeRegion, outsideRegion, normalizedHash } from './markers.js';
+import { safeRelPath } from './manifest.js';
+
+/* Whether wire or unwire may write, remove or rewrite `rel`: a plain
+   relative path (safeRelPath) that resolves, symbolic links followed,
+   to a place inside the repository. A path from a committed manifest, or
+   a folder the repository links elsewhere, then never reaches a file
+   outside it. A link inside the repository, such as CLAUDE.md pointing
+   at AGENTS.md, is fine. */
+export function insideRepo(root, rel) {
+  if (!safeRelPath(rel)) return false;
+  let base;
+  try {
+    base = realpathSync(root);
+  } catch {
+    return false;
+  }
+  for (let p = join(root, rel); ; ) {
+    try {
+      const r = realpathSync(p);
+      return r === base || r.startsWith(base + sep);
+    } catch {
+      /* A link to nowhere: writing through it would create its target. */
+      try {
+        lstatSync(p);
+        return false;
+      } catch {}
+      const up = dirname(p);
+      if (up === p) return false;
+      p = up;
+    }
+  }
+}
 
 /* The opening of a brief written before briefs carried the notice:
    front matter, the path as a heading, then one of three lead lines. */
@@ -38,9 +70,11 @@ export function ensureDir(root, relDir, ledger) {
 
 /**
  * Remove a file the manifest lists, when its hash still matches.
- * Returns 'removed', 'edited' (left in place) or 'missing'.
+ * Returns 'removed', 'edited' (left in place), 'missing', or 'linked'
+ * (a symbolic link takes the path outside the repository; left in place).
  */
 export function removeListedFile(root, entry) {
+  if (!insideRepo(root, entry.path)) return 'linked';
   const p = join(root, entry.path);
   if (!existsSync(p)) return 'missing';
   if (normalizedHash(read(p)) !== entry.sha256) return 'edited';
@@ -55,6 +89,7 @@ export function removeListedFile(root, entry) {
  * 'deleted' (the whole file), 'edited', or 'missing'.
  */
 export function removeListedBlock(root, entry) {
+  if (!insideRepo(root, entry.path)) return 'linked';
   const p = join(root, entry.path);
   if (!existsSync(p)) return 'missing';
   const cur = read(p);
@@ -76,6 +111,7 @@ export function removeListedBlock(root, entry) {
  * 'edited' (not valid JSON any more; left in place) or 'missing'.
  */
 export function removeListedEntry(root, entry) {
+  if (!insideRepo(root, entry.path)) return 'linked';
   const p = join(root, entry.path);
   const kind = ENTRY_KINDS[entry.kind];
   if (!kind || !existsSync(p)) return 'missing';
@@ -114,6 +150,7 @@ export function removeListedEntry(root, entry) {
 export function pruneDirs(root, dirs) {
   const kept = [];
   for (const d of [...new Set(dirs)].sort((a, b) => b.length - a.length)) {
+    if (!insideRepo(root, d)) continue;
     const p = join(root, d);
     if (!existsSync(p)) continue;
     if (statSync(p).isDirectory() && readdirSync(p).length === 0) rmdirSync(p);
@@ -134,6 +171,9 @@ export function createOwner({ root, ledger, report, log = () => {} }) {
   return {
     isOurs,
 
+    /** Whether `rel` resolves inside the repository (insideRepo). */
+    inside: (rel) => insideRepo(root, rel),
+
     /** Create the folder for a file, recording the folders wire created. */
     ensureDir(relDir) {
       ensureDir(root, relDir, ledger);
@@ -142,6 +182,10 @@ export function createOwner({ root, ledger, report, log = () => {} }) {
     /** Write a generated file. Returns false, and writes nothing, when a file of the user's is at that path. */
     write(rel, content) {
       const p = join(root, rel);
+      if (!insideRepo(root, rel)) {
+        report.skipped.push(`${rel} (a symbolic link takes it outside the repository; not written)`);
+        return false;
+      }
       if (existsSync(p)) {
         const cur = read(p);
         if (!isOurs(rel, cur)) {
@@ -160,7 +204,7 @@ export function createOwner({ root, ledger, report, log = () => {} }) {
     /** Remove a generated file this run does not write. Returns true when it was removed. */
     drop(rel) {
       const p = join(root, rel);
-      if (!existsSync(p)) return false;
+      if (!insideRepo(root, rel) || !existsSync(p)) return false;
       const entry = listed(rel);
       if (entry) {
         const r = removeListedFile(root, entry);
@@ -175,7 +219,7 @@ export function createOwner({ root, ledger, report, log = () => {} }) {
     /** Remove unlisted generated files in a folder that `match` selects; listed ones are left to finish(). */
     clear(relDir, match) {
       const dir = join(root, relDir);
-      if (!existsSync(dir) || !statSync(dir).isDirectory()) return;
+      if (!insideRepo(root, relDir) || !existsSync(dir) || !statSync(dir).isDirectory()) return;
       for (const name of readdirSync(dir)) {
         const rel = `${relDir}/${name}`;
         if (!match(name) || listed(rel) || !statSync(join(dir, name)).isFile()) continue;

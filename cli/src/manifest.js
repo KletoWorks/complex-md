@@ -16,16 +16,48 @@ import { SPEC_VERSION } from './signals.js';
 export const MANIFEST_PATH = `${WORK_DIR}/manifest.json`;
 const pkg = createRequire(import.meta.url)('../package.json');
 
-/** The manifest of an earlier wire, or null. An unreadable one is null, with `invalid` set. */
+/* The manifest is committed, so a cloned repository can carry one that
+   someone else wrote. A listed path counts only when it is a plain
+   relative path inside the repository: no absolute path, no `.` or `..`
+   segment, no backslash, and nothing under .git. */
+export function safeRelPath(rel) {
+  if (typeof rel !== 'string' || !rel || rel.includes('\0') || rel.includes('\\')) return false;
+  if (rel.startsWith('/') || /^[A-Za-z]:/.test(rel)) return false;
+  const parts = rel.split('/');
+  if (parts.some((s) => s === '' || s === '.' || s === '..')) return false;
+  return parts[0].toLowerCase() !== '.git';
+}
+
+/**
+ * The manifest of an earlier wire, or null. An unreadable one is null, with
+ * `invalid` set. Entries whose path fails safeRelPath are dropped and
+ * listed in `rejected`.
+ */
 export function readManifest(root) {
   const p = join(root, MANIFEST_PATH);
   if (!existsSync(p)) return null;
+  let m;
   try {
-    const m = JSON.parse(readFileSync(p, 'utf8'));
-    return { files: [], blocks: [], entries: [], dirs: [], ...m };
+    m = JSON.parse(readFileSync(p, 'utf8'));
   } catch {
-    return { invalid: true, files: [], blocks: [], entries: [], dirs: [] };
+    return { invalid: true, files: [], blocks: [], entries: [], dirs: [], rejected: [] };
   }
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return { invalid: true, files: [], blocks: [], entries: [], dirs: [], rejected: [] };
+  const rejected = [];
+  const keep = (list, pathOf) =>
+    (Array.isArray(list) ? list : []).filter((e) => {
+      const ok = e && safeRelPath(pathOf(e));
+      if (!ok) rejected.push(String(pathOf(e ?? {})));
+      return ok;
+    });
+  return {
+    ...m,
+    files: keep(m.files, (e) => e.path),
+    blocks: keep(m.blocks, (e) => e.path),
+    entries: keep(m.entries, (e) => e.path),
+    dirs: keep(m.dirs, (d) => d),
+    rejected,
+  };
 }
 
 const byPath = (a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);

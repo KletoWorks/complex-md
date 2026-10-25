@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { integrationBlock, BLOCK_HEADING, INTEGRATION_LINE } from './prompts.js';
 import { SPEC_VERSION } from './signals.js';
 import { readManifest, writeManifest, MANIFEST_PATH } from './manifest.js';
-import { createOwner, ensureDir } from './own.js';
+import { createOwner, ensureDir, insideRepo } from './own.js';
 import { git } from './git.js';
 import { findRegion, outsideRegion, upsertRegion, renderRegion, eolOf, normalizedHash } from './markers.js';
 import { loadComplexMd } from './complexmd.js';
@@ -86,6 +86,10 @@ const IMPORTS_MAP = /^@COMPLEX\.md\s*$/m;
  */
 export function markBlock(root, rel, content, { place = 'end', style = 'html', legacy = [], create = false, created = false, ledger, log = () => {} } = {}) {
   const p = join(root, rel);
+  if (!insideRepo(root, rel)) {
+    log(`${rel} is a symbolic link out of the repository; left as it is.`);
+    return 'linked';
+  }
   const exists = existsSync(p);
   if (!exists && !create) return 'absent';
   const cur = exists ? readFileSync(p, 'utf8') : '';

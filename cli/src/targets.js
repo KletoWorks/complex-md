@@ -191,6 +191,7 @@ export const ENTRY_KINDS = {
 /* Edit a JSON file of the user's in place, and record in the manifest that
    it holds our entries and which keys wire created for them. */
 function editJson(ctx, rel, kind, mutate) {
+  if (!ctx.own.inside(rel)) return void ctx.report.skipped.push(`${rel} (a symbolic link takes it outside the repository; not written)`);
   const p = join(ctx.root, rel);
   const existed = existsSync(p);
   const text = existed ? readFileSync(p, 'utf8') : '';

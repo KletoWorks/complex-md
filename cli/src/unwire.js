@@ -18,12 +18,18 @@ export function unwire(root, { log = () => {} } = {}) {
     return { ...report, manifest: false };
   }
   if (m.invalid) throw new Error(`${MANIFEST_PATH} is not readable JSON; unwire removes nothing it cannot prove complex-md wrote.`);
+  if (m.rejected.length) log(`ignored ${m.rejected.length} ${MANIFEST_PATH} entries whose path is outside the repository or in .git: ${m.rejected.join(', ')}`);
+  const linked = (entry) => {
+    report.left.push(entry);
+    log(`left ${entry.path}: a symbolic link takes it outside the repository, so unwire does not touch it.`);
+  };
 
   const left = { files: [], blocks: [], entries: [], dirs: [] };
   for (const entry of m.files) {
     const r = removeListedFile(root, entry);
     if (r === 'removed') report.deleted.push(entry.path);
     else if (r === 'missing') report.missing.push(entry.path);
+    else if (r === 'linked') linked(entry);
     else {
       report.left.push(entry);
       left.files.push(entry);
@@ -35,6 +41,7 @@ export function unwire(root, { log = () => {} } = {}) {
     if (r === 'removed') report.removed.push(entry.path);
     else if (r === 'deleted') report.deleted.push(entry.path);
     else if (r === 'missing') report.missing.push(entry.path);
+    else if (r === 'linked') linked(entry);
     else {
       report.left.push(entry);
       left.blocks.push(entry);
@@ -46,6 +53,7 @@ export function unwire(root, { log = () => {} } = {}) {
     if (r === 'removed') report.removed.push(entry.path);
     else if (r === 'deleted') report.deleted.push(entry.path);
     else if (r === 'missing') report.missing.push(entry.path);
+    else if (r === 'linked') linked(entry);
     else {
       report.left.push(entry);
       left.entries.push(entry);
