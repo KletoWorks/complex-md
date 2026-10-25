@@ -47,10 +47,10 @@ function repoWith(files) {
   return dir;
 }
 
-test('the plan for a repository with no agent config is one new AGENTS.md, and the dry run writes nothing', () => {
+test('the plan for a repository with no agent config is a new AGENTS.md, the manifest and .gitattributes, and the dry run writes nothing', () => {
   const dir = repoWith({ 'COMPLEX.md': MAP });
   const before = snapshot(dir);
-  assert.deepEqual(planWire(dir, MAP, {}), [{ path: 'AGENTS.md', action: 'create' }]);
+  assert.deepEqual(planWire(dir, MAP, {}), [{ path: '.complex-md/manifest.json', action: 'create' }, { path: '.gitattributes', action: 'create' }, { path: 'AGENTS.md', action: 'create' }]);
   assert.deepEqual(snapshot(dir), before);
 });
 
@@ -59,10 +59,10 @@ test('the wiring plan matches what wire then writes, for every repo local target
     'COMPLEX.md': MAP,
     'CLAUDE.md': '# house rules\n',
     '.claude/settings.json': '{\n  "permissions": {}\n}\n',
-    '.claude/rules/complex-md/stale-brief.md': 'old\n',
+    '.claude/rules/complex-md/stale-brief.md': '---\npaths: src/gone.js\n---\n# src/gone.js\n\nListed in COMPLEX.md as a file where edits are risky.\n',
     '.cursor/': '', '.openhands/': '', '.codex/': '', '.windsurf/': '', '.clinerules/': '', '.roo/': '',
     '.agents/skills/mine.md': 'kept\n',
-    '.agents/skills/complex-md-stale.md': 'old\n',
+    '.agents/skills/complex-md-stale.md': '---\nname: complex-md-stale\n---\n# src/gone.js\n\nListed in COMPLEX.md as a file where edits are risky.\n',
   });
   const opts = { hooks: true, mcp: true };
   const plan = planWire(dir, MAP, opts);

@@ -35,11 +35,19 @@ approximate fan in with grep.
 
 ## Wiring a map into agents
 
-`npx complex-md wire` adds a fixed block of 4 rules to the agent instruction
-files that exist, such as `AGENTS.md` and `CLAUDE.md`. It also writes 1 brief
-per listed path into the rule folders of the agents it detects, scoped to
-that path. A brief holds the row's numbers, the file's paragraph, its co-change
-partners and the directive.
+`npx complex-md wire` writes 1 of 2 profiles. The default, `minimal`, adds 1
+line near the top of `AGENTS.md` that sends an agent to the map. `full` adds
+a fixed block of 4 rules to the agent instruction files that exist, such as
+`AGENTS.md` and `CLAUDE.md`, and writes 1 brief per listed path, for at most
+10 paths, into the rule folders of the agents it detects. A brief holds the
+row's numbers, the file's paragraph, its co-change partners and the
+directive.
+
+Each text the CLI writes into a file the user owns sits between begin and
+end markers that name the tool and the spec version. The CLI records each
+file and block it writes, with a hash, in `.complex-md/manifest.json`.
+`npx complex-md unwire` reads that record and removes only what still
+matches its hash.
 
 ## Hooks and the diff check
 
