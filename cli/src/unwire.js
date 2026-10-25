@@ -7,7 +7,7 @@
 import { existsSync, readdirSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { readManifest, writeManifest, MANIFEST_PATH } from './manifest.js';
-import { removeListedFile, removeListedBlock, removeListedEntry, pruneDirs } from './own.js';
+import { removeListedFile, removeListedBlock, removeListedEntry, pruneDirs, briefDirs } from './own.js';
 import { WORK_DIR } from './gitignore.js';
 
 export function unwire(root, { log = () => {} } = {}) {
@@ -63,6 +63,7 @@ export function unwire(root, { log = () => {} } = {}) {
   if ((m.entries || []).some((e) => e.path === '.claude/settings.local.json')) {
     log('The line /.claude/settings.local.json that wire --hooks --local added to .git/info/exclude stays; it affects this clone only.');
   }
+  pruneDirs(root, briefDirs(m.files));
   left.dirs = pruneDirs(root, m.dirs || []);
   /* What is left stays on record, so a later unwire, after the user
      reverts or deletes those files, still knows they were complex-md's. */

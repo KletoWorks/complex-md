@@ -75,6 +75,10 @@ the section below; complex-md appends to this file rather than rewriting it.
 
 `;
 
+/* The CLAUDE.md that 0.10.0 created: these two lines and nothing else. CRLF
+   and a missing final newline are allowed. */
+const V0_10_CLAUDE = /^@AGENTS\.md\r?\n@COMPLEX\.md(\r?\n)?$/;
+
 const IMPORTS_AGENTS = /^@(\.\/)?AGENTS\.md\s*$/m;
 const IMPORTS_MAP = /^@COMPLEX\.md\s*$/m;
 
@@ -129,7 +133,7 @@ export function markBlock(root, rel, content, { place = 'end', style = 'html', l
    core.autocrlf from rewriting them, and GitHub folds them in a diff. The
    leading slash anchors each path at the repository root. */
 function markGenerated(root, ledger, mark) {
-  const paths = [...new Set(['COMPLEX.md', MANIFEST_PATH, ...ledger.files.map((f) => f.path)])].sort();
+  const paths = [...new Set(['COMPLEX.md', MANIFEST_PATH, ...ledger.files.filter((f) => f.path !== 'CLAUDE.md').map((f) => f.path)])].sort();
   const lines = paths.map((p) => `/${p} eol=lf linguist-generated`);
   mark('.gitattributes', `# Files complex-md generates. Edit COMPLEX.md, not them.\n${lines.join('\n')}\n`, { style: 'hash', create: true, created: !existsSync(join(root, '.gitattributes')) });
 }
@@ -243,6 +247,12 @@ export function wire(root, { profile = null, hooks = false, mcp = false, rules =
       if (f === 'CLAUDE.md' && content.includes('@COMPLEX.md')) report.primary.push('CLAUDE.md (@COMPLEX.md import)');
     }
     if (r === 'unchanged' || importsAgents) report.skipped.push(f);
+  }
+  /* A CLAUDE.md that still holds exactly what 0.10.0 wrote is complex-md's:
+     record it so unwire removes it. Any other byte makes it the user's. */
+  if (existsSync(join(root, 'CLAUDE.md')) && insideRepo(root, 'CLAUDE.md')) {
+    const cur = readFileSync(join(root, 'CLAUDE.md'), 'utf8');
+    if (V0_10_CLAUDE.test(cur)) ledger.files.push({ path: 'CLAUDE.md', sha256: normalizedHash(cur) });
   }
   /* Claude Code reads AGENTS.md when the repository has no CLAUDE.md, and a
      new root CLAUDE.md would stop it loading nested AGENTS.md files. So

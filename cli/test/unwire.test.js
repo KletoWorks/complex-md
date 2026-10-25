@@ -114,3 +114,38 @@ test('complex-md unwire runs from the bin and keeps COMPLEX.md', () => {
   assert.ok(existsSync(join(dir, 'COMPLEX.md')), 'the map is not wiring');
   assert.match(r.stderr, /COMPLEX\.md/);
 });
+
+/* A repository first wired by 0.10.0: it created CLAUDE.md with two import
+   lines, and its manifest did not record the brief folders it created. */
+function wired010(claude) {
+  const dir = repo({ 'AGENTS.md': '# House rules\n', 'CLAUDE.md': claude, '.claude': null });
+  wire(dir, { profile: 'full', agents: ['claude'] });
+  writeFileSync(join(dir, 'CLAUDE.md'), claude);
+  const m = JSON.parse(read(dir, MANIFEST_PATH));
+  delete m.dirs;
+  m.files = m.files.filter((f) => f.path !== 'CLAUDE.md');
+  writeFileSync(join(dir, MANIFEST_PATH), JSON.stringify(m, null, 2) + '\n');
+  return dir;
+}
+
+for (const [name, text] of [['LF', '@AGENTS.md\n@COMPLEX.md\n'], ['CRLF', '@AGENTS.md\r\n@COMPLEX.md\r\n'], ['no final newline', '@AGENTS.md\n@COMPLEX.md']]) {
+  test(`a 0.10.0 CLAUDE.md (${name}) and the emptied brief folder are removed by wire then unwire`, () => {
+    const dir = wired010(text);
+    wire(dir, {});
+    assert.ok(!existsSync(join(dir, '.claude/rules/complex-md')), 'the minimal rewire removes the empty brief folder');
+    assert.ok(readManifest(dir).files.some((f) => f.path === 'CLAUDE.md'), 'recorded as created by complex-md');
+    unwire(dir);
+    assert.ok(!existsSync(join(dir, 'CLAUDE.md')));
+    assert.ok(existsSync(join(dir, '.claude')));
+  });
+}
+
+test('a CLAUDE.md with any other byte stays, and so does a brief folder with another file', () => {
+  const dir = wired010('@AGENTS.md\n@COMPLEX.md\n');
+  writeFileSync(join(dir, 'CLAUDE.md'), '@AGENTS.md\n@COMPLEX.md\nUse pnpm.\n');
+  writeFileSync(join(dir, '.claude/rules/complex-md/mine.md'), 'mine\n');
+  wire(dir, {});
+  unwire(dir);
+  assert.equal(read(dir, 'CLAUDE.md'), '@AGENTS.md\n@COMPLEX.md\nUse pnpm.\n');
+  assert.equal(read(dir, '.claude/rules/complex-md/mine.md'), 'mine\n');
+});

@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync
 import { join, dirname, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import { BLOCK_HEADING } from './prompts.js';
-import { GENERATED_NOTICE, ENTRY_KINDS, jsonText, getPath } from './targets.js';
+import { GENERATED_NOTICE, BRIEF_SPECS, ENTRY_KINDS, jsonText, getPath } from './targets.js';
 import { findRegion, removeRegion, outsideRegion, normalizedHash } from './markers.js';
 import { safeRelPath } from './manifest.js';
 
@@ -187,6 +187,16 @@ export function pruneDirs(root, dirs) {
   return kept.sort();
 }
 
+/* The brief folders that hold only complex-md's files, by name, where the
+   listed files include one. Emptied, they are complex-md's to remove even
+   when an older manifest did not record creating them. A folder shared
+   with other files by prefix (.windsurf/rules) is left to the manifest. */
+export function briefDirs(files) {
+  return Object.values(BRIEF_SPECS)
+    .filter((s) => !s.prefix && files.some((f) => f.path.startsWith(`${s.dir}/`)))
+    .map((s) => s.dir);
+}
+
 /**
  * The owner for one wire run. `ledger` collects what this run wrote;
  * `ledger.previous` is the manifest of the run before, or null.
@@ -292,6 +302,7 @@ export function createOwner({ root, ledger, report, log = () => {} }) {
       for (const entry of prev.entries || []) {
         if (!entries.has(`${entry.kind} ${entry.path}`) && existsSync(join(root, entry.path))) ledger.entries.push(entry);
       }
+      pruneDirs(root, briefDirs(prev.files));
       ledger.dirs = pruneDirs(root, [...(prev.dirs || []), ...ledger.dirs]);
     },
   };
