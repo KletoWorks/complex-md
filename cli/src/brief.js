@@ -72,7 +72,7 @@ export function briefFor(map, path) {
   if (partners.length) {
     lines.push('', 'Moves with:');
     for (const p of partners) {
-      lines.push(`- ${p.partner} (${p.coupling}% of this file's commits, ${p.count} together)`);
+      lines.push(`- ${p.partner} (${p.count} commits together, ${p.coupling}% of the less active file's commits)`);
     }
     lines.push('', 'Open the partner and say in the change description whether it needed a change too.');
   }
