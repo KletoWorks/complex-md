@@ -55,6 +55,8 @@ const PUBLIC = [
   'scripts/build.mjs',
   // The header and the footer of every page, hosted map pages included.
   'scripts/chrome.mjs',
+  // The text of every hosted map page.
+  'scripts/hosted.mjs',
 ];
 
 /** The texts an agent follows to wire a repository. */
