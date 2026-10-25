@@ -3,7 +3,7 @@
 // the agent the user is already talking to.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { computeSignals, graphFor, detectTestCommand, TABLE_HEAD, rowToArray } from './signals.js';
+import { computeSignals, graphFor, testCommandFor, TABLE_HEAD, rowToArray } from './signals.js';
 import { templateProse, packageRoots, reachableFrom } from './template.js';
 import { loadComplexMd } from './complexmd.js';
 import { ignoreWorkDir, gitignoreAction, WORK_DIR } from './gitignore.js';
@@ -211,7 +211,7 @@ async function withoutDashes(out, fm, ask, log) {
 export function templateMap(root, sig, tool) {
   const g = graphFor(root);
   const roots = packageRoots(root, g.kinds);
-  const prose = templateProse(sig, { reachable: reachableFrom(roots, g.edges), roots, testCommand: detectTestCommand(root) });
+  const prose = templateProse(sig, { reachable: reachableFrom(roots, g.edges), roots, testCommand: (path) => testCommandFor(root, path) });
   return frontMatter(sig, tool, { prose: 'template' }) + '\n' + prose;
 }
 

@@ -172,13 +172,25 @@ function hotParagraph(sig, h, { mapped, reachable, roots, testCommand }) {
   const viaRoot = reachable.has(h.path);
   if (viaRoot && !roots.has(h.path)) s.push('The package root reaches it through imports, so a break here can surface in any test.');
   else if (viaRoot) s.push('A break here can surface in any test of the package.');
-  s.push(directive({ viaRoot, tests, importers, fanIn: h.fan_in, testCommand }));
+  s.push(directive({ viaRoot, tests, importers, fanIn: h.fan_in, testCommand: commandFor(testCommand, h.path) }));
   return s.join(' ');
+}
+
+/* `testCommand` is 1 command for every file, or a function that gives
+   { command, dir } or null for 1 path (testCommandFor in signals.js). */
+function commandFor(testCommand, path) {
+  if (typeof testCommand === 'function') return testCommand(path);
+  return testCommand ? { command: testCommand, dir: '.' } : null;
+}
+
+function suite(cmd) {
+  if (!cmd) return '';
+  return `${cmd.dir === '.' ? '' : ` in ${code(cmd.dir)}`} with ${code(cmd.command)}`;
 }
 
 function directive({ viaRoot, tests, importers, fanIn, testCommand }) {
   const lead = 'Before editing this file,';
-  if (viaRoot) return `${lead} run the full test suite${testCommand ? ` with ${code(testCommand)}` : ''}.`;
+  if (viaRoot) return `${lead} run the full test suite${suite(testCommand)}.`;
   if (tests.length) return `${lead} run ${list(tests.slice(0, 3))}.`;
   if (importers.length) return `${lead} open ${list(importers.slice(0, 2).map(code))} and check how ${importers.length === 1 ? 'it uses' : 'they use'} it, because no test covers it.`;
   if (fanIn > 0) return `${lead} open its ${plural(fanIn, 'importer')} and check each call site, because no test covers it.`;
@@ -215,7 +227,9 @@ function readFirstSection(sig) {
  * The four prose sections, from the computed signals only.
  * `reachable`: files a package root reaches (see packageRoots); they get
  * the full test suite directive. `roots`: the package roots themselves.
- * `testCommand`: the repository's test command when one is known.
+ * `testCommand`: 1 test command for every file, or a function from a path
+ * to { command, dir } or null, so each file gets the command of its own
+ * language and package.
  */
 export function templateProse(sig, { reachable = new Set(), roots = [], testCommand = null } = {}) {
   const ctx = { mapped: mappedPaths(sig), reachable, roots: new Set(roots), testCommand };

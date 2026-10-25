@@ -402,7 +402,7 @@ export function kindOf(cwd, path) {
   return graphFor(cwd).kinds.get(path) || null;
 }
 
-/** Best guess at the repo's test command, for the check report. Never invented: null when unknown. */
+/** Best guess at the repo's test command, for the check report. Never invented: null when unknown. A directive uses testCommandFor. */
 export function detectTestCommand(cwd) {
   const pj = join(cwd, 'package.json');
   if (existsSync(pj)) {
@@ -422,7 +422,49 @@ export function detectTestCommand(cwd) {
   return null;
 }
 
-export const TABLE_HEAD = ['score', 'path', 'kind', 'loc', 'churn', 'churn_w', 'fixes', 'authors', 'owner_share', 'fan_in', 'rank', 'tests'];
+/* The test command for 1 file: the nearest test setup that runs tests in
+   the file's language, and the folder it runs in. A repository wide
+   command was wrong for a file of another language: nanobot's
+   webui/src/lib/types.ts got pytest, though webui/package.json runs
+   vitest, and voicestudio's Python backend got npm test, which runs only
+   its Electron suite. Read from tracked files only. Null when no setup
+   fits the file's language, so a directive names no command at all. */
+const JS_FILE_RE = /\.(m?js|cjs|jsx|ts|mts|cts|tsx|vue|svelte|astro)$/;
+const PYTEST_CONFIG = { 'pyproject.toml': /^\[tool\.pytest(\.ini_options)?\]/m, 'setup.cfg': /^\[tool:pytest\]/m, 'tox.ini': /^\[pytest\]/m };
+
+export function testCommandFor(cwd, path) {
+  const files = graphFor(cwd).kinds;
+  const read = (f) => { try { return readFileSync(join(cwd, f), 'utf8'); } catch { return ''; } };
+  const at = (dir, f) => (dir === '.' ? f : `${dir}/${f}`);
+  const dirs = [];
+  for (let d = posix.dirname(path); ; d = posix.dirname(d)) { dirs.push(d); if (d === '.') break; }
+  const nearest = (fits) => dirs.find(fits) ?? null;
+  const found = (command, dir) => (dir === null ? null : { command, dir });
+  if (JS_FILE_RE.test(path)) {
+    const dir = nearest((d) => {
+      if (!files.has(at(d, 'package.json'))) return false;
+      try {
+        const test = JSON.parse(read(at(d, 'package.json'))).scripts?.test;
+        return typeof test === 'string' && !/no test specified/.test(test);
+      } catch { return false; }
+    });
+    if (dir !== null) return found('npm test', dir);
+    const nodeTests = !files.has('package.json') && [...files.keys()].some((f) => /\.test\.(m?js|ts)$/.test(f));
+    return nodeTests ? found('node --test', '.') : null;
+  }
+  if (/\.pyi?$/.test(path)) {
+    const dir = nearest((d) => files.has(at(d, 'pytest.ini')) || files.has(at(d, 'conftest.py'))
+      || Object.entries(PYTEST_CONFIG).some(([f, re]) => files.has(at(d, f)) && re.test(read(at(d, f)))));
+    if (dir !== null) return found('pytest', dir);
+    const pytestFiles = [...files.keys()].some((f) => /(^|\/)(test_[^/]*|[^/]*_test)\.py$/.test(f));
+    return pytestFiles && (files.has('pyproject.toml') || files.has('setup.py')) ? found('pytest', '.') : null;
+  }
+  if (/\.go$/.test(path)) return found('go test ./...', nearest((d) => files.has(at(d, 'go.mod'))));
+  if (/\.rs$/.test(path)) return found('cargo test', nearest((d) => files.has(at(d, 'Cargo.toml'))));
+  return null;
+}
+
+export const TABLE_HEAD =['score', 'path', 'kind', 'loc', 'churn', 'churn_w', 'fixes', 'authors', 'owner_share', 'fan_in', 'rank', 'tests'];
 
 export function rowToArray(r) {
   return [r.score, r.path, r.kind, r.loc, r.churn, r.churn_w.toFixed(2), r.fixes, r.authors, r.owner_share.toFixed(2), r.fan_in, r.rank ?? 0, r.tests];

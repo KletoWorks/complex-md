@@ -8,7 +8,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { computeSignals, findCoveringTests } from '../src/signals.js';
+import { computeSignals, findCoveringTests, testCommandFor } from '../src/signals.js';
 import { templateMap } from '../src/generate.js';
 import { parseComplexMd } from '../src/complexmd.js';
 
@@ -35,6 +35,71 @@ function mapOf(dir) {
 }
 
 const PYTEST = '[project]\nname = "bot"\n\n[tool.pytest.ini_options]\ntestpaths = ["tests"]\n';
+
+test('a TypeScript file in a Python repository gets the test command of its own package.json', () => {
+  // hkuds/nanobot: webui/src/lib/types.ts was told to run pytest, though
+  // webui/package.json runs vitest.
+  const dir = repo({
+    'pyproject.toml': PYTEST,
+    'bot/__init__.py': 'from . import core\n',
+    'bot/core.py': pyLines(20),
+    'tests/test_core.py': 'from bot import core\n\ndef test_core():\n    assert core.V0 == 0\n',
+    'webui/package.json': JSON.stringify({ name: 'webui', main: 'src/main.ts', scripts: { test: 'vitest run' } }),
+    'webui/src/main.ts': "import { t0 } from './lib/types';\nimport { a } from './a';\nexport const m = t0 + a;\n",
+    'webui/src/a.ts': "import { t1 } from './lib/types';\nexport const a = t1;\n",
+    'webui/src/b.ts': "import { t2 } from './lib/types';\nexport const b = t2;\n",
+    'webui/src/c.ts': "import { t3 } from './lib/types';\nexport const c = t3;\n",
+    'webui/src/lib/types.ts': lines(60, 't'),
+  });
+  const { sig, map } = mapOf(dir);
+  assert.ok(sig.hotspots.some((h) => h.path === 'webui/src/lib/types.ts'), 'types.ts is a hotspot');
+  assert.equal(map.directive('webui/src/lib/types.ts'), 'Before editing this file, run the full test suite in `webui` with `npm test`.');
+});
+
+test('a Python file gets pytest, not the npm test of a JavaScript suite at the root', () => {
+  // debpalash/voicestudio: backend/services/*.py were told to run npm test,
+  // which runs only the Electron suite; pytest runs the Python tests.
+  const files = {
+    'package.json': JSON.stringify({ name: 'studio', scripts: { test: 'bun run --cwd electron test' } }),
+    'electron/package.json': JSON.stringify({ name: 'electron', scripts: { test: 'bun test' } }),
+    'electron/main.ts': 'export const e = 1;\n',
+    'backend/__init__.py': 'from backend.services import model\n',
+    'backend/services/__init__.py': '',
+    'backend/services/model.py': pyLines(40),
+    'backend/api.py': 'from backend.services import model\n',
+    'backend/jobs.py': 'from backend.services import model\n',
+    'backend/cli.py': 'from backend.services import model\n',
+    'tests/test_model.py': 'from backend.services import model\n\ndef test_model():\n    assert model.V0 == 0\n',
+  };
+  const withPytest = mapOf(repo({ ...files, 'pyproject.toml': PYTEST }));
+  assert.ok(withPytest.sig.hotspots.some((h) => h.path === 'backend/services/model.py'), 'model.py is a hotspot');
+  assert.equal(withPytest.map.directive('backend/services/model.py'), 'Before editing this file, run the full test suite with `pytest`.');
+  // No Python test setup at all: the directive names no command rather than a wrong one.
+  const { 'tests/test_model.py': _, ...noPython } = files;
+  const bare = mapOf(repo(noPython));
+  assert.equal(bare.map.directive('backend/services/model.py'), 'Before editing this file, run the full test suite.');
+});
+
+test('testCommandFor takes the nearest setup of the file\'s own language, and null when none fits', () => {
+  const dir = repo({
+    'package.json': JSON.stringify({ name: 'root', scripts: { test: 'echo "Error: no test specified" && exit 1' } }),
+    'web/package.json': JSON.stringify({ name: 'web', scripts: { test: 'vitest run' } }),
+    'web/src/app.ts': 'export const a = 1;\n',
+    'svc/go.mod': 'module example.com/svc\n',
+    'svc/main.go': 'package main\n',
+    'core/Cargo.toml': '[package]\nname = "core"\n',
+    'core/src/lib.rs': 'pub fn f() {}\n',
+    'tools/build.js': 'export const b = 1;\n',
+    'App.java': 'class App {}\n',
+    'scripts/run.py': 'X = 1\n',
+  });
+  assert.deepEqual(testCommandFor(dir, 'web/src/app.ts'), { command: 'npm test', dir: 'web' });
+  assert.deepEqual(testCommandFor(dir, 'svc/main.go'), { command: 'go test ./...', dir: 'svc' });
+  assert.deepEqual(testCommandFor(dir, 'core/src/lib.rs'), { command: 'cargo test', dir: 'core' });
+  assert.equal(testCommandFor(dir, 'tools/build.js'), null, 'the root test script is the npm placeholder');
+  assert.equal(testCommandFor(dir, 'App.java'), null);
+  assert.equal(testCommandFor(dir, 'scripts/run.py'), null, 'no pytest setup and no Python test');
+});
 
 test('a test is never named for a file it does not test: __init__.py, a file with no test, or a same-name file of another package', () => {
   // jamiepine/voicebox named backend/tests/__init__.py; vitejs/vite named
