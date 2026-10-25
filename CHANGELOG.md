@@ -4,6 +4,36 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## Unreleased
+
+**Intent:** CI ran the tests on Ubuntu with Node 22 only. The CLI writes
+files with line ending rules, runs git and builds paths, and none of that
+ran on Windows or macOS. The first run there failed 4 tests on each macOS
+leg, 17 on Windows with LF files and 37 on Windows with CRLF files.
+
+**Change:** CI runs the tests on Ubuntu, Windows and macOS, each with Node
+22 and 24, and a failing leg does not stop the others. The Windows Node 22
+leg checks out with `core.autocrlf=true`, as most Windows users have it,
+and the Node 24 leg with `false`. The site build runs on Ubuntu with Node
+22 only. A test that skips on one OS says why: Windows has no SIGINT for a
+child process, and starts no `#!` stand-in CLI without a shell.
+
+**Change:** the `pre` and `cursor-pre` hooks match a file that the agent
+names through a linked folder or an 8.3 short name. git gives the root
+with links resolved, so on macOS a path under `/var`, a link to
+`/private/var`, matched no file, and the first edit of a hotspot went
+through with no paragraph.
+
+**Change:** a CRLF checkout of this repository gives the same results as
+an LF one. The CLI reads its prompts with LF, so wire writes no mixed line
+ends into AGENTS.md or the skill, and check reports no drift. The site
+build reads its text inputs with LF; on CRLF it had published 2 draft
+articles and titled pages "undefined". The bench reads the advice in a
+CRLF map. Shell scripts and the 4 skill copies check out with LF.
+
+**Change:** the bench names test files with `/` on Windows, and its mask
+plan compares paths with the OS separator.
+
 ## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
 
 **Intent:** wire appended a block with a heading but no end, deleted any file in a brief folder whose name had the complex-md- prefix, created CLAUDE.md beside AGENTS.md, and had no way back. A default wire could add 40 or more files to a repository, a rewire never updated an old block, and a Windows checkout could leave mixed line endings.
