@@ -2,9 +2,9 @@
 // repository with a stub GitLab API on 127.0.0.1, and this bin in place of
 // the npm install. No request leaves the machine. The script is sh for a
 // Linux runner, so the run tests skip on Windows.
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, chmodSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, chmodSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
@@ -79,10 +79,14 @@ co_change:
 src/hot.js parses the input. Before editing this file, run \`npm test\`.
 `;
 
+const made = [];
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+
 /* An origin with a main branch that carries the map, and a clone on a
    merge request branch. */
 function fixture() {
   const top = mkdtempSync(join(tmpdir(), 'cx-gitlab-'));
+  made.push(top);
   const origin = join(top, 'origin.git');
   const dir = join(top, 'clone');
   const env = { ...process.env, GIT_CEILING_DIRECTORIES: top, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' };

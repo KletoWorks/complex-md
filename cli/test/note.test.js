@@ -1,9 +1,9 @@
 // check --note: the Markdown merge request note that ci/gitlab/ posts. The
 // format is the pull request comment of KletoWorks/complex-md-action, so
 // these tests pin its lines, then run the bin in a fixture repository.
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, renameSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -106,10 +106,14 @@ test('a path cannot break the table or the code span', () => {
   assert.equal(code('a\nb'), '`a b`');
 });
 
+const made = [];
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+
 /* A repository with a target branch whose map differs from the one the
    merge request branch commits. */
 function fixtureRepo() {
   const dir = mkdtempSync(join(tmpdir(), 'cx-note-'));
+  made.push(dir);
   const env = { ...process.env, GIT_CEILING_DIRECTORIES: dirname(dir), GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' };
   const g = (...a) => {
     const r = spawnSync('git', a, { cwd: dir, env, encoding: 'utf8' });
