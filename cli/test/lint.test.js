@@ -99,3 +99,18 @@ test('lint on the command line: findings, --json and the exit code', () => {
     assert.equal(good.stdout, '');
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+test('lint reports a list key of the wrong type as a schema finding and does not throw', () => {
+  for (const key of ['hotspots', 'load_bearing', 'co_change']) {
+    const map = MAP.replace(new RegExp(`^${key}:[\\s\\S]*?(?=^\\w)`, 'm'), `${key}: invalid\n`);
+    const r = lintMap(map, { root: null });
+    assert.equal(r.ok, false, key);
+    assert.ok(r.errors.some((e) => e.rule === 'schema' && e.message.startsWith(`/${key}: expected array`)), `${key}: ${JSON.stringify(r.errors)}`);
+  }
+});
+
+test('lint checks the commit as written: an unquoted all digit sha is a number', () => {
+  const r = lintMap(MAP.replace('commit: "3f2a9c1"', 'commit: 1234567'), { root: null });
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.some((e) => e.rule === 'schema' && e.message.startsWith('/commit')), JSON.stringify(r.errors));
+});

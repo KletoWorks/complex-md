@@ -4,7 +4,7 @@
 // path-missing. A map over the size cap is a warning, not an error.
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseComplexMd } from './complexmd.js';
+import { parseFrontMatter } from './complexmd.js';
 import { loadSchema, validate } from './schema.js';
 
 export const SIZE_CAP = 8192;
@@ -76,9 +76,11 @@ export function lintMap(bytes, { root = null, exists = existsSync } = {}) {
   if (Buffer.byteLength(raw) > SIZE_CAP) warnings.push({ line: 1, rule: 'size', message: `the file is ${Buffer.byteLength(raw)} bytes; a map SHOULD NOT be larger than ${SIZE_CAP}` });
 
   const m = /^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/.exec(text);
-  const map = m ? parseComplexMd(text) : null;
-  if (!m || !map) { err(1, 'no-front-matter', 'the file has no front matter, or the front matter has no closing --- line'); return finish(); }
-  const front = map.front;
+  if (!m) { err(1, 'no-front-matter', 'the file has no front matter, or the front matter has no closing --- line'); return finish(); }
+  /* The schema checks the data as written. parseComplexMd is the wrong
+     input: it turns a numeric commit into a string, and its prose index
+     throws on a list key whose value is not a list. */
+  const front = parseFrontMatter(m[1]);
 
   if (!('complex_md' in front)) { err(2, 'no-version', 'the front matter has no complex_md key'); return finish(); }
   if (front.complex_md !== '0.4') {
