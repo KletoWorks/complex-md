@@ -285,7 +285,8 @@ main.doc .toc a:hover { text-decoration: underline; }
 .lookup { display: flex; flex-direction: column; gap: 8px; margin: 0 0 24px; }
 .lookup label { font-size: 14px; font-weight: 600; }
 .lookup-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.lookup input, .lookup textarea { flex: 1 1 240px; min-width: 0; width: 100%; font-family: var(--cx-mono); font-size: 15px; line-height: 22px; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 10px 12px; }
+.lookup-row input { flex: 1 1 240px; width: auto; }
+.lookup input, .lookup textarea { box-sizing: border-box; min-width: 0; width: 100%; font-family: var(--cx-mono); font-size: 15px; line-height: 22px; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 10px 12px; }
 .lookup textarea { font-family: var(--cx-sans); resize: vertical; }
 .lookup input::placeholder, .lookup textarea::placeholder { color: var(--muted-2); }
 .lookup input[aria-invalid="true"] { border-color: var(--heat-3); }
@@ -305,3 +306,5 @@ main.doc .lookup-unmapped .request-status:empty { display: none; }
   .lookup-row .btn { width: 100%; }
   .lookup-unmapped .install { display: flex; width: 100%; }
 }
+main.doc ol.ways { margin: 0 0 32px; }
+main.doc ol.ways li { margin: 0 0 12px; }

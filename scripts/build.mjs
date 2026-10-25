@@ -287,7 +287,7 @@ mkdirSync(join(ROOT, 'cli/prompts'), { recursive: true });
 cpSync(join(ROOT, 'prompts/generate.md'), join(ROOT, 'cli/prompts/generate.md'));
 cpSync(join(ROOT, 'prompts/integration.md'), join(ROOT, 'cli/prompts/integration.md'));
 
-for (const f of ['site.css', 'site.js', 'lookup.js', 'repo-name.js', '404.html', 'favicon.svg', 'logo.svg', 'og.png', 'sw.js', 'robots.txt']) cpSync(join(ROOT, 'site', f), join(DIST, f));
+for (const f of ['site.css', 'site.js', 'lookup.js', 'remove.js', 'repo-name.js', '404.html', 'favicon.svg', 'logo.svg', 'og.png', 'sw.js', 'robots.txt']) cpSync(join(ROOT, 'site', f), join(DIST, f));
 for (const d of ['fonts', 'icons']) cpSync(join(ROOT, 'site', d), join(DIST, d), { recursive: true });
 // Hosted map pages (scripts/hosted-pages.mjs) load the report renderer's
 // styles and treemap tooltip as files, since their policy allows no inline

@@ -26,6 +26,9 @@ const PUBLIC = [
   // The /map lookup page and the messages its script writes.
   'content/map.html',
   'site/lookup.js',
+  // The removal page and the messages its script writes.
+  'content/map-remove.html',
+  'site/remove.js',
   'content/spec.md',
   'content/skill.md',
   ...dir('content/articles', '.md'),

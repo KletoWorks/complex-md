@@ -72,15 +72,31 @@ test('the /map page works as a plain form, names its parts for screen readers an
 
 test('the lookup script asks /maps/index.json, posts requests as JSON and writes no markup from data', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
-  for (const f of ['lookup.js', 'repo-name.js']) assert.ok(existsSync(join(site(), f)), `the build ships ${f}`);
+  for (const f of ['lookup.js', 'remove.js', 'repo-name.js']) assert.ok(existsSync(join(site(), f)), `the build ships ${f}`);
   const js = readFileSync(join(ROOT, 'site/lookup.js'), 'utf8');
   assert.match(js, /from '\.\/repo-name\.js'/);
   assert.match(js, /'\/maps\/index\.json'/);
   assert.match(js, /'\/api\/complexmd\/requests'/);
   assert.match(js, /'content-type': 'application\/json'/);
   for (const s of ['rate_limited', '429', 'already']) assert.ok(js.includes(s), s);
-  for (const f of ['lookup.js']) {
+  for (const f of ['lookup.js', 'remove.js']) {
     const src = readFileSync(join(ROOT, 'site', f), 'utf8');
     assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(src), `${f} builds the DOM with textContent`);
   }
+});
+
+test('the removal page names the three ways, the 24 hours, and posts to the removals route', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const html = readFileSync(join(site(), 'map/remove/index.html'), 'utf8');
+  assert.match(html, /<meta name="robots" content="noindex">/);
+  assert.match(html, /within 24 hours/);
+  assert.match(html, /Commit COMPLEX\.md/);
+  assert.match(html, /<code>hosted: false<\/code>/);
+  assert.match(html, /<textarea id="remove-note" name="note"[^>]*maxlength="2000"/);
+  assert.match(html, /<label for="remove-repo">/);
+  assert.match(html, /id="remove-status"[^>]*role="status"/);
+  assert.match(html, /<script type="module" src="\/remove\.js"><\/script>/);
+  const js = readFileSync(join(ROOT, 'site/remove.js'), 'utf8');
+  assert.match(js, /'\/api\/complexmd\/removals'/);
+  assert.match(js, /2000/);
 });

@@ -1,0 +1,43 @@
+<!-- meta
+title: Remove a hosted map page | complex.md
+description: How a maintainer removes the hosted COMPLEX.md map page of a repository from complex.md. Each way takes effect within 24 hours.
+path: /map/remove
+script: /remove.js
+noindex: true
+-->
+
+<header class="doc-head">
+<h1>Remove a hosted map page</h1>
+<p>A hosted page on complex.md shows the map of one public repository. There
+are three ways to take a page down, and each takes effect within 24 hours.</p>
+</header>
+
+<ol class="ways">
+<li><strong>Commit COMPLEX.md to the repository.</strong> Run
+<code>npx complex-md</code> in a clone and commit the file. The page then gives
+way to a link to the committed file.</li>
+<li><strong>Set <code>hosted: false</code> in its front matter.</strong> Add the
+line to the front matter of the COMPLEX.md you commit. complex.md then builds
+no page for the repository.</li>
+<li><strong>Send this form.</strong> A request needs no reason.</li>
+</ol>
+
+<form class="lookup" id="remove-form" action="/map/remove/" method="get" aria-label="Request removal of a hosted page">
+<label for="remove-repo">Repository</label>
+<input id="remove-repo" name="repo" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="owner/name or a GitHub URL" aria-describedby="remove-hint" required>
+<p class="hint" id="remove-hint">The repository whose page should go, as owner/name or a GitHub URL.</p>
+<label for="remove-note">Anything else (optional)</label>
+<textarea id="remove-note" name="note" rows="4" maxlength="2000" aria-describedby="note-hint"></textarea>
+<p class="hint" id="note-hint">Up to 2,000 characters. A reason helps improve the pages.</p>
+<div class="lookup-row"><button class="btn solid" type="submit">Request removal</button></div>
+</form>
+
+<div class="lookup-result" id="remove-status" role="status" aria-live="polite"></div>
+
+<noscript><p class="lookup-result">This form needs JavaScript. Without it,
+use the first or the second way.</p></noscript>
+
+<h2 id="who-writes-the-prose">Who writes the prose?</h2>
+<p>A template builds every sentence on a hosted page from numbers computed
+from the repository's public git history. No model and no person writes a
+hosted page, and a page never compares one repository with another.</p>
