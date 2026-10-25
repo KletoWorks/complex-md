@@ -10,7 +10,8 @@ import { npxExecutable } from '../src/invoke.js';
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'complex-md.js');
 const VERSION = JSON.parse(readFileSync(join(dirname(BIN), '..', 'package.json'), 'utf8')).version;
 
-test('complex-md mcp delegates to its matching complex-md-mcp version', () => {
+// The npx stub is a sh script, which Windows cannot run; the next test covers the Windows path.
+test('complex-md mcp delegates to its matching complex-md-mcp version', { skip: process.platform === 'win32' && 'the npx stub is a sh script' }, () => {
   const dir = mkdtempSync(join(tmpdir(), 'cx-mcp-handoff-'));
   const npx = join(dir, 'npx');
   writeFileSync(npx, '#!/bin/sh\nprintf "%s\\n" "$@"\ncat\nexit 7\n');
