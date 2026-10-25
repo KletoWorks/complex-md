@@ -1,0 +1,15 @@
+diff --git a/server/notification-providers/notification-provider.js b/server/notification-providers/notification-provider.js
+index 42079176..a8caa0b0 100644
+--- a/server/notification-providers/notification-provider.js
++++ b/server/notification-providers/notification-provider.js
+@@ -37,9 +37,9 @@ class NotificationProvider {
+             case "push":
+                 return "Heartbeat";
+             case "ping":
++            case "dns":
+                 return monitorJSON["hostname"];
+             case "port":
+-            case "dns":
+             case "gamedig":
+             case "steam":
+                 if (monitorJSON["port"]) {

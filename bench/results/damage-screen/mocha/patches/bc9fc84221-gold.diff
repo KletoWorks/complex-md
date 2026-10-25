@@ -1,0 +1,33 @@
+diff --git a/.github/release-please/manifest.json b/.github/release-please/manifest.json
+index 175a8321..9fa5ff9e 100644
+--- a/.github/release-please/manifest.json
++++ b/.github/release-please/manifest.json
+@@ -1 +1 @@
+-{".":"12.0.0-beta-2"}
++{ ".": "12.0.0-beta-2" }
+diff --git a/lib/mocha.js b/lib/mocha.js
+index f95ccabc..9f33b155 100644
+--- a/lib/mocha.js
++++ b/lib/mocha.js
+@@ -329,6 +329,10 @@ Mocha.prototype.reporter = function (reporterName, reporterOptions) {
+         }
+       }
+     }
++    if (reporter.default) {
++      reporter = reporter.default;
++    }
++
+     this._reporter = reporter;
+   }
+   this.options.reporterOption = reporterOptions;
+@@ -363,6 +367,10 @@ Mocha.prototype.ui = function (ui) {
+       }
+     }
+   }
++  if (bindInterface.default) {
++    bindInterface = bindInterface.default;
++  }
++
+   bindInterface(this.suite);
+ 
+   this.suite.on(EVENT_FILE_PRE_REQUIRE, function (context) {

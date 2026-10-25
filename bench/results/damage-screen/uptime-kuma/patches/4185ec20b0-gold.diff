@@ -1,0 +1,17 @@
+diff --git a/server/uptime-kuma-server.js b/server/uptime-kuma-server.js
+index d2002190..5742b29a 100644
+--- a/server/uptime-kuma-server.js
++++ b/server/uptime-kuma-server.js
+@@ -134,9 +134,10 @@ class UptimeKumaServer {
+                         log.info("auth", "WebSocket with no origin is allowed");
+                         callback(null, true);
+                     } else {
++                        let host = req.headers.host;
++                        let origin = req.headers.origin;
++
+                         try {
+-                            let host = req.headers.host;
+-                            let origin = req.headers.origin;
+                             let originURL = new URL(origin);
+                             let xForwardedFor;
+                             if (await Settings.get("trustProxy")) {

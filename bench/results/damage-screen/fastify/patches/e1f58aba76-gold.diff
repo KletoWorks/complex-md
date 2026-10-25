@@ -1,0 +1,13 @@
+diff --git a/fastify.js b/fastify.js
+index ee87fdec..d39dfc64 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -157,7 +157,7 @@ function fastify (serverOptions) {
+     [kSchemaErrorFormatter]: null,
+     [kErrorHandler]: buildErrorHandler(),
+     [kErrorHandlerAlreadySet]: false,
+-    [kChildLoggerFactory]: defaultChildLoggerFactory,
++    [kChildLoggerFactory]: options.childLoggerFactory || defaultChildLoggerFactory,
+     [kReplySerializerDefault]: null,
+     [kContentTypeParser]: new ContentTypeParser(
+       options.bodyLimit,

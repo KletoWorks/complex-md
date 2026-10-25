@@ -1,0 +1,32 @@
+diff --git a/lib/nodejs/parallel-buffered-runner.cjs b/lib/nodejs/parallel-buffered-runner.cjs
+index 5270db88..6041c7df 100644
+--- a/lib/nodejs/parallel-buffered-runner.cjs
++++ b/lib/nodejs/parallel-buffered-runner.cjs
+@@ -222,6 +222,13 @@ class ParallelBufferedRunner extends Runner {
+             this._state = ABORTING;
+             await pool.terminate(true);
+           }
++          if (err && typeof err === "object") {
++            try {
++              err.file = file;
++            } catch {
++              /* frozen or non-writable */
++            }
++          }
+           throw err;
+         }
+       } finally {
+diff --git a/lib/runner.js b/lib/runner.js
+index 4e852ac9..1eb4152d 100644
+--- a/lib/runner.js
++++ b/lib/runner.js
+@@ -1132,6 +1132,9 @@ Runner.prototype._uncaught = function (err) {
+     runnable = new Runnable("Uncaught error outside test suite");
+     debug("uncaught(): no current Runnable; created a phony one");
+     runnable.parent = this.suite;
++    if (err.file) {
++      runnable.file = err.file;
++    }
+ 
+     if (this.state === constants.STATE_RUNNING) {
+       debug("uncaught(): failing gracefully");

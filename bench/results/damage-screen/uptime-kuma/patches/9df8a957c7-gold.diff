@@ -1,0 +1,112 @@
+diff --git a/.github/workflows/auto-test.yml b/.github/workflows/auto-test.yml
+index 19581ee3..0e661e62 100644
+--- a/.github/workflows/auto-test.yml
++++ b/.github/workflows/auto-test.yml
+@@ -21,7 +21,7 @@ jobs:
+       matrix:
+         os: [macos-latest, ubuntu-22.04, windows-latest, ubuntu-22.04-arm]
+         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+-        node: [ 24, 25 ]
++        node: [24, 25]
+ 
+     steps:
+       - run: git config --global core.autocrlf false # Mainly for Windows
+diff --git a/server/model/rdap-dns.json b/server/model/rdap-dns.json
+index 51bbe45d..377badd9 100644
+--- a/server/model/rdap-dns.json
++++ b/server/model/rdap-dns.json
+@@ -1,9 +1,10 @@
+ {
+     "description": "RDAP bootstrap file for Domain Name System registrations",
+-    "publication": "2025-12-11T00:00:01Z",
++    "publication": "2026-02-06T23:00:01Z",
+     "services": [
+         [["kg"], ["http://rdap.cctld.kg/"]],
+         [["mg"], ["http://rdap.nic.mg/"]],
++        [["ng"], ["http://rdap.nic.net.ng/"]],
+         [["xn--kpry57d"], ["https://ccrdap.twnic.tw/taiwan/"]],
+         [["tw"], ["https://ccrdap.twnic.tw/tw/"]],
+         [["na"], ["https://keetmans.omadhina.co.na/"]],
+@@ -185,7 +186,6 @@
+                 "ggee",
+                 "gmo",
+                 "goldpoint",
+-                "goo",
+                 "hisamitsu",
+                 "hitachi",
+                 "honda",
+@@ -1113,6 +1113,7 @@
+         [["music"], ["https://rdap.registryservices.music/rdap/"]],
+         [["rw"], ["https://rdap.ricta.org.rw/"]],
+         [["cologne", "koeln", "tirol", "wien"], ["https://rdap.ryce-rsp.com/rdap/"]],
++        [["sg"], ["https://rdap.sgnic.sg/rdap/"]],
+         [["nl"], ["https://rdap.sidn.nl/"]],
+         [["anquan", "shouji", "xihuan", "xn--vuq861b", "yun"], ["https://rdap.teleinfo.cn/"]],
+         [["xn--3ds443g"], ["https://rdap.teleinfo.cn/xn--3ds443g/"]],
+diff --git a/server/routers/api-router.js b/server/routers/api-router.js
+index 683b2103..28297ddd 100644
+--- a/server/routers/api-router.js
++++ b/server/routers/api-router.js
+@@ -52,6 +52,10 @@ router.all("/api/push/:pushToken", async (request, response) => {
+         let statusString = request.query.status || "up";
+         const statusFromParam = statusString === "up" ? UP : DOWN;
+ 
++        // Check if status=down was explicitly provided (not defaulting to "up")
++        // When explicitly pushing down, bypass retry logic and go directly to DOWN
++        const isExplicitDown = request.query.status === "down";
++
+         // Validate ping value - max 100 billion ms (~3.17 years)
+         // Fits safely in both BIGINT and FLOAT(20,2)
+         const MAX_PING_MS = 100000000000;
+@@ -85,7 +89,14 @@ router.all("/api/push/:pushToken", async (request, response) => {
+             msg = "Monitor under maintenance";
+             bean.status = MAINTENANCE;
+         } else {
+-            determineStatus(statusFromParam, previousHeartbeat, monitor.maxretries, monitor.isUpsideDown(), bean);
++            determineStatus(
++                statusFromParam,
++                previousHeartbeat,
++                monitor.maxretries,
++                monitor.isUpsideDown(),
++                bean,
++                isExplicitDown
++            );
+         }
+ 
+         // Calculate uptime
+@@ -609,13 +620,21 @@ router.get("/api/badge/:id/response", cache("5 minutes"), async (request, respon
+  * @param {number} maxretries - The maximum number of retries allowed.
+  * @param {boolean} isUpsideDown - Indicates if the monitor is upside down.
+  * @param {object} bean - The new heartbeat object.
++ * @param {boolean} isExplicitDown - If status=down was explicitly pushed, bypass retries.
+  * @returns {void}
+  */
+-function determineStatus(status, previousHeartbeat, maxretries, isUpsideDown, bean) {
++function determineStatus(status, previousHeartbeat, maxretries, isUpsideDown, bean, isExplicitDown) {
+     if (isUpsideDown) {
+         status = flipStatus(status);
+     }
+ 
++    // If status=down was explicitly pushed, bypass retry logic and go directly to DOWN
++    if (isExplicitDown && status === DOWN) {
++        bean.retries = 0;
++        bean.status = DOWN;
++        return;
++    }
++
+     if (previousHeartbeat) {
+         if (previousHeartbeat.status === UP && status === DOWN) {
+             // Going Down
+diff --git a/src/util.ts b/src/util.ts
+index ca153ada..edcbd37a 100644
+--- a/src/util.ts
++++ b/src/util.ts
+@@ -17,7 +17,7 @@ import * as timezone from "dayjs/plugin/timezone";
+ // eslint-disable-next-line @typescript-eslint/no-unused-vars
+ import * as utc from "dayjs/plugin/utc";
+ 
+-import * as jsonata from "jsonata";
++import jsonata from "jsonata";
+ 
+ export const isDev = process.env.NODE_ENV === "development";
+ export const isNode = typeof process !== "undefined" && process?.versions?.node;

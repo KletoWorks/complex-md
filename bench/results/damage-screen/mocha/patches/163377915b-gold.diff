@@ -1,0 +1,13 @@
+diff --git a/lib/utils.cjs b/lib/utils.cjs
+index dbfd97f9..7ec9f415 100644
+--- a/lib/utils.cjs
++++ b/lib/utils.cjs
+@@ -732,7 +732,7 @@ exports.breakCircularDeps = (inputObj) => {
+  * Checks if provided input can be parsed as a JavaScript Number.
+  */
+ exports.isNumeric = (input) => {
+-  return !isNaN(parseFloat(input));
++  return String(input).trim() !== "" && !isNaN(Number(input));
+ };
+ 
+ /**

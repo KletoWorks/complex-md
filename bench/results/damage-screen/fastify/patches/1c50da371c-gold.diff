@@ -1,0 +1,79 @@
+diff --git a/docs/Reference/Errors.md b/docs/Reference/Errors.md
+index 8ce6f156..6648d825 100644
+--- a/docs/Reference/Errors.md
++++ b/docs/Reference/Errors.md
+@@ -521,3 +521,8 @@ The decorator is not present in the instance.
+ <a id="FST_ERR_VALIDATION"></a>
+ 
+ The Request failed the payload validation.
++
++#### FST_ERR_LISTEN_OPTIONS_INVALID
++<a id="FST_ERR_LISTEN_OPTIONS_INVALID"></a>
++
++Invalid listen options.
+diff --git a/lib/errors.js b/lib/errors.js
+index 3a4df61d..1f441885 100644
+--- a/lib/errors.js
++++ b/lib/errors.js
+@@ -58,6 +58,12 @@ const codes = {
+     '%s',
+     400
+   ),
++  FST_ERR_LISTEN_OPTIONS_INVALID: createError(
++    'FST_ERR_LISTEN_OPTIONS_INVALID',
++    "Invalid listen options: '%s'",
++    500,
++    TypeError
++  ),
+ 
+   /**
+    * ContentTypeParser
+diff --git a/lib/server.js b/lib/server.js
+index 855de3f4..57dda785 100644
+--- a/lib/server.js
++++ b/lib/server.js
+@@ -9,7 +9,8 @@ const { kState, kOptions, kServerBindings } = require('./symbols')
+ const {
+   FST_ERR_HTTP2_INVALID_VERSION,
+   FST_ERR_REOPENED_CLOSE_SERVER,
+-  FST_ERR_REOPENED_SERVER
++  FST_ERR_REOPENED_SERVER,
++  FST_ERR_LISTEN_OPTIONS_INVALID
+ } = require('./errors')
+ 
+ module.exports.createServer = createServer
+@@ -46,6 +47,20 @@ function createServer (options, httpHandler) {
+     } else {
+       listenOptions.cb = cb
+     }
++    if (listenOptions.signal) {
++      if (typeof listenOptions.signal.on !== 'function' && typeof listenOptions.signal.addEventListener !== 'function') {
++        throw new FST_ERR_LISTEN_OPTIONS_INVALID('Invalid options.signal')
++      }
++
++      if (listenOptions.signal.aborted) {
++        this.close()
++      } else {
++        const onAborted = () => {
++          this.close()
++        }
++        listenOptions.signal.addEventListener('abort', onAborted, { once: true })
++      }
++    }
+ 
+     // If we have a path specified, don't default host to 'localhost' so we don't end up listening
+     // on both path and host
+@@ -215,9 +230,10 @@ function listenCallback (server, listenOptions) {
+     }
+ 
+     server.once('error', wrap)
+-    server.listen(listenOptions, wrap)
+-
+-    this[kState].listening = true
++    if (!this[kState].closing) {
++      server.listen(listenOptions, wrap)
++      this[kState].listening = true
++    }
+   }
+ }
+ 

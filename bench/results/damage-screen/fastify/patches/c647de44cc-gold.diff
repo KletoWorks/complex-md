@@ -1,0 +1,76 @@
+diff --git a/docs/Reference/Errors.md b/docs/Reference/Errors.md
+index 2417b2c8..c34e7cbb 100644
+--- a/docs/Reference/Errors.md
++++ b/docs/Reference/Errors.md
+@@ -100,6 +100,7 @@
+     - [FST_ERR_PLUGIN_TIMEOUT](#fst_err_plugin_timeout)
+     - [FST_ERR_PLUGIN_NOT_PRESENT_IN_INSTANCE](#fst_err_plugin_not_present_in_instance)
+     - [FST_ERR_PLUGIN_INVALID_ASYNC_HANDLER](#fst_err_plugin_invalid_async_handler)
++    - [FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED](#fst_err_plugin_dependency_not_registered)
+     - [FST_ERR_VALIDATION](#fst_err_validation)
+     - [FST_ERR_LISTEN_OPTIONS_INVALID](#fst_err_listen_options_invalid)
+     - [FST_ERR_ERROR_HANDLER_NOT_FN](#fst_err_error_handler_not_fn)
+@@ -376,6 +377,7 @@ Below is a table with all the error codes used by Fastify.
+ | <a id="fst_err_plugin_timeout">FST_ERR_PLUGIN_TIMEOUT</a> | Plugin did not start in time. | Increase the timeout for the plugin. | [#3106](https://github.com/fastify/fastify/pull/3106) |
+ | <a id="fst_err_plugin_not_present_in_instance">FST_ERR_PLUGIN_NOT_PRESENT_IN_INSTANCE</a> | The decorator is not present in the instance. | - | [#4554](https://github.com/fastify/fastify/pull/4554) |
+ | <a id="fst_err_plugin_invalid_async_handler">FST_ERR_PLUGIN_INVALID_ASYNC_HANDLER</a> | The plugin being registered mixes async and callback styles. | - | [#5141](https://github.com/fastify/fastify/pull/5141) |
++| <a id="fst_err_plugin_dependency_not_registered">FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED</a> | The dependency of a plugin is not registered. | Register the missing dependency before registering this plugin. | [#6774](https://github.com/fastify/fastify/pull/6774) |
+ | <a id="fst_err_validation">FST_ERR_VALIDATION</a> | The Request failed the payload validation. | Check the request payload. | [#4824](https://github.com/fastify/fastify/pull/4824) |
+ | <a id="fst_err_listen_options_invalid">FST_ERR_LISTEN_OPTIONS_INVALID</a> | Invalid listen options. | Check the listen options. | [#4886](https://github.com/fastify/fastify/pull/4886) |
+ | <a id="fst_err_error_handler_not_fn">FST_ERR_ERROR_HANDLER_NOT_FN</a> | Error Handler must be a function | Provide a function to `setErrorHandler`. | [#5317](https://github.com/fastify/fastify/pull/5317) | <a id="fst_err_error_handler_already_set">FST_ERR_ERROR_HANDLER_ALREADY_SET</a> | Error Handler already set in this scope. Set `allowErrorHandlerOverride: true` to allow overriding. | By default, `setErrorHandler` can only be called once per encapsulation context. | [#6097](https://github.com/fastify/fastify/pull/6098) |
+diff --git a/lib/errors.js b/lib/errors.js
+index d7a76ba8..68a0f825 100644
+--- a/lib/errors.js
++++ b/lib/errors.js
+@@ -482,7 +482,10 @@ const codes = {
+     500,
+     TypeError
+   ),
+-
++  FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED: createError(
++    'FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED',
++    "The dependency '%s' of plugin '%s' is not registered"
++  ),
+   /**
+    *  Avvio Errors
+    */
+diff --git a/lib/plugin-utils.js b/lib/plugin-utils.js
+index d18d94e5..b1e1bd69 100644
+--- a/lib/plugin-utils.js
++++ b/lib/plugin-utils.js
+@@ -10,7 +10,8 @@ const { exist, existReply, existRequest } = require('./decorate.js')
+ const {
+   FST_ERR_PLUGIN_VERSION_MISMATCH,
+   FST_ERR_PLUGIN_NOT_PRESENT_IN_INSTANCE,
+-  FST_ERR_PLUGIN_INVALID_ASYNC_HANDLER
++  FST_ERR_PLUGIN_INVALID_ASYNC_HANDLER,
++  FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED
+ } = require('./errors.js')
+ 
+ const rcRegex = /-(?:rc|pre|alpha).+$/u
+@@ -70,10 +71,9 @@ function checkDependencies (fn) {
+   assert(Array.isArray(dependencies), 'The dependencies should be an array of strings')
+ 
+   dependencies.forEach(dependency => {
+-    assert(
+-      this[kRegisteredPlugins].indexOf(dependency) > -1,
+-      `The dependency '${dependency}' of plugin '${meta.name}' is not registered`
+-    )
++    if (!this[kRegisteredPlugins].includes(dependency)) {
++      throw new FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED(dependency, meta.name)
++    }
+   })
+ }
+ 
+diff --git a/types/errors.d.ts b/types/errors.d.ts
+index b8160861..418126b8 100644
+--- a/types/errors.d.ts
++++ b/types/errors.d.ts
+@@ -86,6 +86,7 @@ export type FastifyErrorCodes = Record<
+   'FST_ERR_PLUGIN_VERSION_MISMATCH' |
+   'FST_ERR_PLUGIN_NOT_PRESENT_IN_INSTANCE' |
+   'FST_ERR_PLUGIN_INVALID_ASYNC_HANDLER' |
++  'FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED' |
+   'FST_ERR_PLUGIN_CALLBACK_NOT_FN' |
+   'FST_ERR_PLUGIN_NOT_VALID' |
+   'FST_ERR_ROOT_PLG_BOOTED' |

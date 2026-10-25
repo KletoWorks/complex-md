@@ -1,0 +1,136 @@
+diff --git a/docs/Reference/Server.md b/docs/Reference/Server.md
+index 528d84bc..599cbad6 100644
+--- a/docs/Reference/Server.md
++++ b/docs/Reference/Server.md
+@@ -170,6 +170,12 @@ When set to `true`, upon [`close`](#close) the server will iterate the current
+ persistent connections and [destroy their
+ sockets](https://nodejs.org/dist/latest-v16.x/docs/api/net.html#socketdestroyerror).
+ 
++When used with HTTP/2 server, it will also close all active HTTP/2 sessions.
++
++> ℹ️ Note:
++> Since Node.js v24 active sessions are closed by default
++
++
+ > ⚠ Warning:
+ > Connections are not inspected to determine if requests have
+ > been completed.
+diff --git a/fastify.js b/fastify.js
+index 515e0c60..680cb2ec 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -194,6 +194,7 @@ function fastify (options) {
+ 
+   const serverHasCloseAllConnections = typeof server.closeAllConnections === 'function'
+   const serverHasCloseIdleConnections = typeof server.closeIdleConnections === 'function'
++  const serverHasCloseHttp2Sessions = typeof server.closeHttp2Sessions === 'function'
+ 
+   let forceCloseConnections = options.forceCloseConnections
+   if (forceCloseConnections === 'idle' && !serverHasCloseIdleConnections) {
+@@ -491,6 +492,10 @@ function fastify (options) {
+           }
+         }
+ 
++        if (serverHasCloseHttp2Sessions) {
++          instance.server.closeHttp2Sessions()
++        }
++
+         // No new TCP connections are accepted.
+         // We must call close on the server even if we are not listening
+         // otherwise memory will be leaked.
+diff --git a/lib/server.js b/lib/server.js
+index 205ea1e2..282c3289 100644
+--- a/lib/server.js
++++ b/lib/server.js
+@@ -6,7 +6,7 @@ const http2 = require('node:http2')
+ const dns = require('node:dns')
+ const os = require('node:os')
+ 
+-const { kState, kOptions, kServerBindings } = require('./symbols')
++const { kState, kOptions, kServerBindings, kHttp2ServerSessions } = require('./symbols')
+ const { FSTWRN003 } = require('./warnings')
+ const { onListenHookRunner } = require('./hooks')
+ const {
+@@ -175,6 +175,9 @@ function multipleBindings (mainServer, httpHandler, serverOpts, listenOptions, o
+             if (typeof secondaryServer.closeAllConnections === 'function' && serverOpts.forceCloseConnections === true) {
+               secondaryServer.closeAllConnections()
+             }
++            if (typeof secondaryServer.closeHttp2Sessions === 'function') {
++              secondaryServer.closeHttp2Sessions()
++            }
+           }
+ 
+           secondaryServer.on('upgrade', mainServer.emit.bind(mainServer, 'upgrade'))
+@@ -287,6 +290,12 @@ function getServerInstance (options, httpHandler) {
+       session.close()
+     }))
+ 
++    // This is only needed for Node.js versions < 24.0.0 since Node.js added native
++    // closeAllSessions() on server.close() support for HTTP/2 servers in v24.0.0
++    if (options.forceCloseConnections === true) {
++      server.closeHttp2Sessions = createCloseHttp2SessionsByHttp2Server(server)
++    }
++
+     server.setTimeout(options.connectionTimeout)
+ 
+     return server
+@@ -353,3 +362,47 @@ function logServerAddress (server, listenTextResolver) {
+   }
+   return addresses[0]
+ }
++
++/**
++ * @param {http2.Http2Server} http2Server
++ * @returns {() => void}
++ */
++function createCloseHttp2SessionsByHttp2Server (http2Server) {
++  /**
++   * @type {Set<http2.Http2Session>}
++   */
++  http2Server[kHttp2ServerSessions] = new Set()
++
++  http2Server.on('session', function (session) {
++    session.once('connect', function () {
++      http2Server[kHttp2ServerSessions].add(session)
++    })
++
++    session.once('close', function () {
++      http2Server[kHttp2ServerSessions].delete(session)
++    })
++
++    session.once('frameError', function (type, code, streamId) {
++      if (streamId === 0) {
++        // The stream ID is 0, which means that the error is related to the session itself.
++        // If the event is not associated with a stream, the Http2Session will be shut down immediately
++        http2Server[kHttp2ServerSessions].delete(session)
++      }
++    })
++
++    session.once('goaway', function () {
++      // The Http2Session instance will be shut down automatically when the 'goaway' event is emitted.
++      http2Server[kHttp2ServerSessions].delete(session)
++    })
++  })
++
++  return function closeHttp2Sessions () {
++    if (http2Server[kHttp2ServerSessions].size === 0) {
++      return
++    }
++
++    for (const session of http2Server[kHttp2ServerSessions]) {
++      session.close()
++    }
++  }
++}
+diff --git a/lib/symbols.js b/lib/symbols.js
+index cd7da0fb..510ac39c 100644
+--- a/lib/symbols.js
++++ b/lib/symbols.js
+@@ -17,6 +17,7 @@ const keys = {
+   kPluginNameChain: Symbol('fastify.pluginNameChain'),
+   kRouteContext: Symbol('fastify.context'),
+   kGenReqId: Symbol('fastify.genReqId'),
++  kHttp2ServerSessions: Symbol('fastify.http2ServerSessions'),
+   // Schema
+   kSchemaController: Symbol('fastify.schemaController'),
+   kSchemaHeaders: Symbol('headers-schema'),

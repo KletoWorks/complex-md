@@ -1,0 +1,103 @@
+diff --git a/docs/Reference/Errors.md b/docs/Reference/Errors.md
+index 211281b9..a009fb94 100644
+--- a/docs/Reference/Errors.md
++++ b/docs/Reference/Errors.md
+@@ -94,7 +94,6 @@
+     - [FST_ERR_ROUTE_HANDLER_TIMEOUT_OPTION_NOT_INT](#fst_err_route_handler_timeout_option_not_int)
+     - [FST_ERR_ROUTE_REWRITE_NOT_STR](#fst_err_route_rewrite_not_str)
+     - [FST_ERR_ROUTE_MISSING_CONTENT_TYPE](#fst_err_route_missing_content_type)
+-    - [FST_ERR_ROUTE_MISSING_CONTENT](#fst_err_route_missing_content)
+     - [FST_ERR_REOPENED_CLOSE_SERVER](#fst_err_reopened_close_server)
+     - [FST_ERR_REOPENED_SERVER](#fst_err_reopened_server)
+     - [FST_ERR_PLUGIN_VERSION_MISMATCH](#fst_err_plugin_version_mismatch)
+@@ -447,7 +446,6 @@ Below is a table with all the error codes used by Fastify.
+ | <a id="fst_err_route_handler_timeout_option_not_int">FST_ERR_ROUTE_HANDLER_TIMEOUT_OPTION_NOT_INT</a> | `handlerTimeout` option must be a positive integer. | Use a positive integer for the `handlerTimeout` option. | - |
+ | <a id="fst_err_route_rewrite_not_str">FST_ERR_ROUTE_REWRITE_NOT_STR</a> | `rewriteUrl` needs to be of type `string`. | Use a string for the `rewriteUrl`. | [#4554](https://github.com/fastify/fastify/pull/4554) |
+ | <a id="fst_err_route_missing_content_type">FST_ERR_ROUTE_MISSING_CONTENT_TYPE</a> | `Content-Type` header is required for the request. | Send request with `Content-Type` header. | [#6832](https://github.com/fastify/fastify/pull/6832) |
+-| <a id="fst_err_route_missing_content">FST_ERR_ROUTE_MISSING_CONTENT</a> | Body is required for the request. | Send request with payload. | [#6832](https://github.com/fastify/fastify/pull/6832) |
+ | <a id="fst_err_reopened_close_server">FST_ERR_REOPENED_CLOSE_SERVER</a> | Fastify has already been closed and cannot be reopened. | - | [#2415](https://github.com/fastify/fastify/pull/2415) |
+ | <a id="fst_err_reopened_server">FST_ERR_REOPENED_SERVER</a> | Fastify is already started. | - | [#2415](https://github.com/fastify/fastify/pull/2415) |
+ | <a id="fst_err_plugin_version_mismatch">FST_ERR_PLUGIN_VERSION_MISMATCH</a> | Installed Fastify plugin mismatched expected version. | Use a compatible version of the plugin. | [#2549](https://github.com/fastify/fastify/pull/2549) |
+diff --git a/lib/errors.js b/lib/errors.js
+index 8fae5bb7..5c6a5e4b 100644
+--- a/lib/errors.js
++++ b/lib/errors.js
+@@ -466,11 +466,6 @@ const codes = {
+     "Method '%s' must provide a 'Content-Type' header.",
+     400
+   ),
+-  FST_ERR_ROUTE_MISSING_CONTENT: createError(
+-    'FST_ERR_ROUTE_MISSING_CONTENT',
+-    "Method '%s' must provide a request body.",
+-    400
+-  ),
+ 
+   /**
+    *  again listen when close server
+diff --git a/lib/handle-request.js b/lib/handle-request.js
+index adee1a9d..f98256dd 100644
+--- a/lib/handle-request.js
++++ b/lib/handle-request.js
+@@ -6,8 +6,7 @@ const { validate: validateSchema } = require('./validation')
+ const { preValidationHookRunner, preHandlerHookRunner } = require('./hooks')
+ const {
+   FST_ERR_CTP_INVALID_MEDIA_TYPE,
+-  FST_ERR_ROUTE_MISSING_CONTENT_TYPE,
+-  FST_ERR_ROUTE_MISSING_CONTENT
++  FST_ERR_ROUTE_MISSING_CONTENT_TYPE
+ } = require('./errors')
+ const { setErrorStatusCode } = require('./error-status')
+ const {
+@@ -51,20 +50,15 @@ function handleRequest (err, request, reply) {
+         reply.status(400).send(new FST_ERR_ROUTE_MISSING_CONTENT_TYPE(method))
+         return
+       }
+-
+-      if (isEmptyBody(headers)) {
+-        // https://datatracker.ietf.org/doc/html/rfc10008#section-2
+-        // Servers MUST fail the request if the Content-Type request field
+-        // ([HTTP], Section 8.3) is missing or is inconsistent with the
+-        // request content.
+-        reply[kReplyIsError] = true
+-        reply.status(400).send(new FST_ERR_ROUTE_MISSING_CONTENT(method))
+-        return
+-      }
+     }
+ 
+     if (ctHeader === undefined) {
+-      if (isEmptyBody(headers)) {
++      const contentLength = headers['content-length']
++      const transferEncoding = headers['transfer-encoding']
++      const isEmptyBody = transferEncoding === undefined &&
++        (contentLength === undefined || contentLength === '0')
++
++      if (isEmptyBody) {
+         // Request has no body to parse
+         handler(request, reply)
+         return
+@@ -109,13 +103,6 @@ function handler (request, reply) {
+   }
+ }
+ 
+-function isEmptyBody (headers) {
+-  const contentLength = headers['content-length']
+-  const transferEncoding = headers['transfer-encoding']
+-  return transferEncoding === undefined &&
+-    (contentLength === undefined || contentLength === '0')
+-}
+-
+ function preValidationCallback (err, request, reply) {
+   if (reply.sent === true) return
+ 
+diff --git a/types/errors.d.ts b/types/errors.d.ts
+index 9f3ac481..557891c0 100644
+--- a/types/errors.d.ts
++++ b/types/errors.d.ts
+@@ -83,7 +83,6 @@ export type FastifyErrorCodes = Record<
+   'FST_ERR_ROUTE_HANDLER_TIMEOUT_OPTION_NOT_INT' |
+   'FST_ERR_ROUTE_REWRITE_NOT_STR' |
+   'FST_ERR_ROUTE_MISSING_CONTENT_TYPE' |
+-  'FST_ERR_ROUTE_MISSING_CONTENT' |
+   'FST_ERR_REOPENED_CLOSE_SERVER' |
+   'FST_ERR_REOPENED_SERVER' |
+   'FST_ERR_INSTANCE_ALREADY_STARTED' |

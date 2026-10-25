@@ -1,0 +1,13 @@
+diff --git a/server/better-auth.ts b/server/better-auth.ts
+index 2116ead1..2d849380 100644
+--- a/server/better-auth.ts
++++ b/server/better-auth.ts
+@@ -71,7 +71,7 @@ function createAuthInstance() {
+         emailAndPassword: {
+             revokeSessionsOnPasswordReset: true,
+             enabled: true,
+-            disableSignUp: false,
++            disableSignUp: true,
+         },
+         rateLimit: {
+             // Seconds

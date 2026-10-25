@@ -1,0 +1,18 @@
+diff --git a/server/database.js b/server/database.js
+index 3c501401..b7529b7b 100644
+--- a/server/database.js
++++ b/server/database.js
+@@ -270,10 +270,9 @@ class Database {
+                 max: 20,
+             };
+ 
+-            // However, for unknown reason, it is not working probably on Raspberry Pi, it causes "SQLITE_BUSY: database is locked" error.
+-            // See: https://github.com/louislam/uptime-kuma/issues/7289
+-            // Provide an environment variable to switch back to a single connection.
+-            if (process.env.UPTIME_KUMA_SQLITE_SINGLE_CONNECTION === "true") {
++            // Default is still single connection.
++            // Multiple connection could run into "SQLITE_BUSY: database is locked" error.
++            if (process.env.UPTIME_KUMA_SQLITE_SINGLE_CONNECTION !== "false") {
+                 log.info("db", "Using single connection for SQLite");
+                 poolConfig = {
+                     min: 1,

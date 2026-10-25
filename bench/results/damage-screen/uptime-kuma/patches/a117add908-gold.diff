@@ -1,0 +1,131 @@
+diff --git a/server/model/domain_expiry.js b/server/model/domain_expiry.js
+index 1bb6c1f7..91d5b54e 100644
+--- a/server/model/domain_expiry.js
++++ b/server/model/domain_expiry.js
+@@ -2,10 +2,11 @@ const { BeanModel } = require("redbean-node/dist/bean-model");
+ const { R } = require("redbean-node");
+ const { log, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } = require("../../src/util");
+ const { parse: parseTld } = require("tldts");
+-const { getDaysRemaining, getDaysBetween, setting, setSetting } = require("../util-server");
++const { setting, setSetting } = require("../util-server");
+ const { Notification } = require("../notification");
+ const { default: NodeFetchCache, MemoryCache } = require("node-fetch-cache");
+ const TranslatableError = require("../translatable-error");
++const dayjs = require("dayjs");
+ 
+ const cachedFetch = process.env.NODE_ENV
+     ? NodeFetchCache.create({
+@@ -199,18 +200,18 @@ class DomainExpiry extends BeanModel {
+      * @returns {Promise<DomainExpiry>} Domain expiry bean
+      */
+     static async findByDomainNameOrCreate(domainName) {
+-        const existing = await DomainExpiry.findByName(domainName);
+-        if (existing) {
+-            return existing;
++        let domain = await DomainExpiry.findByName(domainName);
++        if (!domain && domainName) {
++            domain = await DomainExpiry.createByName(domainName);
+         }
+-        return DomainExpiry.createByName(domainName);
++        return domain;
+     }
+ 
+     /**
+      * @returns {number} number of days remaining before expiry
+      */
+     get daysRemaining() {
+-        return getDaysRemaining(new Date(), new Date(this.expiry));
++        return dayjs.utc(this.expiry).diff(dayjs.utc(), "day");
+     }
+ 
+     /**
+@@ -227,20 +228,20 @@ class DomainExpiry extends BeanModel {
+      */
+     static async checkExpiry(domainName) {
+         let bean = await DomainExpiry.findByDomainNameOrCreate(domainName);
+-
+         let expiryDate;
+-        if (bean?.lastCheck && getDaysBetween(new Date(bean.lastCheck), new Date()) < 1) {
++
++        if (bean?.lastCheck && dayjs.utc(bean.lastCheck).diff(dayjs.utc(), "day") < 1) {
+             log.debug("domain_expiry", `Domain expiry already checked recently for ${bean.domain}, won't re-check.`);
+             return bean.expiry;
+         } else if (bean) {
+             expiryDate = await bean.getExpiryDate();
+ 
+-            if (new Date(expiryDate) > new Date(bean.expiry)) {
++            if (dayjs.utc(expiryDate).isAfter(dayjs.utc(bean.expiry))) {
+                 bean.lastExpiryNotificationSent = null;
+             }
+ 
+-            bean.expiry = expiryDate;
+-            bean.lastCheck = new Date();
++            bean.expiry = R.isoDateTimeMillis(expiryDate);
++            bean.lastCheck = R.isoDateTimeMillis(dayjs.utc());
+             await R.store(bean);
+         }
+ 
+@@ -272,7 +273,7 @@ class DomainExpiry extends BeanModel {
+             return;
+         }
+ 
+-        const daysRemaining = getDaysRemaining(new Date(), domain.expiry);
++        const daysRemaining = domain.daysRemaining;
+         const lastSent = domain.lastExpiryNotificationSent;
+         log.debug("domain_expiry", `${domainName} expires in ${daysRemaining} days`);
+ 
+diff --git a/server/util-server.js b/server/util-server.js
+index 3429606c..ae792ad8 100644
+--- a/server/util-server.js
++++ b/server/util-server.js
+@@ -26,6 +26,7 @@ const {
+     },
+ } = require("node-radius-utils");
+ const dayjs = require("dayjs");
++dayjs.extend(require("dayjs/plugin/utc"));
+ 
+ // SASLOptions used in JSDoc
+ // eslint-disable-next-line no-unused-vars
+@@ -393,33 +394,6 @@ exports.setSettings = async function (type, data) {
+     await Settings.setSettings(type, data);
+ };
+ 
+-// ssl-checker by @dyaa
+-//https://github.com/dyaa/ssl-checker/blob/master/src/index.ts
+-
+-/**
+- * Get number of days between two dates
+- * @param {Date} validFrom Start date
+- * @param {Date} validTo End date
+- * @returns {number} Number of days
+- */
+-const getDaysBetween = (validFrom, validTo) => Math.round(Math.abs(+validFrom - +validTo) / 8.64e7);
+-exports.getDaysBetween = getDaysBetween;
+-
+-/**
+- * Get days remaining from a time range
+- * @param {Date} validFrom Start date
+- * @param {Date} validTo End date
+- * @returns {number} Number of days remaining
+- */
+-const getDaysRemaining = (validFrom, validTo) => {
+-    const daysRemaining = getDaysBetween(validFrom, validTo);
+-    if (new Date(validTo).getTime() < new Date(validFrom).getTime()) {
+-        return -daysRemaining;
+-    }
+-    return daysRemaining;
+-};
+-exports.getDaysRemaining = getDaysRemaining;
+-
+ /**
+  * Fix certificate info for display
+  * @param {object} info The chain obtained from getPeerCertificate()
+@@ -440,7 +414,7 @@ const parseCertificateInfo = function (info) {
+         }
+         link.validTo = new Date(link.valid_to);
+         link.validFor = link.subjectaltname?.replace(/DNS:|IP Address:/g, "").split(", ");
+-        link.daysRemaining = getDaysRemaining(new Date(), link.validTo);
++        link.daysRemaining = dayjs.utc(link.validTo).diff(dayjs.utc(), "day");
+ 
+         existingList[link.fingerprint] = true;
+ 

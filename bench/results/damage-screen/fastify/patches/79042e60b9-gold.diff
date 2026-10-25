@@ -1,0 +1,24 @@
+diff --git a/lib/hooks.js b/lib/hooks.js
+index 45fdb2b3..d744b871 100644
+--- a/lib/hooks.js
++++ b/lib/hooks.js
+@@ -181,10 +181,6 @@ function onListenHookRunner (server) {
+   const hooks = server[kHooks].onListen
+   const hooksLen = hooks.length
+ 
+-  if (hooksLen === 0) {
+-    return
+-  }
+-
+   let i = 0
+   let c = 0
+ 
+@@ -196,7 +192,7 @@ function onListenHookRunner (server) {
+     if (
+       i === hooksLen
+     ) {
+-      if (c < server[kChildren].length) {
++      while (c < server[kChildren].length) {
+         const child = server[kChildren][c++]
+         onListenHookRunner(child)
+       }

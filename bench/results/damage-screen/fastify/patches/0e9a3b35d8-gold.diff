@@ -1,0 +1,151 @@
+diff --git a/docs/Reference/Server.md b/docs/Reference/Server.md
+index 4d04d5d6..b8fe810d 100644
+--- a/docs/Reference/Server.md
++++ b/docs/Reference/Server.md
+@@ -1707,6 +1707,13 @@ Fastify supports the `GET`, `HEAD`, `TRACE`, `DELETE`, `OPTIONS`,
+ The `addHttpMethod` method allows to add any non standard HTTP
+ methods to the server that are [supported by Node.js](https://nodejs.org/api/http.html#httpmethods).
+ 
++The method accepts an optional configuration object:
++
++| Property | Type | Default | Description |
++| -------- | ---- | ------- | ----------- |
++| `hasBody` | `boolean` | `false` | Whether the method accepts a request body. |
++| `overrideExisting` | `boolean` | `false` | Whether to explicitly override an existing method. |
++
+ ```js
+ // Add a new HTTP method called 'MKCOL' that supports a request body
+ fastify.addHttpMethod('MKCOL', { hasBody: true,  })
+@@ -1725,8 +1732,17 @@ fastify.mkcol('/', (req, reply) => {
+ })
+ ```
+ 
+-> ⚠ Warning:
+-> `addHttpMethod` overrides existing methods.
++Calling `addHttpMethod` for an existing method overrides its body behavior.
++
++```js
++fastify.addHttpMethod('GET', {
++  hasBody: true,
++  overrideExisting: true
++})
++```
++
++In Fastify v5, omitting `overrideExisting: true` emits `FSTDEP025`; in Fastify
++v6, it will throw an error.
+ 
+ #### addSchema
+ <a id="add-schema"></a>
+diff --git a/docs/Reference/Warnings.md b/docs/Reference/Warnings.md
+index 2f55900d..5c09a21f 100644
+--- a/docs/Reference/Warnings.md
++++ b/docs/Reference/Warnings.md
+@@ -12,6 +12,7 @@
+     - [FSTDEP022](#FSTDEP022)
+     - [FSTDEP023](#FSTDEP023)
+     - [FSTDEP024](#FSTDEP024)
++    - [FSTDEP025](#FSTDEP025)
+ 
+ ## Warnings
+ 
+@@ -46,8 +47,6 @@ Disabling warnings is not recommended and may cause unexpected behavior.
+ | <a id="FSTWRN001">FSTWRN001</a> | The specified schema for a route is missing. This may indicate the schema is not well specified. | Check the schema for the route. | [#4647](https://github.com/fastify/fastify/pull/4647) |
+ | <a id="FSTWRN003">FSTWRN003</a> | The `%s` plugin mixes async and callback styles, which may lead to unhandled rejections. | Do not mix async and callback style. | [#6011](https://github.com/fastify/fastify/pull/6011) |
+ | <a id="FSTWRN004">FSTWRN004</a> | An `errorHandler` is being overridden in the same scope, which can lead to subtle bugs. | Avoid calling `setErrorHandler` more than once in the same scope. For more information, see [Server documentation](https://fastify.dev/docs/latest/Reference/Server/#allowerrorhandleroverride). | [#6104](https://github.com/fastify/fastify/pull/6104) |
+-
+-
+ ### Fastify Deprecation Codes
+ 
+ Deprecation codes are supported by the Node.js CLI options:
+@@ -62,3 +61,4 @@ Deprecation codes are supported by the Node.js CLI options:
+ | <a id="FSTDEP022">FSTDEP022</a> | You are trying to access the deprecated router options on top option properties. | Use `options.routerOptions`. | [#5985](https://github.com/fastify/fastify/pull/5985)
+ | <a id="FSTDEP023">FSTDEP023</a> | `disableRequestLogging` top-level option is deprecated. | Pass a `LogController` instance via the `logController` option with `disableRequestLogging` in its constructor instead. |
+ | <a id="FSTDEP024">FSTDEP024</a> | `requestIdLogLabel` top-level option is deprecated. | Pass a `LogController` instance via the `logController` option with `requestIdLogLabel` in its constructor instead. |
++| <a id="FSTDEP025">FSTDEP025</a> | Calling `addHttpMethod` for an existing HTTP method without `{ overrideExisting: true }` is deprecated. | Pass `{ overrideExisting: true }` to make the override explicit. | [#6879](https://github.com/fastify/fastify/pull/6879) |
+diff --git a/fastify.js b/fastify.js
+index 2005da39..30b6c1ec 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -80,7 +80,7 @@ const {
+ } = errorCodes
+ 
+ const { buildErrorHandler } = require('./lib/error-handler.js')
+-const { FSTWRN004, FSTDEP023, FSTDEP024 } = require('./lib/warnings.js')
++const { FSTWRN004, FSTDEP023, FSTDEP024, FSTDEP025 } = require('./lib/warnings.js')
+ 
+ const initChannel = diagnostics.channel('fastify.initialization')
+ 
+@@ -823,11 +823,18 @@ function fastify (serverOptions) {
+     return this
+   }
+ 
+-  function addHttpMethod (method, { hasBody = false } = {}) {
++  function addHttpMethod (method, { hasBody = false, overrideExisting = false } = {}) {
+     if (typeof method !== 'string' || http.METHODS.indexOf(method) === -1) {
+       throw new FST_ERR_ROUTE_METHOD_INVALID()
+     }
+ 
++    const alreadyExists = this[kSupportedHTTPMethods].bodyless.has(method) ||
++      this[kSupportedHTTPMethods].bodywith.has(method)
++
++    if (alreadyExists && !overrideExisting) {
++      FSTDEP025(method)
++    }
++
+     if (hasBody === true) {
+       this[kSupportedHTTPMethods].bodywith.add(method)
+       this[kSupportedHTTPMethods].bodyless.delete(method)
+diff --git a/lib/warnings.js b/lib/warnings.js
+index 65eb2b68..94412784 100644
+--- a/lib/warnings.js
++++ b/lib/warnings.js
+@@ -9,9 +9,10 @@ const { createWarning } = require('process-warning')
+  *   - FSTDEP022
+  *   - FSTDEP023
+  *   - FSTDEP024
++ *   - FSTDEP025
+  *
+  * Deprecation Codes FSTDEP001 - FSTDEP021 were used by v4 and MUST NOT be reused.
+- *                             - FSTDEP022 is used by v5 and MUST NOT be reused.
++ *                             - FSTDEP022 - FSTDEP025 are used by v5 and MUST NOT be reused.
+  * Warning Codes FSTWRN001 - FSTWRN002 were used by v4 and MUST NOT be reused.
+  */
+ 
+@@ -64,6 +65,13 @@ const FSTDEP024 = createWarning({
+   unlimited: true
+ })
+ 
++const FSTDEP025 = createWarning({
++  name: 'FastifyDeprecation',
++  code: 'FSTDEP025',
++  message: 'Calling addHttpMethod for existing method "%s" without { overrideExisting: true } is deprecated. In Fastify v6, this will throw an error.',
++  unlimited: true
++})
++
+ module.exports = {
+   FSTWRN001,
+   FSTWRN003,
+@@ -71,5 +79,6 @@ module.exports = {
+   FSTSEC001,
+   FSTDEP022,
+   FSTDEP023,
+-  FSTDEP024
++  FSTDEP024,
++  FSTDEP025
+ }
+diff --git a/types/instance.d.ts b/types/instance.d.ts
+index f126a5b7..0330e147 100644
+--- a/types/instance.d.ts
++++ b/types/instance.d.ts
+@@ -663,7 +663,10 @@ export interface FastifyInstance<
+    * Methods defined by default include `GET`, `HEAD`, `TRACE`, `DELETE`,
+    * `OPTIONS`, `PATCH`, `PUT` and `POST`
+    */
+-  addHttpMethod(method: string, methodOptions?: { hasBody: boolean }): FastifyInstance<RawServer, RawRequest, RawReply,
++  addHttpMethod(method: string, methodOptions?: {
++    hasBody?: boolean;
++    overrideExisting?: boolean;
++  }): FastifyInstance<RawServer, RawRequest, RawReply,
+     Logger, TypeProvider>;
+   /**
+    * Fastify default JSON parser

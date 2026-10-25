@@ -1,0 +1,86 @@
+diff --git a/.github/copilot-instructions.md b/.github/copilot-instructions.md
+index 00a009c1..2fefac06 100644
+--- a/.github/copilot-instructions.md
++++ b/.github/copilot-instructions.md
+@@ -120,6 +120,8 @@ npm run dev  # Frontend on port 3000, backend on port 3001
+ 
+ - 4 spaces indentation, double quotes, Unix line endings (LF), semicolons required
+ - Prettier enforces `printWidth: 120`; run `npm run fmt` to format (also run automatically in CI)
++- **Comments**: keep them short (one concise line explaining what/why); no multi-line essays or restating the code
++- **Commits**: one short sentence describing the change; no long body
+ - **Naming**: JavaScript/TypeScript (camelCase), SQLite (snake_case), CSS/SCSS (kebab-case)
+ - JSDoc is required on every function declaration and method (`jsdoc/require-jsdoc`); `*.ts` relaxes some JSDoc and `any` rules
+ - Notable ESLint rules: `no-var`, `one-var: never`, `max-statements-per-line: 1`, `jsdoc/require-throws`
+diff --git a/server/better-auth.ts b/server/better-auth.ts
+index f4da17e8..c055f09b 100644
+--- a/server/better-auth.ts
++++ b/server/better-auth.ts
+@@ -14,11 +14,28 @@ import { createAuthMiddleware } from "better-auth/api";
+ import * as oldAuth from "./auth.js";
+ import { hasUser } from "./routers/better-auth-router";
+ import { symmetricEncrypt } from "better-auth/crypto";
++// @ts-ignore
++import config from "./config.js";
+ 
+ export type BetterAuthUser = ReturnType<typeof createAuthInstance>["$Infer"]["Session"]["user"];
+ 
+ let authInstance: ReturnType<typeof createAuthInstance>;
+ 
++/**
++ * Whether the HIBP password check is enabled (`UPTIME_KUMA_DISABLE_LEAK_PWD_CHECK` / `--disable-leak-pwd-check`).
++ * @returns True to run the check
++ */
++function isHaveIBeenPwnedEnabled() {
++    const disableHibp = process.env.UPTIME_KUMA_DISABLE_LEAK_PWD_CHECK;
++    const disabledByEnv = !!disableHibp && disableHibp !== "false" && disableHibp !== "0";
++    return !disabledByEnv && !config.args["disable-leak-pwd-check"];
++}
++
++// Shared haveIBeenPwned plugin options; `enabled` is turned off during legacy user migration (#7946).
++const haveIBeenPwnedOptions = {
++    enabled: true,
++};
++
+ /**
+  * Get the singleton instance of better-auth
+  * Mainly used for http and socket.io authentication
+@@ -56,6 +73,12 @@ function createAuthInstance() {
+         );
+     }
+ 
++    // Apply the UPTIME_KUMA_DISABLE_LEAK_PWD_CHECK / --disable-leak-pwd-check setting
++    haveIBeenPwnedOptions.enabled = isHaveIBeenPwnedEnabled();
++    if (!haveIBeenPwnedOptions.enabled) {
++        log.warn("auth", "haveIBeenPwned password check is disabled (UPTIME_KUMA_DISABLE_LEAK_PWD_CHECK).");
++    }
++
+     const authDatabase = Database.createAuthDatabase(Database.dbConfig);
+ 
+     return betterAuth({
+@@ -108,7 +131,7 @@ function createAuthInstance() {
+             admin(),
+ 
+             // Check if the password has been pwned in data breaches
+-            haveIBeenPwned(),
++            haveIBeenPwned(haveIBeenPwnedOptions),
+ 
+             twoFactor({
+                 schema: {
+@@ -299,6 +322,8 @@ export async function doubleCheckPassword(cookie: string, currentPassword: strin
+ export async function migrateUser(username: string, password: string) {
+     const legacyUser = await oldAuth.login(username, password);
+     if (legacyUser) {
++        // Skip the HIBP check: the legacy user's existing password must not be rejected (#7946)
++        haveIBeenPwnedOptions.enabled = false;
+         try {
+             // Create BetterAuth user with the same username and password
+             const newUser = await auth().api.createUser({
+@@ -338,6 +363,8 @@ export async function migrateUser(username: string, password: string) {
+             log.info("auth", `Migrated legacy user: ${username}`);
+         } catch (e) {
+             log.error("auth", `Failed to migrate legacy user ${username}:`, e);
++        } finally {
++            haveIBeenPwnedOptions.enabled = isHaveIBeenPwnedEnabled();
+         }
+     } else {
+         log.info("auth", `No legacy user found for username: ${username}, do not migrate.`);

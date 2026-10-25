@@ -1,0 +1,1964 @@
+diff --git a/.github/workflows/autofix.yml b/.github/workflows/autofix.yml
+index a6844df6..17a2275c 100644
+--- a/.github/workflows/autofix.yml
++++ b/.github/workflows/autofix.yml
+@@ -30,6 +30,10 @@ jobs:
+       - name: Install dependencies
+         run: npm ci
+ 
++      - name: Update RDAP DNS data from IANA
++        run: wget -O server/model/rdap-dns.json https://data.iana.org/rdap/dns.json
++        continue-on-error: true
++
+       - name: Auto-fix JavaScript/Vue linting issues
+         run: npm run lint-fix:js
+         continue-on-error: true
+diff --git a/package-lock.json b/package-lock.json
+index 0c734a59..352bb3c9 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -60,7 +60,6 @@
+                 "nanoid": "~3.3.4",
+                 "net-snmp": "^3.11.2",
+                 "node-cloudflared-tunnel": "~1.0.9",
+-                "node-fetch-cache": "^5.1.0",
+                 "node-radius-utils": "~1.2.0",
+                 "nodemailer": "~7.0.12",
+                 "nostr-tools": "^2.17.0",
+@@ -3655,6 +3654,7 @@
+             "version": "4.0.1",
+             "resolved": "https://registry.npmjs.org/@isaacs/balanced-match/-/balanced-match-4.0.1.tgz",
+             "integrity": "sha512-yzMTt9lEb8Gv7zRioUilSglI0c0smZ9k5D65677DLWLtWJaXIS3CqcGyUFByYKlnUj6TkjLVs54fBl6+TiGQDQ==",
++            "dev": true,
+             "license": "MIT",
+             "engines": {
+                 "node": "20 || >=22"
+@@ -3664,6 +3664,7 @@
+             "version": "5.0.0",
+             "resolved": "https://registry.npmjs.org/@isaacs/brace-expansion/-/brace-expansion-5.0.0.tgz",
+             "integrity": "sha512-ZT55BDLV0yv0RBm2czMiZ+SqCGO7AvmOM3G/w2xhVPH+te0aKgFjmBvGlL1dH+ql2tgGO3MVrbb3jCKyvpgnxA==",
++            "dev": true,
+             "license": "MIT",
+             "dependencies": {
+                 "@isaacs/balanced-match": "^4.0.1"
+@@ -4027,18 +4028,6 @@
+                 "node": ">= 8"
+             }
+         },
+-        "node_modules/@npmcli/fs": {
+-            "version": "5.0.0",
+-            "resolved": "https://registry.npmjs.org/@npmcli/fs/-/fs-5.0.0.tgz",
+-            "integrity": "sha512-7OsC1gNORBEawOa5+j2pXN9vsicaIOH5cPXxoR6fJOmH6/EXpJB2CajXOu1fPRFun2m1lktEFX11+P89hqO/og==",
+-            "license": "ISC",
+-            "dependencies": {
+-                "semver": "^7.3.5"
+-            },
+-            "engines": {
+-                "node": "^20.17.0 || >=22.9.0"
+-            }
+-        },
+         "node_modules/@npmcli/move-file": {
+             "version": "1.1.2",
+             "resolved": "https://registry.npmjs.org/@npmcli/move-file/-/move-file-1.1.2.tgz",
+@@ -8024,85 +8013,6 @@
+                 "node": ">= 0.8"
+             }
+         },
+-        "node_modules/cacache": {
+-            "version": "20.0.3",
+-            "resolved": "https://registry.npmjs.org/cacache/-/cacache-20.0.3.tgz",
+-            "integrity": "sha512-3pUp4e8hv07k1QlijZu6Kn7c9+ZpWWk4j3F8N3xPuCExULobqJydKYOTj1FTq58srkJsXvO7LbGAH4C0ZU3WGw==",
+-            "license": "ISC",
+-            "dependencies": {
+-                "@npmcli/fs": "^5.0.0",
+-                "fs-minipass": "^3.0.0",
+-                "glob": "^13.0.0",
+-                "lru-cache": "^11.1.0",
+-                "minipass": "^7.0.3",
+-                "minipass-collect": "^2.0.1",
+-                "minipass-flush": "^1.0.5",
+-                "minipass-pipeline": "^1.2.4",
+-                "p-map": "^7.0.2",
+-                "ssri": "^13.0.0",
+-                "unique-filename": "^5.0.0"
+-            },
+-            "engines": {
+-                "node": "^20.17.0 || >=22.9.0"
+-            }
+-        },
+-        "node_modules/cacache/node_modules/glob": {
+-            "version": "13.0.0",
+-            "resolved": "https://registry.npmjs.org/glob/-/glob-13.0.0.tgz",
+-            "integrity": "sha512-tvZgpqk6fz4BaNZ66ZsRaZnbHvP/jG3uKJvAZOwEVUL4RTA5nJeeLYfyN9/VA8NX/V3IBG+hkeuGpKjvELkVhA==",
+-            "license": "BlueOak-1.0.0",
+-            "dependencies": {
+-                "minimatch": "^10.1.1",
+-                "minipass": "^7.1.2",
+-                "path-scurry": "^2.0.0"
+-            },
+-            "engines": {
+-                "node": "20 || >=22"
+-            },
+-            "funding": {
+-                "url": "https://github.com/sponsors/isaacs"
+-            }
+-        },
+-        "node_modules/cacache/node_modules/lru-cache": {
+-            "version": "11.2.4",
+-            "resolved": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.2.4.tgz",
+-            "integrity": "sha512-B5Y16Jr9LB9dHVkh6ZevG+vAbOsNOYCX+sXvFWFu7B3Iz5mijW3zdbMyhsh8ANd2mSWBYdJgnqi+mL7/LrOPYg==",
+-            "license": "BlueOak-1.0.0",
+-            "engines": {
+-                "node": "20 || >=22"
+-            }
+-        },
+-        "node_modules/cacache/node_modules/minimatch": {
+-            "version": "10.1.1",
+-            "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-10.1.1.tgz",
+-            "integrity": "sha512-enIvLvRAFZYXJzkCYG5RKmPfrFArdLv+R+lbQ53BmIMLIry74bjKzX6iHAm8WYamJkhSSEabrWN5D97XnKObjQ==",
+-            "license": "BlueOak-1.0.0",
+-            "dependencies": {
+-                "@isaacs/brace-expansion": "^5.0.0"
+-            },
+-            "engines": {
+-                "node": "20 || >=22"
+-            },
+-            "funding": {
+-                "url": "https://github.com/sponsors/isaacs"
+-            }
+-        },
+-        "node_modules/cacache/node_modules/path-scurry": {
+-            "version": "2.0.1",
+-            "resolved": "https://registry.npmjs.org/path-scurry/-/path-scurry-2.0.1.tgz",
+-            "integrity": "sha512-oWyT4gICAu+kaA7QWk/jvCHWarMKNs6pXOGWKDTr7cw4IGcUbW+PeTfbaQiLGheFRpjo6O9J0PmyMfQPjH71oA==",
+-            "license": "BlueOak-1.0.0",
+-            "dependencies": {
+-                "lru-cache": "^11.0.0",
+-                "minipass": "^7.1.2"
+-            },
+-            "engines": {
+-                "node": "20 || >=22"
+-            },
+-            "funding": {
+-                "url": "https://github.com/sponsors/isaacs"
+-            }
+-        },
+         "node_modules/cacheable-lookup": {
+             "version": "7.0.0",
+             "resolved": "https://registry.npmjs.org/cacheable-lookup/-/cacheable-lookup-7.0.0.tgz",
+@@ -9092,15 +9002,6 @@
+             "dev": true,
+             "license": "MIT"
+         },
+-        "node_modules/data-uri-to-buffer": {
+-            "version": "4.0.1",
+-            "resolved": "https://registry.npmjs.org/data-uri-to-buffer/-/data-uri-to-buffer-4.0.1.tgz",
+-            "integrity": "sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==",
+-            "license": "MIT",
+-            "engines": {
+-                "node": ">= 12"
+-            }
+-        },
+         "node_modules/data-view-buffer": {
+             "version": "1.0.2",
+             "resolved": "https://registry.npmjs.org/data-view-buffer/-/data-view-buffer-1.0.2.tgz",
+@@ -10774,29 +10675,6 @@
+                 "node": ">=0.4.0"
+             }
+         },
+-        "node_modules/fetch-blob": {
+-            "version": "3.2.0",
+-            "resolved": "https://registry.npmjs.org/fetch-blob/-/fetch-blob-3.2.0.tgz",
+-            "integrity": "sha512-7yAQpD2UMJzLi1Dqv7qFYnPbaPx7ZfFK6PiIxQ4PfkGPyNyl2Ugx+a/umUonmKqjhM4DnfbMvdX6otXq83soQQ==",
+-            "funding": [
+-                {
+-                    "type": "github",
+-                    "url": "https://github.com/sponsors/jimmywarting"
+-                },
+-                {
+-                    "type": "paypal",
+-                    "url": "https://paypal.me/jimmywarting"
+-                }
+-            ],
+-            "license": "MIT",
+-            "dependencies": {
+-                "node-domexception": "^1.0.0",
+-                "web-streams-polyfill": "^3.0.3"
+-            },
+-            "engines": {
+-                "node": "^12.20 || >= 14.13"
+-            }
+-        },
+         "node_modules/file-entry-cache": {
+             "version": "6.0.1",
+             "resolved": "https://registry.npmjs.org/file-entry-cache/-/file-entry-cache-6.0.1.tgz",
+@@ -11007,27 +10885,6 @@
+                 "node": ">= 14.17"
+             }
+         },
+-        "node_modules/formdata-node": {
+-            "version": "6.0.3",
+-            "resolved": "https://registry.npmjs.org/formdata-node/-/formdata-node-6.0.3.tgz",
+-            "integrity": "sha512-8e1++BCiTzUno9v5IZ2J6bv4RU+3UKDmqWUQD0MIMVCd9AdhWkO1gw57oo1mNEX1dMq2EGI+FbWz4B92pscSQg==",
+-            "license": "MIT",
+-            "engines": {
+-                "node": ">= 18"
+-            }
+-        },
+-        "node_modules/formdata-polyfill": {
+-            "version": "4.0.10",
+-            "resolved": "https://registry.npmjs.org/formdata-polyfill/-/formdata-polyfill-4.0.10.tgz",
+-            "integrity": "sha512-buewHzMvYL29jdeQTVILecSaZKnt/RJWjoZCF5OW60Z67/GmSLBkOFM7qh1PI3zFNtJbaZL5eQu1vLfazOwj4g==",
+-            "license": "MIT",
+-            "dependencies": {
+-                "fetch-blob": "^3.1.2"
+-            },
+-            "engines": {
+-                "node": ">=12.20.0"
+-            }
+-        },
+         "node_modules/forwarded": {
+             "version": "0.2.0",
+             "resolved": "https://registry.npmjs.org/forwarded/-/forwarded-0.2.0.tgz",
+@@ -11129,18 +10986,6 @@
+                 "node": ">= 10.0.0"
+             }
+         },
+-        "node_modules/fs-minipass": {
+-            "version": "3.0.3",
+-            "resolved": "https://registry.npmjs.org/fs-minipass/-/fs-minipass-3.0.3.tgz",
+-            "integrity": "sha512-XUBA9XClHbnJWSfBzjkm6RvPsyg3sryZt06BEQoXcF7EK/xpGaQYJgQKDJSUH5SGZ76Y7pFx1QBnXz09rU5Fbw==",
+-            "license": "ISC",
+-            "dependencies": {
+-                "minipass": "^7.0.3"
+-            },
+-            "engines": {
+-                "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
+-            }
+-        },
+         "node_modules/fs.realpath": {
+             "version": "1.0.0",
+             "resolved": "https://registry.npmjs.org/fs.realpath/-/fs.realpath-1.0.0.tgz",
+@@ -12020,6 +11865,7 @@
+             "version": "0.1.4",
+             "resolved": "https://registry.npmjs.org/imurmurhash/-/imurmurhash-0.1.4.tgz",
+             "integrity": "sha512-JmXMZ6wuvDmLiHEml9ykzqO6lwFbof0GG4IkcGaENdCRDDmMVnny7s5HsIgHCbaq0w2MyPhDqkhTUgS2LU2PHA==",
++            "devOptional": true,
+             "license": "MIT",
+             "engines": {
+                 "node": ">=0.8.19"
+@@ -13220,12 +13066,6 @@
+                 "url": "https://github.com/sponsors/sindresorhus"
+             }
+         },
+-        "node_modules/locko": {
+-            "version": "1.1.0",
+-            "resolved": "https://registry.npmjs.org/locko/-/locko-1.1.0.tgz",
+-            "integrity": "sha512-pYB2dzRY93fJkg2RIl41AMNgTQftEjyTK9vlPrGOJvuGQsOjb267VJBw15BjiN3RBd1oBoKkOu9E2dRdFKIfAA==",
+-            "license": "MIT"
+-        },
+         "node_modules/lodash": {
+             "version": "4.17.21",
+             "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz",
+@@ -13873,18 +13713,6 @@
+                 "node": ">=16 || 14 >=14.17"
+             }
+         },
+-        "node_modules/minipass-collect": {
+-            "version": "2.0.1",
+-            "resolved": "https://registry.npmjs.org/minipass-collect/-/minipass-collect-2.0.1.tgz",
+-            "integrity": "sha512-D7V8PO9oaz7PWGLbCACuI1qEOsq7UKfLotx/C0Aet43fCUB/wfQ7DYeq2oR/svFJGYDHPr38SHATeaj/ZoKHKw==",
+-            "license": "ISC",
+-            "dependencies": {
+-                "minipass": "^7.0.3"
+-            },
+-            "engines": {
+-                "node": ">=16 || 14 >=14.17"
+-            }
+-        },
+         "node_modules/minipass-fetch": {
+             "version": "1.4.1",
+             "resolved": "https://registry.npmjs.org/minipass-fetch/-/minipass-fetch-1.4.1.tgz",
+@@ -13921,6 +13749,7 @@
+             "resolved": "https://registry.npmjs.org/minipass-flush/-/minipass-flush-1.0.5.tgz",
+             "integrity": "sha512-JmQSYYpPUqX5Jyn1mXaRwOda1uQ8HP5KAT/oDSLCzt1BYRhQU0/hDtsB1ufZfEEzMZ9aAVmsBw8+FWsIXlClWw==",
+             "license": "ISC",
++            "optional": true,
+             "dependencies": {
+                 "minipass": "^3.0.0"
+             },
+@@ -13933,6 +13762,7 @@
+             "resolved": "https://registry.npmjs.org/minipass/-/minipass-3.3.6.tgz",
+             "integrity": "sha512-DxiNidxSEK+tHG6zOIklvNOwm3hvCrbUrdtzY74U6HKTJxvIDfOUL5W5P2Ghd3DTkhhKPYGqeNUIh5qcM4YBfw==",
+             "license": "ISC",
++            "optional": true,
+             "dependencies": {
+                 "yallist": "^4.0.0"
+             },
+@@ -13945,6 +13775,7 @@
+             "resolved": "https://registry.npmjs.org/minipass-pipeline/-/minipass-pipeline-1.2.4.tgz",
+             "integrity": "sha512-xuIq7cIOt09RPRJ19gdi4b+RiNvDFYe5JH+ggNvBqGqpQXcru3PcRmOZuHBKWK1Txf9+cQ+HMVN4d6z46LZP7A==",
+             "license": "ISC",
++            "optional": true,
+             "dependencies": {
+                 "minipass": "^3.0.0"
+             },
+@@ -13957,6 +13788,7 @@
+             "resolved": "https://registry.npmjs.org/minipass/-/minipass-3.3.6.tgz",
+             "integrity": "sha512-DxiNidxSEK+tHG6zOIklvNOwm3hvCrbUrdtzY74U6HKTJxvIDfOUL5W5P2Ghd3DTkhhKPYGqeNUIh5qcM4YBfw==",
+             "license": "ISC",
++            "optional": true,
+             "dependencies": {
+                 "yallist": "^4.0.0"
+             },
+@@ -14329,26 +14161,6 @@
+                 "command-exists": "^1.2.9"
+             }
+         },
+-        "node_modules/node-domexception": {
+-            "version": "1.0.0",
+-            "resolved": "https://registry.npmjs.org/node-domexception/-/node-domexception-1.0.0.tgz",
+-            "integrity": "sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==",
+-            "deprecated": "Use your platform's native DOMException instead",
+-            "funding": [
+-                {
+-                    "type": "github",
+-                    "url": "https://github.com/sponsors/jimmywarting"
+-                },
+-                {
+-                    "type": "github",
+-                    "url": "https://paypal.me/jimmywarting"
+-                }
+-            ],
+-            "license": "MIT",
+-            "engines": {
+-                "node": ">=10.5.0"
+-            }
+-        },
+         "node_modules/node-fetch": {
+             "version": "2.7.0",
+             "resolved": "https://registry.npmjs.org/node-fetch/-/node-fetch-2.7.0.tgz",
+@@ -14369,39 +14181,6 @@
+                 }
+             }
+         },
+-        "node_modules/node-fetch-cache": {
+-            "version": "5.1.0",
+-            "resolved": "https://registry.npmjs.org/node-fetch-cache/-/node-fetch-cache-5.1.0.tgz",
+-            "integrity": "sha512-4j3rRHNGIKGX7VzXSrBT0bh7+wFuyJv1DxCfCLDHsnDahJWoD9lXe3BzL3BJg/GEIJiM7KIvqVs3byW1GFtRsQ==",
+-            "license": "MIT",
+-            "dependencies": {
+-                "cacache": "^20.0.1",
+-                "formdata-node": "^6.0.3",
+-                "locko": "^1.1.0",
+-                "node-fetch": "3.3.2"
+-            },
+-            "engines": {
+-                "node": ">=18.19.0"
+-            }
+-        },
+-        "node_modules/node-fetch-cache/node_modules/node-fetch": {
+-            "version": "3.3.2",
+-            "resolved": "https://registry.npmjs.org/node-fetch/-/node-fetch-3.3.2.tgz",
+-            "integrity": "sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==",
+-            "license": "MIT",
+-            "dependencies": {
+-                "data-uri-to-buffer": "^4.0.0",
+-                "fetch-blob": "^3.1.4",
+-                "formdata-polyfill": "^4.0.10"
+-            },
+-            "engines": {
+-                "node": "^12.20.0 || ^14.13.1 || >=16.0.0"
+-            },
+-            "funding": {
+-                "type": "opencollective",
+-                "url": "https://opencollective.com/node-fetch"
+-            }
+-        },
+         "node_modules/node-fetch/node_modules/tr46": {
+             "version": "0.0.3",
+             "resolved": "https://registry.npmjs.org/tr46/-/tr46-0.0.3.tgz",
+@@ -14878,18 +14657,6 @@
+                 "url": "https://github.com/sponsors/sindresorhus"
+             }
+         },
+-        "node_modules/p-map": {
+-            "version": "7.0.4",
+-            "resolved": "https://registry.npmjs.org/p-map/-/p-map-7.0.4.tgz",
+-            "integrity": "sha512-tkAQEw8ysMzmkhgw8k+1U/iPhWNhykKnSk4Rd5zLoPJCuJaGRPo6YposrZgaxHKzDHdDWWZvE/Sk7hsL2X/CpQ==",
+-            "license": "MIT",
+-            "engines": {
+-                "node": ">=18"
+-            },
+-            "funding": {
+-                "url": "https://github.com/sponsors/sindresorhus"
+-            }
+-        },
+         "node_modules/p-try": {
+             "version": "2.2.0",
+             "resolved": "https://registry.npmjs.org/p-try/-/p-try-2.2.0.tgz",
+@@ -17447,18 +17214,6 @@
+                 "nan": "^2.23.0"
+             }
+         },
+-        "node_modules/ssri": {
+-            "version": "13.0.0",
+-            "resolved": "https://registry.npmjs.org/ssri/-/ssri-13.0.0.tgz",
+-            "integrity": "sha512-yizwGBpbCn4YomB2lzhZqrHLJoqFGXihNbib3ozhqF/cIp5ue+xSmOQrjNasEE62hFxsCcg/V/z23t4n8jMEng==",
+-            "license": "ISC",
+-            "dependencies": {
+-                "minipass": "^7.0.3"
+-            },
+-            "engines": {
+-                "node": "^20.17.0 || >=22.9.0"
+-            }
+-        },
+         "node_modules/statuses": {
+             "version": "2.0.1",
+             "resolved": "https://registry.npmjs.org/statuses/-/statuses-2.0.1.tgz",
+@@ -18824,30 +18579,6 @@
+                 "node": ">=4"
+             }
+         },
+-        "node_modules/unique-filename": {
+-            "version": "5.0.0",
+-            "resolved": "https://registry.npmjs.org/unique-filename/-/unique-filename-5.0.0.tgz",
+-            "integrity": "sha512-2RaJTAvAb4owyjllTfXzFClJ7WsGxlykkPvCr9pA//LD9goVq+m4PPAeBgNodGZ7nSrntT/auWpJ6Y5IFXcfjg==",
+-            "license": "ISC",
+-            "dependencies": {
+-                "unique-slug": "^6.0.0"
+-            },
+-            "engines": {
+-                "node": "^20.17.0 || >=22.9.0"
+-            }
+-        },
+-        "node_modules/unique-slug": {
+-            "version": "6.0.0",
+-            "resolved": "https://registry.npmjs.org/unique-slug/-/unique-slug-6.0.0.tgz",
+-            "integrity": "sha512-4Lup7Ezn8W3d52/xBhZBVdx323ckxa7DEvd9kPQHppTkLoJXw6ltrBCyj5pnrxj0qKDxYMJ56CoxNuFCscdTiw==",
+-            "license": "ISC",
+-            "dependencies": {
+-                "imurmurhash": "^0.1.4"
+-            },
+-            "engines": {
+-                "node": "^20.17.0 || >=22.9.0"
+-            }
+-        },
+         "node_modules/unique-string": {
+             "version": "2.0.0",
+             "resolved": "https://registry.npmjs.org/unique-string/-/unique-string-2.0.0.tgz",
+@@ -19499,15 +19230,6 @@
+                 "node": ">= 16"
+             }
+         },
+-        "node_modules/web-streams-polyfill": {
+-            "version": "3.3.3",
+-            "resolved": "https://registry.npmjs.org/web-streams-polyfill/-/web-streams-polyfill-3.3.3.tgz",
+-            "integrity": "sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==",
+-            "license": "MIT",
+-            "engines": {
+-                "node": ">= 8"
+-            }
+-        },
+         "node_modules/webidl-conversions": {
+             "version": "7.0.0",
+             "resolved": "https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-7.0.0.tgz",
+diff --git a/package.json b/package.json
+index 23f4d26e..3bdf7bbb 100644
+--- a/package.json
++++ b/package.json
+@@ -122,7 +122,6 @@
+         "nanoid": "~3.3.4",
+         "net-snmp": "^3.11.2",
+         "node-cloudflared-tunnel": "~1.0.9",
+-        "node-fetch-cache": "^5.1.0",
+         "node-radius-utils": "~1.2.0",
+         "nodemailer": "~7.0.12",
+         "nostr-tools": "^2.17.0",
+diff --git a/server/model/domain_expiry.js b/server/model/domain_expiry.js
+index 6d91b5d6..20236f64 100644
+--- a/server/model/domain_expiry.js
++++ b/server/model/domain_expiry.js
+@@ -4,33 +4,19 @@ const { log, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } = require("../../src/u
+ const { parse: parseTld } = require("tldts");
+ const { setting, setSetting } = require("../util-server");
+ const { Notification } = require("../notification");
+-const { default: NodeFetchCache, MemoryCache } = require("node-fetch-cache");
+ const TranslatableError = require("../translatable-error");
+ const dayjs = require("dayjs");
+ 
+-const cachedFetch = process.env.NODE_ENV
+-    ? NodeFetchCache.create({
+-          // cache for 8h
+-          cache: new MemoryCache({ ttl: 1000 * 60 * 60 * 8 }),
+-      })
+-    : fetch;
++// Load static RDAP DNS data from local file (auto-updated by CI)
++const rdapDnsData = require("./rdap-dns.json");
+ 
+ /**
+  * Find the RDAP server for a given TLD
+  * @param {string} tld TLD
+- * @returns {Promise<string>} First RDAP server found
++ * @returns {string|null} First RDAP server found
+  */
+-async function getRdapServer(tld) {
+-    let rdapList;
+-    try {
+-        const res = await cachedFetch("https://data.iana.org/rdap/dns.json");
+-        rdapList = await res.json();
+-    } catch (error) {
+-        log.debug("rdap", error);
+-        return null;
+-    }
+-
+-    const services = rdapList["services"] ?? [];
++function getRdapServer(tld) {
++    const services = rdapDnsData["services"] ?? [];
+     const rootTld = tld?.split(".").pop();
+     if (rootTld) {
+         for (const [tlds, urls] of services) {
+@@ -50,7 +36,7 @@ async function getRdapServer(tld) {
+  */
+ async function getRdapDomainExpiryDate(domain) {
+     const tld = DomainExpiry.parseTld(domain).publicSuffix;
+-    const rdapServer = await getRdapServer(tld);
++    const rdapServer = getRdapServer(tld);
+     if (rdapServer === null) {
+         log.warn("rdap", `No RDAP server found, TLD ${tld} not supported.`);
+         return null;
+@@ -178,7 +164,7 @@ class DomainExpiry extends BeanModel {
+ 
+         const publicSuffix = tld.publicSuffix;
+         const rootTld = publicSuffix.split(".").pop();
+-        const rdap = await getRdapServer(publicSuffix);
++        const rdap = getRdapServer(publicSuffix);
+         if (!rdap) {
+             throw new TranslatableError("domain_expiry_unsupported_unsupported_tld_no_rdap_endpoint", {
+                 publicSuffix,
+diff --git a/server/model/rdap-dns.json b/server/model/rdap-dns.json
+new file mode 100644
+index 00000000..51bbe45d
+--- /dev/null
++++ b/server/model/rdap-dns.json
+@@ -0,0 +1,1194 @@
++{
++    "description": "RDAP bootstrap file for Domain Name System registrations",
++    "publication": "2025-12-11T00:00:01Z",
++    "services": [
++        [["kg"], ["http://rdap.cctld.kg/"]],
++        [["mg"], ["http://rdap.nic.mg/"]],
++        [["xn--kpry57d"], ["https://ccrdap.twnic.tw/taiwan/"]],
++        [["tw"], ["https://ccrdap.twnic.tw/tw/"]],
++        [["na"], ["https://keetmans.omadhina.co.na/"]],
++        [["samsung", "xn--cg4bki"], ["https://nic.samsung/rdap/"]],
++        [
++            [
++                "ads",
++                "android",
++                "app",
++                "boo",
++                "cal",
++                "channel",
++                "chrome",
++                "dad",
++                "day",
++                "dclk",
++                "dev",
++                "docs",
++                "drive",
++                "eat",
++                "esq",
++                "fly",
++                "foo",
++                "gbiz",
++                "gle",
++                "gmail",
++                "goog",
++                "google",
++                "guge",
++                "hangout",
++                "here",
++                "how",
++                "ing",
++                "map",
++                "meet",
++                "meme",
++                "mov",
++                "new",
++                "nexus",
++                "page",
++                "phd",
++                "play",
++                "prod",
++                "prof",
++                "rsvp",
++                "search",
++                "soy",
++                "xn--flw351e",
++                "xn--q9jyb4c",
++                "xn--qcka1pmc",
++                "youtube",
++                "zip"
++            ],
++            ["https://pubapi.registry.google/rdap/"]
++        ],
++        [["blog"], ["https://rdap.blog.fury.ca/rdap/"]],
++        [["ca"], ["https://rdap.ca.fury.ca/rdap/"]],
++        [["uz"], ["https://rdap.cctld.uz/"]],
++        [["allfinanz"], ["https://rdap.centralnic.com/allfinanz/"]],
++        [["art"], ["https://rdap.centralnic.com/art/"]],
++        [["audio"], ["https://rdap.centralnic.com/audio/"]],
++        [["auto"], ["https://rdap.centralnic.com/auto/"]],
++        [["autos"], ["https://rdap.centralnic.com/autos/"]],
++        [["baby"], ["https://rdap.centralnic.com/baby/"]],
++        [["beauty"], ["https://rdap.centralnic.com/beauty/"]],
++        [["best"], ["https://rdap.centralnic.com/best/"]],
++        [["bmw"], ["https://rdap.centralnic.com/bmw/"]],
++        [["boats"], ["https://rdap.centralnic.com/boats/"]],
++        [["bond"], ["https://rdap.centralnic.com/bond/"]],
++        [["box"], ["https://rdap.centralnic.com/box/"]],
++        [["build"], ["https://rdap.centralnic.com/build/"]],
++        [["cam"], ["https://rdap.centralnic.com/cam/"]],
++        [["car"], ["https://rdap.centralnic.com/car/"]],
++        [["cars"], ["https://rdap.centralnic.com/cars/"]],
++        [["case"], ["https://rdap.centralnic.com/case/"]],
++        [["ceo"], ["https://rdap.centralnic.com/ceo/"]],
++        [["cfd"], ["https://rdap.centralnic.com/cfd/"]],
++        [["christmas"], ["https://rdap.centralnic.com/christmas/"]],
++        [["college"], ["https://rdap.centralnic.com/college/"]],
++        [["cyou"], ["https://rdap.centralnic.com/cyou/"]],
++        [["dealer"], ["https://rdap.centralnic.com/dealer/"]],
++        [["deloitte"], ["https://rdap.centralnic.com/deloitte/"]],
++        [["dhl"], ["https://rdap.centralnic.com/dhl/"]],
++        [["diet"], ["https://rdap.centralnic.com/diet/"]],
++        [["dvag"], ["https://rdap.centralnic.com/dvag/"]],
++        [["fans"], ["https://rdap.centralnic.com/fans/"]],
++        [["flowers"], ["https://rdap.centralnic.com/flowers/"]],
++        [["fm"], ["https://rdap.centralnic.com/fm/"]],
++        [["fo"], ["https://rdap.centralnic.com/fo/"]],
++        [["fresenius"], ["https://rdap.centralnic.com/fresenius/"]],
++        [["frl"], ["https://rdap.centralnic.com/frl/"]],
++        [["fun"], ["https://rdap.centralnic.com/fun/"]],
++        [["game"], ["https://rdap.centralnic.com/game/"]],
++        [["gd"], ["https://rdap.centralnic.com/gd/"]],
++        [["gent"], ["https://rdap.centralnic.com/gent/"]],
++        [["guitars"], ["https://rdap.centralnic.com/guitars/"]],
++        [["hair"], ["https://rdap.centralnic.com/hair/"]],
++        [["help"], ["https://rdap.centralnic.com/help/"]],
++        [["homes"], ["https://rdap.centralnic.com/homes/"]],
++        [["host"], ["https://rdap.centralnic.com/host/"]],
++        [["hosting"], ["https://rdap.centralnic.com/hosting/"]],
++        [["icu"], ["https://rdap.centralnic.com/icu/"]],
++        [["inc"], ["https://rdap.centralnic.com/inc/"]],
++        [["kfh"], ["https://rdap.centralnic.com/kfh/"]],
++        [["kpn"], ["https://rdap.centralnic.com/kpn/"]],
++        [["kred"], ["https://rdap.centralnic.com/kred/"]],
++        [["lat"], ["https://rdap.centralnic.com/lat/"]],
++        [["lidl"], ["https://rdap.centralnic.com/lidl/"]],
++        [["llp"], ["https://rdap.centralnic.com/llp/"]],
++        [["lol"], ["https://rdap.centralnic.com/lol/"]],
++        [["london"], ["https://rdap.centralnic.com/london/"]],
++        [["lpl"], ["https://rdap.centralnic.com/lpl/"]],
++        [["lplfinancial"], ["https://rdap.centralnic.com/lplfinancial/"]],
++        [["luxury"], ["https://rdap.centralnic.com/luxury/"]],
++        [["makeup"], ["https://rdap.centralnic.com/makeup/"]],
++        [["mini"], ["https://rdap.centralnic.com/mini/"]],
++        [["mom"], ["https://rdap.centralnic.com/mom/"]],
++        [["monster"], ["https://rdap.centralnic.com/monster/"]],
++        [["motorcycles"], ["https://rdap.centralnic.com/motorcycles/"]],
++        [["nokia"], ["https://rdap.centralnic.com/nokia/"]],
++        [["online"], ["https://rdap.centralnic.com/online/"]],
++        [["ooo"], ["https://rdap.centralnic.com/ooo/"]],
++        [["pics"], ["https://rdap.centralnic.com/pics/"]],
++        [["pohl"], ["https://rdap.centralnic.com/pohl/"]],
++        [["press"], ["https://rdap.centralnic.com/press/"]],
++        [["protection"], ["https://rdap.centralnic.com/protection/"]],
++        [["pw"], ["https://rdap.centralnic.com/pw/"]],
++        [["qpon"], ["https://rdap.centralnic.com/qpon/"]],
++        [["quest"], ["https://rdap.centralnic.com/quest/"]],
++        [["reit"], ["https://rdap.centralnic.com/reit/"]],
++        [["rent"], ["https://rdap.centralnic.com/rent/"]],
++        [["ruhr"], ["https://rdap.centralnic.com/ruhr/"]],
++        [["saarland"], ["https://rdap.centralnic.com/saarland/"]],
++        [["sbs"], ["https://rdap.centralnic.com/sbs/"]],
++        [["schwarz"], ["https://rdap.centralnic.com/schwarz/"]],
++        [["security"], ["https://rdap.centralnic.com/security/"]],
++        [["sfr"], ["https://rdap.centralnic.com/sfr/"]],
++        [["site"], ["https://rdap.centralnic.com/site/"]],
++        [["skin"], ["https://rdap.centralnic.com/skin/"]],
++        [["smart"], ["https://rdap.centralnic.com/smart/"]],
++        [["space"], ["https://rdap.centralnic.com/space/"]],
++        [["stc"], ["https://rdap.centralnic.com/stc/"]],
++        [["stcgroup"], ["https://rdap.centralnic.com/stcgroup/"]],
++        [["storage"], ["https://rdap.centralnic.com/storage/"]],
++        [["store"], ["https://rdap.centralnic.com/store/"]],
++        [["tech"], ["https://rdap.centralnic.com/tech/"]],
++        [["theatre"], ["https://rdap.centralnic.com/theatre/"]],
++        [["tickets"], ["https://rdap.centralnic.com/tickets/"]],
++        [["tui"], ["https://rdap.centralnic.com/tui/"]],
++        [["uno"], ["https://rdap.centralnic.com/uno/"]],
++        [["vg"], ["https://rdap.centralnic.com/vg/"]],
++        [["viva"], ["https://rdap.centralnic.com/viva/"]],
++        [["website"], ["https://rdap.centralnic.com/website/"]],
++        [["wme"], ["https://rdap.centralnic.com/wme/"]],
++        [["xn--4gbrim"], ["https://rdap.centralnic.com/xn--4gbrim/"]],
++        [["xn--ngbe9e0a"], ["https://rdap.centralnic.com/xn--ngbe9e0a/"]],
++        [["xn--vermgensberater-ctb"], ["https://rdap.centralnic.com/xn--vermgensberater-ctb/"]],
++        [["xn--vermgensberatung-pwb"], ["https://rdap.centralnic.com/xn--vermgensberatung-pwb/"]],
++        [["xyz"], ["https://rdap.centralnic.com/xyz/"]],
++        [["yachts"], ["https://rdap.centralnic.com/yachts/"]],
++        [["zuerich"], ["https://rdap.centralnic.com/zuerich/"]],
++        [["jnj"], ["https://rdap.centralnicregistry.com/jnj/"]],
++        [["xn--55qw42g", "xn--zfr164b"], ["https://rdap.conac.cn/"]],
++        [["crown"], ["https://rdap.crown.fury.ca/rdap/"]],
++        [["pl"], ["https://rdap.dns.pl/"]],
++        [["eco"], ["https://rdap.eco.fury.ca/rdap/"]],
++        [["fi"], ["https://rdap.fi/rdap/rdap/"]],
++        [["moscow", "xn--80adxhks"], ["https://rdap.flexireg.net/"]],
++        [
++            [
++                "bridgestone",
++                "brother",
++                "canon",
++                "datsun",
++                "dnp",
++                "epson",
++                "firestone",
++                "fujitsu",
++                "ggee",
++                "gmo",
++                "goldpoint",
++                "goo",
++                "hisamitsu",
++                "hitachi",
++                "honda",
++                "hyundai",
++                "infiniti",
++                "jcb",
++                "kddi",
++                "kia",
++                "komatsu",
++                "kyoto",
++                "lexus",
++                "lotte",
++                "mitsubishi",
++                "nagoya",
++                "nec",
++                "nhk",
++                "nico",
++                "nissan",
++                "okinawa",
++                "otsuka",
++                "panasonic",
++                "playstation",
++                "ricoh",
++                "ryukyu",
++                "sharp",
++                "shop",
++                "softbank",
++                "sony",
++                "suzuki",
++                "tokyo",
++                "toray",
++                "toshiba",
++                "toyota",
++                "yodobashi",
++                "yokohama"
++            ],
++            ["https://rdap.gmoregistry.net/rdap/"]
++        ],
++        [["bom", "final", "globo", "rio", "uol"], ["https://rdap.gtlds.nic.br/"]],
++        [["ua"], ["https://rdap.hostmaster.ua/"]],
++        [["int"], ["https://rdap.iana.org/"]],
++        [
++            [
++                "abb",
++                "abbott",
++                "abc",
++                "academy",
++                "accenture",
++                "accountants",
++                "actor",
++                "aeg",
++                "aero",
++                "agakhan",
++                "agency",
++                "ai",
++                "airbus",
++                "airforce",
++                "akdn",
++                "alibaba",
++                "alipay",
++                "allstate",
++                "aol",
++                "apartments",
++                "archi",
++                "army",
++                "arte",
++                "asda",
++                "asia",
++                "associates",
++                "attorney",
++                "auction",
++                "audi",
++                "band",
++                "barclaycard",
++                "barclays",
++                "barefoot",
++                "bargains",
++                "bbt",
++                "bcg",
++                "beats",
++                "bestbuy",
++                "bet",
++                "bike",
++                "bingo",
++                "bio",
++                "black",
++                "bloomberg",
++                "blue",
++                "bm",
++                "bms",
++                "bnpparibas",
++                "boehringer",
++                "bofa",
++                "bosch",
++                "boutique",
++                "bradesco",
++                "broker",
++                "builders",
++                "business",
++                "cab",
++                "cafe",
++                "camera",
++                "camp",
++                "capital",
++                "cards",
++                "care",
++                "careers",
++                "cash",
++                "casino",
++                "catering",
++                "center",
++                "cern",
++                "cfa",
++                "chanel",
++                "chat",
++                "cheap",
++                "church",
++                "cipriani",
++                "citadel",
++                "city",
++                "claims",
++                "cleaning",
++                "clinic",
++                "clinique",
++                "clothing",
++                "clubmed",
++                "coach",
++                "codes",
++                "coffee",
++                "community",
++                "company",
++                "computer",
++                "condos",
++                "construction",
++                "consulting",
++                "contact",
++                "contractors",
++                "cool",
++                "coupon",
++                "coupons",
++                "credit",
++                "creditcard",
++                "crs",
++                "cruise",
++                "cruises",
++                "dance",
++                "dating",
++                "deals",
++                "degree",
++                "delivery",
++                "delta",
++                "democrat",
++                "dental",
++                "dentist",
++                "diamonds",
++                "digital",
++                "direct",
++                "directory",
++                "discount",
++                "discover",
++                "doctor",
++                "dog",
++                "domains",
++                "edeka",
++                "education",
++                "email",
++                "emerck",
++                "energy",
++                "engineer",
++                "engineering",
++                "enterprises",
++                "equipment",
++                "ericsson",
++                "estate",
++                "events",
++                "exchange",
++                "expert",
++                "exposed",
++                "express",
++                "extraspace",
++                "fage",
++                "fail",
++                "family",
++                "fan",
++                "farm",
++                "fedex",
++                "ferrari",
++                "fidelity",
++                "fido",
++                "finance",
++                "financial",
++                "fish",
++                "fitness",
++                "flights",
++                "florist",
++                "football",
++                "forex",
++                "forsale",
++                "frogans",
++                "fund",
++                "furniture",
++                "futbol",
++                "fyi",
++                "gallery",
++                "gallo",
++                "gallup",
++                "games",
++                "genting",
++                "gifts",
++                "glass",
++                "global",
++                "gmbh",
++                "gold",
++                "golf",
++                "goodyear",
++                "graphics",
++                "gratis",
++                "green",
++                "gripe",
++                "group",
++                "guide",
++                "guru",
++                "haus",
++                "hdfc",
++                "hdfcbank",
++                "healthcare",
++                "helsinki",
++                "hermes",
++                "hkt",
++                "hockey",
++                "holdings",
++                "holiday",
++                "homedepot",
++                "hospital",
++                "house",
++                "hughes",
++                "ice",
++                "imamat",
++                "immo",
++                "immobilien",
++                "industries",
++                "info",
++                "institute",
++                "insure",
++                "international",
++                "investments",
++                "irish",
++                "ismaili",
++                "ist",
++                "istanbul",
++                "itv",
++                "jaguar",
++                "java",
++                "jeep",
++                "jetzt",
++                "jewelry",
++                "jio",
++                "jll",
++                "juegos",
++                "juniper",
++                "kaufen",
++                "kerryhotels",
++                "kerryproperties",
++                "kids",
++                "kim",
++                "kitchen",
++                "kosher",
++                "kuokgroup",
++                "lamborghini",
++                "lamer",
++                "land",
++                "landrover",
++                "lasalle",
++                "lawyer",
++                "lds",
++                "lease",
++                "lefrak",
++                "legal",
++                "lego",
++                "lgbt",
++                "life",
++                "lighting",
++                "limited",
++                "limo",
++                "live",
++                "llc",
++                "loans",
++                "lotto",
++                "ltd",
++                "ltda",
++                "lundbeck",
++                "maif",
++                "maison",
++                "management",
++                "market",
++                "marketing",
++                "markets",
++                "marriott",
++                "mba",
++                "mckinsey",
++                "media",
++                "memorial",
++                "mit",
++                "mobi",
++                "moda",
++                "money",
++                "mormon",
++                "mortgage",
++                "movie",
++                "mu",
++                "nab",
++                "navy",
++                "network",
++                "news",
++                "next",
++                "nextdirect",
++                "nikon",
++                "ninja",
++                "nissay",
++                "nowtv",
++                "nra",
++                "obi",
++                "onl",
++                "oracle",
++                "orange",
++                "organic",
++                "origins",
++                "partners",
++                "parts",
++                "pccw",
++                "pet",
++                "photography",
++                "photos",
++                "pictet",
++                "pictures",
++                "pink",
++                "pizza",
++                "place",
++                "plumbing",
++                "plus",
++                "pnc",
++                "poker",
++                "post",
++                "pro",
++                "productions",
++                "progressive",
++                "promo",
++                "properties",
++                "pub",
++                "pwc",
++                "recipes",
++                "red",
++                "redumbrella",
++                "rehab",
++                "reise",
++                "reisen",
++                "reliance",
++                "rentals",
++                "repair",
++                "report",
++                "republican",
++                "restaurant",
++                "reviews",
++                "rexroth",
++                "rich",
++                "richardli",
++                "ril",
++                "rip",
++                "rocks",
++                "rogers",
++                "run",
++                "rwe",
++                "sale",
++                "salon",
++                "sanofi",
++                "sarl",
++                "saxo",
++                "sbi",
++                "scholarships",
++                "school",
++                "schule",
++                "sener",
++                "services",
++                "sew",
++                "shangrila",
++                "shiksha",
++                "shoes",
++                "shopping",
++                "show",
++                "sina",
++                "singles",
++                "ski",
++                "soccer",
++                "social",
++                "software",
++                "solar",
++                "solutions",
++                "song",
++                "spa",
++                "srl",
++                "stada",
++                "star",
++                "statebank",
++                "stockholm",
++                "studio",
++                "style",
++                "supplies",
++                "supply",
++                "support",
++                "surgery",
++                "systems",
++                "taobao",
++                "tatamotors",
++                "tax",
++                "taxi",
++                "team",
++                "technology",
++                "temasek",
++                "tennis",
++                "thd",
++                "theater",
++                "tiaa",
++                "tienda",
++                "tips",
++                "tires",
++                "tmall",
++                "today",
++                "tools",
++                "tours",
++                "town",
++                "toys",
++                "trading",
++                "training",
++                "travel",
++                "travelers",
++                "travelersinsurance",
++                "trv",
++                "tvs",
++                "ubank",
++                "ubs",
++                "university",
++                "ups",
++                "vacations",
++                "vanguard",
++                "vegas",
++                "ventures",
++                "vet",
++                "viajes",
++                "video",
++                "vig",
++                "viking",
++                "villas",
++                "vin",
++                "visa",
++                "vision",
++                "volvo",
++                "vote",
++                "voto",
++                "voyage",
++                "watch",
++                "watches",
++                "weber",
++                "weibo",
++                "weir",
++                "wine",
++                "wolterskluwer",
++                "works",
++                "world",
++                "wtf",
++                "xin",
++                "xn--1ck2e1b",
++                "xn--5su34j936bgsg",
++                "xn--5tzm5g",
++                "xn--6frz82g",
++                "xn--9krt00a",
++                "xn--b4w605ferd",
++                "xn--bck1b9a5dre4c",
++                "xn--cck2b3b",
++                "xn--czrs0t",
++                "xn--eckvdtc9d",
++                "xn--fct429k",
++                "xn--fjq720a",
++                "xn--fzys8d69uvgm",
++                "xn--gckr3f0f",
++                "xn--gk3at1e",
++                "xn--jvr189m",
++                "xn--rovu88b",
++                "xn--unup4y",
++                "xn--vhquv",
++                "xn--w4r85el8fhu5dnra",
++                "xn--w4rs40l",
++                "yahoo",
++                "zara",
++                "zero",
++                "zone"
++            ],
++            ["https://rdap.identitydigital.services/rdap/"]
++        ],
++        [["is"], ["https://rdap.isnic.is/rdap/"]],
++        [["ke"], ["https://rdap.kenic.or.ke/"]],
++        [["kiwi"], ["https://rdap.kiwi.fury.ca/rdap/"]],
++        [["lb"], ["https://rdap.lbdr.org.lb/"]],
++        [["mls"], ["https://rdap.mls.fury.ca/rdap/"]],
++        [
++            ["blockbuster", "data", "dish", "dot", "dtv", "dvr", "latino", "mobile", "ollo", "ott", "phone", "sling"],
++            ["https://rdap.mobile-registry.com/rdap/"]
++        ],
++        [["aaa"], ["https://rdap.nic.aaa/"]],
++        [["aarp"], ["https://rdap.nic.aarp/"]],
++        [["able"], ["https://rdap.nic.able/"]],
++        [["abogado"], ["https://rdap.nic.abogado/"]],
++        [["abudhabi"], ["https://rdap.nic.abudhabi/"]],
++        [["accountant"], ["https://rdap.nic.accountant/"]],
++        [["aco"], ["https://rdap.nic.aco/"]],
++        [["ad"], ["https://rdap.nic.ad/"]],
++        [["adult"], ["https://rdap.nic.adult/"]],
++        [["aetna"], ["https://rdap.nic.aetna/"]],
++        [["afl"], ["https://rdap.nic.afl/"]],
++        [["africa"], ["https://rdap.nic.africa/rdap/"]],
++        [["aig"], ["https://rdap.nic.aig/"]],
++        [["airtel"], ["https://rdap.nic.airtel/"]],
++        [["ally"], ["https://rdap.nic.ally/"]],
++        [["alsace"], ["https://rdap.nic.alsace/"]],
++        [["alstom"], ["https://rdap.nic.alstom/"]],
++        [["americanexpress"], ["https://rdap.nic.americanexpress/"]],
++        [["americanfamily"], ["https://rdap.nic.americanfamily/"]],
++        [["amex"], ["https://rdap.nic.amex/"]],
++        [["amfam"], ["https://rdap.nic.amfam/"]],
++        [["amica"], ["https://rdap.nic.amica/"]],
++        [["amsterdam"], ["https://rdap.nic.amsterdam/"]],
++        [["analytics"], ["https://rdap.nic.analytics/"]],
++        [["anz"], ["https://rdap.nic.anz/"]],
++        [["apple"], ["https://rdap.nic.apple/"]],
++        [["aquarelle"], ["https://rdap.nic.aquarelle/"]],
++        [["ar"], ["https://rdap.nic.ar/"]],
++        [["arab"], ["https://rdap.nic.arab/"]],
++        [["aramco"], ["https://rdap.nic.aramco/"]],
++        [["as"], ["https://rdap.nic.as/"]],
++        [["athleta"], ["https://rdap.nic.athleta/"]],
++        [["auspost"], ["https://rdap.nic.auspost/"]],
++        [["axa"], ["https://rdap.nic.axa/"]],
++        [["banamex"], ["https://rdap.nic.banamex/"]],
++        [["bank"], ["https://rdap.nic.bank/"]],
++        [["barcelona"], ["https://rdap.nic.barcelona/"]],
++        [["baseball"], ["https://rdap.nic.baseball/"]],
++        [["basketball"], ["https://rdap.nic.basketball/"]],
++        [["bauhaus"], ["https://rdap.nic.bauhaus/"]],
++        [["bayern"], ["https://rdap.nic.bayern/"]],
++        [["bcn"], ["https://rdap.nic.bcn/"]],
++        [["beer"], ["https://rdap.nic.beer/"]],
++        [["berlin"], ["https://rdap.nic.berlin/v1/"]],
++        [["bharti"], ["https://rdap.nic.bharti/"]],
++        [["bible"], ["https://rdap.nic.bible/"]],
++        [["bid"], ["https://rdap.nic.bid/"]],
++        [["biz"], ["https://rdap.nic.biz/"]],
++        [["blackfriday"], ["https://rdap.nic.blackfriday/"]],
++        [["booking"], ["https://rdap.nic.booking/"]],
++        [["bostik"], ["https://rdap.nic.bostik/"]],
++        [["boston"], ["https://rdap.nic.boston/"]],
++        [["brussels"], ["https://rdap.nic.brussels/"]],
++        [["buzz"], ["https://rdap.nic.buzz/"]],
++        [["bzh"], ["https://rdap.nic.bzh/"]],
++        [["calvinklein"], ["https://rdap.nic.calvinklein/"]],
++        [["capetown"], ["https://rdap.nic.capetown/rdap/"]],
++        [["capitalone"], ["https://rdap.nic.capitalone/"]],
++        [["caravan"], ["https://rdap.nic.caravan/"]],
++        [["casa"], ["https://rdap.nic.casa/"]],
++        [["cat"], ["https://rdap.nic.cat/"]],
++        [["catholic"], ["https://rdap.nic.catholic/"]],
++        [["cba"], ["https://rdap.nic.cba/"]],
++        [["cbn"], ["https://rdap.nic.cbn/"]],
++        [["cbre"], ["https://rdap.nic.cbre/"]],
++        [["chase"], ["https://rdap.nic.chase/"]],
++        [["chintai"], ["https://rdap.nic.chintai/"]],
++        [["cisco"], ["https://rdap.nic.cisco/"]],
++        [["citi"], ["https://rdap.nic.citi/"]],
++        [["club"], ["https://rdap.nic.club/"]],
++        [["cm"], ["https://rdap.nic.cm/"]],
++        [["commbank"], ["https://rdap.nic.commbank/"]],
++        [["compare"], ["https://rdap.nic.compare/"]],
++        [["cooking"], ["https://rdap.nic.cooking/"]],
++        [["corsica"], ["https://rdap.nic.corsica/"]],
++        [["courses"], ["https://rdap.nic.courses/"]],
++        [["cpa"], ["https://rdap.nic.cpa/"]],
++        [["cr"], ["https://rdap.nic.cr/"]],
++        [["cricket"], ["https://rdap.nic.cricket/"]],
++        [["cuisinella"], ["https://rdap.nic.cuisinella/"]],
++        [["cv"], ["https://rdap.nic.cv/"]],
++        [["cx"], ["https://rdap.nic.cx/"]],
++        [["cz"], ["https://rdap.nic.cz/"]],
++        [["date"], ["https://rdap.nic.date/"]],
++        [["dds"], ["https://rdap.nic.dds/"]],
++        [["dell"], ["https://rdap.nic.dell/"]],
++        [["design"], ["https://rdap.nic.design/"]],
++        [["download"], ["https://rdap.nic.download/"]],
++        [["dubai"], ["https://rdap.nic.dubai/"]],
++        [["dupont"], ["https://rdap.nic.dupont/"]],
++        [["durban"], ["https://rdap.nic.durban/rdap/"]],
++        [["earth"], ["https://rdap.nic.earth/"]],
++        [["erni"], ["https://rdap.nic.erni/"]],
++        [["eurovision"], ["https://rdap.nic.eurovision/"]],
++        [["eus"], ["https://rdap.nic.eus/"]],
++        [["faith"], ["https://rdap.nic.faith/"]],
++        [["farmers"], ["https://rdap.nic.farmers/"]],
++        [["fashion"], ["https://rdap.nic.fashion/"]],
++        [["ferrero"], ["https://rdap.nic.ferrero/"]],
++        [["film"], ["https://rdap.nic.film/"]],
++        [["firmdale"], ["https://rdap.nic.firmdale/"]],
++        [["fishing"], ["https://rdap.nic.fishing/"]],
++        [["fit"], ["https://rdap.nic.fit/"]],
++        [["flickr"], ["https://rdap.nic.flickr/"]],
++        [["flir"], ["https://rdap.nic.flir/"]],
++        [["ford"], ["https://rdap.nic.ford/"]],
++        [["fox"], ["https://rdap.nic.fox/"]],
++        [["fr"], ["https://rdap.nic.fr/"]],
++        [["frontier"], ["https://rdap.nic.frontier/"]],
++        [["ftr"], ["https://rdap.nic.ftr/"]],
++        [["gal"], ["https://rdap.nic.gal/"]],
++        [["gap"], ["https://rdap.nic.gap/"]],
++        [["garden"], ["https://rdap.nic.garden/"]],
++        [["gay"], ["https://rdap.nic.gay/"]],
++        [["gdn"], ["https://rdap.nic.gdn/"]],
++        [["gea"], ["https://rdap.nic.gea/"]],
++        [["george"], ["https://rdap.nic.george/"]],
++        [["gmx"], ["https://rdap.nic.gmx/"]],
++        [["godaddy"], ["https://rdap.nic.godaddy/"]],
++        [["gov"], ["https://rdap.nic.gov/rdap/"]],
++        [["grainger"], ["https://rdap.nic.grainger/"]],
++        [["grocery"], ["https://rdap.nic.grocery/"]],
++        [["gs"], ["https://rdap.nic.gs/"]],
++        [["hamburg"], ["https://rdap.nic.hamburg/v1/"]],
++        [["hbo"], ["https://rdap.nic.hbo/"]],
++        [["health"], ["https://rdap.nic.health/"]],
++        [["hn"], ["https://rdap.nic.hn/"]],
++        [["homegoods"], ["https://rdap.nic.homegoods/"]],
++        [["homesense"], ["https://rdap.nic.homesense/"]],
++        [["horse"], ["https://rdap.nic.horse/"]],
++        [["hotels"], ["https://rdap.nic.hotels/"]],
++        [["hsbc"], ["https://rdap.nic.hsbc/"]],
++        [["ht"], ["https://rdap.nic.ht/"]],
++        [["hyatt"], ["https://rdap.nic.hyatt/"]],
++        [["ibm"], ["https://rdap.nic.ibm/"]],
++        [["ifm"], ["https://rdap.nic.ifm/"]],
++        [["ikano"], ["https://rdap.nic.ikano/v1/"]],
++        [["ink"], ["https://rdap.nic.ink/"]],
++        [["insurance"], ["https://rdap.nic.insurance/"]],
++        [["intuit"], ["https://rdap.nic.intuit/"]],
++        [["ipiranga"], ["https://rdap.nic.ipiranga/"]],
++        [["itau"], ["https://rdap.nic.itau/"]],
++        [["jmp"], ["https://rdap.nic.jmp/"]],
++        [["joburg"], ["https://rdap.nic.joburg/rdap/"]],
++        [["jpmorgan"], ["https://rdap.nic.jpmorgan/"]],
++        [["jprs"], ["https://rdap.nic.jprs/rdap/"]],
++        [["kpmg"], ["https://rdap.nic.kpmg/"]],
++        [["krd"], ["https://rdap.nic.krd/"]],
++        [["lacaixa"], ["https://rdap.nic.lacaixa/"]],
++        [["lanxess"], ["https://rdap.nic.lanxess/"]],
++        [["latrobe"], ["https://rdap.nic.latrobe/"]],
++        [["law"], ["https://rdap.nic.law/"]],
++        [["leclerc"], ["https://rdap.nic.leclerc/"]],
++        [["lifeinsurance"], ["https://rdap.nic.lifeinsurance/"]],
++        [["lilly"], ["https://rdap.nic.lilly/"]],
++        [["lincoln"], ["https://rdap.nic.lincoln/"]],
++        [["loan"], ["https://rdap.nic.loan/"]],
++        [["locker"], ["https://rdap.nic.locker/rdap/"]],
++        [["luxe"], ["https://rdap.nic.luxe/"]],
++        [["ly"], ["https://rdap.nic.ly/"]],
++        [["madrid"], ["https://rdap.nic.madrid/"]],
++        [["man"], ["https://rdap.nic.man/"]],
++        [["mango"], ["https://rdap.nic.mango/"]],
++        [["marshalls"], ["https://rdap.nic.marshalls/"]],
++        [["mattel"], ["https://rdap.nic.mattel/"]],
++        [["melbourne"], ["https://rdap.nic.melbourne/"]],
++        [["men"], ["https://rdap.nic.men/"]],
++        [["menu"], ["https://rdap.nic.menu/"]],
++        [["merckmsd"], ["https://rdap.nic.merckmsd/"]],
++        [["miami"], ["https://rdap.nic.miami/"]],
++        [["mint"], ["https://rdap.nic.mint/"]],
++        [["ml"], ["https://rdap.nic.ml/"]],
++        [["mlb"], ["https://rdap.nic.mlb/"]],
++        [["mma"], ["https://rdap.nic.mma/"]],
++        [["moe"], ["https://rdap.nic.moe/"]],
++        [["monash"], ["https://rdap.nic.monash/"]],
++        [["moto"], ["https://rdap.nic.moto/"]],
++        [["ms"], ["https://rdap.nic.ms/"]],
++        [["msd"], ["https://rdap.nic.msd/"]],
++        [["museum"], ["https://rdap.nic.museum/"]],
++        [["nba"], ["https://rdap.nic.nba/"]],
++        [["netbank"], ["https://rdap.nic.netbank/"]],
++        [["netflix"], ["https://rdap.nic.netflix/"]],
++        [["neustar"], ["https://rdap.nic.neustar/"]],
++        [["nf"], ["https://rdap.nic.nf/"]],
++        [["nfl"], ["https://rdap.nic.nfl/"]],
++        [["nike"], ["https://rdap.nic.nike/"]],
++        [["norton"], ["https://rdap.nic.norton/"]],
++        [["nrw"], ["https://rdap.nic.nrw/"]],
++        [["ntt"], ["https://rdap.nic.ntt/rdap/"]],
++        [["nyc"], ["https://rdap.nic.nyc/"]],
++        [["olayan"], ["https://rdap.nic.olayan/"]],
++        [["olayangroup"], ["https://rdap.nic.olayangroup/"]],
++        [["one"], ["https://rdap.nic.one/"]],
++        [["open"], ["https://rdap.nic.open/"]],
++        [["osaka"], ["https://rdap.nic.osaka/"]],
++        [["ovh"], ["https://rdap.nic.ovh/"]],
++        [["paris"], ["https://rdap.nic.paris/"]],
++        [["party"], ["https://rdap.nic.party/"]],
++        [["pfizer"], ["https://rdap.nic.pfizer/"]],
++        [["pg"], ["https://rdap.nic.pg/"]],
++        [["philips"], ["https://rdap.nic.philips/"]],
++        [["photo"], ["https://rdap.nic.photo/"]],
++        [["physio"], ["https://rdap.nic.physio/"]],
++        [["ping"], ["https://rdap.nic.ping/"]],
++        [["pm"], ["https://rdap.nic.pm/"]],
++        [["politie"], ["https://rdap.nic.politie/"]],
++        [["porn"], ["https://rdap.nic.porn/"]],
++        [["praxi"], ["https://rdap.nic.praxi/"]],
++        [["pru"], ["https://rdap.nic.pru/"]],
++        [["prudential"], ["https://rdap.nic.prudential/"]],
++        [["quebec"], ["https://rdap.nic.quebec/"]],
++        [["racing"], ["https://rdap.nic.racing/"]],
++        [["radio"], ["https://rdap.nic.radio/"]],
++        [["re"], ["https://rdap.nic.re/"]],
++        [["review"], ["https://rdap.nic.review/"]],
++        [["rodeo"], ["https://rdap.nic.rodeo/"]],
++        [["rugby"], ["https://rdap.nic.rugby/"]],
++        [["safety"], ["https://rdap.nic.safety/"]],
++        [["sakura"], ["https://rdap.nic.sakura/rdap/"]],
++        [["samsclub"], ["https://rdap.nic.samsclub/"]],
++        [["sandvik"], ["https://rdap.nic.sandvik/"]],
++        [["sandvikcoromant"], ["https://rdap.nic.sandvikcoromant/"]],
++        [["sap"], ["https://rdap.nic.sap/"]],
++        [["sas"], ["https://rdap.nic.sas/"]],
++        [["scb"], ["https://rdap.nic.scb/"]],
++        [["schaeffler"], ["https://rdap.nic.schaeffler/"]],
++        [["schmidt"], ["https://rdap.nic.schmidt/"]],
++        [["science"], ["https://rdap.nic.science/"]],
++        [["scot"], ["https://rdap.nic.scot/"]],
++        [["sd"], ["https://rdap.nic.sd/"]],
++        [["seat"], ["https://rdap.nic.seat/"]],
++        [["seek"], ["https://rdap.nic.seek/"]],
++        [["select"], ["https://rdap.nic.select/"]],
++        [["seven"], ["https://rdap.nic.seven/"]],
++        [["sex"], ["https://rdap.nic.sex/"]],
++        [["sncf"], ["https://rdap.nic.sncf/"]],
++        [["sport"], ["https://rdap.nic.sport/"]],
++        [["ss"], ["https://rdap.nic.ss/"]],
++        [["staples"], ["https://rdap.nic.staples/"]],
++        [["statefarm"], ["https://rdap.nic.statefarm/"]],
++        [["stream"], ["https://rdap.nic.stream/"]],
++        [["study"], ["https://rdap.nic.study/"]],
++        [["sucks"], ["https://rdap.nic.sucks/"]],
++        [["surf"], ["https://rdap.nic.surf/"]],
++        [["swiss"], ["https://rdap.nic.swiss/"]],
++        [["sydney"], ["https://rdap.nic.sydney/"]],
++        [["tab"], ["https://rdap.nic.tab/"]],
++        [["taipei"], ["https://rdap.nic.taipei/"]],
++        [["target"], ["https://rdap.nic.target/"]],
++        [["tattoo"], ["https://rdap.nic.tattoo/"]],
++        [["tdk"], ["https://rdap.nic.tdk/"]],
++        [["tel"], ["https://rdap.nic.tel/"]],
++        [["teva"], ["https://rdap.nic.teva/"]],
++        [["tf"], ["https://rdap.nic.tf/"]],
++        [["tjmaxx"], ["https://rdap.nic.tjmaxx/"]],
++        [["tjx"], ["https://rdap.nic.tjx/"]],
++        [["tkmaxx"], ["https://rdap.nic.tkmaxx/"]],
++        [["total"], ["https://rdap.nic.total/"]],
++        [["trade"], ["https://rdap.nic.trade/"]],
++        [["tube"], ["https://rdap.nic.tube/"]],
++        [["tv"], ["https://rdap.nic.tv/"]],
++        [["versicherung"], ["https://rdap.nic.versicherung/v1/"]],
++        [["vi"], ["https://rdap.nic.vi/"]],
++        [["vip"], ["https://rdap.nic.vip/"]],
++        [["vivo"], ["https://rdap.nic.vivo/"]],
++        [["vlaanderen"], ["https://rdap.nic.vlaanderen/"]],
++        [["vodka"], ["https://rdap.nic.vodka/"]],
++        [["voting"], ["https://rdap.nic.voting/"]],
++        [["walmart"], ["https://rdap.nic.walmart/"]],
++        [["walter"], ["https://rdap.nic.walter/"]],
++        [["weather"], ["https://rdap.nic.weather/"]],
++        [["weatherchannel"], ["https://rdap.nic.weatherchannel/"]],
++        [["webcam"], ["https://rdap.nic.webcam/"]],
++        [["wedding"], ["https://rdap.nic.wedding/"]],
++        [["wf"], ["https://rdap.nic.wf/"]],
++        [["whoswho"], ["https://rdap.nic.whoswho/"]],
++        [["wiki"], ["https://rdap.nic.wiki/"]],
++        [["williamhill"], ["https://rdap.nic.williamhill/"]],
++        [["win"], ["https://rdap.nic.win/"]],
++        [["winners"], ["https://rdap.nic.winners/"]],
++        [["woodside"], ["https://rdap.nic.woodside/"]],
++        [["work"], ["https://rdap.nic.work/"]],
++        [["wtc"], ["https://rdap.nic.wtc/"]],
++        [["xerox"], ["https://rdap.nic.xerox/"]],
++        [["xn--80aqecdr1a"], ["https://rdap.nic.xn--80aqecdr1a/"]],
++        [["xn--80asehdb"], ["https://rdap.nic.xn--80asehdb/"]],
++        [["xn--80aswg"], ["https://rdap.nic.xn--80aswg/"]],
++        [["xn--g2xx48c"], ["https://rdap.nic.xn--g2xx48c/"]],
++        [["xn--kcrx77d1x4a"], ["https://rdap.nic.xn--kcrx77d1x4a/"]],
++        [["xn--mgba3a3ejt"], ["https://rdap.nic.xn--mgba3a3ejt/"]],
++        [["xn--mgba7c0bbn0a"], ["https://rdap.nic.xn--mgba7c0bbn0a/"]],
++        [["xn--mgbab2bd"], ["https://rdap.nic.xn--mgbab2bd/"]],
++        [["xn--mgbca7dzdo"], ["https://rdap.nic.xn--mgbca7dzdo/"]],
++        [["xn--mgbi4ecexp"], ["https://rdap.nic.xn--mgbi4ecexp/"]],
++        [["xn--ngbc5azd"], ["https://rdap.nic.xn--ngbc5azd/"]],
++        [["xn--ngbrx"], ["https://rdap.nic.xn--ngbrx/"]],
++        [["xn--p1acf"], ["https://rdap.nic.xn--p1acf/"]],
++        [["xn--tiq49xqyj"], ["https://rdap.nic.xn--tiq49xqyj/"]],
++        [["xxx"], ["https://rdap.nic.xxx/"]],
++        [["yandex"], ["https://rdap.nic.yandex/rdap/"]],
++        [["yoga"], ["https://rdap.nic.yoga/"]],
++        [["yt"], ["https://rdap.nic.yt/"]],
++        [["zm"], ["https://rdap.nic.zm/"]],
++        [["in"], ["https://rdap.nixiregistry.in/rdap/"]],
++        [["abbvie"], ["https://rdap.nominet.uk/abbvie/"]],
++        [["amazon"], ["https://rdap.nominet.uk/amazon/"]],
++        [["audible"], ["https://rdap.nominet.uk/audible/"]],
++        [["author"], ["https://rdap.nominet.uk/author/"]],
++        [["aws"], ["https://rdap.nominet.uk/aws/"]],
++        [["azure"], ["https://rdap.nominet.uk/azure/"]],
++        [["bbc"], ["https://rdap.nominet.uk/bbc/"]],
++        [["bbva"], ["https://rdap.nominet.uk/bbva/"]],
++        [["bing"], ["https://rdap.nominet.uk/bing/"]],
++        [["book"], ["https://rdap.nominet.uk/book/"]],
++        [["bot"], ["https://rdap.nominet.uk/bot/"]],
++        [["broadway"], ["https://rdap.nominet.uk/broadway/"]],
++        [["buy"], ["https://rdap.nominet.uk/buy/"]],
++        [["call"], ["https://rdap.nominet.uk/call/"]],
++        [["career"], ["https://rdap.nominet.uk/career/"]],
++        [["circle"], ["https://rdap.nominet.uk/circle/"]],
++        [["cymru"], ["https://rdap.nominet.uk/cymru/"]],
++        [["deal"], ["https://rdap.nominet.uk/deal/"]],
++        [["desi"], ["https://rdap.nominet.uk/desi/"]],
++        [["fairwinds"], ["https://rdap.nominet.uk/fairwinds/"]],
++        [["fast"], ["https://rdap.nominet.uk/fast/"]],
++        [["fire"], ["https://rdap.nominet.uk/fire/"]],
++        [["free"], ["https://rdap.nominet.uk/free/"]],
++        [["gop"], ["https://rdap.nominet.uk/gop/"]],
++        [["got"], ["https://rdap.nominet.uk/got/"]],
++        [["gucci"], ["https://rdap.nominet.uk/gucci/"]],
++        [["hot"], ["https://rdap.nominet.uk/hot/"]],
++        [["hotmail"], ["https://rdap.nominet.uk/hotmail/"]],
++        [["ieee"], ["https://rdap.nominet.uk/ieee/"]],
++        [["imdb"], ["https://rdap.nominet.uk/imdb/"]],
++        [["jobs"], ["https://rdap.nominet.uk/jobs/"]],
++        [["jot"], ["https://rdap.nominet.uk/jot/"]],
++        [["joy"], ["https://rdap.nominet.uk/joy/"]],
++        [["kindle"], ["https://rdap.nominet.uk/kindle/"]],
++        [["like"], ["https://rdap.nominet.uk/like/"]],
++        [["locus"], ["https://rdap.nominet.uk/locus/"]],
++        [["med"], ["https://rdap.nominet.uk/med/"]],
++        [["microsoft"], ["https://rdap.nominet.uk/microsoft/"]],
++        [["moi"], ["https://rdap.nominet.uk/moi/"]],
++        [["mtn"], ["https://rdap.nominet.uk/mtn/"]],
++        [["now"], ["https://rdap.nominet.uk/now/"]],
++        [["nowruz"], ["https://rdap.nominet.uk/nowruz/"]],
++        [["office"], ["https://rdap.nominet.uk/office/"]],
++        [["omega"], ["https://rdap.nominet.uk/omega/"]],
++        [["pars"], ["https://rdap.nominet.uk/pars/"]],
++        [["pay"], ["https://rdap.nominet.uk/pay/"]],
++        [["pharmacy"], ["https://rdap.nominet.uk/pharmacy/"]],
++        [["pin"], ["https://rdap.nominet.uk/pin/"]],
++        [["pioneer"], ["https://rdap.nominet.uk/pioneer/"]],
++        [["pn"], ["https://rdap.nominet.uk/pn/"]],
++        [["prime"], ["https://rdap.nominet.uk/prime/"]],
++        [["read"], ["https://rdap.nominet.uk/read/"]],
++        [["realestate"], ["https://rdap.nominet.uk/realestate/"]],
++        [["realtor"], ["https://rdap.nominet.uk/realtor/"]],
++        [["room"], ["https://rdap.nominet.uk/room/"]],
++        [["safe"], ["https://rdap.nominet.uk/safe/"]],
++        [["save"], ["https://rdap.nominet.uk/save/"]],
++        [["secure"], ["https://rdap.nominet.uk/secure/"]],
++        [["shell"], ["https://rdap.nominet.uk/shell/"]],
++        [["shia"], ["https://rdap.nominet.uk/shia/"]],
++        [["silk"], ["https://rdap.nominet.uk/silk/"]],
++        [["sky"], ["https://rdap.nominet.uk/sky/"]],
++        [["skype"], ["https://rdap.nominet.uk/skype/"]],
++        [["smile"], ["https://rdap.nominet.uk/smile/"]],
++        [["spot"], ["https://rdap.nominet.uk/spot/"]],
++        [["swatch"], ["https://rdap.nominet.uk/swatch/"]],
++        [["talk"], ["https://rdap.nominet.uk/talk/"]],
++        [["tci"], ["https://rdap.nominet.uk/tci/"]],
++        [["tunes"], ["https://rdap.nominet.uk/tunes/"]],
++        [["tushu"], ["https://rdap.nominet.uk/tushu/"]],
++        [["uk"], ["https://rdap.nominet.uk/uk/"]],
++        [["virgin"], ["https://rdap.nominet.uk/virgin/"]],
++        [["wales"], ["https://rdap.nominet.uk/wales/"]],
++        [["wanggou"], ["https://rdap.nominet.uk/wanggou/"]],
++        [["wed"], ["https://rdap.nominet.uk/wed/"]],
++        [["windows"], ["https://rdap.nominet.uk/windows/"]],
++        [["wow"], ["https://rdap.nominet.uk/wow/"]],
++        [["xbox"], ["https://rdap.nominet.uk/xbox/"]],
++        [["xn--cckwcxetd"], ["https://rdap.nominet.uk/xn--cckwcxetd/"]],
++        [["xn--jlq480n2rg"], ["https://rdap.nominet.uk/xn--jlq480n2rg/"]],
++        [["xn--mgbt3dhd"], ["https://rdap.nominet.uk/xn--mgbt3dhd/"]],
++        [["yamaxun"], ["https://rdap.nominet.uk/yamaxun/"]],
++        [["you"], ["https://rdap.nominet.uk/you/"]],
++        [["zappos"], ["https://rdap.nominet.uk/zappos/"]],
++        [["no"], ["https://rdap.norid.no/"]],
++        [["id"], ["https://rdap.pandi.id/rdap/"]],
++        [
++            [
++                "charity",
++                "foundation",
++                "gives",
++                "giving",
++                "ngo",
++                "ong",
++                "org",
++                "xn--c1avg",
++                "xn--i1b6b1a6a2e",
++                "xn--nqv7f",
++                "xn--nqv7fs00ema"
++            ],
++            ["https://rdap.publicinterestregistry.org/rdap/"]
++        ],
++        [["si"], ["https://rdap.register.si/"]],
++        [["br"], ["https://rdap.registro.br/"]],
++        [["bar", "rest"], ["https://rdap.registry.bar/rdap/"]],
++        [["feedback", "forum", "observer", "pid", "realty"], ["https://rdap.registry.click/rdap/"]],
++        [["cloud"], ["https://rdap.registry.cloud/rdap/"]],
++        [["coop", "creditunion"], ["https://rdap.registry.coop/rdap/"]],
++        [["ec"], ["https://rdap.registry.ec/"]],
++        [["gy"], ["https://rdap.registry.gy/"]],
++        [["hiphop"], ["https://rdap.registry.hiphop/rdap/"]],
++        [["love"], ["https://rdap.registry.love/rdap/"]],
++        [["music"], ["https://rdap.registryservices.music/rdap/"]],
++        [["rw"], ["https://rdap.ricta.org.rw/"]],
++        [["cologne", "koeln", "tirol", "wien"], ["https://rdap.ryce-rsp.com/rdap/"]],
++        [["nl"], ["https://rdap.sidn.nl/"]],
++        [["anquan", "shouji", "xihuan", "xn--vuq861b", "yun"], ["https://rdap.teleinfo.cn/"]],
++        [["xn--3ds443g"], ["https://rdap.teleinfo.cn/xn--3ds443g/"]],
++        [["xn--fiq228c5hs"], ["https://rdap.teleinfo.cn/xn--fiq228c5hs/"]],
++        [["xn--kput3i"], ["https://rdap.teleinfo.cn/xn--kput3i/"]],
++        [["xn--nyqy26a"], ["https://rdap.teleinfo.cn/xn--nyqy26a/"]],
++        [["xn--rhqv96g"], ["https://rdap.teleinfo.cn/xn--rhqv96g/"]],
++        [["th", "xn--o3cw4h"], ["https://rdap.thains.co.th/"]],
++        [["to"], ["https://rdap.tonicregistry.to/rdap/"]],
++        [
++            [
++                "click",
++                "country",
++                "diy",
++                "food",
++                "gift",
++                "hiv",
++                "lifestyle",
++                "link",
++                "living",
++                "property",
++                "sexy",
++                "trust",
++                "vana"
++            ],
++            ["https://rdap.tucowsregistry.net/rdap/"]
++        ],
++        [["xn--mxtq1m"], ["https://rdap.twnic.tw/rdap/"]],
++        [["com"], ["https://rdap.verisign.com/com/v1/"]],
++        [["net"], ["https://rdap.verisign.com/net/v1/"]],
++        [["ye"], ["https://rdap.y.net.ye/"]],
++        [["xn--45q11c"], ["https://rdap.zdnsgtld.com/XN--45Q11C/"]],
++        [["xn--efvy88h"], ["https://rdap.zdnsgtld.com/XN--EFVY88H/"]],
++        [["baidu"], ["https://rdap.zdnsgtld.com/baidu/"]],
++        [["citic"], ["https://rdap.zdnsgtld.com/citic/"]],
++        [["icbc"], ["https://rdap.zdnsgtld.com/icbc/"]],
++        [["ren"], ["https://rdap.zdnsgtld.com/ren/"]],
++        [["sohu"], ["https://rdap.zdnsgtld.com/sohu/"]],
++        [["top"], ["https://rdap.zdnsgtld.com/top/"]],
++        [["unicom"], ["https://rdap.zdnsgtld.com/unicom/"]],
++        [["wang"], ["https://rdap.zdnsgtld.com/wang/"]],
++        [["xn--30rr7y"], ["https://rdap.zdnsgtld.com/xn--30rr7y/"]],
++        [["xn--3bst00m"], ["https://rdap.zdnsgtld.com/xn--3bst00m/"]],
++        [["xn--6qq986b3xl"], ["https://rdap.zdnsgtld.com/xn--6qq986b3xl/"]],
++        [["xn--8y0a063a"], ["https://rdap.zdnsgtld.com/xn--8y0a063a/"]],
++        [["xn--9et52u"], ["https://rdap.zdnsgtld.com/xn--9et52u/"]],
++        [["xn--czr694b"], ["https://rdap.zdnsgtld.com/xn--czr694b/"]],
++        [["xn--czru2d"], ["https://rdap.zdnsgtld.com/xn--czru2d/"]],
++        [["xn--fiq64b"], ["https://rdap.zdnsgtld.com/xn--fiq64b/"]],
++        [["xn--hxt814e"], ["https://rdap.zdnsgtld.com/xn--hxt814e/"]],
++        [["xn--imr513n"], ["https://rdap.zdnsgtld.com/xn--imr513n/"]],
++        [["xn--otu796d"], ["https://rdap.zdnsgtld.com/xn--otu796d/"]],
++        [["xn--ses554g"], ["https://rdap.zdnsgtld.com/xn--ses554g/"]],
++        [["xn--1qqw23a", "xn--55qx5d", "xn--io0a7i", "xn--xhq521b"], ["https://restwhois.ngtld.cn/"]],
++        [["cc"], ["https://tld-rdap.verisign.com/cc/v1/"]],
++        [["comsec"], ["https://tld-rdap.verisign.com/comsec/v1/"]],
++        [["name"], ["https://tld-rdap.verisign.com/name/v1/"]],
++        [["verisign"], ["https://tld-rdap.verisign.com/verisign/v1/"]],
++        [["xn--11b4c3d"], ["https://tld-rdap.verisign.com/xn--11b4c3d/v1/"]],
++        [["xn--3pxu8k"], ["https://tld-rdap.verisign.com/xn--3pxu8k/v1/"]],
++        [["xn--42c2d9a"], ["https://tld-rdap.verisign.com/xn--42c2d9a/v1/"]],
++        [["xn--9dbq2a"], ["https://tld-rdap.verisign.com/xn--9dbq2a/v1/"]],
++        [["xn--c2br7g"], ["https://tld-rdap.verisign.com/xn--c2br7g/v1/"]],
++        [["xn--fhbei"], ["https://tld-rdap.verisign.com/xn--fhbei/v1/"]],
++        [["xn--j1aef"], ["https://tld-rdap.verisign.com/xn--j1aef/v1/"]],
++        [["xn--mk1bu44c"], ["https://tld-rdap.verisign.com/xn--mk1bu44c/v1/"]],
++        [["xn--pssy2u"], ["https://tld-rdap.verisign.com/xn--pssy2u/v1/"]],
++        [["xn--t60b56a"], ["https://tld-rdap.verisign.com/xn--t60b56a/v1/"]],
++        [["xn--tckwe"], ["https://tld-rdap.verisign.com/xn--tckwe/v1/"]],
++        [["ky"], ["https://whois.kyregistry.ky/rdap/"]],
++        [["mtr"], ["https://whois.nic.mtr/rdap/"]],
++        [["tatar"], ["https://whois.nic.tatar/rdap/"]],
++        [["xn--d1acj3b"], ["https://whois.nic.xn--d1acj3b/rdap/"]],
++        [["sr"], ["https://whois.sr/rdap/"]],
++        [["tz"], ["https://whois.tznic.or.tz/rdap/"]],
++        [["fj"], ["https://www.rdap.fj/"]]
++    ],
++    "version": "1.0"
++}
+diff --git a/src/util.js b/src/util.js
+index df90a740..07c40cbb 100644
+--- a/src/util.js
++++ b/src/util.js
+@@ -10,12 +10,99 @@
+ */
+ var _a;
+ Object.defineProperty(exports, "__esModule", { value: true });
+-exports.CONSOLE_STYLE_FgViolet = exports.CONSOLE_STYLE_FgLightBlue = exports.CONSOLE_STYLE_FgLightGreen = exports.CONSOLE_STYLE_FgOrange = exports.CONSOLE_STYLE_FgGray = exports.CONSOLE_STYLE_FgWhite = exports.CONSOLE_STYLE_FgCyan = exports.CONSOLE_STYLE_FgMagenta = exports.CONSOLE_STYLE_FgBlue = exports.CONSOLE_STYLE_FgYellow = exports.CONSOLE_STYLE_FgGreen = exports.CONSOLE_STYLE_FgRed = exports.CONSOLE_STYLE_FgBlack = exports.CONSOLE_STYLE_Hidden = exports.CONSOLE_STYLE_Reverse = exports.CONSOLE_STYLE_Blink = exports.CONSOLE_STYLE_Underscore = exports.CONSOLE_STYLE_Dim = exports.CONSOLE_STYLE_Bright = exports.CONSOLE_STYLE_Reset = exports.RESPONSE_BODY_LENGTH_MAX = exports.RESPONSE_BODY_LENGTH_DEFAULT = exports.PING_PER_REQUEST_TIMEOUT_DEFAULT = exports.PING_PER_REQUEST_TIMEOUT_MAX = exports.PING_PER_REQUEST_TIMEOUT_MIN = exports.PING_COUNT_DEFAULT = exports.PING_COUNT_MAX = exports.PING_COUNT_MIN = exports.PING_GLOBAL_TIMEOUT_DEFAULT = exports.PING_GLOBAL_TIMEOUT_MAX = exports.PING_GLOBAL_TIMEOUT_MIN = exports.PING_PACKET_SIZE_DEFAULT = exports.PING_PACKET_SIZE_MAX = exports.PING_PACKET_SIZE_MIN = exports.MIN_INTERVAL_SECOND = exports.MAX_INTERVAL_SECOND = exports.SQL_DATETIME_FORMAT_WITHOUT_SECOND = exports.SQL_DATETIME_FORMAT = exports.SQL_DATE_FORMAT = exports.STATUS_PAGE_MAINTENANCE = exports.STATUS_PAGE_PARTIAL_DOWN = exports.STATUS_PAGE_ALL_UP = exports.STATUS_PAGE_ALL_DOWN = exports.MAINTENANCE = exports.PENDING = exports.UP = exports.DOWN = exports.appName = exports.isNode = exports.isDev = void 0;
+-exports.TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD = exports.evaluateJsonQuery = exports.intHash = exports.localToUTC = exports.utcToLocal = exports.utcToISODateTime = exports.isoToUTCDateTime = exports.parseTimeFromTimeObject = exports.parseTimeObject = exports.getMonitorRelativeURL = exports.genSecret = exports.getCryptoRandomInt = exports.getRandomInt = exports.getRandomArbitrary = exports.TimeLogger = exports.polyfill = exports.log = exports.debug = exports.ucfirst = exports.sleep = exports.flipStatus = exports.badgeConstants = exports.CONSOLE_STYLE_BgGray = exports.CONSOLE_STYLE_BgWhite = exports.CONSOLE_STYLE_BgCyan = exports.CONSOLE_STYLE_BgMagenta = exports.CONSOLE_STYLE_BgBlue = exports.CONSOLE_STYLE_BgYellow = exports.CONSOLE_STYLE_BgGreen = exports.CONSOLE_STYLE_BgRed = exports.CONSOLE_STYLE_BgBlack = exports.CONSOLE_STYLE_FgPink = exports.CONSOLE_STYLE_FgBrown = void 0;
++exports.CONSOLE_STYLE_FgViolet =
++    exports.CONSOLE_STYLE_FgLightBlue =
++    exports.CONSOLE_STYLE_FgLightGreen =
++    exports.CONSOLE_STYLE_FgOrange =
++    exports.CONSOLE_STYLE_FgGray =
++    exports.CONSOLE_STYLE_FgWhite =
++    exports.CONSOLE_STYLE_FgCyan =
++    exports.CONSOLE_STYLE_FgMagenta =
++    exports.CONSOLE_STYLE_FgBlue =
++    exports.CONSOLE_STYLE_FgYellow =
++    exports.CONSOLE_STYLE_FgGreen =
++    exports.CONSOLE_STYLE_FgRed =
++    exports.CONSOLE_STYLE_FgBlack =
++    exports.CONSOLE_STYLE_Hidden =
++    exports.CONSOLE_STYLE_Reverse =
++    exports.CONSOLE_STYLE_Blink =
++    exports.CONSOLE_STYLE_Underscore =
++    exports.CONSOLE_STYLE_Dim =
++    exports.CONSOLE_STYLE_Bright =
++    exports.CONSOLE_STYLE_Reset =
++    exports.RESPONSE_BODY_LENGTH_MAX =
++    exports.RESPONSE_BODY_LENGTH_DEFAULT =
++    exports.PING_PER_REQUEST_TIMEOUT_DEFAULT =
++    exports.PING_PER_REQUEST_TIMEOUT_MAX =
++    exports.PING_PER_REQUEST_TIMEOUT_MIN =
++    exports.PING_COUNT_DEFAULT =
++    exports.PING_COUNT_MAX =
++    exports.PING_COUNT_MIN =
++    exports.PING_GLOBAL_TIMEOUT_DEFAULT =
++    exports.PING_GLOBAL_TIMEOUT_MAX =
++    exports.PING_GLOBAL_TIMEOUT_MIN =
++    exports.PING_PACKET_SIZE_DEFAULT =
++    exports.PING_PACKET_SIZE_MAX =
++    exports.PING_PACKET_SIZE_MIN =
++    exports.MIN_INTERVAL_SECOND =
++    exports.MAX_INTERVAL_SECOND =
++    exports.SQL_DATETIME_FORMAT_WITHOUT_SECOND =
++    exports.SQL_DATETIME_FORMAT =
++    exports.SQL_DATE_FORMAT =
++    exports.STATUS_PAGE_MAINTENANCE =
++    exports.STATUS_PAGE_PARTIAL_DOWN =
++    exports.STATUS_PAGE_ALL_UP =
++    exports.STATUS_PAGE_ALL_DOWN =
++    exports.MAINTENANCE =
++    exports.PENDING =
++    exports.UP =
++    exports.DOWN =
++    exports.appName =
++    exports.isNode =
++    exports.isDev =
++        void 0;
++exports.TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD =
++    exports.evaluateJsonQuery =
++    exports.intHash =
++    exports.localToUTC =
++    exports.utcToLocal =
++    exports.utcToISODateTime =
++    exports.isoToUTCDateTime =
++    exports.parseTimeFromTimeObject =
++    exports.parseTimeObject =
++    exports.getMonitorRelativeURL =
++    exports.genSecret =
++    exports.getCryptoRandomInt =
++    exports.getRandomInt =
++    exports.getRandomArbitrary =
++    exports.TimeLogger =
++    exports.polyfill =
++    exports.log =
++    exports.debug =
++    exports.ucfirst =
++    exports.sleep =
++    exports.flipStatus =
++    exports.badgeConstants =
++    exports.CONSOLE_STYLE_BgGray =
++    exports.CONSOLE_STYLE_BgWhite =
++    exports.CONSOLE_STYLE_BgCyan =
++    exports.CONSOLE_STYLE_BgMagenta =
++    exports.CONSOLE_STYLE_BgBlue =
++    exports.CONSOLE_STYLE_BgYellow =
++    exports.CONSOLE_STYLE_BgGreen =
++    exports.CONSOLE_STYLE_BgRed =
++    exports.CONSOLE_STYLE_BgBlack =
++    exports.CONSOLE_STYLE_FgPink =
++    exports.CONSOLE_STYLE_FgBrown =
++        void 0;
+ const dayjs_1 = require("dayjs");
+ const jsonata = require("jsonata");
+ exports.isDev = process.env.NODE_ENV === "development";
+-exports.isNode = typeof process !== "undefined" && ((_a = process === null || process === void 0 ? void 0 : process.versions) === null || _a === void 0 ? void 0 : _a.node);
++exports.isNode =
++    typeof process !== "undefined" &&
++    ((_a = process === null || process === void 0 ? void 0 : process.versions) === null || _a === void 0
++        ? void 0
++        : _a.node);
+ const dayjs = exports.isNode ? require("dayjs") : dayjs_1.default;
+ exports.appName = "Uptime Kuma";
+ exports.DOWN = 0;
+@@ -170,8 +257,7 @@ class Logger {
+         let now;
+         if (dayjs.tz) {
+             now = dayjs.tz(new Date()).format();
+-        }
+-        else {
++        } else {
+             now = dayjs().format();
+         }
+         const levelColor = consoleLevelColors[level];
+@@ -190,8 +276,7 @@ class Logger {
+             }
+             modulePart = "[" + moduleColor + module + exports.CONSOLE_STYLE_Reset + "]";
+             levelPart = levelColor + `${level}:` + exports.CONSOLE_STYLE_Reset;
+-        }
+-        else {
++        } else {
+             timePart = now;
+             modulePart = `[${module}]`;
+             levelPart = `${level}:`;
+@@ -265,21 +350,21 @@ function getRandomInt(min, max) {
+     return Math.floor(Math.random() * (max - min + 1)) + min;
+ }
+ exports.getRandomInt = getRandomInt;
+-const getRandomBytes = (typeof window !== "undefined" && window.crypto
+-    ?
+-        function () {
+-            return (numBytes) => {
+-                const randomBytes = new Uint8Array(numBytes);
+-                for (let i = 0; i < numBytes; i += 65536) {
+-                    window.crypto.getRandomValues(randomBytes.subarray(i, i + Math.min(numBytes - i, 65536)));
+-                }
+-                return randomBytes;
+-            };
+-        }
+-    :
+-        function () {
+-            return require("crypto").randomBytes;
+-        })();
++const getRandomBytes = (
++    typeof window !== "undefined" && window.crypto
++        ? function () {
++              return (numBytes) => {
++                  const randomBytes = new Uint8Array(numBytes);
++                  for (let i = 0; i < numBytes; i += 65536) {
++                      window.crypto.getRandomValues(randomBytes.subarray(i, i + Math.min(numBytes - i, 65536)));
++                  }
++                  return randomBytes;
++              };
++          }
++        : function () {
++              return require("crypto").randomBytes;
++          }
++)();
+ function getCryptoRandomInt(min, max) {
+     const range = max - min;
+     if (range >= Math.pow(2, 32)) {
+@@ -305,8 +390,7 @@ function getCryptoRandomInt(min, max) {
+     randomValue = randomValue & mask;
+     if (randomValue <= range) {
+         return min + randomValue;
+-    }
+-    else {
++    } else {
+         return getCryptoRandomInt(min, max);
+     }
+ }
+@@ -387,8 +471,7 @@ async function evaluateJsonQuery(data, jsonPath, jsonPathOperator, expectedValue
+     let response;
+     try {
+         response = JSON.parse(data);
+-    }
+-    catch (_a) {
++    } catch (_a) {
+         response =
+             (typeof data === "object" || typeof data === "number") && !Buffer.isBuffer(data) ? data : data.toString();
+     }
+@@ -400,13 +483,17 @@ async function evaluateJsonQuery(data, jsonPath, jsonPathOperator, expectedValue
+         if (Array.isArray(response)) {
+             const responseStr = JSON.stringify(response);
+             const truncatedResponse = responseStr.length > 25 ? responseStr.substring(0, 25) + "...]" : responseStr;
+-            throw new Error("JSON query returned the array " +
+-                truncatedResponse +
+-                ", but a primitive value is required. " +
+-                "Modify your query to return a single value via [0] to get the first element or use an aggregation like $count(), $sum() or $boolean().");
++            throw new Error(
++                "JSON query returned the array " +
++                    truncatedResponse +
++                    ", but a primitive value is required. " +
++                    "Modify your query to return a single value via [0] to get the first element or use an aggregation like $count(), $sum() or $boolean()."
++            );
+         }
+         if (typeof response === "object" || response instanceof Date || typeof response === "function") {
+-            throw new Error(`The post-JSON query evaluated response from the server is of type ${typeof response}, which cannot be directly compared to the expected value`);
++            throw new Error(
++                `The post-JSON query evaluated response from the server is of type ${typeof response}, which cannot be directly compared to the expected value`
++            );
+         }
+         let jsonQueryExpression;
+         switch (jsonPathOperator) {
+@@ -434,14 +521,15 @@ async function evaluateJsonQuery(data, jsonPath, jsonPathOperator, expectedValue
+             expected: expectedValue.toString(),
+         });
+         if (status === undefined) {
+-            throw new Error("Query evaluation returned undefined. Check query syntax and the structure of the response data");
++            throw new Error(
++                "Query evaluation returned undefined. Check query syntax and the structure of the response data"
++            );
+         }
+         return {
+             status,
+             response,
+         };
+-    }
+-    catch (err) {
++    } catch (err) {
+         response = JSON.stringify(response);
+         response = response && response.length > 50 ? `${response.substring(0, 100)}… (truncated)` : response;
+         throw new Error(`Error evaluating JSON query: ${err.message}. Response from server was: ${response}`);

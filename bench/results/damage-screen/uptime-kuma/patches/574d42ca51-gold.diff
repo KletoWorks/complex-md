@@ -1,0 +1,13 @@
+diff --git a/server/util-server.js b/server/util-server.js
+index 773e464e..cd257936 100644
+--- a/server/util-server.js
++++ b/server/util-server.js
+@@ -932,7 +932,7 @@ async function checkCertExpiryNotifications(monitor, tlsInfoObject) {
+     let notifyDays = await Settings.get("tlsExpiryNotifyDays");
+     if (notifyDays == null || !Array.isArray(notifyDays)) {
+         // Reset Default
+-        await Settings.setSetting("tlsExpiryNotifyDays", [7, 14, 21], "general");
++        await Settings.set("tlsExpiryNotifyDays", [7, 14, 21], "general");
+         notifyDays = [7, 14, 21];
+     }
+ 

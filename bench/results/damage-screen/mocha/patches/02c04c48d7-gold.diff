@@ -1,0 +1,88 @@
+diff --git a/lib/nodejs/serializer.js b/lib/nodejs/serializer.js
+index cfdd3a69..25d2e397 100644
+--- a/lib/nodejs/serializer.js
++++ b/lib/nodejs/serializer.js
+@@ -6,7 +6,7 @@
+ 
+ 'use strict';
+ 
+-const {type} = require('../utils');
++const {type, breakCircularDeps} = require('../utils');
+ const {createInvalidArgumentTypeError} = require('../errors');
+ // this is not named `mocha:parallel:serializer` because it's noisy and it's
+ // helpful to be able to write `DEBUG=mocha:parallel*` and get everything else.
+@@ -188,14 +188,9 @@ class SerializableEvent {
+    * @param {Array<object|string>} pairs - List of parent/key tuples to process; modified in-place. This JSDoc type is an approximation
+    * @param {object} parent - Some parent object
+    * @param {string} key - Key to inspect
+-   * @param {WeakSet<Object>} seenObjects - For avoiding circular references
+    */
+-  static _serialize(pairs, parent, key, seenObjects) {
++  static _serialize(pairs, parent, key) {
+     let value = parent[key];
+-    if (seenObjects.has(value)) {
+-      parent[key] = Object.create(null);
+-      return;
+-    }
+     let _type = type(value);
+     if (_type === 'error') {
+       // we need to reference the stack prop b/c it's lazily-loaded.
+@@ -263,13 +258,14 @@ class SerializableEvent {
+       error: this.originalError
+     });
+ 
++    // mutates the object
++    breakCircularDeps(result);
++
+     const pairs = Object.keys(result).map(key => [result, key]);
+-    const seenObjects = new WeakSet();
+ 
+     let pair;
+     while ((pair = pairs.shift())) {
+-      SerializableEvent._serialize(pairs, ...pair, seenObjects);
+-      seenObjects.add(pair[0]);
++      SerializableEvent._serialize(pairs, ...pair);
+     }
+ 
+     this.data = result.data;
+diff --git a/lib/utils.js b/lib/utils.js
+index fc7271d0..4de9d282 100644
+--- a/lib/utils.js
++++ b/lib/utils.js
+@@ -647,3 +647,36 @@ exports.assignNewMochaID = obj => {
+  */
+ exports.getMochaID = obj =>
+   obj && typeof obj === 'object' ? obj[MOCHA_ID_PROP_NAME] : undefined;
++
++/**
++ * Replaces any detected circular dependency with the string '[Circular]'
++ * Mutates original object
++ * @param inputObj {*}
++ * @returns {*}
++ */
++exports.breakCircularDeps = inputObj => {
++  const seen = new Set();
++
++  function _breakCircularDeps(obj) {
++    if (obj && typeof obj !== 'object') {
++      return obj;
++    }
++
++    if (seen.has(obj)) {
++      return '[Circular]';
++    }
++
++    seen.add(obj);
++    for (const k in obj) {
++      if (Object.prototype.hasOwnProperty.call(obj, k)) {
++        obj[k] = _breakCircularDeps(obj[k], k);
++      }
++    }
++
++    // deleting means only a seen object that is its own child will be detected
++    seen.delete(obj);
++    return obj;
++  }
++
++  return _breakCircularDeps(inputObj);
++};

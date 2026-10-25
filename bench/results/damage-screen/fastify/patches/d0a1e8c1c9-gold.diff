@@ -1,0 +1,54 @@
+diff --git a/lib/validation.js b/lib/validation.js
+index 981dcb9d..9ab08399 100644
+--- a/lib/validation.js
++++ b/lib/validation.js
+@@ -13,6 +13,8 @@ const {
+   FST_ERR_SCH_RESPONSE_SCHEMA_NOT_NESTED_2XX
+ } = require('./errors')
+ 
++const warning = require('./warnings')
++
+ function compileSchemasForSerialization (context, compile) {
+   if (!context.schema || !context.schema.response) {
+     return
+@@ -81,25 +83,25 @@ function compileSchemasForValidation (context, compile, isCustom) {
+     }
+     context[headersSchema] = compile({ schema: headersSchemaLowerCase, method, url, httpPart: 'headers' })
+   } else if (Object.hasOwnProperty.call(schema, 'headers')) {
+-    throw new Error('headers schema is undefined')
++    warning.emit('FSTWRN001', 'headers', method, url)
+   }
+ 
+   if (schema.body) {
+     context[bodySchema] = compile({ schema: schema.body, method, url, httpPart: 'body' })
+   } else if (Object.hasOwnProperty.call(schema, 'body')) {
+-    throw new Error('body schema is undefined')
++    warning.emit('FSTWRN001', 'body', method, url)
+   }
+ 
+   if (schema.querystring) {
+     context[querystringSchema] = compile({ schema: schema.querystring, method, url, httpPart: 'querystring' })
+   } else if (Object.hasOwnProperty.call(schema, 'querystring')) {
+-    throw new Error('querystring schema is undefined')
++    warning.emit('FSTWRN001', 'querystring', method, url)
+   }
+ 
+   if (schema.params) {
+     context[paramsSchema] = compile({ schema: schema.params, method, url, httpPart: 'params' })
+   } else if (Object.hasOwnProperty.call(schema, 'params')) {
+-    throw new Error('params schema is undefined')
++    warning.emit('FSTWRN001', 'params', method, url)
+   }
+ }
+ 
+diff --git a/lib/warnings.js b/lib/warnings.js
+index 3105f1e8..eb9e653a 100644
+--- a/lib/warnings.js
++++ b/lib/warnings.js
+@@ -27,4 +27,6 @@ warning.create('FastifyDeprecation', 'FSTDEP013', 'Direct return of "trailers" f
+ 
+ warning.create('FastifyDeprecation', 'FSTDEP014', 'You are trying to set/access the default route. This property is deprecated. Please, use setNotFoundHandler if you want to custom a 404 handler or the wildcard (*) to match all routes.')
+ 
++warning.create('FastifyWarning', 'FSTWRN001', 'The %s schema for %s: %s is missing. This may indicate the schema is not well specified.', { unlimited: true })
++
+ module.exports = warning

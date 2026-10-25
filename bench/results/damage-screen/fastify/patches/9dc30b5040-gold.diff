@@ -1,0 +1,63 @@
+diff --git a/docs/Reference/Warnings.md b/docs/Reference/Warnings.md
+index eaf2de28..34a0fab0 100644
+--- a/docs/Reference/Warnings.md
++++ b/docs/Reference/Warnings.md
+@@ -22,6 +22,7 @@ Only experienced users should consider disabling warnings.
+ | Code | Description | How to solve | Discussion |
+ | ---- | ----------- | ------------ | ---------- |
+ | **FSTWRN001** | The specified schema for a route is missing. This may indicate the schema is not well specified. | Check the schema for the route. | [#4647](https://github.com/fastify/fastify/pull/4647) |
++| **FSTWRN002** | The %s plugin being registered mixes async and callback styles, which will result in an error in `fastify@5`. | Do not mix async and callback style. | [#5139](https://github.com/fastify/fastify/pull/5139) |
+ 
+ 
+ ### Fastify Deprecation Codes
+diff --git a/lib/pluginUtils.js b/lib/pluginUtils.js
+index 70be3fb0..9429a40c 100644
+--- a/lib/pluginUtils.js
++++ b/lib/pluginUtils.js
+@@ -11,6 +11,7 @@ const {
+   FST_ERR_PLUGIN_VERSION_MISMATCH,
+   FST_ERR_PLUGIN_NOT_PRESENT_IN_INSTANCE
+ } = require('./errors')
++const warning = require('./warnings.js')
+ 
+ function getMeta (fn) {
+   return fn[Symbol.for('plugin-meta')]
+@@ -132,10 +133,18 @@ function registerPluginName (fn) {
+   const name = meta.name
+   if (!name) return
+   this[kRegisteredPlugins].push(name)
++  return name
++}
++
++function checkPluginHealthiness (fn, pluginName = 'anonymous') {
++  if (fn.constructor.name === 'AsyncFunction' && fn.length === 3) {
++    warning.emit('FSTWRN002', pluginName)
++  }
+ }
+ 
+ function registerPlugin (fn) {
+-  registerPluginName.call(this, fn)
++  const pluginName = registerPluginName.call(this, fn)
++  checkPluginHealthiness.call(this, fn, pluginName)
+   checkVersion.call(this, fn)
+   checkDecorators.call(this, fn)
+   checkDependencies.call(this, fn)
+diff --git a/lib/warnings.js b/lib/warnings.js
+index 905c3045..5ec503a6 100644
+--- a/lib/warnings.js
++++ b/lib/warnings.js
+@@ -20,6 +20,7 @@ const warning = require('process-warning')()
+  *   - FSTDEP018
+  *   - FSTDEP019
+  *   - FSTWRN001
++ *   - FSTWRN002
+  */
+ 
+ warning.createDeprecation('FSTDEP005', 'You are accessing the deprecated "request.connection" property. Use "request.socket" instead.')
+@@ -54,4 +55,6 @@ warning.createDeprecation('FSTDEP019', 'reply.context property access is depreca
+ 
+ warning.create('FastifyWarning', 'FSTWRN001', 'The %s schema for %s: %s is missing. This may indicate the schema is not well specified.', { unlimited: true })
+ 
++warning.create('FastifyWarning', 'FSTWRN002', 'The %s plugin being registered mixes async and callback styles, which will result in an error in `fastify@5`', { unlimited: true })
++
+ module.exports = warning

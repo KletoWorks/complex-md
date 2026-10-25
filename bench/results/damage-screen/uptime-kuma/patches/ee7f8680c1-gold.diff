@@ -1,0 +1,36 @@
+diff --git a/db/patch-monitor-tls-info-add-fk.sql b/db/patch-monitor-tls-info-add-fk.sql
+new file mode 100644
+index 00000000..9b9c2d2c
+--- /dev/null
++++ b/db/patch-monitor-tls-info-add-fk.sql
+@@ -0,0 +1,18 @@
++BEGIN TRANSACTION;
++
++PRAGMA writable_schema = TRUE;
++
++UPDATE
++	SQLITE_MASTER
++SET
++	sql = replace(sql,
++	'monitor_id INTEGER NOT NULL',
++	'monitor_id INTEGER NOT NULL REFERENCES [monitor] ([id]) ON DELETE CASCADE ON UPDATE CASCADE'
++)
++WHERE
++	name = 'monitor_tls_info'
++	AND type = 'table';
++
++PRAGMA writable_schema = RESET;
++
++COMMIT;
+diff --git a/server/database.js b/server/database.js
+index 07a43a81..d31423c7 100644
+--- a/server/database.js
++++ b/server/database.js
+@@ -84,6 +84,7 @@ class Database {
+         "patch-notification-config.sql": true,
+         "patch-fix-kafka-producer-booleans.sql": true,
+         "patch-timeout.sql": true,
++        "patch-monitor-tls-info-add-fk.sql": true,
+     };
+ 
+     /**

@@ -1,0 +1,25 @@
+diff --git a/lib/errors.js b/lib/errors.js
+index e3c8811e..90ae13cb 100644
+--- a/lib/errors.js
++++ b/lib/errors.js
+@@ -464,5 +464,6 @@ module.exports.AVVIO_ERRORS_MAP = {
+   AVV_ERR_PLUGIN_NOT_VALID: codes.FST_ERR_PLUGIN_NOT_VALID,
+   AVV_ERR_ROOT_PLG_BOOTED: codes.FST_ERR_ROOT_PLG_BOOTED,
+   AVV_ERR_PARENT_PLG_LOADED: codes.FST_ERR_PARENT_PLUGIN_BOOTED,
+-  AVV_ERR_READY_TIMEOUT: codes.FST_ERR_PLUGIN_TIMEOUT
++  AVV_ERR_READY_TIMEOUT: codes.FST_ERR_PLUGIN_TIMEOUT,
++  AVV_ERR_PLUGIN_EXEC_TIMEOUT: codes.FST_ERR_PLUGIN_TIMEOUT
+ }
+diff --git a/package.json b/package.json
+index c7c7b187..15487465 100644
+--- a/package.json
++++ b/package.json
+@@ -204,7 +204,7 @@
+     "@fastify/error": "^3.4.0",
+     "@fastify/fast-json-stringify-compiler": "^4.3.0",
+     "abstract-logging": "^2.0.1",
+-    "avvio": "^8.2.1",
++    "avvio": "^8.3.0",
+     "fast-content-type-parse": "^1.1.0",
+     "fast-json-stringify": "^5.8.0",
+     "find-my-way": "^8.0.0",

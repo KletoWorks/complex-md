@@ -1,0 +1,36 @@
+diff --git a/lib/nodejs/serializer.js b/lib/nodejs/serializer.js
+index 63e1a24e..a8ed8dfb 100644
+--- a/lib/nodejs/serializer.js
++++ b/lib/nodejs/serializer.js
+@@ -262,9 +262,15 @@ class SerializableEvent {
+     breakCircularDeps(result.error);
+ 
+     const pairs = Object.keys(result).map(key => [result, key]);
+-
++    const seenPairs = new Set();
+     let pair;
++
+     while ((pair = pairs.shift())) {
++      if (seenPairs.has(pair[1])) {
++        continue;
++      }
++
++      seenPairs.add(pair[1]);
+       SerializableEvent._serialize(pairs, ...pair);
+     }
+ 
+diff --git a/lib/utils.js b/lib/utils.js
+index 1f21edc6..31b313a6 100644
+--- a/lib/utils.js
++++ b/lib/utils.js
+@@ -675,7 +675,9 @@ exports.breakCircularDeps = inputObj => {
+ 
+     seen.add(obj);
+     for (const k in obj) {
+-      if (Object.prototype.hasOwnProperty.call(obj, k)) {
++      const descriptor = Object.getOwnPropertyDescriptor(obj, k);
++
++      if (descriptor && descriptor.writable) {
+         obj[k] = _breakCircularDeps(obj[k], k);
+       }
+     }

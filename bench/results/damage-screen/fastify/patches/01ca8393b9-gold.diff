@@ -1,0 +1,17 @@
+diff --git a/lib/hooks.js b/lib/hooks.js
+index 1393300c..3895ac46 100644
+--- a/lib/hooks.js
++++ b/lib/hooks.js
+@@ -306,7 +306,11 @@ function onSendHookRunner (functions, request, reply, payload, cb) {
+   }
+ 
+   function handleResolve (newPayload) {
+-    next(null, newPayload)
++    try {
++      next(null, newPayload)
++    } catch (err) {
++      cb(err, request, reply, payload)
++    }
+   }
+ 
+   function handleReject (err) {

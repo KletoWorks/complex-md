@@ -1,0 +1,29 @@
+diff --git a/docs/Reference/Request.md b/docs/Reference/Request.md
+index df4287d7..4b524e6d 100644
+--- a/docs/Reference/Request.md
++++ b/docs/Reference/Request.md
+@@ -31,7 +31,7 @@ Request is a core Fastify object containing the following fields:
+   original `url` in case of internal re-routing 
+ - `routerMethod` - Deprecated, use `request.routeOptions.method` instead. The
+   method defined for the router that is handling the request
+-- `routerPath` - Deprecated, use `request.routeOptions.config.url` instead. The
++- `routerPath` - Deprecated, use `request.routeOptions.url` instead. The
+   path pattern defined for the router that is handling the request
+ - `is404` - true if request is being handled by 404 handler, false if it is not
+ - `connection` - Deprecated, use `socket` instead. The underlying connection of
+diff --git a/lib/warnings.js b/lib/warnings.js
+index 5b786231..01cee1c4 100644
+--- a/lib/warnings.js
++++ b/lib/warnings.js
+@@ -31,9 +31,9 @@ warning.create('FastifyDeprecation', 'FSTDEP015', 'You are accessing the depreca
+ 
+ warning.create('FastifyDeprecation', 'FSTDEP016', 'You are accessing the deprecated "request.routeConfig" property. Use "request.routeOptions.config" instead. Property "req.routeConfig" will be removed in `fastify@5`.')
+ 
+-warning.create('FastifyDeprecation', 'FSTDEP017', 'You are accessing the deprecated "request.routerPath" property. Use "request.routeOptions.config.url" instead. Property "req.routerPath" will be removed in `fastify@5`.')
++warning.create('FastifyDeprecation', 'FSTDEP017', 'You are accessing the deprecated "request.routerPath" property. Use "request.routeOptions.url" instead. Property "req.routerPath" will be removed in `fastify@5`.')
+ 
+-warning.create('FastifyDeprecation', 'FSTDEP018', 'You are accessing the deprecated "request.routerMethod" property. Use "request.routeOptions.config.method" instead. Property "req.routerMethod" will be removed in `fastify@5`.')
++warning.create('FastifyDeprecation', 'FSTDEP018', 'You are accessing the deprecated "request.routerMethod" property. Use "request.routeOptions.method" instead. Property "req.routerMethod" will be removed in `fastify@5`.')
+ 
+ warning.create('FastifyWarning', 'FSTWRN001', 'The %s schema for %s: %s is missing. This may indicate the schema is not well specified.', { unlimited: true })
+ 
