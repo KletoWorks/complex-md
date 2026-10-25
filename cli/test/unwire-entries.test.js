@@ -189,6 +189,24 @@ function earlierWire(entry, recorded) {
   return dir;
 }
 
+test('rewiring updates an unchanged entry that pins an older complex-md-mcp', () => {
+  const older = { command: 'npx', args: ['-y', 'complex-md-mcp@0.9.0', 'mcp'] };
+  const dir = earlierWire(older, older);
+  wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  const current = JSON.parse(read(dir, '.mcp.json')).mcpServers['complex-md'];
+  assert.deepEqual(current.args, ['-y', `complex-md-mcp@${coreVersion()}`, 'mcp']);
+  assert.equal(readManifest(dir).entries.find((e) => e.kind === 'mcp-json').records[0].sha256, sha(current));
+  unwire(dir);
+  assert.deepEqual(JSON.parse(read(dir, '.mcp.json')).mcpServers, MINE);
+});
+
+test('rewiring leaves a complex-md-mcp entry edited since the manifest was written', () => {
+  const edited = { command: 'npx', args: ['-y', 'complex-md-mcp@0.9.0', 'mcp'] };
+  const dir = earlierWire(edited, { command: 'npx', args: ['-y', 'complex-md-mcp@0.8.0', 'mcp'] });
+  wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  assert.deepEqual(JSON.parse(read(dir, '.mcp.json')).mcpServers['complex-md'], edited);
+});
+
 test('an entry rewritten after the user deleted it gets a fresh hash, so unwire removes it', () => {
   const dir = earlierWire(null, { command: 'npx', args: ['-y', '--prefer-offline', 'complex-md@0.10.0', 'mcp'] });
   wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });

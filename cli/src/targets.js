@@ -312,9 +312,13 @@ function addMcpJson(ctx, rel, entry) {
     const current = m.mcpServers?.['complex-md'];
     if (current) {
       if (JSON.stringify(current) === JSON.stringify(entry)) return;
-      if (!legacyMcpEntry(current)) return;
+      /* With a manifest, ours means the hash it recorded still matches, so
+         an entry that pins an older complex-md-mcp moves to this version
+         and a user's edit stays. Without one, only a command that an
+         earlier core version wrote is ours. */
       const previousRecord = previous?.records?.find((r) => r.container === 'mcpServers' && r.key === 'complex-md');
-      if (previous && (!previousRecord || previousRecord.sha256 !== entryHash(current))) return;
+      const unchanged = previousRecord?.sha256 === entryHash(current);
+      if (previous ? !unchanged : !legacyMcpEntry(current)) return;
       m.mcpServers['complex-md'] = entry;
       installed = true;
       ctx.report.mcp.push(rel);
