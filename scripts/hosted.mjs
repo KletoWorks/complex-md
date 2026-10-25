@@ -179,6 +179,11 @@ function hostedMap(p) {
 export function renderHostedPage(p, { site = ORIGIN } = {}) {
   const map = hostedMap(p);
   const parts = reportParts(map, { repo: `${p.owner}/${p.name}` });
+  if (!p.template) {
+    // The map has paragraphs; this page does not show them. Say where they are.
+    parts.lede = '<p class="lede">This page shows the computed numbers. A template did not write this map\'s prose, so its paragraphs stay in the raw file.</p>';
+    parts.directives = parts.directives.replaceAll('<p class="do none">The map gives no paragraph for this file.</p>', '<p class="do none">This file\'s paragraph is in the raw file.</p>');
+  }
   const display = `${p.owner}/${p.name}`;
   const github = `https://github.com/${p.owner}/${p.name}`;
   const self = `${site}/${p.key}/`;

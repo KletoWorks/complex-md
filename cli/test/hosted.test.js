@@ -184,6 +184,8 @@ test('a page shows template prose only: other prose is left out and the page say
   assert.ok(!html.includes('Before editing this file, run'), 'no directive from model prose');
   assert.ok(!html.includes('Change risk concentrates'), 'no summary from model prose');
   assert.match(html, /leaves out the map's prose/);
+  assert.match(html, /paragraphs stay in the raw file/);
+  assert.ok(!html.includes('The map gives no paragraph'), 'the map has paragraphs; the page only hides them');
   assert.ok(html.includes('src/core/engine.js'), 'the numbers stay');
 });
 
