@@ -100,3 +100,15 @@ test('the removal page names the three ways, the 24 hours, and posts to the remo
   assert.match(js, /'\/api\/complexmd\/removals'/);
   assert.match(js, /2000/);
 });
+
+test('the header and the home page hero link the /map page', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  for (const f of ['index.html', 'spec/index.html', 'map/index.html', '404.html']) {
+    const html = readFileSync(join(site(), f), 'utf8');
+    const header = html.slice(html.indexOf('<header class="site-header">'), html.indexOf('</header>'));
+    assert.match(header, /<a class="nav" href="\/map\/">Map<\/a>/, f);
+  }
+  const home = readFileSync(join(site(), 'index.html'), 'utf8');
+  const hero = home.slice(home.indexOf('<section class="hero">'), home.indexOf('</section>'));
+  assert.match(hero, /href="\/map\/"/);
+});

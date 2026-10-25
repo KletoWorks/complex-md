@@ -44,7 +44,7 @@ h1, h2, h3 { font-family: var(--cx-sans); font-weight: 600; margin: 0; }
 .brand-group { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
 .brand-chip { font-family: var(--cx-mono); font-weight: 700; font-size: 13px; text-decoration: none; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 7px 11px; line-height: 1; }
 .brand-chip:hover { border-color: var(--ink); }
-.dl-sq, .gh-sq { display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--radius); text-decoration: none; }
+.dl-sq, .gh-sq { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--radius); text-decoration: none; }
 .dl-sq svg, .gh-sq svg { display: block; }
 .dl-sq:hover, .gh-sq:hover { border-color: var(--ink); }
 .site-header a.nav { font-size: 14px; font-weight: 500; text-decoration: none; }
@@ -240,8 +240,14 @@ main.doc .toc a:hover { text-decoration: underline; }
   main.doc pre, .faq-item pre { white-space: pre-wrap; overflow-wrap: anywhere; }
   .site-footer { margin-top: 64px; padding: 40px 16px; }
 }
-@media (max-width: 380px) {
+/* Four nav links fit a 360px phone with 8px gaps and a 390px one with 10px. */
+@media (max-width: 420px) {
   .site-header nav { gap: 10px; }
+}
+@media (max-width: 370px) {
+  .site-header nav { gap: 8px; }
+}
+@media (max-width: 380px) {
   .brand-chip { font-size: 12px; padding: 6px 8px; }
   .site-header a.nav { font-size: 13px; }
   .install { display: flex; width: 100%; }
