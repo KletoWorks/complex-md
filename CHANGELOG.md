@@ -60,6 +60,10 @@ plan compares paths with the OS separator.
 
 **Change:** Rust `mod` declarations and `use` paths resolve through module files, crate roots, literal `#[path]` attributes and Cargo package names, as the [Rust Reference on modules](https://doc.rust-lang.org/reference/items/modules.html) states. Every Cargo target is a crate root: `src/lib.rs`, `src/main.rs`, and the files under `src/bin`, `tests`, `benches` and `examples`. An integration test that imports its own library by the package name now counts as a covering test. External crates and `std` add no edge. Comments and string literals are read in source order, so a `mod` or `use` inside either adds no edge. On ripgrep's `crates/ignore` at commit 6892bc2, edges from Rust files went from 2 to 29.
 
+**Intent:** every cold `npx complex-md` downloaded the MCP SDK and zod, though most runs never start the MCP server.
+
+**Change:** the MCP server moves to the package `complex-md-mcp` in `packages/complex-md-mcp`, whose version matches `cli/package.json`. The core has no runtime dependency. `complex-md mcp` keeps working through 0.x: it prints one line and runs `npx -y complex-md-mcp@<same version> mcp`. `wire --mcp` writes entries that start `complex-md-mcp` directly. An entry that an earlier version wrote, or one whose manifest hash still matches, moves to the current version, and an entry edited since stays. CI tests both packages, and a `v*` tag publishes `complex-md` and then `complex-md-mcp`. A cold install of the 0.11.0 core installed 92 packages in 17,672,997 bytes; from this branch it installs 1 package in 350,754 bytes. The packed tarball goes from 120,447 to 118,594 bytes.
+
 ## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
 
 **Intent:** wire appended a block with a heading but no end, deleted any file in a brief folder whose name had the complex-md- prefix, created CLAUDE.md beside AGENTS.md, and had no way back. A default wire could add 40 or more files to a repository, a rewire never updated an old block, and a Windows checkout could leave mixed line endings.

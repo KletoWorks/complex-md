@@ -108,7 +108,6 @@ const BANNED = [
   { re: /query it mid-task|agents query mid-task/i, why: 'the MCP server is opt in, not the headline' },
   { re: /\bRoo\b|cline,roo/, files: ['README.md', 'cli/README.md', 'cli/bin/complex-md.js', ...WIRING], why: 'Roo reads AGENTS.md; its block-only rule file adds nothing and is not offered' },
   { re: /\.roo\/rules|\.claude\/rules\/complex-md\.md/, files: ['README.md', 'cli/README.md', 'cli/bin/complex-md.js', 'content/index.html', ...WIRING], why: 'wire writes neither file now, and a rewire removes the copies earlier versions wrote' },
-  { re: /\.mcp\.json|mcpServers|complex-md mcp|--mcp\b|MCP server/i, files: WIRING, why: 'the spec and the skill do not tell agents to wire the MCP server' },
   { re: /"mcp"/, files: ['cli/package.json'], why: 'the npm keywords do not lead with MCP' },
   { re: /names a directory is not counted/i, why: 'the scorer counts a test directory the map names, as in the fastify-damage edits to lib/reply.js' },
   { re: /about (a|one|two) seconds?|in a second\b|in seconds\b/i, why: 'no speed figure is measured across repositories; the pages do not pitch speed' },
@@ -154,13 +153,21 @@ test('--help and the CLI README name every command the bin runs', () => {
   const bin = readFileSync(join(import.meta.dirname, '..', 'bin', 'complex-md.js'), 'utf8');
   const help = /const HELP = `([\s\S]*?)`;/.exec(bin)[1];
   const readme = readFileSync(join(import.meta.dirname, '..', 'README.md'), 'utf8');
-  const commands = [...bin.matchAll(/cmd === '([a-z]+)'/g)].map((m) => m[1]).filter((c) => !['help', 'mcp'].includes(c));
+  const commands = [...bin.matchAll(/cmd === '([a-z]+)'/g)].map((m) => m[1]).filter((c) => c !== 'help');
   assert.ok(commands.includes('impact'));
   for (const c of commands) {
     assert.match(help, new RegExp(`npx complex-md ${c}\\b`), `--help names ${c}`);
     if (c !== 'hook') assert.match(readme, new RegExp(`complex-md ${c}\\b`), `the CLI README names ${c}`);
   }
   assert.match(help, /impact <path>[\s\S]*--strict/);
+});
+
+test('the optional MCP server is a separately versioned package', () => {
+  for (const f of ['cli/README.md', 'content/spec.md', 'skill/SKILL.tmpl.md']) {
+    const text = readFileSync(join(ROOT, f), 'utf8');
+    assert.match(text, /complex-md-mcp/);
+    assert.match(text, /--mcp/);
+  }
 });
 
 /* A flag a reader cannot find does not exist for them. Every flag the bin

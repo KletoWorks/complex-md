@@ -30,14 +30,15 @@ test('fetch appears only in the two model calls in src/generate.js', () => {
   assert.match(gen, /async function callOpenAICompat[\s\S]*?await fetch\(`\$\{p\.base\}\/chat\/completions`/);
 });
 
-test('the only packages the CLI imports are the MCP SDK and zod', () => {
+test('the core CLI has no runtime package dependencies', () => {
   const bare = new Set();
   for (const f of sources()) {
     for (const m of readFileSync(join(CLI, f), 'utf8').matchAll(/(?:from\s+|import\(\s*)['"]([^'".][^'"]*)['"]/g)) {
       if (!m[1].startsWith('node:')) bare.add(m[1]);
     }
   }
-  assert.deepEqual([...bare].sort(), ['@modelcontextprotocol/sdk/server/mcp.js', '@modelcontextprotocol/sdk/server/stdio.js', 'zod']);
+  assert.deepEqual([...bare].sort(), []);
+  assert.deepEqual(JSON.parse(readFileSync(join(CLI, 'package.json'), 'utf8')).dependencies || {}, {});
 });
 
 /* Loaded before the CLI: any socket, DNS lookup or fetch is written to a

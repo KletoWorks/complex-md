@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 import { repoRoot, hasCommits, resolvesCommit } from '../src/git.js';
+import { npxExecutable } from '../src/invoke.js';
 
 const pkg = createRequire(import.meta.url)('../package.json');
 /* `npx complex-md --no-wire` is the default command with a flag, so a first
@@ -62,6 +64,7 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  section edited since wire wrote it is left in place and named (--dry-run)
   npx complex-md impact <path>   what changing a file reaches, against .complex-md/bounds.json
                                  --json | --strict (exit 1 when a declared bound is exceeded)
+  npx complex-md mcp             start the optional complex-md-mcp server on stdio
   npx complex-md check           report hotspots, untouched co-change partners and hand edited briefs in the change
                                  --staged | --base <ref> | --json | --strict (exit 1 on findings)
   npx complex-md verify          recompute the signals and compare them with COMPLEX.md, no model call
@@ -115,8 +118,12 @@ async function main() {
   // Global MCP registries (openclaw, hermes) launch the server from an
   // arbitrary cwd; --root pins it to the repository it was wired for.
   if (cmd === 'mcp') {
-    const { serveStdio } = await import('../src/mcp.js');
-    return serveStdio(opt('--root') || process.cwd());
+    log(`complex-md: handing MCP to complex-md-mcp@${pkg.version}.`);
+    const npx = npxExecutable();
+    const r = spawnSync(npx.command, [...npx.args, '-y', `complex-md-mcp@${pkg.version}`, 'mcp', ...args], { stdio: 'inherit' });
+    if (r.error) throw r.error;
+    process.exitCode = r.status ?? 1;
+    return;
   }
 
   // The report reads the map, not the history: it needs no commits, and

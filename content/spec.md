@@ -592,7 +592,13 @@ In both profiles:
 9. OpenClaw and Hermes are wired only on request: they get the portable
    skill `.agents/skills/complex-md/SKILL.md`, which both load from the
    project.
-10. In CI, regenerate on the default branch only. A pull request build that
+10. The optional MCP server is registered only with `--mcp`. It lives in the
+   separate `complex-md-mcp` package, at the same version as `complex-md`,
+   so ordinary core installs do not install the MCP SDK or zod. JSON
+   registrations are recorded in the manifest with their hashes; `unwire`
+   removes them only while those hashes match. OpenClaw and Hermes use their
+   own CLIs and receive `--root <repo>`.
+11. In CI, regenerate on the default branch only. A pull request build that
     rewrote the generated files would conflict at merge and change what
     review bots read about the files it changes.
 
@@ -634,7 +640,9 @@ It ignores any other listed path.
 
 `npx complex-md wire` does these steps idempotently: the `minimal` profile
 by default, `full` with `--profile full` or `--for`, step 8 only with
-`--hooks`, and step 9 only with `--for openclaw,hermes`. `--dry-run` prints
+`--hooks`, step 9 only with `--for openclaw,hermes`, and step 10 only with
+`--mcp`. `complex-md mcp` remains a compatibility command and starts
+`npx -y complex-md-mcp@<the same version> mcp`. `--dry-run` prints
 the file plan and writes nothing. `npx complex-md unwire` reverses a wire
 from the manifest: it deletes each file and cuts each marked block whose
 hash still matches, leaves and names the rest, and keeps COMPLEX.md. When
@@ -674,6 +682,18 @@ Cursor: `preToolUse` and `stop` in `.cursor/hooks.json`. Both hooks are
 once per session per file, keyed by the tool's session id, and take
 `--mode gate | warn | off`. `warn` lets the edit through with the paragraph
 attached, for teams that find the gate too firm.
+
+### MCP server
+
+The server is an optional package, `complex-md-mcp`, published at the same
+version as the CLI. New `wire --mcp` entries start that package directly;
+entries from earlier versions that start `complex-md mcp` are recognized and
+replaced. An entry that pins an older `complex-md-mcp` moves to the current
+version while its manifest hash matches, and an entry edited since stays.
+The core `complex-md mcp` command remains available through 0.x and hands
+off to `npx -y complex-md-mcp@<the same version> mcp`, printing one line to
+stderr. Source: `cli/package.json` and
+`packages/complex-md-mcp/package.json`.
 
 ### Diff check
 

@@ -238,9 +238,8 @@ test('windsurf, cline and roo read the created AGENTS.md; unknown target errors;
   assert.throws(() => wire(dir, { agents: ['zed'] }), /unknown wiring target/);
 });
 
-test('codex MCP entry uses the computed invocation, not a hardcoded npx', async () => {
-  // Copy the CLI into the repo being wired so invocation() picks the local
-  // bin; the Codex TOML must carry that same invocation, like the JSON entries.
+test('Codex MCP entry invokes the version-pinned MCP package', async () => {
+  // Copying only the core package must not make an MCP entry invoke it.
   const { cpSync, readFileSync } = await import('node:fs');
   const { fileURLToPath, pathToFileURL } = await import('node:url');
   const { dirname } = await import('node:path');
@@ -256,8 +255,9 @@ test('codex MCP entry uses the computed invocation, not a hardcoded npx', async 
   wire(dir, { agents: ['claude', 'codex'], mcp: true });
   const toml = readFileSync(join(dir, '.codex/config.toml'), 'utf8');
   const mcp = JSON.parse(readFileSync(join(dir, '.mcp.json'), 'utf8')).mcpServers['complex-md'];
-  assert.equal(mcp.command, 'node', 'local checkout wires its own bin');
-  assert.match(toml, /command = "node"/, 'TOML carries the computed command');
+  assert.equal(mcp.command, 'npx');
+  assert.match(toml, /command = "npx"/, 'TOML carries the package invocation');
+  assert.ok(mcp.args.includes(`complex-md-mcp@${JSON.parse(readFileSync(join(cliRoot, 'package.json'), 'utf8')).version}`));
   assert.ok(toml.includes(`args = [${mcp.args.map((a) => JSON.stringify(a)).join(', ')}]`), 'TOML args match the JSON entry');
 });
 
