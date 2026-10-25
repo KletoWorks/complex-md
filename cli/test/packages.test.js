@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const inCheckout = existsSync(join(ROOT, 'skill/SKILL.tmpl.md'));
@@ -33,7 +33,7 @@ export const SKILL_COPIES = ['skills/complex-md/SKILL.md', 'plugins/complex-md/s
 
 test('every shipped SKILL.md is the rendered template, byte for byte', async (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
-  const { renderSkill, renderReference } = await import(join(ROOT, 'scripts/skill.mjs'));
+  const { renderSkill, renderReference } = await import(pathToFileURL(join(ROOT, 'scripts/skill.mjs')).href);
   const rendered = renderSkill(ROOT, { split: true });
   assert.ok(!rendered.includes('{{'), 'the rendered skill still has a placeholder');
   for (const p of SKILL_COPIES) {
@@ -49,7 +49,7 @@ test('every shipped SKILL.md is the rendered template, byte for byte', async (t)
 // agent reads at Stage 2. The site download stays one file.
 test('each package SKILL.md stays under 5,000 tokens and names its reference file', async (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
-  const { renderSkill } = await import(join(ROOT, 'scripts/skill.mjs'));
+  const { renderSkill } = await import(pathToFileURL(join(ROOT, 'scripts/skill.mjs')).href);
   for (const p of SKILL_COPIES) {
     const text = read(p);
     assert.ok(Math.ceil(text.length / 4) < 5000, `${p} is about ${Math.ceil(text.length / 4)} tokens`);
