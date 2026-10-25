@@ -25,7 +25,8 @@ import { mcnemar } from './stats.mjs';
 /** { 'lib/core/util.js': ['test/util.js', ...] } from the map's "Before editing" sentences. */
 export function adviceFromMap(map) {
   const out = {};
-  const why = map.split('## Why these files are hot')[1]?.split('\n## ')[0] || '';
+  // A CRLF map has no \n\n between paragraphs, so the section is read with LF.
+  const why = map.replace(/\r\n/g, '\n').split('## Why these files are hot')[1]?.split('\n## ')[0] || '';
   for (const para of why.split('\n\n')) {
     const file = /^`?([\w./-]+\.[cm]?[jt]s)`?/.exec(para.trim());
     const before = /Before editing[^.]*?(?:run|re-run)([\s\S]*?)(?:\.\s|$)/.exec(para);
