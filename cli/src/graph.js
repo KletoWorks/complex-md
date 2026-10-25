@@ -283,7 +283,7 @@ const GO_IMPORT_BLOCK_RE = /^import\s*\(([\s\S]*?)\)|^import\s+(?:\w+\s+)?"([^"]
 const GO_IMPORT_LINE_RE = /(?:^|\n)\s*(?:\w+\s+)?"([^"]+)"/g;
 const RS_MOD_RE = /^\s*(?:#\[path\s*=\s*(__RUST_STRING_\d+__)\]\s*)?(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_]\w*)\s*;/gm;
 const RS_USE_RE = /^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([\s\S]*?);/gm;
-const RS_STRING_RE = /(?:br|r)(#{0,})"[\s\S]*?"\1|b?"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\\n])*'/g;
+const RS_STRING_RE = /(?:br|r)(#{0,})"[\s\S]*?"\1|b?"(?:\\(?:\r?\n[ \t]*|[\s\S])|[^"\\])*"|'(?:\\.|[^'\\\n])*'/g;
 const RS_BLOCK_COMMENT_RE = /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//g;
 // Anything that looks like a repo path with an extension, for scripts, cron,
 // compose files and configs that name files without an import keyword.
@@ -361,13 +361,19 @@ function rustInlineScopes(text) {
   return scopes;
 }
 
-function rustModulePath(parts, base, files) {
+function rustModulePath(parts, base, files, fallback = null) {
   for (let n = parts.length; n > 0; n--) {
     const path = posix.join(base, ...parts.slice(0, n));
     if (files.has(path + '.rs')) return path + '.rs';
     if (files.has(path + '/mod.rs')) return path + '/mod.rs';
   }
-  return null;
+  return fallback;
+}
+
+function rustModuleFile(base, files, crate, fallback) {
+  if (files.has(base + '.rs')) return base + '.rs';
+  if (files.has(base + '/mod.rs')) return base + '/mod.rs';
+  return crate?.roots.find((root) => posix.dirname(root) === base) || fallback;
 }
 
 function rustCrates(files, texts) {
@@ -401,7 +407,34 @@ function rustCrates(files, texts) {
     }
     return best;
   };
-  return { byName, forFile };
+  const rootOwners = new Map();
+  const visit = (file, root, crate, seen) => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    if (!rootOwners.has(file)) rootOwners.set(file, new Set());
+    rootOwners.get(file).add(root);
+    const rust = maskRustText(texts.get(file) || '');
+    const scopes = rustInlineScopes(rust.text);
+    RS_MOD_RE.lastIndex = 0;
+    let match;
+    while ((match = RS_MOD_RE.exec(rust.text))) {
+      const base = rustModuleBase(file, scopes, match.index);
+      const path = match[1]
+        ? posix.normalize(posix.join(posix.dirname(file), rust.string(match[1].match(/\d+/)[0]) || ''))
+        : posix.join(base, match[2]);
+      const target = match[1]
+        ? files.has(path) && !path.startsWith('../') ? path : null
+        : files.has(path + '.rs') ? path + '.rs' : files.has(path + '/mod.rs') ? path + '/mod.rs' : null;
+      if (target && forFile(target) === crate) visit(target, root, crate, seen);
+    }
+  };
+  for (const crate of crates) for (const root of crate.roots) visit(root, root, crate, new Set());
+  const rootForFile = (file, crate) => {
+    if (crate?.roots.includes(file)) return file;
+    const owners = rootOwners.get(file);
+    return owners?.size === 1 ? [...owners][0] : crate?.rootFile || null;
+  };
+  return { byName, forFile, rootForFile };
 }
 
 function expandRustUse(spec) {
@@ -418,26 +451,38 @@ function rustUsePath(spec, file, crate, crates, files, scopeBase) {
   if (!parts.length) return null;
   let base;
   let moduleParts;
+  let fallback;
   if (parts[0] === 'crate') {
-    const root = crate?.roots.includes(file) ? file : crate?.rootFile;
+    const root = crates.rootForFile(file, crate);
     if (!root) return null;
     base = posix.dirname(root);
     moduleParts = parts.slice(1);
+    fallback = root;
   } else if (parts[0] === 'self') {
     base = scopeBase;
     moduleParts = parts.slice(1);
+    fallback = rustModuleFile(base, files, crate, file);
   } else if (parts[0] === 'super') {
     base = scopeBase;
     let i = 0;
     while (parts[i] === 'super') { base = posix.dirname(base); i++; }
     moduleParts = parts.slice(i);
+    fallback = rustModuleFile(base, files, crate, file);
   } else {
     const target = crates.byName.get(parts[0]);
-    if (!target || target === crate || !target.rootFile) return null;
-    base = posix.dirname(target.rootFile);
+    if (!target || !target.rootFile) return null;
+    let root = target.rootFile;
+    if (target === crate) {
+      const lib = target.roots.find((path) => posix.basename(path) === 'lib.rs');
+      const main = target.roots.find((path) => posix.basename(path) === 'main.rs');
+      if (!lib || file !== main) return null;
+      root = lib;
+    }
+    base = posix.dirname(root);
     moduleParts = parts.slice(1);
+    fallback = root;
   }
-  return rustModulePath(moduleParts, base, files);
+  return rustModulePath(moduleParts, base, files, fallback);
 }
 
 function globToRe(g) {
@@ -625,7 +670,7 @@ export function buildGraph(root, tracked) {
       while ((m = RS_MOD_RE.exec(rust.text))) {
         const base = rustModuleBase(f, scopes, m.index);
         const path = m[1]
-          ? posix.normalize(posix.join(base, rust.string(m[1].match(/\d+/)[0]) || ''))
+          ? posix.normalize(posix.join(fromDir, rust.string(m[1].match(/\d+/)[0]) || ''))
           : posix.join(base, m[2]);
         add(f, m[1]
           ? files.has(path) && !path.startsWith('../') ? path : null
