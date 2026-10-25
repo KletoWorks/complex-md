@@ -220,7 +220,7 @@ test('the spec and the skill quote the one line of the minimal profile verbatim'
   if (!inCheckout) return t.skip('not a repository checkout');
   const { INTEGRATION_LINE } = await import('../src/prompts.js');
   for (const f of ['content/spec.md', 'skill/SKILL.tmpl.md']) {
-    assert.ok(readFileSync(join(ROOT, f), 'utf8').split('\n').includes(INTEGRATION_LINE), `${f} quotes the line on a line of its own`);
+    assert.ok(readFileSync(join(ROOT, f), 'utf8').split(/\r?\n/).includes(INTEGRATION_LINE), `${f} quotes the line on a line of its own`);
   }
 });
 

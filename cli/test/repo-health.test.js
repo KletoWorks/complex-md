@@ -18,7 +18,7 @@ test('every workflow action is pinned by a full commit SHA with its version besi
   if (!inCheckout) return t.skip('not a repository checkout');
   const bad = [];
   for (const f of workflows()) {
-    for (const line of readFileSync(join(WORKFLOWS, f), 'utf8').split('\n')) {
+    for (const line of readFileSync(join(WORKFLOWS, f), 'utf8').split(/\r?\n/)) {
       const m = /^\s*(?:-\s+)?uses:\s*(\S+)(.*)$/.exec(line);
       if (!m) continue;
       if (m[1].startsWith('./')) continue;
@@ -37,7 +37,8 @@ test('every workflow declares its token permissions at the top level', (t) => {
   assert.deepEqual(missing, [], 'add a top level permissions: block');
 });
 
-const read = (f) => readFileSync(join(ROOT, f), 'utf8');
+// With LF line ends: a Windows checkout has CRLF files, and the patterns below match on \n.
+const read = (f) => readFileSync(join(ROOT, f), 'utf8').replace(/\r\n/g, '\n');
 
 /* A reporter who finds a hole must find a private path before a public
    one. GitHub shows SECURITY.md on the Security tab and on the new issue

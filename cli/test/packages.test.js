@@ -218,6 +218,8 @@ const GRADER_OPTIONS = {
   baseline: ['baseline_file', 'criteria'],
 };
 const topKeys = (text) => [...text.matchAll(/^([A-Za-z_][\w-]*):/gm)].map((m) => m[1]);
+// With LF line ends: a Windows checkout has the eval files with CRLF.
+const readLf = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 
 test('every plugin eval case would load: known fields and typed graders', async (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
@@ -230,14 +232,14 @@ test('every plugin eval case would load: known fields and typed graders', async 
     const hasCase = existsSync(join(dir, 'case.yaml'));
     assert.ok(hasPrompt || hasCase, `${c} has neither prompt.md nor case.yaml`);
     if (hasPrompt) {
-      const text = readFileSync(join(dir, 'prompt.md'), 'utf8');
+      const text = readLf(join(dir, 'prompt.md'));
       const fm = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text);
       assert.ok(fm, `${c}/prompt.md has no front matter`);
       for (const k of topKeys(fm[1])) assert.ok(PROMPT_KEYS.has(k), `${c}/prompt.md: unknown key ${k}`);
       assert.ok(fm[2].trim().length > 0, `${c}/prompt.md has no prompt`);
     }
     if (hasCase) {
-      const y = readFileSync(join(dir, 'case.yaml'), 'utf8');
+      const y = readLf(join(dir, 'case.yaml'));
       for (const k of topKeys(y)) assert.ok(CASE_KEYS.has(k), `${c}/case.yaml: unknown key ${k}`);
       assert.match(y, /^schema_version: "1\.1"$/m);
       assert.match(y, new RegExp(`^name: ${c}$`, 'm'));
@@ -248,7 +250,7 @@ test('every plugin eval case would load: known fields and typed graders', async 
     const graders = existsSync(gdir) ? readdirSync(gdir).filter((f) => f.endsWith('.md')) : [];
     assert.ok(graders.length > 0, `${c} has no grader`);
     for (const g of graders) {
-      const fm = /^---\n([\s\S]*?)\n---/.exec(readFileSync(join(gdir, g), 'utf8'));
+      const fm = /^---\n([\s\S]*?)\n---/.exec(readLf(join(gdir, g)));
       assert.ok(fm, `${c}/graders/${g} has no front matter`);
       const type = /^type:\s*(\S+)/m.exec(fm[1])?.[1];
       assert.ok(type in GRADER_OPTIONS, `${c}/graders/${g}: unknown type ${type}`);
