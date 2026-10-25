@@ -12,7 +12,7 @@ Pass or fail per check for the raw reply and the file the CLI would write, from 
 | deepseek/deepseek-v4.1-flash | pflag | pass | pass | pass | pass | pass | pass | pass | pass | pass | pass | fail | fail |
 | moonshotai/kimi-k2.6 | ky | fail | fail | fail | fail | fail | fail | fail | fail | fail | fail | pass | fail |
 | moonshotai/kimi-k2.6 | itsdangerous | error |  |  |  |  |  |  |  |  |  |  |  |
-| moonshotai/kimi-k2.6 | pflag | fail | fail | fail | fail | pass | pass | fail | fail | pass | fail | pass | fail |
+| moonshotai/kimi-k2.6 | pflag | fail | fail | fail | fail | pass | fail | fail | fail | pass | fail | pass | fail |
 | qwen/qwen3.8-27b | ky | error |  |  |  |  |  |  |  |  |  |  |  |
 | qwen/qwen3.8-27b | itsdangerous | error |  |  |  |  |  |  |  |  |  |  |  |
 | qwen/qwen3.8-27b | pflag | error |  |  |  |  |  |  |  |  |  |  |  |

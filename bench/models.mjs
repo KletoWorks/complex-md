@@ -244,10 +244,11 @@ export function rescoreResults(outDir) {
     const repo = repos.get(row.repo) || {};
     const previous = oldChecks(row);
     const scoreInput = { reply, fm: computedFrontMatter(row.repo), files: repo.files || [], hot: repo.hot || [] };
+    // With no saved file list, the path check of the old row stands.
+    const keptPaths = !repo.files && previous?.paths ? previous.paths : null;
     const raw = scoreMap(scoreInput);
-    if (!repo.files && previous?.paths) raw.paths = previous.paths;
-    const written = scoreInput.fm ? scoreWrittenMap(scoreInput) : Object.fromEntries(CHECKS.map((check) => [check, { pass: false, detail: 'not written: computed front matter was not saved' }]));
-    if (!repo.files && raw.paths) written.paths = raw.paths;
+    if (keptPaths) raw.paths = keptPaths;
+    const written = scoreInput.fm ? scoreWrittenMap(scoreInput, { paths: keptPaths }) : Object.fromEntries(CHECKS.map((check) => [check, { pass: false, detail: 'not written: computed front matter was not saved' }]));
     row.checks = { raw, written };
     row.error = null;
   }

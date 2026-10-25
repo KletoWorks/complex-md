@@ -144,11 +144,20 @@ export function scoreMap({ reply, fm, files, hot }) {
   return out;
 }
 
-/** Score the file the CLI would write, using its own front-matter replacement and validation. */
-export function scoreWrittenMap(input) {
+/**
+ * Score the file the CLI would write, using its own front-matter replacement
+ * and validation. A reply the CLI refuses fails every check. `paths`, when
+ * given, replaces the path check of a written file: a rescore passes the
+ * saved one when the results hold no file list.
+ */
+export function scoreWrittenMap(input, { paths = null } = {}) {
+  let written;
   try {
-    return scoreMap({ ...input, reply: normalizeOutput(input.reply, input.fm) });
+    written = normalizeOutput(input.reply, input.fm);
   } catch (e) {
     return Object.fromEntries(CHECKS.map((check) => [check, result(false, `not written: ${e.message}`)]));
   }
+  const out = scoreMap({ ...input, reply: written });
+  if (paths) out.paths = paths;
+  return out;
 }

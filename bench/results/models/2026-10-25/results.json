@@ -525,7 +525,7 @@
           },
           "paths": {
             "pass": false,
-            "detail": "3 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts"
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
           },
           "directives": {
             "pass": false,
@@ -611,8 +611,8 @@
             "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
           },
           "paths": {
-            "pass": true,
-            "detail": ""
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
           },
           "directives": {
             "pass": false,

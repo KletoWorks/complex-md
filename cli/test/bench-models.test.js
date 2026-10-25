@@ -272,3 +272,23 @@ test('--rescore fails the front matter check, and does not stop, when no compute
   assert.equal(row.checks.written.front_matter.pass, false);
   assert.match(row.checks.written.sections.detail, /not written/);
 });
+
+test('--rescore reuses the saved path check only for a reply the CLI would write', async (t) => {
+  if (!existsSync(BENCH)) return t.skip('not a repository checkout');
+  const { rescoreResults } = await load();
+  // No saved file list, so the raw path check comes from the old row.
+  const legacy = { front_matter: { pass: true }, sections: { pass: false }, paths: { pass: true, detail: '' }, directives: { pass: false }, sentences: { pass: true }, em_dashes: { pass: true } };
+  const out = savedResults({
+    repo: { name: 'fixture', hot: ['src/a.js'], front_matter: RESCORE_FM },
+    rows: [
+      { model: 'open/model-a', repo: 'fixture', error: null, checks: legacy },
+      { model: 'open/model-b', repo: 'fixture', error: null, checks: legacy },
+    ],
+    maps: { 'open/model-a': RESCORE_FM + '\nRisk sits in src/a.js.\n', 'open/model-b': RESCORE_FM + '\n' + RESCORE_PROSE },
+  });
+  const [rejected, written] = rescoreResults(out).rows;
+  assert.equal(rejected.checks.raw.paths.pass, true);
+  assert.equal(rejected.checks.written.paths.pass, false);
+  assert.match(rejected.checks.written.paths.detail, /not written/);
+  assert.equal(written.checks.written.paths.pass, true);
+});
