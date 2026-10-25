@@ -80,6 +80,15 @@ test('wire --mcp then unwire leaves the user\'s MCP servers and Codex config as 
   assert.deepEqual(snapshot(dir), before);
 });
 
+test('unwire removes a Codex config file and directory created by wire', () => {
+  const dir = repo();
+  const before = snapshot(dir);
+  wire(dir, { agents: ['codex'], mcp: true, profile: 'full' });
+  assert.ok(existsSync(join(dir, '.codex/config.toml')));
+  unwire(dir);
+  assert.deepEqual(snapshot(dir), before);
+});
+
 test('unwire leaves and reports an MCP entry whose settings changed after wire', () => {
   const dir = repo();
   wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });

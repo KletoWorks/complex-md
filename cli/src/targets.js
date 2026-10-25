@@ -495,13 +495,14 @@ export const TARGETS = {
     detect: (root) => existsSync(join(root, '.codex')),
     mcp({ root, inv, report, mark }) {
       const p = join(root, '.codex/config.toml');
-      const cur = existsSync(p) ? readFileSync(p, 'utf8') : '';
+      const existed = existsSync(p);
+      const cur = existed ? readFileSync(p, 'utf8') : '';
       /* A table outside the markers is one an earlier version appended, or
          the user's own; either way it stays, and no second one is added. */
       if (/\[mcp_servers\.complex-md\]/.test(outsideRegion(cur))) return;
       const args = [...inv.args, 'mcp'];
       const table = `[mcp_servers.complex-md]\ncommand = ${JSON.stringify(inv.command)}\nargs = [${args.map((a) => JSON.stringify(a)).join(', ')}]\n`;
-      if (mark('.codex/config.toml', table, { style: 'hash', create: true }) === 'written') report.mcp.push('.codex/config.toml');
+      if (mark('.codex/config.toml', table, { style: 'hash', create: true, created: !existed }) === 'written') report.mcp.push('.codex/config.toml');
     },
   },
 
