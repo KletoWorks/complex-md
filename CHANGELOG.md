@@ -6,6 +6,29 @@ format.
 
 ## Unreleased
 
+**Intent:** a GitLab project had no way to get the merge request feedback
+that complex-md-action gives a GitHub pull request (issue #26).
+
+**Change:** `check --map-ref <ref>` reads COMPLEX.md from a commit instead
+of the working tree, and `check --note` prints the findings as one Markdown
+merge request note in the action's comment format: hotspots, load bearing
+files, directives and co-change partners left unchanged, with a renamed file
+counted under its old path. A clean change prints a cleared note. The CLI
+makes no request for it.
+
+**Change:** `ci/gitlab/complex-md.gitlab-ci.yml` is a GitLab CI include that
+runs on merge request pipelines. It installs a pinned complex-md outside the
+checkout, runs `check --note` against the target branch's map with the
+token removed from the CLI's environment, and creates, edits or clears one
+note through the notes API with curl. One run makes 2 reads, 1 more for each
+100 notes past the first 100, and 1 write at most. It needs a token with the
+`api` scope and the Reporter role, because `CI_JOB_TOKEN` cannot write notes.
+It pins 0.12.0, the first release with `--note`.
+
+**Change:** the map reader keeps the leading zero of an all digit commit
+sha. `commit: 0179008` came back as `179008`, which names no commit, so a
+check of the map's age found the commit missing from the history.
+
 **Intent:** a shared link to a hosted map page showed the site's generic card, so the preview named neither the repository nor what its map found (#28).
 
 **Change:** `scripts/hosted-pages.mjs` writes `<repo_key>/og.png` beside each page: a 1200 by 630 PNG with the repository name, the number of hotspots, the map's first co-change pair and its coupling, the map's commit and date, and the complex.md mark. Each page names it in `og:image` and `twitter:image`, with width, height and alt text. `scripts/og-image.mjs` draws it with no dependency: a scanline rasterizer, `node:zlib` for the PNG, and Inter outlines in `scripts/og-glyphs.json`, which `scripts/og-font.py` writes once from the site's font. A character outside that table is drawn as "?". Each image is about 75 kB.

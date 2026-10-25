@@ -54,6 +54,8 @@ const PUBLIC = [
   'gemini-extension.json',
   'GEMINI-EXTENSION.md',
   '.github/PULL_REQUEST_TEMPLATE.md',
+  // The GitLab CI template, whose header is its documentation.
+  'ci/gitlab/complex-md.gitlab-ci.yml',
   ...dir('.github/ISSUE_TEMPLATE', '.yml'),
   ...dir('.github/unlisted', '.yml'),
   'docs/RESEARCH-signals-and-wiring.md',
