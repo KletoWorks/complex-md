@@ -84,6 +84,13 @@ Known gaps in the isolation:
 - Paths outside the mask roots stay visible, and masked file names are
   visible with empty contents.
 
+**Map size.** A map is at most 8,192 bytes, front matter and prose
+together, the size the spec recommends (`bench/fit.mjs`). The harness cuts
+front matter list rows from the end, gives the model a byte budget for the
+prose, and tries a long reply twice more. A map still over the cap is the
+row's error. Each row records `map_bytes`. `--map-cap 0` turns the cap off;
+the runs published before it had none.
+
 **Caps.** A run that hits the budget, the turn cap or the timeout is judged
 like any other run. It is recorded in `stopped` and shown in the report's
 `capped` column. A timeout sends SIGINT, then SIGKILL after `--grace`
@@ -146,6 +153,10 @@ node bench/run.mjs --dataset bench/data/fastify-danger.json --arms none,file,hoo
 # 4. tables
 node bench/report.mjs bench/results/<run>/runs.jsonl
 ```
+
+`--max-runs N` stops a pass after N new rows. `--maps-only` builds the maps
+the selected tasks need and stops; run it once before two workers share one
+`--cache`, each with its own `--work` and `--tasks` range.
 
 `--stop-at edit` ends a run at the agent's first edit: localization only,
 no suite, the cheap way to run a large set. `--no-suite` runs to completion

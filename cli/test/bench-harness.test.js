@@ -2,7 +2,7 @@
    in place of a model. No network and no model call. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildBenchRepo, runHarness } from './fixtures/bench-repo.mjs';
 
@@ -122,5 +122,39 @@ test('CX_BENCH_NO_MODEL=1 turns a real agent run into a recorded harness error',
     const { status, stderr, rows } = runHarness(fx, ['--agent', 'claude', '--arms', 'none', '--no-sandbox']);
     assert.equal(status, 0, stderr);
     assert.match(rows[0].error, /model call was refused/);
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
+
+test('--max-runs stops the pass after that many rows, and a rerun resumes', () => {
+  const fx = buildBenchRepo();
+  try {
+    const first = runHarness(fx, ['--agent', 'mock', '--arms', 'none,file', '--stop-at', 'none', '--max-runs', '1']);
+    assert.equal(first.status, 0, first.stderr);
+    assert.deepEqual(first.rows.map((r) => r.arm), ['none']);
+    assert.match(first.stderr, /--max-runs 1 reached/);
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
+
+test('--maps-only builds the maps the file arms need and runs no agent', () => {
+  const fx = buildBenchRepo();
+  try {
+    const { status, stderr, rows, out } = runHarness(fx, ['--agent', 'mock', '--arms', 'none,file', '--stop-at', 'none', '--maps-only']);
+    assert.equal(status, 0, stderr);
+    assert.equal(rows.length, 0);
+    assert.equal(readdirSync(join(out, 'maps')).length, 1);
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
+
+test('a row records the map size, and a map over --map-cap is that row\'s error', () => {
+  const fx = buildBenchRepo();
+  try {
+    const ok = runHarness(fx, ['--agent', 'mock', '--arms', 'none,file', '--stop-at', 'none']);
+    assert.equal(ok.status, 0, ok.stderr);
+    const file = ok.rows.find((r) => r.arm === 'file');
+    assert.ok(file.map_bytes > 0 && file.map_bytes <= 8192, `map_bytes ${file.map_bytes}`);
+    assert.equal(ok.rows.find((r) => r.arm === 'none').map_bytes, null);
+    const over = runHarness(fx, ['--agent', 'mock', '--arms', 'file', '--stop-at', 'none', '--map-cap', '100']);
+    assert.equal(over.status, 0, over.stderr);
+    assert.match(over.rows[0].error, /over the 100 byte cap/);
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });

@@ -27,13 +27,14 @@ import { homedir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { computeSignals, findCoveringTests } from '../cli/src/signals.js';
-import { buildBundle, normalizeOutput } from '../cli/src/generate.js';
+import { buildBundle, normalizeOutput, frontMatter } from '../cli/src/generate.js';
 import { wire } from '../cli/src/wire.js';
 import { detectRunner, listTestFiles, runSuite, confirm, goldTestFiles } from './suite.mjs';
 import { createMeter, newMetrics, behaviour } from './agent-events.mjs';
 import { claudeCommand, mapCommand } from './claude-args.mjs';
 import { isolatedCheckout, fileAt, fixSourceDiff, applyPatch } from './isolate.mjs';
 import { mapAnchor, assertMapUsable, commitTime } from './maps.mjs';
+import { MAP_CAP, fitSignals, sizeNote, assertFits } from './fit.mjs';
 import { sandboxSupport, sandboxCommand, startProxy, innerPid, which, DEFAULT_ROOTS, DEFAULT_ALLOW } from './sandbox.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -79,6 +80,17 @@ const workRoot = opt('--work', '/tmp/cxbench');
    dir, and is shared when many small out dirs judge the same tasks. */
 const skillText = opt('--skill', null) ? readFileSync(opt('--skill'), 'utf8') : null;
 const cacheDir = opt('--cache', outDir);
+/* --map-cap: the bytes a map may take, front matter and prose together.
+   The default is the 8,192 the spec recommends; 0 turns the check off. The
+   runs published before it had no cap.
+   --max-runs: rows this pass may add before it stops, so a night's share
+   of the usage limit is fixed. A rerun skips finished rows and resumes.
+   --maps-only: build the maps the selected tasks need, then stop. Run it
+   once before parallel workers share a cache, so no two of them write the
+   same month's map. */
+const mapCap = Number(opt('--map-cap', MAP_CAP));
+const maxRuns = opt('--max-runs', null) === null ? Infinity : Number(opt('--max-runs'));
+const mapsOnly = flag('--maps-only');
 /* Every agent runs in bench/sandbox.mjs: no network but the model API
    hosts, and no files but its checkout and its own install. --no-sandbox
    runs without it, and each row records which. --allow-host adds proxy
@@ -120,7 +132,8 @@ async function mapFor(task) {
   const month = task.date.slice(0, 7);
   const key = `${(dataset.repo || 'repo').replace('/', '-')}-${month}-${anchor.slice(0, 10)}.md`;
   const cached = join(cacheDir, 'maps', key);
-  if (existsSync(cached)) return { text: readFileSync(cached, 'utf8'), anchor };
+  // A map cached before the cap, or under a larger one, is built again.
+  if (existsSync(cached) && (mapCap <= 0 || Buffer.byteLength(readFileSync(cached)) <= mapCap)) return { text: readFileSync(cached, 'utf8'), anchor };
   log(`generating map for ${month} at ${anchor.slice(0, 10)}`);
   const wt = isolatedCheckout(dataset.path, anchor, join(workRoot, `.map-${anchor.slice(0, 12)}`));
   try {
@@ -129,21 +142,32 @@ async function mapFor(task) {
 }
 
 async function writeMap(wt, cached) {
-  const sig = computeSignals(wt);
-  const { bundle, frontMatter } = buildBundle(wt, sig, 'complex-md/bench');
+  const all = computeSignals(wt);
+  /* List rows are cut from the end until the front matter leaves the prose
+     room under the cap (bench/fit.mjs); the model gets a byte budget. */
+  const tool = 'complex-md/bench';
+  const sig = mapCap > 0 ? fitSignals(all, (s) => frontMatter(s, tool), Math.floor(mapCap * 0.44)) : all;
+  const { bundle, frontMatter: fm } = buildBundle(wt, sig, tool);
   let text;
   if (SCRIPTED[agent]) {
-    text = `${frontMatter}\n## Where the risk lives\n\n${sig.hotspots.slice(0, 3).map((h) => `${h.path} (${h.fixes} fixes)`).join(', ')} carry the fix history. Fixing a bug you have not located: start there.\n`;
+    text = `${fm}\n## Where the risk lives\n\n${sig.hotspots.slice(0, 3).map((h) => `${h.path} (${h.fixes} fixes)`).join(', ')} carry the fix history. Fixing a bug you have not located: start there.\n`;
   } else {
     // The prose model call goes through the same Claude Code login the agent runs use; no tools, one turn.
     noModel();
     const [cmd, a, env] = mapCommand({ model });
-    const r = spawnSync(cmd, a, { cwd: wt, input: bundle, env: { ...process.env, ...env }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-    let j; try { j = JSON.parse(r.stdout); } catch { throw new Error(`map generation failed: ${(r.stderr || r.stdout).trim().slice(0, 300)}`); }
-    if (j.is_error) throw new Error(`map generation failed: ${j.result}`); // the harness reports the agent's own error text
-    text = normalizeOutput(j.result, frontMatter);
-    log(`map: ${text.split('\n').length} lines, $${(j.total_cost_usd || 0).toFixed(3)}`);
+    /* A reply over the cap gets two more tries, each with a smaller prose
+       budget. A map still over it is refused, and the task's row says so. */
+    for (let scale = 0.85, tries = 0; ; scale *= 0.75, tries++) {
+      const { note } = mapCap > 0 ? sizeNote(fm, mapCap, scale) : { note: '' };
+      const r = spawnSync(cmd, a, { cwd: wt, input: bundle + note, env: { ...process.env, ...env }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+      let j; try { j = JSON.parse(r.stdout); } catch { throw new Error(`map generation failed: ${(r.stderr || r.stdout).trim().slice(0, 300)}`); }
+      if (j.is_error) throw new Error(`map generation failed: ${j.result}`); // the harness reports the agent's own error text
+      text = normalizeOutput(j.result, fm);
+      log(`map: ${text.split('\n').length} lines, ${Buffer.byteLength(text)} bytes, ${sig.hotspots.length} of ${all.hotspots.length} hotspots, $${(j.total_cost_usd || 0).toFixed(3)}`);
+      if (mapCap <= 0 || Buffer.byteLength(text) <= mapCap || tries >= 2) break;
+    }
   }
+  assertFits(text, mapCap);
   writeFileSync(cached, text);
   return text;
 }
@@ -235,7 +259,8 @@ function frontMatterOnly(text) {
 async function armSetup(task, arm, wt) {
   if (arm === 'none' || arm === 'gold') return;
   const { text: full, anchor } = await mapFor(task);
-  writeFileSync(join(wt, 'COMPLEX.md'), arm === 'front' ? frontMatterOnly(full) : full);
+  const given = arm === 'front' ? frontMatterOnly(full) : full;
+  writeFileSync(join(wt, 'COMPLEX.md'), given);
   /* The runs published in bench/results were wired when wire also wrote
      .claude/rules/complex-md.md: the integration block again, loaded when
      the agent touched a listed path. wire no longer writes it, because
@@ -249,7 +274,7 @@ async function armSetup(task, arm, wt) {
   // The map is context, not a change the agent made.
   sh('git', ['add', '-A'], wt);
   sh('git', ['-c', 'user.email=bench@complex.md', '-c', 'user.name=bench', 'commit', '-q', '-m', 'bench: COMPLEX.md and wiring'], wt);
-  return anchor;
+  return { anchor, bytes: Buffer.byteLength(given) };
 }
 
 /* No instruction about tests: whether the agent checks what its change
@@ -396,19 +421,30 @@ async function runDamage(task, wt, baseline) {
   };
 }
 
-for (const task of tasks) {
+if (mapsOnly) {
+  const mapArms = arms.filter((a) => a !== 'none' && a !== 'gold');
+  for (const task of tasks) if (mapArms.some((a) => !done.has(`${task.id}/${a}`))) await mapFor(task);
+  log(`maps built: ${join(cacheDir, 'maps')}`);
+  process.exit(0);
+}
+
+let added = 0;
+pass: for (const task of tasks) {
   for (const arm of arms) {
     if (done.has(`${task.id}/${arm}`)) continue;
+    if (added >= maxRuns) { log(`--max-runs ${maxRuns} reached`); break pass; }
     log(`${task.id} ${arm}: ${task.title.slice(0, 60)}`);
     const wt = prepareWorktree(task, arm);
     try {
       /* A failure setting up or driving one run is that run's error, recorded
          as a row, and the pass continues. Before this, a transient exception
          here ended the whole pass. */
-      let m, baseline, before = null, mapCommit = null;
+      let m, baseline, before = null, mapCommit = null, mapBytes = null;
       try {
         baseline = await baselineFor(task, wt);
-        mapCommit = (await armSetup(task, arm, wt)) ?? null;
+        const setup = await armSetup(task, arm, wt);
+        mapCommit = setup?.anchor ?? null;
+        mapBytes = setup?.bytes ?? null;
         before = new Set(untracked(wt));
         m = arm === 'gold' ? goldRun(task, wt) : await runAgent(task, arm, wt);
       } catch (e) {
@@ -437,8 +473,9 @@ for (const task of tasks) {
       const damage = suiteOn && baseline && !m.error ? await runDamage(task, wt, baseline) : null;
       const success = stopAt === 'none' ? runGoldTests(task, wt) : null;
       const conduct = baseline ? behaviour(edited, m, baseline.risky, wt) : null;
-      const rec = { task: task.id, arm, agent, model: model ?? m.agent_model ?? null, cli_version: CLI_VERSION, cli_commit: CLI_COMMIT, skill: skillText ? createHash('sha1').update(skillText).digest('hex').slice(0, 10) : null, map_commit: mapCommit, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
+      const rec = { task: task.id, arm, agent, model: model ?? m.agent_model ?? null, cli_version: CLI_VERSION, cli_commit: CLI_COMMIT, skill: skillText ? createHash('sha1').update(skillText).digest('hex').slice(0, 10) : null, map_commit: mapCommit, map_bytes: mapBytes, map_cap: mapCap || null, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
       appendFileSync(runsPath, JSON.stringify(rec) + '\n');
+      added++;
       log(`  steps ${m.steps}, first gold read at ${m.first_gold_read ?? '-'}, gold edited ${rec.gold_edited}, success ${rec.success ?? '-'}, regressions ${rec.regressed_tests ?? '-'}, tests run by agent ${m.agent_test_runs}, $${m.cost_usd?.toFixed(3) ?? '?'}${m.gate_fired ? `, gate x${m.gate_fired}` : ''}${m.error ? `, error: ${m.error}` : ''}`);
     } finally {
       if (!flag('--keep')) rmSync(wt, { recursive: true, force: true });

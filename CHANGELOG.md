@@ -6,6 +6,17 @@ format.
 
 ## Unreleased
 
+**Intent (2026-10-24):** the benchmark maps were 8 to 12 KB, above the
+8,192 bytes the spec recommends, and a campaign had no way to stop after a
+fixed number of runs or to run parallel workers on one map cache.
+
+**Change:** `bench/run.mjs` keeps each map at 8,192 bytes or less. It cuts
+front matter list rows from the end, gives the model a byte budget for the
+prose, retries a long reply twice, and records a map still over the cap as
+the row's error. `--map-cap` sets the cap (0 turns it off). Each row records
+`map_bytes` and `map_cap`. `--max-runs` stops a pass after that many rows,
+and `--maps-only` builds the maps before parallel workers share a cache.
+
 **Intent:** a first run with no key ended with a prompt file and no map, a
 keyed run whose call failed ended the same way, and a default wire wrote
 hooks into committed settings. Users of an agent CLI with no API key had no
