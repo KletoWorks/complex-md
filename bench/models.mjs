@@ -231,11 +231,15 @@ export function rescoreResults(outDir) {
       completion_tokens: oldUsage.completion_tokens ?? oldUsage.output ?? null,
       completion_tokens_details: { reasoning_tokens: oldUsage.completion_tokens_details?.reasoning_tokens ?? oldUsage.reasoning ?? null },
     };
-    const replyPath = join(out, 'maps', row.repo, `${slug(row.model)}.md`);
-    if (!existsSync(replyPath)) {
-      if (/no choices\[0\]\.message\.content/.test(row.error || '')) row.error = 'empty_content';
+    // A failed call wrote no reply. A file at its path is from an earlier
+    // run to the same directory, so the row keeps its error and no checks.
+    if (row.error) {
+      if (/no choices\[0\]\.message\.content/.test(row.error)) row.error = 'empty_content';
+      row.checks = null;
       continue;
     }
+    const replyPath = join(out, 'maps', row.repo, `${slug(row.model)}.md`);
+    if (!existsSync(replyPath)) continue;
     const reply = readFileSync(replyPath, 'utf8');
     const repo = repos.get(row.repo) || {};
     const previous = oldChecks(row);

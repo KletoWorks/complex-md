@@ -220,3 +220,36 @@ test('a model with no price, or a negative price, is refused: it cannot be price
   assert.deepEqual(p.rows.map((r) => r.model), ['open/model-a']);
   assert.ok(p.total > 0);
 });
+
+/* A saved results directory for --rescore, written by hand: results.json
+   plus the replies under maps/<repo>/<model slug>.md. */
+const RESCORE_FM = '---\ncomplex_md: "0.3"\ncommit: abc1234\n---\n';
+const RESCORE_PROSE = '## Where the risk lives\n\nRisk sits in src/a.js.\n\n## Why these files are hot\n\nsrc/a.js holds the value. Before editing this file, open src/b.js.\n\n## Change coupling\n\nNone.\n\n## What to read first\n\n1. src/a.js: the value.\n';
+function savedResults({ repo, rows, maps }) {
+  const out = mkdtempSync(join(tmpdir(), 'cx-rescore-'));
+  mkdirSync(join(out, 'maps', repo.name), { recursive: true });
+  for (const [model, text] of Object.entries(maps)) writeFileSync(join(out, 'maps', repo.name, `${model.replace(/[/:]/g, '__')}.md`), text);
+  writeFileSync(join(out, 'results.json'), JSON.stringify({ repos: [repo], rows }));
+  return out;
+}
+
+test('--rescore leaves a failed call failed, even when an earlier run left a reply', async (t) => {
+  if (!existsSync(BENCH)) return t.skip('not a repository checkout');
+  const { rescoreResults } = await load();
+  const repo = { name: 'fixture', hot: ['src/a.js'], files: ['src/a.js', 'src/b.js'], front_matter: RESCORE_FM };
+  const stale = RESCORE_FM + '\n' + RESCORE_PROSE;
+  const out = savedResults({
+    repo,
+    rows: [
+      { model: 'open/model-a', repo: 'fixture', error: 'HTTP 500: upstream error', checks: null },
+      { model: 'open/model-b', repo: 'fixture', error: 'HTTP 200: no choices[0].message.content', checks: null },
+    ],
+    maps: { 'open/model-a': stale, 'open/model-b': stale },
+  });
+  const [a, b] = rescoreResults(out).rows;
+  assert.equal(a.error, 'HTTP 500: upstream error');
+  assert.equal(a.checks, null);
+  assert.equal(b.error, 'empty_content');
+  assert.equal(b.checks, null);
+  assert.match(readFileSync(join(out, 'summary.md'), 'utf8'), /0 of 0 scored maps/);
+});
