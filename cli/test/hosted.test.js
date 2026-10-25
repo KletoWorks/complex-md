@@ -219,3 +219,22 @@ test('the generator refuses an owner that site/reserved.json reserves, whatever 
   assert.deepEqual(JSON.parse(readFileSync(join(r.out, 'maps/index.json'), 'utf8')).maps, []);
   mkdirSync(r.out, { recursive: true });
 });
+
+/* A hosted page loads its styles and scripts from the site. Each local file
+   it names must be in the site build, or the page renders unstyled. The two
+   files platform-api serves are the exception. */
+test('the site build carries every file a hosted page loads', async (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const site = mkdtempSync(join(tmpdir(), 'cx-hosted-site-'));
+  spawnSync(process.execPath, [join(ROOT, 'scripts/build.mjs'), '--out', site], { encoding: 'utf8' });
+  const r = run(basic());
+  const html = readFileSync(join(r.out, 'acme/widgets.js/index.html'), 'utf8');
+  const refs = [...html.matchAll(/(?:src|href)="(\/[^"?#]*\.(?:css|js|svg|png))"/g)].map((m) => m[1]).filter((u) => !u.startsWith('/acme/'));
+  for (const u of new Set(refs)) {
+    if (u === '/platform.css' || u === '/analytics.js') continue;
+    assert.ok(existsSync(join(site, u)), `the site build has ${u}`);
+  }
+  const { REPORT_CSS, REPORT_JS } = await import('../src/render.js');
+  assert.equal(readFileSync(join(site, 'report.css'), 'utf8'), REPORT_CSS);
+  assert.equal(readFileSync(join(site, 'report.js'), 'utf8'), REPORT_JS);
+});

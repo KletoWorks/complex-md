@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, ex
 import { join, dirname, resolve } from 'node:path';
 import { parseMeta as meta, readArticles, faqItems, llmsFull } from './content.mjs';
 import { renderSkill, renderReference, SKILL_COPIES, stampVersions } from './skill.mjs';
+import { REPORT_CSS, REPORT_JS } from '../cli/src/render.js';
 import { ROOT, ORIGIN, AUTHOR, AUTHOR_URL, REPO, specVersion, promptVersion, cliVersion, siteHeader, siteFooter } from './chrome.mjs';
 
 // --out <dir> builds somewhere other than dist/. --drafts also renders the
@@ -287,6 +288,11 @@ cpSync(join(ROOT, 'prompts/integration.md'), join(ROOT, 'cli/prompts/integration
 
 for (const f of ['site.css', 'site.js', '404.html', 'favicon.svg', 'logo.svg', 'og.png', 'sw.js', 'robots.txt']) cpSync(join(ROOT, 'site', f), join(DIST, f));
 for (const d of ['fonts', 'icons']) cpSync(join(ROOT, 'site', d), join(DIST, d), { recursive: true });
+// Hosted map pages (scripts/hosted-pages.mjs) load the report renderer's
+// styles and treemap tooltip as files, since their policy allows no inline
+// style or script.
+writeFileSync(join(DIST, 'report.css'), REPORT_CSS);
+writeFileSync(join(DIST, 'report.js'), REPORT_JS);
 
 // Sitemap: every rendered page, articles included.
 const pages = ['/', '/spec/', '/skill/', '/articles/', ...articles.map((a) => `/articles/${a.slug}/`)];

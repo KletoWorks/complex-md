@@ -237,7 +237,7 @@ ${parts.directives}
 <section id="commit" class="commit" aria-labelledby="h-commit">
 <h2 id="h-commit">Maintain ${esc(display)}? Commit this file.</h2>
 <p class="note">A committed COMPLEX.md reaches every coding agent that reads the repository, cloud agents included. Within 24 hours of the commit, this page gives way to a link to your file.</p>
-<ol class="steps">
+<ol class="commit-steps">
 <li><p>In a clone of the repository, run:</p>
 <div class="install"><span class="p">$</span><code>npx complex-md</code></div>
 <p>It computes the map from the repository's own history, writes COMPLEX.md at the root and adds a section to AGENTS.md.</p></li>
