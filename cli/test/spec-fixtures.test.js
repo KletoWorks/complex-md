@@ -32,12 +32,11 @@ const DIRECTIVE = 'Before editing this file,';
 const READER_GAPS = {
   'no-version': 'the reader returns a map for front matter that has no complex_md key',
   'older-0.3': 'the reader does not read the 0.3 key tool as generator',
-  'escaped-string': 'the reader removes the quotes of a double quoted scalar but keeps its JSON escapes',
   'comma-path': 'the reader splits a flow list at every comma, also inside a double quoted path',
   'empty-test-files': 'the reader reads an empty flow list inside a list item as [""]',
 };
 /* The gaps above that also change the front matter the reader returns. */
-const FRONT_GAPS = new Set(['comma-path', 'escaped-string', 'empty-test-files']);
+const FRONT_GAPS = new Set(['comma-path', 'empty-test-files']);
 
 /* ---------- a validator for the JSON Schema keywords the schema uses ---------- */
 
