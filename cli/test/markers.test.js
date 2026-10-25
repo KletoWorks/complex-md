@@ -81,3 +81,9 @@ test('the hash ignores line endings, so a CRLF checkout is not an edit', () => {
   assert.notEqual(normalizedHash('a\nb\n'), normalizedHash('a\nc\n'));
   assert.match(normalizedHash('x'), /^[0-9a-f]{64}$/);
 });
+
+test('separators recorded as LF are removed from a file a checkout turned to CRLF', () => {
+  const r = upsertRegion('# Rules\n\nBody\n', CONTENT, { place: 'top', style: 'html', spec: '0.3' });
+  const converted = r.text.replace(/\n/g, '\r\n');
+  assert.equal(removeRegion(converted, r).text, '# Rules\r\n\r\nBody\r\n');
+});

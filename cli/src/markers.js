@@ -129,10 +129,15 @@ export function upsertRegion(text, content, { place = 'end', style = 'html', spe
  * Remove the region and the separators recorded when it was added, when
  * they are still where they were put. Returns { text, removed }.
  */
-export function removeRegion(text, { before = '', after = '' } = {}) {
+export function removeRegion(text, sep = {}) {
   const found = findRegion(text);
   if (!found || found.broken) return { text, removed: false };
   const eol = eolOf(text);
+  /* The separators were recorded in the line ending the file had then. A
+     checkout with core.autocrlf may have converted the file since, so they
+     are read in the line ending it has now. */
+  const before = (sep.before || '').replace(/\r?\n/g, eol);
+  const after = (sep.after || '').replace(/\r?\n/g, eol);
   let s = found.start;
   let e = found.end;
   const pre = text.slice(0, s);
