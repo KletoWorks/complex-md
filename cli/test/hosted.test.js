@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, mkdtempSync, mkdirSync, writeFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { hostileInput, entry, cleanMap, RLO, LONG, SUBJECT } from './fixtures/hosted-maps.mjs';
@@ -24,14 +24,14 @@ function run(input, args = []) {
   return { dir, out, status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
-/** Every file under dir, as relative paths, sorted. */
+/** Every file under dir, as relative paths with / on every OS, sorted. */
 function files(dir) {
   const acc = [];
   const walk = (d) => {
     for (const name of readdirSync(d)) {
       const p = join(d, name);
       if (statSync(p).isDirectory()) walk(p);
-      else acc.push(relative(dir, p));
+      else acc.push(relative(dir, p).split(sep).join('/'));
     }
   };
   if (existsSync(dir)) walk(dir);
