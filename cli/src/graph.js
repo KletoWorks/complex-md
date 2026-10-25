@@ -283,7 +283,7 @@ const GO_IMPORT_BLOCK_RE = /^import\s*\(([\s\S]*?)\)|^import\s+(?:\w+\s+)?"([^"]
 const GO_IMPORT_LINE_RE = /(?:^|\n)\s*(?:\w+\s+)?"([^"]+)"/g;
 const RS_MOD_RE = /^\s*(?:#\[path\s*=\s*(__RUST_STRING_\d+__)\]\s*)?(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_]\w*)\s*;/gm;
 const RS_USE_RE = /^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([\s\S]*?);/gm;
-const RS_STRING_RE = /(?:br|r)(#{0,})"[\s\S]*?"\1|b?"(?:\\(?:\r?\n[ \t]*|[^\r\n])|[^"\\])*"|'(?:\\.|[^'\\\n])*'/g;
+const RS_STRING_RE = /(?:br|r)(#{0,})"[\s\S]*?"\1|b?"(?:\\(?:\r?\n|[^\r\n])|[^"\\])*"|'(?:\\.|[^'\\\n])*'/g;
 const RS_BLOCK_COMMENT_RE = /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//g;
 // Anything that looks like a repo path with an extension, for scripts, cron,
 // compose files and configs that name files without an import keyword.
