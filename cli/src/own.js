@@ -93,11 +93,16 @@ export function createOwner({ root, ledger, report, log = () => {} }) {
   return {
     isOurs,
 
-    /** Write a generated file. */
+    /** Write a generated file. Returns false, and writes nothing, when a file of the user's is at that path. */
     write(rel, content) {
       const p = join(root, rel);
       if (existsSync(p)) {
-        if (read(p) !== content) writeFileSync(p, content);
+        const cur = read(p);
+        if (!isOurs(rel, cur)) {
+          report.skipped.push(`${rel} (not written by complex-md; left as it is)`);
+          return false;
+        }
+        if (cur !== content) writeFileSync(p, content);
       } else {
         ensureDir(root, dirname(rel), ledger);
         writeFileSync(p, content);
@@ -106,19 +111,30 @@ export function createOwner({ root, ledger, report, log = () => {} }) {
       return true;
     },
 
-    /** Remove a block only copy an earlier wire wrote: it holds our heading. */
+    /** Remove a generated file this run does not write. Returns true when it was removed. */
     drop(rel) {
       const p = join(root, rel);
-      if (!existsSync(p) || !read(p).includes(BLOCK_HEADING)) return false;
+      if (!existsSync(p)) return false;
+      const entry = listed(rel);
+      if (entry) {
+        const r = removeListedFile(root, entry);
+        if (r === 'edited') log(`${rel} was edited after wire wrote it; left in place. Delete it by hand if it is no longer wanted.`);
+        return r === 'removed';
+      }
+      if (!looksGenerated(read(p))) return false;
       rmSync(p);
       return true;
     },
 
-    /** Remove the files in a folder that `match` selects. */
+    /** Remove unlisted generated files in a folder that `match` selects; listed ones are left to finish(). */
     clear(relDir, match) {
       const dir = join(root, relDir);
       if (!existsSync(dir) || !statSync(dir).isDirectory()) return;
-      for (const name of readdirSync(dir)) if (match(name) && statSync(join(dir, name)).isFile()) rmSync(join(dir, name));
+      for (const name of readdirSync(dir)) {
+        const rel = `${relDir}/${name}`;
+        if (!match(name) || listed(rel) || !statSync(join(dir, name)).isFile()) continue;
+        if (looksGenerated(read(join(dir, name)))) rmSync(join(dir, name));
+      }
     },
 
     /* Everything the previous run wrote that this run did not: removed when
