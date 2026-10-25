@@ -2,7 +2,10 @@
 // Compliance: when an agent edits a file the map writes a test instruction
 // for, does it run the tests that instruction names.
 //
-//   node bench/comply.mjs <resultsDir> <datasetPath>
+//   node bench/comply.mjs <resultsDir> <datasetPath> [mapsDir]
+//
+// mapsDir defaults to <resultsDir>/maps; pass the --cache maps of a run
+// whose maps live elsewhere.
 //
 // The map's "Why these files are hot" section gives each hot file a
 // paragraph, and the paragraph ends with "Before editing this file, run
@@ -17,7 +20,7 @@
 // directory". The same map serves every arm of a task (one map per calendar
 // month of base dates, as bench/run.mjs builds them), so the advice an arm
 // is scored against does not depend on the arm.
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mcnemar } from './stats.mjs';
@@ -81,15 +84,23 @@ export function scoreRuns(rows, { mapFor, transcriptFor }) {
 }
 
 /** The runs of one results directory, scored against its dataset. */
-export function scoreDir(resultsDir, dataset) {
+export function scoreDir(resultsDir, dataset, { mapsDir = join(resultsDir, 'maps') } = {}) {
   const rows = readFileSync(join(resultsDir, 'runs.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
   const repoKey = (dataset.repo || 'repo').replace('/', '-');
   const byId = new Map(dataset.tasks.map((t) => [t.id, t]));
   const mapFor = (id) => {
     const task = byId.get(id);
     if (!task) return null;
-    const p = join(resultsDir, 'maps', `${repoKey}-${task.date.slice(0, 7)}.md`);
-    return existsSync(p) ? readFileSync(p, 'utf8') : null;
+    /* Published runs name a map after its month; run.mjs now adds the
+       commit it was built at. A month has one anchor, and a row's
+       map_commit picks it if a directory ever holds two. */
+    const month = `${repoKey}-${task.date.slice(0, 7)}`;
+    const old = join(mapsDir, `${month}.md`);
+    if (existsSync(old)) return readFileSync(old, 'utf8');
+    const named = existsSync(mapsDir) ? readdirSync(mapsDir).filter((f) => f.startsWith(`${month}-`) && f.endsWith('.md')) : [];
+    const anchor = rows.find((r) => r.task === id && r.map_commit)?.map_commit;
+    const pick = named.length === 1 ? named[0] : named.find((f) => anchor && anchor.startsWith(f.slice(month.length + 1, -3)));
+    return pick ? readFileSync(join(mapsDir, pick), 'utf8') : null;
   };
   const transcriptFor = (id, arm) => {
     const p = join(resultsDir, 'transcripts', `${id}-${arm}.jsonl`);
@@ -114,12 +125,12 @@ export function compareArms(units, arm, base = 'none') {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const [resultsDir, datasetPath] = process.argv.slice(2);
+  const [resultsDir, datasetPath, mapsDir] = process.argv.slice(2);
   if (!resultsDir || !datasetPath) {
-    console.error('usage: node bench/comply.mjs <resultsDir> <datasetPath>');
+    console.error('usage: node bench/comply.mjs <resultsDir> <datasetPath> [mapsDir]');
     process.exit(2);
   }
-  const { tally, units } = scoreDir(resultsDir, JSON.parse(readFileSync(datasetPath, 'utf8')));
+  const { tally, units } = scoreDir(resultsDir, JSON.parse(readFileSync(datasetPath, 'utf8')), mapsDir ? { mapsDir } : {});
   const comparisons = Object.keys(tally).filter((a) => a !== 'none').map((a) => compareArms(units, a));
   console.log(JSON.stringify({ results: resultsDir, tally, comparisons }, null, 2));
 }
