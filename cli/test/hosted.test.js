@@ -72,6 +72,26 @@ test('the generator writes each page, its raw file, the index and the sitemap, a
   assert.deepEqual(readdirSync(r.dir).sort(), ['maps.json', 'out']);
 });
 
+test('a malformed map is rejected without stopping the other pages', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const malformed = cleanMap().replace('window_commits: 140', 'window_commits:\n  toString: invalid');
+  const r = run({
+    version: 1,
+    maps: [
+      entry('good', 'one'),
+      entry('bad', 'broken', { raw_text: malformed }),
+      entry('also', 'good'),
+    ],
+    committed: [],
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(files(r.out).filter((f) => f.endsWith('/index.html')).length, 2);
+  const rejected = r.stderr.trim().split('\n').filter((line) => line.includes('bad/broken'));
+  assert.equal(rejected.length, 1, r.stderr);
+  assert.match(rejected[0], /reject|drop/i);
+  assert.match(rejected[0], /Cannot convert|primitive|toString/i);
+});
+
 test('the same input gives byte identical output', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const a = run(hostileInput());

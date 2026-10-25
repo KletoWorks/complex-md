@@ -38,16 +38,23 @@ for (const k of badCommitted) console.error(`hosted-pages: committed entry ${JSO
 
 const pages = [];
 const seen = new Set();
-input.maps.forEach((e, i) => {
-  const label = `maps[${i}]`;
-  const r = checkEntry(e, { committed: new Set(Object.keys(committed)) });
-  if (r.drop) return console.error(`hosted-pages: ${label} dropped: ${r.drop}`);
-  if (seen.has(r.page.key)) return console.error(`hosted-pages: ${label} dropped: a second entry for ${r.page.key}`);
-  const html = renderHostedPage(r.page, { site });
-  if (Buffer.byteLength(html) > LIMITS.page) return console.error(`hosted-pages: ${label} dropped: the page is over ${LIMITS.page} bytes`);
-  seen.add(r.page.key);
-  pages.push({ ...r.page, html });
-});
+const committedKeys = new Set(Object.keys(committed));
+for (const [i, e] of input.maps.entries()) {
+  const repoKey = typeof e?.repo_key === 'string' ? e.repo_key.slice(0, 100) : '?';
+  const label = `maps[${i}] (${JSON.stringify(repoKey)})`;
+  const reject = (reason) => console.error(`hosted-pages: ${label} dropped: ${reason}`);
+  try {
+    const r = checkEntry(e, { committed: committedKeys });
+    if (r.drop) { reject(r.drop); continue; }
+    if (seen.has(r.page.key)) { reject(`a second entry for ${r.page.key}`); continue; }
+    const html = renderHostedPage(r.page, { site });
+    if (Buffer.byteLength(html) > LIMITS.page) { reject(`the page is over ${LIMITS.page} bytes`); continue; }
+    seen.add(r.page.key);
+    pages.push({ ...r.page, html });
+  } catch (error) {
+    reject(error instanceof Error ? error.message : 'unknown error');
+  }
+}
 pages.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 
 /** A path under out, or an error: the checks above make this unreachable. */
