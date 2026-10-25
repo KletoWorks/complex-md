@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { readManifest, writeManifest, MANIFEST_PATH } from './manifest.js';
 import { removeListedFile, removeListedBlock, removeListedEntry, pruneDirs } from './own.js';
 import { WORK_DIR } from './gitignore.js';
+import { OWN_BRIEF_DIRS } from './targets.js';
 
 export function unwire(root, { log = () => {} } = {}) {
   const report = { manifest: true, removed: [], deleted: [], left: [], missing: [] };
@@ -64,6 +65,8 @@ export function unwire(root, { log = () => {} } = {}) {
     log('The line /.claude/settings.local.json that wire --hooks --local added to .git/info/exclude stays; it affects this clone only.');
   }
   left.dirs = pruneDirs(root, m.dirs || []);
+  // A brief folder named after complex-md goes once it is empty (targets.js).
+  pruneDirs(root, OWN_BRIEF_DIRS);
   /* What is left stays on record, so a later unwire, after the user
      reverts or deletes those files, still knows they were complex-md's. */
   writeManifest(root, left);

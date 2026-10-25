@@ -6,6 +6,10 @@ format.
 
 ## Unreleased
 
+**Intent:** after a new `wire` and `unwire`, a repository first wired by 0.10.0 kept 2 leftovers: the `CLAUDE.md` that 0.10.0 created with only `@AGENTS.md` and `@COMPLEX.md`, and the brief folders that a minimal rewire empties ([issue #25](https://github.com/KletoWorks/complex-md/issues/25)).
+
+**Change:** wire records a `CLAUDE.md` whose text is exactly those 2 lines, with CRLF or without the last newline, in the manifest, and unwire deletes it. Any other byte makes it the user's: it stays, and wire says so. wire and unwire remove `.claude/rules/complex-md/`, `.cursor/rules/complex-md/` and `.github/instructions/complex-md/` once they are empty, and never a folder that holds another file. `cli/test/upgrade-0.10.test.js` models a 0.10.0 repository.
+
 **Intent:** the map's sentence rules allow no em dash, but models write them. In the first model matrix run, `bench/results/models/2026-10-25/summary.md`, the em dash check failed for 25 of 40 scored maps, and the CLI wrote the prose as it came ([issue #23](https://github.com/KletoWorks/complex-md/issues/23)).
 
 **Change:** after a model or `--via` reply passes `normalizeOutput`, each sentence that uses an em dash or an en dash as punctuation goes back to the same model in 1 repair request, and the rewrites replace only those sentences. A dash that is left becomes a comma, a space, or "to" in a range of digits, and the run prints how many it replaced. Dashes in code spans, paths and code blocks stay. `cli/src/dashes.js` holds the rules; `cli/test/dashes.test.js` covers the repair, the fallback and the template prose.

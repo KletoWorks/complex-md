@@ -237,7 +237,10 @@ registers the server. The MCP server speaks stdio and exposes six tools:
 `unwire` reads `.complex-md/manifest.json`, where wire records each file and
 marked section it wrote with a hash. It deletes those files and cuts out
 those sections. A file or section edited since wire wrote it stays, and
-unwire names it. COMPLEX.md stays too. `--dry-run` on `wire` or `unwire`
+unwire names it. COMPLEX.md stays too. A `CLAUDE.md` that holds only the
+2 import lines that 0.10.0 wrote is recorded by the next wire, so unwire
+deletes it. wire and unwire remove a brief folder named after complex-md,
+such as `.claude/rules/complex-md/`, once it is empty. `--dry-run` on `wire` or `unwire`
 prints the file plan and writes nothing. The manifest is committed, so it
 can come from someone else: wire and unwire ignore a listed path that is
 absolute, has a `..` segment or starts in `.git`, and they write and

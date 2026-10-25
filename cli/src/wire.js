@@ -142,12 +142,35 @@ export function markBlock(root, rel, content, { place = 'end', style = 'html', l
   return 'written';
 }
 
+/* 0.10.0 created a CLAUDE.md beside AGENTS.md with only these 2 import
+   lines, and wrote no manifest. The file is recorded as complex-md's while
+   it holds exactly them, with CRLF or without the last newline, so unwire
+   removes it. Any other byte makes it the user's, and it stays. */
+const OLD_CLAUDE = '@AGENTS.md\n@COMPLEX.md';
+
+function adoptOldClaude(root, ledger, log) {
+  const rel = 'CLAUDE.md';
+  const p = join(root, rel);
+  if (!insideRepo(root, rel) || !existsSync(p)) return;
+  const cur = readFileSync(p, 'utf8');
+  const lf = cur.replace(/\r\n/g, '\n');
+  if (lf === OLD_CLAUDE || lf === OLD_CLAUDE + '\n') {
+    ledger.files.push({ path: rel, sha256: normalizedHash(cur), adopted: '0.10.0' });
+    return;
+  }
+  const listed = ledger.previous?.files?.some((f) => f.path === rel);
+  if (!listed && !findRegion(cur) && IMPORTS_AGENTS.test(cur) && IMPORTS_MAP.test(cur)) {
+    log(`${rel} holds the 2 import lines that complex-md 0.10.0 wrote, and other text, so it is yours; wire and unwire leave it.`);
+  }
+}
+
 /* Every generated path gets eol=lf and linguist-generated in a marked
    block of .gitattributes. LF on every checkout keeps a Windows clone with
    core.autocrlf from rewriting them, and GitHub folds them in a diff. The
    leading slash anchors each path at the repository root. */
 function markGenerated(root, ledger, mark) {
-  const paths = [...new Set(['COMPLEX.md', MANIFEST_PATH, ...ledger.files.map((f) => f.path)])].sort();
+  // An adopted CLAUDE.md is read and edited by people, so it is not marked.
+  const paths = [...new Set(['COMPLEX.md', MANIFEST_PATH, ...ledger.files.filter((f) => !f.adopted).map((f) => f.path)])].sort();
   const lines = paths.map((p) => `/${p} eol=lf linguist-generated`);
   mark('.gitattributes', `# Files complex-md generates. Edit COMPLEX.md, not them.\n${lines.join('\n')}\n`, { style: 'hash', create: true, created: !existsSync(join(root, '.gitattributes')) });
 }
@@ -263,6 +286,7 @@ export function wire(root, { profile = null, hooks = false, mcp = false, rules =
     }
     if (r === 'unchanged' || importsAgents) report.skipped.push(f);
   }
+  adoptOldClaude(root, ledger, log);
   /* Claude Code reads AGENTS.md when the repository has no CLAUDE.md, and a
      new root CLAUDE.md would stop it loading nested AGENTS.md files. So
      wire never creates CLAUDE.md: when Claude Code has neither file to
