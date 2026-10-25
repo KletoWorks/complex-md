@@ -21,7 +21,11 @@ import { registryInvocation } from './invoke.js';
    integration block in each agent file, and at most ten briefs per agent. */
 export const PROFILES = ['minimal', 'full'];
 
-const PRIMARY = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.github/copilot-instructions.md'];
+/* AGENTS.override.md first: Codex reads it in place of AGENTS.md in the
+   same folder (developers.openai.com/codex/guides/agents-md), while every
+   other agent reads only AGENTS.md, so both get our text. */
+const OVERRIDE = 'AGENTS.override.md';
+const PRIMARY = [OVERRIDE, 'AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.github/copilot-instructions.md'];
 /* Files whose agents expand an `@AGENTS.md` line into the text of AGENTS.md. */
 const IMPORTERS = ['CLAUDE.md', 'GEMINI.md'];
 
@@ -191,7 +195,7 @@ export function wire(root, { profile = null, hooks = false, mcp = false, rules =
   for (const f of PRIMARY) {
     const p = join(root, f);
     if (!existsSync(p)) continue;
-    any = true;
+    if (f !== OVERRIDE) any = true;
     /* Copilot reads AGENTS.md as well; the minimal line goes into its own
        file only when there is no AGENTS.md to carry it. */
     if (!full && f === '.github/copilot-instructions.md' && agentsCarries) continue;

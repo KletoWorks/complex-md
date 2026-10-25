@@ -101,3 +101,25 @@ test('an unknown profile is refused before any write', () => {
   assert.throws(() => wire(dir, { profile: 'max' }), /profile.*minimal.*full/);
   assert.deepEqual(snapshot(dir), before);
 });
+
+/* Codex reads AGENTS.override.md in place of AGENTS.md in the same
+   folder, and other agents read only AGENTS.md. So the line goes into
+   both when both exist. */
+test('the line goes into AGENTS.override.md as well when it exists', () => {
+  const dir = repo({ 'AGENTS.md': '# Rules\n', 'AGENTS.override.md': '# Local override\n\nUse the staging database.\n' });
+  const before = snapshot(dir);
+  wire(dir, {});
+  assert.ok(read(dir, 'AGENTS.override.md').startsWith(`# Local override\n\n<!-- BEGIN complex-md (spec 0.3) -->\n${INTEGRATION_LINE}\n`));
+  assert.ok(read(dir, 'AGENTS.md').includes(INTEGRATION_LINE));
+  wire(dir, { profile: 'full' });
+  assert.ok(findRegion(read(dir, 'AGENTS.override.md')).text.includes(HEADING));
+  unwire(dir);
+  assert.deepEqual(snapshot(dir), before);
+});
+
+test('with only AGENTS.override.md, wire also creates AGENTS.md for the agents that read only that', () => {
+  const dir = repo({ 'AGENTS.override.md': '# Override\n' });
+  const r = wire(dir, {});
+  assert.ok(read(dir, 'AGENTS.override.md').includes(INTEGRATION_LINE));
+  assert.deepEqual(r.created, ['AGENTS.md']);
+});
