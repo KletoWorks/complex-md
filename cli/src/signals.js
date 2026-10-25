@@ -473,7 +473,7 @@ export function testCommandFor(cwd, path) {
   return null;
 }
 
-export const TABLE_HEAD =['score', 'path', 'kind', 'loc', 'churn', 'churn_w', 'fixes', 'authors', 'owner_share', 'fan_in', 'rank', 'tests'];
+export const TABLE_HEAD = ['score', 'path', 'kind', 'loc', 'churn', 'churn_w', 'fixes', 'authors', 'owner_share', 'fan_in', 'rank', 'tests'];
 
 export function rowToArray(r) {
   return [r.score, r.path, r.kind, r.loc, r.churn, r.churn_w.toFixed(2), r.fixes, r.authors, r.owner_share.toFixed(2), r.fan_in, r.rank ?? 0, r.tests];
