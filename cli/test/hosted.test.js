@@ -177,6 +177,24 @@ test('hostile paths, prose and front matter never reach the page as markup', (t)
   assert.equal(readFileSync(join(r.out, 'evil-org/trap/COMPLEX.md'), 'utf8'), hostileInput().maps[1].raw_text, 'the raw file stays exact; it is served as text');
 });
 
+/* The hostile fixture drops every string that carries a bidi control for
+   another reason (an unsafe path, a < in the text). This map keeps its text
+   and paths safe, so only the stripping can keep the controls out. */
+test('invisible and bidi characters are stripped from text that reaches the page', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const ZW = '​';
+  const ISO = '⁦';
+  const raw = cleanMap()
+    .replace('"2 generated or lock files excluded"', `"2 generated ${RLO}or lock${ZW} files ${ISO}excluded"`)
+    .replace('Change risk concentrates', `Change ${RLO}risk${ZW} concentrates`);
+  const r = run({ version: 1, site: 'https://complex.md', maps: [entry('acme', 'bidi-text', { raw_text: raw })], committed: [] });
+  assert.equal(r.status, 0, r.stderr);
+  const html = readFileSync(join(r.out, 'acme/bidi-text/index.html'), 'utf8');
+  assert.ok(html.includes('2 generated or lock files excluded'), 'the blind spot stays, without its controls');
+  assert.ok(html.includes('Change risk concentrates'), 'the summary stays, without its controls');
+  assert.ok(![RLO, ZW, ISO].some((c) => html.includes(c)), 'no invisible or bidi character');
+});
+
 test('a page shows template prose only: other prose is left out and the page says so', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const r = run(hostileInput());
