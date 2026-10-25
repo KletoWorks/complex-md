@@ -356,6 +356,31 @@ const CASES = [
     ],
   },
   {
+    name: 'rust path attributes inside inline modules resolve under the inline module directory',
+    files: {
+      'Cargo.toml': '[package]\nname = "inline_paths"\n',
+      'src/lib.rs': 'mod outer;\nmod inline {\n  #[path = "other.rs"] mod nested;\n}\n',
+      'src/main.rs': 'mod bin_inline {\n  #[path = "owned.rs"] mod nested;\n}\npub struct BinaryItem;\n',
+      'src/inline/other.rs': '',
+      'src/other.rs': '',
+      'src/outer.rs': 'mod inner {\n  #[path = "deep.rs"] mod deep;\n}\n',
+      'src/outer/inner/deep.rs': '',
+      'src/deep.rs': '',
+      'src/bin_inline/owned.rs': 'use crate::BinaryItem;\n',
+    },
+    edges: [
+      ['src/lib.rs', 'src/inline/other.rs'],
+      ['src/outer.rs', 'src/outer/inner/deep.rs'],
+      ['src/main.rs', 'src/bin_inline/owned.rs'],
+      ['src/bin_inline/owned.rs', 'src/main.rs'],
+    ],
+    notEdges: [
+      ['src/lib.rs', 'src/other.rs'],
+      ['src/outer.rs', 'src/deep.rs'],
+      ['src/bin_inline/owned.rs', 'src/lib.rs'],
+    ],
+  },
+  {
     name: 'go: an import of a package depends on every non-test file in its directory',
     files: {
       'go.mod': 'module example.com/m\n',

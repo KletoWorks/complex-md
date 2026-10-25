@@ -387,6 +387,20 @@ function rustModuleBase(file, scopes = [], at = Infinity) {
   return base;
 }
 
+// The file a `mod name;` match loads. A #[path] literal is relative to the
+// declaring file's directory, or, inside an inline module, to that module's
+// directory, as the Rust Reference states for path attributes.
+function rustModTarget(file, match, scopes, rust, files) {
+  const base = rustModuleBase(file, scopes, match.index);
+  if (!match[1]) {
+    const path = posix.join(base, match[2]);
+    return files.has(path + '.rs') ? path + '.rs' : files.has(path + '/mod.rs') ? path + '/mod.rs' : null;
+  }
+  const inline = scopes.some((s) => s.start <= match.index && match.index < s.end);
+  const path = posix.normalize(posix.join(inline ? base : posix.dirname(file), rust.string(match[1].match(/\d+/)[0]) || ''));
+  return files.has(path) && !path.startsWith('../') ? path : null;
+}
+
 function rustInlineScopes(text) {
   const scopes = [];
   const re = /\bmod\s+([A-Za-z_]\w*)\s*\{/g;
@@ -462,13 +476,7 @@ function rustCrates(files, texts) {
     RS_MOD_RE.lastIndex = 0;
     let match;
     while ((match = RS_MOD_RE.exec(rust.text))) {
-      const base = rustModuleBase(file, scopes, match.index);
-      const path = match[1]
-        ? posix.normalize(posix.join(posix.dirname(file), rust.string(match[1].match(/\d+/)[0]) || ''))
-        : posix.join(base, match[2]);
-      const target = match[1]
-        ? files.has(path) && !path.startsWith('../') ? path : null
-        : files.has(path + '.rs') ? path + '.rs' : files.has(path + '/mod.rs') ? path + '/mod.rs' : null;
+      const target = rustModTarget(file, match, scopes, rust, files);
       if (target && forFile(target) === crate) visit(target, root, crate, seen);
     }
   };
@@ -712,13 +720,7 @@ export function buildGraph(root, tracked) {
       const crate = rustCratesByFile.forFile(f);
       RS_MOD_RE.lastIndex = 0;
       while ((m = RS_MOD_RE.exec(rust.text))) {
-        const base = rustModuleBase(f, scopes, m.index);
-        const path = m[1]
-          ? posix.normalize(posix.join(fromDir, rust.string(m[1].match(/\d+/)[0]) || ''))
-          : posix.join(base, m[2]);
-        add(f, m[1]
-          ? files.has(path) && !path.startsWith('../') ? path : null
-          : files.has(path + '.rs') ? path + '.rs' : files.has(path + '/mod.rs') ? path + '/mod.rs' : null);
+        add(f, rustModTarget(f, m, scopes, rust, files));
       }
       RS_USE_RE.lastIndex = 0;
       while ((m = RS_USE_RE.exec(rust.text))) {
