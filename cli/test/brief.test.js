@@ -66,7 +66,7 @@ test('a co-change partner that is not ranked is not called risky', () => {
   const t = briefFor(MAP, 'src/render.css');
   assert.match(t, /Not ranked in COMPLEX\.md/);
   assert.doesNotMatch(t, /edits are risky/);
-  assert.match(t, /src\/render\.js \(100% of this file's commits, 4 together\)/);
+  assert.match(t, /src\/render\.js \(4 commits together, 100% of the less active file's commits\)/);
 });
 
 test('a path the map says nothing about gets no brief', () => {

@@ -6,6 +6,17 @@ format.
 
 ## Unreleased
 
+**Change:** a brief's partner line now reads "4 commits together, 100% of
+the less active file's commits". It said "100% of this file's commits",
+which overstated coupling whenever the brief's file was the busier one of
+the pair.
+
+**Change:** zod moves from 3.25 to 4.6.7 and the MCP SDK lock moves to
+1.32.2. `npm audit` reported 18 advisories in the lock file (1 critical, 5
+high), among them zod GHSA-mrhx-c7xc-m3w5, a memory exhaustion while
+validating oversized collections. It now reports 0. The 6 MCP tools keep the
+same input schemas, and an out of range argument is still refused.
+
 **Intent:** a first run with no key ended with a prompt file and no map, a
 keyed run whose call failed ended the same way, and a default wire wrote
 hooks into committed settings. Users of an agent CLI with no API key had no
