@@ -164,7 +164,7 @@ test('copilot is detected from its own files only, never from .github alone', ()
 test('review: an existing REVIEW.md gets one @COMPLEX.md line; none is ever created', () => {
   const dir = repo({ 'REVIEW.md': '# Review instructions\n\nReport at most five Nits per review.' });
   const r = wire(dir, {});
-  assert.equal(read(dir, 'REVIEW.md'), '# Review instructions\n\nReport at most five Nits per review.\n\n@COMPLEX.md\n');
+  assert.equal(read(dir, 'REVIEW.md'), '# Review instructions\n\nReport at most five Nits per review.\n\n<!-- BEGIN complex-md (spec 0.3) -->\n@COMPLEX.md\n<!-- END complex-md (spec 0.3) -->\n');
   assert.ok(r.primary.includes('REVIEW.md (@COMPLEX.md include)'));
   wire(dir, {});
   assert.equal(count(read(dir, 'REVIEW.md'), '@COMPLEX.md'), 1, 'a rewire adds nothing');

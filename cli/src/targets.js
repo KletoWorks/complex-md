@@ -11,6 +11,7 @@ import { execFileSync } from 'node:child_process';
 import { git } from './git.js';
 import { hookCommand } from './invoke.js';
 import { BLOCK_HEADING } from './prompts.js';
+import { outsideRegion } from './markers.js';
 
 /* One rule file per briefed path, in a directory of their own.
  *
@@ -362,14 +363,15 @@ export const TARGETS = {
 
   codex: {
     detect: (root) => existsSync(join(root, '.codex')),
-    mcp({ root, inv, report }) {
+    mcp({ root, inv, report, mark }) {
       const p = join(root, '.codex/config.toml');
       const cur = existsSync(p) ? readFileSync(p, 'utf8') : '';
-      if (!/\[mcp_servers\.complex-md\]/.test(cur)) {
-        const args = [...inv.args, 'mcp'];
-        appendFileSync(p, (cur && !cur.endsWith('\n') ? '\n' : '') + `\n[mcp_servers.complex-md]\ncommand = ${JSON.stringify(inv.command)}\nargs = [${args.map((a) => JSON.stringify(a)).join(', ')}]\n`);
-        report.mcp.push('.codex/config.toml');
-      }
+      /* A table outside the markers is one an earlier version appended, or
+         the user's own; either way it stays, and no second one is added. */
+      if (/\[mcp_servers\.complex-md\]/.test(outsideRegion(cur))) return;
+      const args = [...inv.args, 'mcp'];
+      const table = `[mcp_servers.complex-md]\ncommand = ${JSON.stringify(inv.command)}\nargs = [${args.map((a) => JSON.stringify(a)).join(', ')}]\n`;
+      if (mark('.codex/config.toml', table, { style: 'hash', create: true }) === 'written') report.mcp.push('.codex/config.toml');
     },
   },
 
@@ -399,17 +401,19 @@ export const TARGETS = {
      stay plain text, so an ending like that gets nothing. */
   review: {
     detect: (root) => existsSync(join(root, 'REVIEW.md')),
-    rules({ root, report }) {
+    rules({ root, report, mark }) {
       const p = join(root, 'REVIEW.md');
       if (!existsSync(p)) return void report.skipped.push('REVIEW.md (absent, not created)');
       const cur = readFileSync(p, 'utf8');
-      if (/^@COMPLEX\.md\s*$/m.test(cur)) return void report.skipped.push('REVIEW.md');
-      const fences = (cur.match(/^\s*(```|~~~)/gm) || []).length;
-      if (fences % 2 || cur.lastIndexOf('<!--') > cur.lastIndexOf('-->')) {
+      const outside = outsideRegion(cur);
+      if (/^@COMPLEX\.md\s*$/m.test(outside)) return void report.skipped.push('REVIEW.md');
+      const fences = (outside.match(/^\s*(```|~~~)/gm) || []).length;
+      if (fences % 2 || outside.lastIndexOf('<!--') > outside.lastIndexOf('-->')) {
         return void report.skipped.push('REVIEW.md (ends inside a code fence or comment)');
       }
-      appendFileSync(p, (cur.endsWith('\n') ? '' : '\n') + '\n@COMPLEX.md\n');
-      report.primary.push('REVIEW.md (@COMPLEX.md include)');
+      const r = mark('REVIEW.md', '@COMPLEX.md\n');
+      if (r === 'written') report.primary.push('REVIEW.md (@COMPLEX.md include)');
+      else report.skipped.push('REVIEW.md');
     },
   },
 

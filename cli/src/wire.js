@@ -3,10 +3,12 @@
 // the MCP server are written only when asked for. Per-harness knowledge
 // lives in targets.js; this file decides which targets are active and what
 // invocation they get.
-import { readFileSync, writeFileSync, existsSync, appendFileSync, realpathSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, realpathSync, mkdirSync } from 'node:fs';
 import { join, dirname, relative, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { integrationBlock, BLOCK_HEADING } from './prompts.js';
+import { SPEC_VERSION } from './signals.js';
+import { findRegion, outsideRegion, upsertRegion, removeRegion, renderRegion, eolOf, normalizedHash } from './markers.js';
 import { loadComplexMd } from './complexmd.js';
 import { pathBriefs } from './brief.js';
 import { TARGETS, TARGET_NAMES, holdsOurHooks } from './targets.js';
@@ -37,11 +39,22 @@ function invocation(root) {
   return registryInvocation();
 }
 
-/* Prepended only when wire CREATES AGENTS.md, never when it appends to one
-   that already exists. complex-md owns the map and its integration block; it
-   does not own this repository's conventions and should not look as though it
-   does. */
+/* The first text of an AGENTS.md that wire CREATES, inside the marked
+   section, never of one that exists already. complex-md owns the map and
+   its section; it does not own this repository's conventions and should
+   not look as though it does. */
 const CREATED_PREAMBLE = `# AGENTS.md
+
+This file was created by complex-md and holds one marked section: how to
+read COMPLEX.md, the structural risk map, before editing a file the map
+calls hot. It is not a full agent contract. Put this repository's own rules
+for agents outside the markers; complex-md changes only the text between
+them.
+`;
+
+/* The preamble earlier versions wrote, without markers. A created file that
+   still holds exactly it and the block is recognised as ours. */
+const LEGACY_PREAMBLE = `# AGENTS.md
 
 This file was created by complex-md and carries one section: how to read
 COMPLEX.md, the structural risk map, before editing a file the map calls hot.
@@ -50,6 +63,58 @@ agent, and any contract it inherits from a parent repository, belongs above
 the section below; complex-md appends to this file rather than rewriting it.
 
 `;
+
+const IMPORTS_AGENTS = /^@(\.\/)?AGENTS\.md\s*$/m;
+const IMPORTS_MAP = /^@COMPLEX\.md\s*$/m;
+
+/**
+ * Write `content` as the marked region of `rel`, creating the file when
+ * `create` is set. `legacy` lists unmarked texts an earlier version wrote;
+ * one found verbatim is replaced by the region in place. An empty content
+ * removes a region that is there. Returns 'written', 'unchanged',
+ * 'removed', 'absent' or 'broken'.
+ */
+export function markBlock(root, rel, content, { place = 'end', style = 'html', legacy = [], create = false, created = false, ledger, log = () => {} } = {}) {
+  const p = join(root, rel);
+  const exists = existsSync(p);
+  if (!exists && !create) return 'absent';
+  const cur = exists ? readFileSync(p, 'utf8') : '';
+  const prev = ledger?.previous?.blocks?.find((b) => b.path === rel);
+  if (!content) {
+    if (!findRegion(cur) || findRegion(cur).broken) return 'absent';
+    const out = removeRegion(cur, prev || {});
+    writeFileSync(p, out.text);
+    return 'removed';
+  }
+  const eol = cur.includes('\n') ? eolOf(cur) : '\n';
+  let next = null;
+  let sep = { before: prev?.before ?? '', after: prev?.after ?? '' };
+  if (!findRegion(cur)) {
+    for (const old of legacy) {
+      const variant = old.replace(/\r?\n/g, eol);
+      const i = cur.lastIndexOf(variant);
+      if (i < 0) continue;
+      const head = cur.slice(0, i);
+      next = head + renderRegion(content, { style, spec: SPEC_VERSION, eol }) + cur.slice(i + variant.length);
+      sep = { before: head.endsWith(eol + eol) ? eol : '', after: '' };
+      break;
+    }
+  }
+  if (next === null) {
+    const r = upsertRegion(cur, content, { place, style, spec: SPEC_VERSION });
+    if (r.broken) {
+      log(`${rel} has a complex-md begin marker without an end marker; left as it is. Fix or delete the marker, then run wire again.`);
+      return 'broken';
+    }
+    next = r.text;
+    if (!r.replaced) sep = { before: r.before, after: r.after };
+  }
+  if (ledger) ledger.blocks.push({ path: rel, sha256: normalizedHash(findRegion(next).text), ...sep, ...(created || prev?.created ? { created: true } : {}) });
+  if (next === cur) return 'unchanged';
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, next);
+  return 'written';
+}
 
 /** `agents`: explicit target names (see targets.js); null detects repo-local targets from existing config. */
 /* mcp defaults to FALSE. On the 2026-09-26 benchmark (bench/RESULTS.md) the
@@ -93,7 +158,10 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
   // 1. Primary files. AGENTS.md comes first in PRIMARY, so once it exists
   // it carries the block by the time the others are read. A CLAUDE.md or
   // GEMINI.md that imports it (the shape this function creates) loads the
-  // block through that import; a second copy would load it twice.
+  // block through that import; a second copy would load it twice. Each
+  // file gets one marked region; text outside it is never changed.
+  const ledger = { blocks: [], files: [], entries: [], previous: null };
+  const mark = (rel, content, opts = {}) => markBlock(root, rel, content, { ledger, log, ...opts });
   let any = false;
   const agentsCarries = existsSync(join(root, 'AGENTS.md'));
   for (const f of PRIMARY) {
@@ -101,17 +169,30 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
     if (!existsSync(p)) continue;
     any = true;
     const cur = readFileSync(p, 'utf8');
-    if (cur.includes(BLOCK_HEADING) || (IMPORTERS.includes(f) && agentsCarries && /^@(\.\/)?AGENTS\.md\s*$/m.test(cur))) {
+    const outside = outsideRegion(cur);
+    const hasRegion = !!findRegion(cur);
+    const legacy = f === 'CLAUDE.md' ? [`${block}\n@COMPLEX.md\n`, block] : [block];
+    const importsAgents = IMPORTERS.includes(f) && agentsCarries && IMPORTS_AGENTS.test(outside);
+    /* Our own created AGENTS.md, from this version (only the region) or
+       an earlier one (the old preamble and the block). */
+    const ours = f === 'AGENTS.md' && ((hasRegion && !outside.trim()) || cur.replace(/\r\n/g, '\n') === LEGACY_PREAMBLE + block);
+    if (!hasRegion && outside.includes(BLOCK_HEADING) && !ours && !legacy.some((t) => cur.replace(/\r\n/g, '\n').includes(t))) {
+      log(`${f} holds a complex-md section from an earlier version, without markers; left as it is. Delete that section and run wire again to get the marked one.`);
       report.skipped.push(f);
-    } else {
-      appendFileSync(p, (cur.endsWith('\n') ? '' : '\n') + '\n' + block);
-      report.primary.push(f);
+      continue;
     }
-    // 2. Claude Code import.
-    if (f === 'CLAUDE.md' && !/^@COMPLEX\.md\s*$/m.test(readFileSync(p, 'utf8'))) {
-      appendFileSync(p, '\n@COMPLEX.md\n');
-      report.primary.push('CLAUDE.md (@COMPLEX.md import)');
+    const parts = [];
+    if (!importsAgents) parts.push(ours ? CREATED_PREAMBLE + '\n' + block : block);
+    if (f === 'CLAUDE.md' && !IMPORTS_MAP.test(outside)) parts.push('@COMPLEX.md\n');
+    const content = parts.join('\n');
+    const r = ours && !hasRegion
+      ? mark(f, content, { legacy: [LEGACY_PREAMBLE + block], created: true })
+      : mark(f, content, { legacy });
+    if (r === 'written') {
+      if (!importsAgents) report.primary.push(f);
+      if (f === 'CLAUDE.md' && content.includes('@COMPLEX.md')) report.primary.push('CLAUDE.md (@COMPLEX.md import)');
     }
+    if (r === 'unchanged' || importsAgents) report.skipped.push(f);
   }
   if (!any) {
     /* No primary file existed, so this one is ours to create. It is named
@@ -119,8 +200,8 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
        holds one section. Say which, so a reader who arrives at it does not
        take the absence of house rules for their absence in the project, and
        so the next person knows where to put them. Wiring a repository that
-       already has a contract appends to it instead and this never runs. */
-    writeFileSync(join(root, 'AGENTS.md'), CREATED_PREAMBLE + block);
+       already has a contract adds a marked section to it instead. */
+    mark('AGENTS.md', CREATED_PREAMBLE + '\n' + block, { create: true, created: true });
     report.created.push('AGENTS.md');
   }
 
@@ -140,7 +221,7 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
   for (const name of active) {
     const t = TARGETS[name];
     const tinv = t.global ? { shell: inv.absShell, command: inv.absCommand, args: inv.absArgs } : inv;
-    const ctx = { root, inv: tinv, block, paths, briefs, report, log, carried };
+    const ctx = { root, inv: tinv, block, paths, briefs, report, log, carried, ledger, mark };
     if (rules && t.rules) t.rules(ctx);
     if (hooks && t.hooks) t.hooks({ ...ctx, local: hooks === 'local' });
     else if (!hooks && t.hookFile && holdsOurHooks(root, t.hookFile)) {
