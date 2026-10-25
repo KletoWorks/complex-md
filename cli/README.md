@@ -170,9 +170,9 @@ runs it on stdio. Six tools:
     npx complex-md signals [--json | --tsv]
     npx complex-md impact <path> [--json] [--strict]
     npx complex-md report                # write .complex-md/report.html, a page of the map
-    npx complex-md wire [--hooks [--local]] [--mcp]
+    npx complex-md wire [--dry-run] [--hooks [--local]] [--mcp]
                         [--for claude,cursor,openhands,antigravity,codex,copilot,review,devin,windsurf,kiro,cline,openclaw,hermes]
-    npx complex-md unwire                # remove what wire wrote, as its manifest records it
+    npx complex-md unwire [--dry-run]    # remove what wire wrote, as its manifest records it
     npx complex-md generate --agent      # write the prompt bundle, no model call
     npx complex-md generate --template   # template prose from the numbers, no model call
     npx complex-md generate --yes        # skip the question after the file plan
@@ -180,7 +180,8 @@ runs it on stdio. Six tools:
 `unwire` reads `.complex-md/manifest.json`, where wire records each file and
 marked section it wrote with a hash. It deletes those files and cuts out
 those sections. A file or section edited since wire wrote it stays, and
-unwire names it. COMPLEX.md stays too.
+unwire names it. COMPLEX.md stays too. `--dry-run` on `wire` or `unwire`
+prints the file plan and writes nothing.
 
 `check --strict` exits 1 on findings, for pre-commit and CI.
 `check --base <ref>` exits 2 when the ref is not in the checkout. In GitHub

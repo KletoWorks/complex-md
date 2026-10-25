@@ -37,6 +37,7 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  goose, cursor-agent, copilot, hermes, openclaw (--model is passed to it;
                                  --via-timeout <s>, default 600)
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
+                                 --dry-run prints the file plan and writes nothing
                                  --hooks also writes the edit hooks: .claude/settings.json, .cursor/hooks.json
                                  --hooks --local writes them to .claude/settings.local.json only, kept out of git
                                  --for {targets}
@@ -45,7 +46,7 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  --mcp also registers the MCP server; openclaw/hermes are global
                                  registries, wired with --mcp --for openclaw,hermes through their own CLIs
   npx complex-md unwire          remove what wire wrote, as .complex-md/manifest.json records it; a file or
-                                 section edited since wire wrote it is left in place and named
+                                 section edited since wire wrote it is left in place and named (--dry-run)
   npx complex-md impact <path>   what changing a file reaches, against .complex-md/bounds.json
                                  --json | --strict (exit 1 when a declared bound is exceeded)
   npx complex-md check           report hotspots, untouched co-change partners and hand edited briefs in the change
@@ -128,6 +129,14 @@ async function main() {
   }
   // unwire reads the manifest, not the history.
   if (cmd === 'unwire') {
+    if (flag('--dry-run')) {
+      const { planUnwire, formatPlan } = await import('../src/plan.js');
+      const { plan, lines } = planUnwire(root);
+      log(formatPlan(plan));
+      for (const l of lines) if (/^(left|complex-md: no)/.test(l)) log(l);
+      log('Dry run: nothing was written.');
+      return;
+    }
     const { unwire } = await import('../src/unwire.js');
     unwire(root, { log });
     return;
@@ -210,6 +219,18 @@ async function main() {
   }
 
   if (cmd === 'wire') {
+    if (flag('--dry-run')) {
+      const { readFileSync, existsSync } = await import('node:fs');
+      const { join } = await import('node:path');
+      if (!existsSync(join(root, 'COMPLEX.md'))) {
+        log('complex-md: no COMPLEX.md at the repository root; generate it first.');
+        process.exit(2);
+      }
+      const { planWire, formatPlan } = await import('../src/plan.js');
+      log(formatPlan(planWire(root, readFileSync(join(root, 'COMPLEX.md'), 'utf8'), { hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(',') })));
+      log('Dry run: nothing was written.');
+      return;
+    }
     const { wire } = await import('../src/wire.js');
     wire(root, { hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
     return;
