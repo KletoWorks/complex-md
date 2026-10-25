@@ -423,9 +423,15 @@ async function runDamage(task, wt, baseline) {
 
 if (mapsOnly) {
   const mapArms = arms.filter((a) => a !== 'none' && a !== 'gold');
-  for (const task of tasks) if (mapArms.some((a) => !done.has(`${task.id}/${a}`))) await mapFor(task);
-  log(`maps built: ${join(cacheDir, 'maps')}`);
-  process.exit(0);
+  /* A month whose map fails is logged and left; its tasks' rows record the
+     error when a worker tries again. */
+  let failed = 0;
+  for (const task of tasks) {
+    if (!mapArms.some((a) => !done.has(`${task.id}/${a}`))) continue;
+    try { await mapFor(task); } catch (e) { failed++; log(`map for ${task.id} failed: ${String(e.message || e).slice(0, 200)}`); }
+  }
+  log(`maps built: ${join(cacheDir, 'maps')}${failed ? `, ${failed} tasks without a map` : ''}`);
+  process.exit(failed ? 4 : 0);
 }
 
 let added = 0;
