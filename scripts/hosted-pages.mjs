@@ -3,8 +3,9 @@
 //
 //   node scripts/hosted-pages.mjs --in maps.json --out <dir>
 //
-// It writes, under <dir> only: <owner>/<repo>/index.html and
-// <owner>/<repo>/COMPLEX.md for each page, maps/index.json for the /map
+// It writes, under <dir> only: <owner>/<repo>/index.html,
+// <owner>/<repo>/COMPLEX.md and <owner>/<repo>/og.png (the 1200x630 Open Graph
+// image, a PNG drawn without a dependency) for each page, maps/index.json for the /map
 // lookup, and sitemap-maps.xml with the indexable pages. No network, no
 // clock: the same input gives the same bytes. An entry that fails a check is
 // left out with one line on stderr, and the run still exits 0. A missing
@@ -12,7 +13,7 @@
 // <dir>: the command adds files and removes none.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
-import { checkEntry, checkCommitted, renderHostedPage, sitemap, mapsIndex, siteOf, LIMITS } from './hosted.mjs';
+import { checkEntry, checkCommitted, renderHostedPage, renderHostedOgImage, sitemap, mapsIndex, siteOf, LIMITS } from './hosted.mjs';
 
 const USAGE = 'usage: node scripts/hosted-pages.mjs --in maps.json --out <dir>';
 const argv = process.argv.slice(2);
@@ -70,6 +71,7 @@ for (const p of pages) {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'index.html'), p.html);
   writeFileSync(join(dir, 'COMPLEX.md'), p.raw);
+  writeFileSync(join(dir, 'og.png'), renderHostedOgImage(p));
 }
 mkdirSync(under('maps'), { recursive: true });
 writeFileSync(under('maps', 'index.json'), mapsIndex(pages, committed));

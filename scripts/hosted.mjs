@@ -7,12 +7,14 @@
 // against GitHub's own name rules, keeps only paths in a small character set,
 // strips bidi and control characters from text, renders a fixed set of front
 // matter fields and never any other, caps every list, and escapes all output
-// through the report renderer. A page loads only files from its own origin.
+// through the report renderer. The image is drawn from a fixed font, so text
+// in it can only be pixels. A page loads only files from its own origin.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseComplexMd } from '../cli/src/complexmd.js';
 import { reportParts, grepBlindFiles } from '../cli/src/render.js';
 import { ROOT, ORIGIN, mark, siteHeader, siteFooter } from './chrome.mjs';
+import { renderOgImage, OG_WIDTH, OG_HEIGHT } from './og-image.mjs';
 
 export const RESERVED = new Set(JSON.parse(readFileSync(join(ROOT, 'site/reserved.json'), 'utf8')));
 
@@ -189,6 +191,24 @@ function hostedMap(p) {
   };
 }
 
+/** The facts the page's Open Graph image shows, from the cleaned front matter: counts, two paths, a short sha and a date. */
+function ogFacts(p) {
+  const front = hostedMap(p).front;
+  const top = front.co_change[0];
+  return {
+    name: `${p.owner}/${p.name}`,
+    hotspots: front.hotspots.length,
+    pair: top ? { files: top.files, coupling: Math.round(top.coupling) } : null,
+    commit: p.sha.slice(0, 7),
+    date: p.date,
+  };
+}
+
+/** The PNG bytes of one page's Open Graph image, written at <owner>/<repo>/og.png. */
+export function renderHostedOgImage(p) {
+  return renderOgImage(ogFacts(p));
+}
+
 /** One hosted page as an HTML document. site: the origin the canonical links name. */
 export function renderHostedPage(p, { site = ORIGIN } = {}) {
   const map = hostedMap(p);
@@ -205,6 +225,8 @@ export function renderHostedPage(p, { site = ORIGIN } = {}) {
   const files = map.front.hotspots.length;
   const title = `${display}: COMPLEX.md map | complex.md`;
   const description = `Where edits break things in ${display}: ${files} ${files === 1 ? 'hot file' : 'hot files'}, the tests to run before editing them and the files that change together, computed from public git history.`;
+  const imageUrl = `${self}og.png`;
+  const imageAlt = `${display}: ${files} ${files === 1 ? 'hotspot' : 'hotspots'} in the COMPLEX.md map of commit ${p.sha.slice(0, 7)} on ${p.date}`;
   const short = p.sha.slice(0, 7);
   const tool = p.version ? `complex-md ${p.version}` : 'complex-md';
   const proseLine = p.template
@@ -226,8 +248,13 @@ export function renderHostedPage(p, { site = ORIGIN } = {}) {
 <meta property="og:url" content="${esc(self)}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="complex.md">
-<meta property="og:image" content="${esc(site)}/og.png">
+<meta property="og:image" content="${esc(imageUrl)}">
+<meta property="og:image:width" content="${OG_WIDTH}">
+<meta property="og:image:height" content="${OG_HEIGHT}">
+<meta property="og:image:alt" content="${esc(imageAlt)}">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="${esc(imageUrl)}">
+<meta name="twitter:image:alt" content="${esc(imageAlt)}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="theme-color" content="#ffffff">

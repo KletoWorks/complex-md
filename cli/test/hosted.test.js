@@ -55,8 +55,8 @@ test('the generator writes each page, its raw file, the index and the sitemap, a
   const r = run(input);
   assert.equal(r.status, 0, r.stderr);
   assert.deepEqual(files(r.out), [
-    'acme/widgets.js/COMPLEX.md', 'acme/widgets.js/index.html',
-    'beta/thing/COMPLEX.md', 'beta/thing/index.html',
+    'acme/widgets.js/COMPLEX.md', 'acme/widgets.js/index.html', 'acme/widgets.js/og.png',
+    'beta/thing/COMPLEX.md', 'beta/thing/index.html', 'beta/thing/og.png',
     'maps/index.json', 'sitemap-maps.xml',
   ]);
   assert.equal(readFileSync(join(r.out, 'acme/widgets.js/COMPLEX.md'), 'utf8'), input.maps[0].raw_text, 'the raw file is raw_text exactly');
@@ -70,6 +70,26 @@ test('the generator writes each page, its raw file, the index and the sitemap, a
   assert.ok(!sitemap.includes('beta/thing'), 'a page that is not indexable stays out of the sitemap');
   // Only the generator's own directory under the temp folder: nothing written beside it.
   assert.deepEqual(readdirSync(r.dir).sort(), ['maps.json', 'out']);
+});
+
+test('each page points og:image and twitter:image at its own PNG, which is 1200x630 and the same every run', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const a = run(basic());
+  const b = run(basic());
+  assert.equal(a.status, 0, a.stderr);
+  const html = readFileSync(join(a.out, 'acme/widgets.js/index.html'), 'utf8');
+  const url = 'https://complex.md/acme/widgets.js/og.png';
+  assert.ok(html.includes(`<meta property="og:image" content="${url}">`));
+  assert.ok(html.includes(`<meta name="twitter:image" content="${url}">`));
+  assert.ok(html.includes('<meta property="og:image:width" content="1200">'));
+  assert.ok(html.includes('<meta property="og:image:height" content="630">'));
+  assert.match(html, /<meta property="og:image:alt" content="acme\/Widgets\.js: \d+ hotspots? /);
+  const img = readFileSync(join(a.out, 'acme/widgets.js/og.png'));
+  assert.deepEqual([...img.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.equal(img.readUInt32BE(16), 1200);
+  assert.equal(img.readUInt32BE(20), 630);
+  assert.ok(img.equals(readFileSync(join(b.out, 'acme/widgets.js/og.png'))), 'same input, same bytes');
+  assert.ok(!img.equals(readFileSync(join(a.out, 'beta/thing/og.png'))), 'each repository has its own image');
 });
 
 test('a malformed map is rejected without stopping the other pages', (t) => {
