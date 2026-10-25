@@ -6,9 +6,10 @@ import { join } from 'node:path';
 import { changedFiles } from './git.js';
 import { loadComplexMd } from './complexmd.js';
 import { detectTestCommand, findCoveringTests } from './signals.js';
-import { pathBriefs } from './brief.js';
+import { wiredBriefs } from './brief.js';
 import { integrationBlock } from './prompts.js';
 import { BRIEF_SPECS, briefFiles, specOwns, SKILL_PATH, portableSkill } from './targets.js';
+import { readManifest } from './manifest.js';
 
 export function runCheck(cwd, { files = null, base = null, staged = false, signals = null } = {}) {
   const map = loadComplexMd(cwd);
@@ -46,7 +47,7 @@ export function runCheck(cwd, { files = null, base = null, staged = false, signa
    are ignored, so a checkout that converts them is not an edit. */
 export function generatedDrift(cwd, map, changed) {
   const out = [];
-  let briefs = null;
+  let expectedBriefs = null;
   for (const rel of changed) {
     let expected;
     if (rel === SKILL_PATH) {
@@ -54,8 +55,22 @@ export function generatedDrift(cwd, map, changed) {
     } else {
       const spec = Object.values(BRIEF_SPECS).find((s) => specOwns(s, rel));
       if (!spec) continue;
-      briefs ||= pathBriefs(map);
-      expected = briefFiles(spec, briefs).get(rel);
+      if (!expectedBriefs) {
+        const manifest = readManifest(cwd);
+        if (manifest?.profile === 'minimal') expectedBriefs = new Map();
+        else {
+          const targets = manifest?.profile === 'full'
+            ? new Set(manifest.files.map((file) => file.target).filter(Boolean))
+            : null;
+          expectedBriefs = new Map();
+          const briefs = wiredBriefs(map);
+          for (const [name, target] of Object.entries(BRIEF_SPECS)) {
+            if (targets && !targets.has(name)) continue;
+            for (const [path, content] of briefFiles(target, briefs)) expectedBriefs.set(path, content);
+          }
+        }
+      }
+      expected = expectedBriefs.get(rel);
     }
     const p = join(cwd, rel);
     const actual = existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : null;
