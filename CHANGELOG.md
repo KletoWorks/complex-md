@@ -6,6 +6,22 @@ format.
 
 ## Unreleased
 
+**Intent:** wire appended a block with a heading but no end, deleted any file in a brief folder whose name had the complex-md- prefix, created CLAUDE.md beside AGENTS.md, and had no way back. A default wire could add 40 or more files to a repository, a rewire never updated an old block, and a Windows checkout could leave mixed line endings.
+
+**Change:** each text wire writes into a file the user owns sits between `<!-- BEGIN complex-md (spec 0.3) -->` and `<!-- END complex-md (spec 0.3) -->` (`#` comments in `.gitattributes` and TOML). Text outside the markers is never changed, and a rewire replaces only the marked text. A file wire writes whole opens with a notice. In a file with front matter, the notice is a YAML comment on line 2.
+
+**Change:** `wire --profile minimal`, the new default, writes one marked line near the top of `AGENTS.md`. It writes the same line in `AGENTS.override.md` when that file exists, and in a `CLAUDE.md` or `GEMINI.md` that does not import `AGENTS.md`. `--profile full`, or naming agents with `--for`, writes the integration block, the CLAUDE.md import, the REVIEW.md include and at most 10 briefs per agent. wire never creates `CLAUDE.md`. OpenHands is detected from `.openhands/` only.
+
+**Change:** wire records each file, marked block, hook entry and MCP entry it writes in `.complex-md/manifest.json`. Each record has a sha256 of the text, line endings read as LF. The manifest holds no clock, and the `.gitignore` entry keeps it committable. wire also keeps a marked block in `.gitattributes` that gives COMPLEX.md, the manifest and each generated file `eol=lf linguist-generated`. JSON settings files keep their own indent and line ending.
+
+**Change:** `complex-md unwire` removes what the manifest records, with the separators wire added, while each hash still matches. A file or section edited since is left in place and named. COMPLEX.md stays. `wire --dry-run` and `unwire --dry-run` print the file plan and write nothing.
+
+**Change:** in a GitHub Actions or GitLab CI build of a pull request, a merge request or a branch other than the default one, `generate` and `wire` print one line and write nothing. `COMPLEX_MD_DEFAULT_BRANCH` overrides the detected default branch.
+
+**Change:** wire and unwire act only on manifest paths that are relative and resolve inside the repository. A cloned repository can carry a hostile manifest; paths that are absolute, contain a `.` or `..` segment or a backslash, or start in `.git` are dropped and logged. The CI rule also recognizes a checkout in `GITHUB_WORKSPACE` or `CI_PROJECT_DIR`.
+
+**Note:** a default rewire of a repository wired by 0.10.0 swaps the old block for one line and removes the old briefs. Run `wire --profile full` to keep them.
+
 **Change:** a brief's partner line now reads "4 commits together, 100% of
 the less active file's commits". It said "100% of this file's commits",
 which overstated coupling whenever the brief's file was the busier one of

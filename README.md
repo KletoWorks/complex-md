@@ -12,14 +12,20 @@ https://complex.md/spec.
 npx complex-md
 ```
 
-One run computes the signals, writes COMPLEX.md, and wires it in: the
-integration block in the agent files and a rule per hot path carrying that
-file's own brief. `--hooks` adds the PreToolUse and Stop hooks. The briefs
-go where each agent or review bot the repository uses reads them: Claude
-Code, Cursor, Copilot code review and cloud agent, OpenHands, Antigravity,
-Devin Desktop, Windsurf, Kiro and Cline. A `REVIEW.md` that exists gets an
-`@COMPLEX.md` line for Claude Code Review. Before the first write, the run
-prints every file it will create or change, and in a terminal it asks once.
+One run computes the signals, writes COMPLEX.md, and wires it in. By
+default the wiring is small: one marked line near the top of `AGENTS.md`,
+a marked block in `.gitattributes`, and `.complex-md/manifest.json`, a
+record of each write with a hash. `--profile full` adds the integration
+block and at most 10 briefs per agent. The briefs go where each agent or
+review bot the repository uses reads them: Claude Code, Cursor, Copilot
+code review and cloud agent, OpenHands, Antigravity, Devin Desktop,
+Windsurf, Kiro and Cline. In the full profile, a `REVIEW.md` that exists
+also gets an `@COMPLEX.md` line for Claude Code Review. `--hooks` adds the
+PreToolUse and Stop hooks. `npx complex-md unwire` removes what wire wrote
+and leaves any file you edited since. Before the first write, the run
+prints every file it will create or change, and in a terminal it asks
+once. `wire --dry-run` and `unwire --dry-run` print the plan and write
+nothing.
 
 With a provider key, one model call writes the prose. Without a key, the run
 writes template prose built from the computed numbers, so it still ends with
@@ -198,7 +204,7 @@ request.
 | Path | What |
 | --- | --- |
 | `prompts/generate.md` | The versioned generation prompt. Single source of truth for the CLI and the skill. |
-| `prompts/integration.md` | The normative wiring block appended to AGENTS.md, CLAUDE.md and friends. Served at /integration.md. |
+| `prompts/integration.md` | The normative wiring block that `--profile full` writes between markers into AGENTS.md, CLAUDE.md and friends. Served at /integration.md. |
 | `cli/` | The `complex-md` npm package: signals engine, generator, wiring, hooks, diff check, drift check, impact, and an opt in MCP server. `npm test` here or inside it. |
 | `plugins/complex-md/`, `skills/`, `gemini-extension.json` | The skill as a package for Claude Code, Codex, Gemini CLI and any Agent Skills reader. The build renders each copy from the template. |
 | `examples/` | Reference COMPLEX.md files, starting with fastify. This repository carries its own at the root. |
