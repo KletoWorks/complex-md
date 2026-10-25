@@ -179,3 +179,37 @@ test('openhands briefs are path triggered rules, and a rewire leaves the user\'s
   assert.match(txt, /^paths:\n  - "src\/core\.js"/m, 'path triggered, one path');
   assert.match(txt, /is the hub every module imports/);
 });
+
+/* A brief per listed path put 30 or more files into each agent's folder on
+   a large map. wire writes at most ten: the hotspots in map order first,
+   then load bearing files, then co-change partners. check measures against
+   the same ten. */
+test('wire writes at most ten briefs, the highest ranked paths first', async () => {
+  const { wire } = await import('../src/wire.js');
+  const { MAX_BRIEFS } = await import('../src/brief.js');
+  const { runCheck } = await import('../src/check.js');
+  const { mkdtempSync: mk, writeFileSync: w, mkdirSync: md, readdirSync: rd, readFileSync: rf } = await import('node:fs');
+  const { tmpdir: td } = await import('node:os');
+  const { execFileSync } = await import('node:child_process');
+  assert.equal(MAX_BRIEFS, 10);
+  const hot = Array.from({ length: 14 }, (_, i) => `src/f${String(i).padStart(2, '0')}.js`);
+  const text = [
+    '---', 'complex_md: "0.3"', 'hotspots:',
+    ...hot.flatMap((p, i) => [`  - path: ${p}`, `    churn: ${20 - i}`, `    score: ${1000 - i * 10}`]),
+    'co_change:', '  - files: [src/f00.js, src/partner.js]', '    count: 3', '    coupling: 60',
+    '---', '', '## Where the risk lives', '', 'x', '', '## Why these files are hot', '',
+    ...hot.map((p) => `${p} is hot. Before editing this file, run the tests.`), '',
+    '## Change coupling', '', 'x', '', '## What to read first', '', '1. src/f00.js', '',
+  ].join('\n');
+  const dir = mk(join(td(), 'cx-cap-'));
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  md(join(dir, '.claude'));
+  w(join(dir, 'COMPLEX.md'), text);
+  wire(dir, { agents: ['claude'], profile: 'full' });
+  const files = rd(join(dir, '.claude/rules/complex-md'));
+  assert.equal(files.length, MAX_BRIEFS);
+  const scoped = files.map((f) => /^paths: (.*)$/m.exec(rf(join(dir, '.claude/rules/complex-md', f), 'utf8'))[1]).sort();
+  assert.deepEqual(scoped, hot.slice(0, MAX_BRIEFS));
+  const rels = files.map((f) => `.claude/rules/complex-md/${f}`);
+  assert.deepEqual(runCheck(dir, { files: rels }).generated, [], 'check expects the same ten');
+});

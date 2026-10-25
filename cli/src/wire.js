@@ -13,7 +13,7 @@ import { createOwner, ensureDir } from './own.js';
 import { git } from './git.js';
 import { findRegion, outsideRegion, upsertRegion, removeRegion, renderRegion, eolOf, normalizedHash } from './markers.js';
 import { loadComplexMd } from './complexmd.js';
-import { pathBriefs } from './brief.js';
+import { wiredBriefs } from './brief.js';
 import { TARGETS, TARGET_NAMES, holdsOurHooks } from './targets.js';
 import { registryInvocation } from './invoke.js';
 
@@ -164,7 +164,7 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
   /* One brief per path, carrying that file's own numbers, paragraph, partners
      and directive, so a scoped rule delivers the answer rather than a pointer
      to the document holding it. */
-  const briefs = pathBriefs(map);
+  const briefs = wiredBriefs(map);
   const report = { primary: [], created: [], rules: [], removed: [], hooks: [], mcp: [], skipped: [] };
 
   const active = TARGET_NAMES.filter((name) => (agents ? agents.includes(name) : !TARGETS[name].global && TARGETS[name].detect(root)));

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { changedFiles } from './git.js';
 import { loadComplexMd } from './complexmd.js';
 import { detectTestCommand, findCoveringTests } from './signals.js';
-import { pathBriefs } from './brief.js';
+import { wiredBriefs } from './brief.js';
 import { integrationBlock } from './prompts.js';
 import { BRIEF_SPECS, briefFiles, specOwns, SKILL_PATH, portableSkill } from './targets.js';
 
@@ -54,7 +54,7 @@ export function generatedDrift(cwd, map, changed) {
     } else {
       const spec = Object.values(BRIEF_SPECS).find((s) => specOwns(s, rel));
       if (!spec) continue;
-      briefs ||= pathBriefs(map);
+      briefs ||= wiredBriefs(map);
       expected = briefFiles(spec, briefs).get(rel);
     }
     const p = join(cwd, rel);
