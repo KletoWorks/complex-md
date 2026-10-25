@@ -287,11 +287,19 @@ export function computeSignals(cwd, opts = {}) {
     .slice(0, o.seamRows);
 
   // 4. Profile and blind spots.
+  /* tests: the covering tests, those an import or a path reference found
+     first, then those only the file name matched. name_tests: the second
+     group alone, so the prose says "matches it by name" for them and
+     never "imports it". */
   const importers = {};
   const tests = {};
+  const nameTests = {};
   for (const r of [...table, ...loadBearing.slice(0, o.loadBearingRows)]) {
     importers[r.path] = [...(fanIn.get(r.path) || [])].sort();
-    tests[r.path] = [...(testEdges.get(r.path) || [])].sort();
+    const byName = graph.byName?.get(r.path) || new Set();
+    const found = [...(testEdges.get(r.path) || [])];
+    tests[r.path] = [...found.filter((t) => !byName.has(t)).sort(), ...[...byName].sort()];
+    if (byName.size) nameTests[r.path] = [...byName].sort();
   }
   const total = rows.reduce((a, r) => a + r.score, 0);
   let acc = 0;
@@ -356,6 +364,7 @@ export function computeSignals(cwd, opts = {}) {
     seams,
     importers,
     tests,
+    name_tests: nameTests,
     conventions,
     blind_spots: blind,
     profile: {

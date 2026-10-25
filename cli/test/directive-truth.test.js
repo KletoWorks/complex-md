@@ -123,3 +123,24 @@ test('a test is never named for a file it does not test: __init__.py, a file wit
   assert.deepEqual(findCoveringTests(dir, 'packages/vite/src/node/server/index.ts'), []);
   assert.deepEqual(findCoveringTests(dir, 'packages/legacy/src/index.ts'), ['packages/legacy/src/__tests__/index.spec.ts']);
 });
+
+test('a file whose test only matches by name gets that test, and "no test" is said only when none was found', () => {
+  // chartjs/chart.js: test/specs/core.scale.tests.js tests src/core/core.scale.js
+  // through the global Chart, with no import, and the map said no test covers it.
+  const dir = repo({
+    'package.json': JSON.stringify({ name: 'chart', scripts: { test: 'karma start' } }),
+    'src/core/core.scale.js': lines(80, 's'),
+    'src/core/core.registry.js': "import { s0 } from './core.scale.js';\nexport const r = s0;\n",
+    'src/core/core.autoskip.js': "import { s1 } from './core.scale.js';\nimport { h0 } from './core.helpers.js';\nexport const a = s1 + h0;\n",
+    'src/core/core.layout.js': "import { s2 } from './core.scale.js';\nimport { h1 } from './core.helpers.js';\nexport const l = s2 + h1;\n",
+    'src/core/core.helpers.js': lines(80, 'h'),
+    'test/specs/core.scale.tests.js': "describe('Core.scale', function() {\n  it('has ticks', function() {\n    expect(Chart.defaults.scale).toBeDefined();\n  });\n});\n",
+  });
+  const { sig, map } = mapOf(dir);
+  assert.ok(sig.hotspots.some((h) => h.path === 'src/core/core.scale.js'), 'core.scale.js is a hotspot');
+  assert.equal(map.directive('src/core/core.scale.js'), 'Before editing this file, run `test/specs/core.scale.tests.js`, which matches it by name.');
+  assert.match(map.paragraphFor('src/core/core.scale.js'), /No test file imports it, and `test\/specs\/core\.scale\.tests\.js` matches its name\./);
+  assert.ok(sig.hotspots.some((h) => h.path === 'src/core/core.helpers.js'), 'core.helpers.js is a hotspot');
+  assert.match(map.directive('src/core/core.helpers.js'), /, because no test file imports it or matches its name\.$/);
+  assert.match(map.paragraphFor('src/core/core.helpers.js'), /No test file imports it or matches its name\./);
+});
