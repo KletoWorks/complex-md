@@ -6,6 +6,12 @@ format.
 
 ## Unreleased
 
+**Change:** Rust `mod` declarations and `use` paths now resolve through
+module files, crate roots, literal `#[path]` attributes and Cargo package
+names; external crates remain unresolved. This follows the
+[Rust Reference on modules](https://doc.rust-lang.org/reference/items/modules.html)
+and addresses [issue #9](https://github.com/KletoWorks/complex-md/issues/9).
+
 **Change:** a brief's partner line now reads "4 commits together, 100% of
 the less active file's commits". It said "100% of this file's commits",
 which overstated coupling whenever the brief's file was the busier one of

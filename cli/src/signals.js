@@ -32,7 +32,7 @@ const PAIR_KINDS = new Set(['source', 'config', 'markup', 'style', 'docs']);
 const CHANGELOG_RE = /(^|\/)(CHANGELOG|CHANGES|HISTORY|NEWS|RELEASES?)(\.[a-z]+)?$/i;
 // Extensions whose dependencies graph.js actually resolves. Anything else
 // that ranks as source gets a blind spot, not a silent fan_in of zero.
-const RESOLVED_EXT = new Set(['js', 'mjs', 'cjs', 'jsx', 'ts', 'mts', 'cts', 'tsx', 'vue', 'svelte', 'astro', 'py', 'pyi', 'rb', 'php', 'sh', 'bash', 'zsh', 'go', 'html', 'htm', 'css', 'scss', 'sass', 'less', 'caddy']);
+const RESOLVED_EXT = new Set(['js', 'mjs', 'cjs', 'jsx', 'ts', 'mts', 'cts', 'tsx', 'vue', 'svelte', 'astro', 'py', 'pyi', 'rb', 'php', 'sh', 'bash', 'zsh', 'go', 'rs', 'html', 'htm', 'css', 'scss', 'sass', 'less', 'caddy']);
 
 export const DEFAULTS = {
   windowCommitsMax: 2000,

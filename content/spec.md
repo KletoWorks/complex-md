@@ -175,15 +175,18 @@ derived from `__init__.py` chains (so `src/` layouts resolve without a
 hardcoded list), Ruby requires (`require_relative` file-relative, `require`
 through `lib/`), PHP requires, shell `source`, Caddy `import` globs, Go
 package imports resolved against `go.mod` (a package import depends on
-every file in the package), and path literals in scripts and configuration
-that name a repository file outright. Languages the graph does not resolve (Rust, Java,
-C, and others) are named in `blind_spots` with their file counts, and when
-they are most of the repository `confidence` is `history-only`. Tests are
-not counted here; they are covering tests. Documentation never counts; a
-path in prose describes, it does not depend. Fan-in is not evidence of
-defects; it is the blast radius, and it enters the score as the squared
-logarithm of the dependent count: each doubling of dependents widens the
-radius by a fixed step, and radius compounds with the chance of a mistake.
+every file in the package), Rust `mod` declarations and `use` paths resolved
+through module files, crate roots and Cargo package names, and path literals
+in scripts and configuration that name a repository file outright. Rust
+`#[path]` attributes resolve their literal path; external crates do not add
+edges. Languages the graph does not resolve (Java, C, and others) are named
+in `blind_spots` with their file counts, and when they are most of the
+repository `confidence` is `history-only`. Tests are not counted here; they
+are covering tests. Documentation never counts; a path in prose describes,
+it does not depend. Fan-in is not evidence of defects; it is the blast radius,
+and it enters the score as the squared logarithm of the dependent count: each
+doubling of dependents widens the radius by a fixed step, and radius compounds
+with the chance of a mistake.
 
 ### Covering tests (`tests`)
 
