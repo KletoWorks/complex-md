@@ -5,10 +5,10 @@
 import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { parseMeta as meta, readArticles, faqItems, llmsFull } from './content.mjs';
-import { fileURLToPath } from 'node:url';
 import { renderSkill, renderReference, SKILL_COPIES, stampVersions } from './skill.mjs';
+import { REPORT_CSS, REPORT_JS } from '../cli/src/render.js';
+import { ROOT, ORIGIN, AUTHOR, AUTHOR_URL, REPO, specVersion, promptVersion, cliVersion, siteHeader, siteFooter } from './chrome.mjs';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // --out <dir> builds somewhere other than dist/. --drafts also renders the
 // draft articles, unlisted and marked noindex, for a local preview.
 // --articles <dir> reads the articles from another folder.
@@ -16,18 +16,7 @@ const argv = process.argv.slice(2);
 const opt = (name) => { const i = argv.indexOf(name); return i === -1 ? undefined : argv[i + 1]; };
 const DIST = opt('--out') ? resolve(opt('--out')) : join(ROOT, 'dist');
 const WITH_DRAFTS = argv.includes('--drafts');
-const ORIGIN = 'https://complex.md';
-const AUTHOR = 'James L. Cowan Jr.';
-const AUTHOR_URL = 'https://jameslcowan.com';
-const REPO = 'https://github.com/KletoWorks/complex-md';
-const MARK_PATH = readFileSync(join(ROOT, 'site/mark.path'), 'utf8').trim();
-const mark = (cls, size) => `<svg class="${cls}" viewBox="0 0 512 512" width="${size}" height="${size}" aria-hidden="true"><path fill="currentColor" d="${MARK_PATH}"/></svg>`;
-const GH_MARK = '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
 
-// ---------------------------------------------------------------- versions
-const genPrompt = readFileSync(join(ROOT, 'prompts/generate.md'), 'utf8');
-const promptVersion = /prompt_version:\s*([\d.]+)/.exec(genPrompt)?.[1] ?? '0.0.0';
-const specVersion = /spec_version:\s*"([\d.]+)"/.exec(genPrompt)?.[1] ?? '0.1';
 // The wiring block has one source. The spec and the skill both carry it
 // through {{INTEGRATION_BLOCK}}, so neither can drift from prompts/.
 const integrationBlock = readFileSync(join(ROOT, 'prompts/integration.md'), 'utf8').trim();
@@ -138,7 +127,6 @@ const siteJsonLd = JSON.stringify({
   license: 'https://opensource.org/license/mit/',
 });
 
-const cliVersion = JSON.parse(readFileSync(join(ROOT, 'cli/package.json'), 'utf8')).version;
 // The compatibility marquee: monochrome marks in site/logos, listed in
 // site/logos/agents.json, inlined so currentColor follows the theme. The
 // track is doubled so the loop is seamless.
@@ -175,7 +163,7 @@ function techArticleJsonLd(title, description, canonical) {
   return JSON.stringify({ '@context': 'https://schema.org', '@type': 'TechArticle', headline: title, description, url: canonical, author: { '@type': 'Person', name: AUTHOR, url: AUTHOR_URL }, license: 'https://opensource.org/license/mit/', isPartOf: { '@type': 'WebSite', name: 'complex.md', url: ORIGIN } });
 }
 
-function shell({ title, description, path, body, article, layout, toc, noindex }) {
+function shell({ title, description, path, body, article, layout, toc, noindex, script }) {
   const canonical = ORIGIN + (path === '/' ? '/' : path + '/');
   const blocks = article ? [articleJsonLd(article, canonical)] : [siteJsonLd];
   if (path === '/') { blocks.push(softwareJsonLd); const f = faqJsonLd(body); if (f) blocks.push(f); }
@@ -210,32 +198,15 @@ function shell({ title, description, path, body, article, layout, toc, noindex }
 <link rel="stylesheet" href="/platform.css">
 <link rel="stylesheet" href="/site.css">
 <script src="/analytics.js" defer></script>
-<script src="/site.js" defer></script>
+<script src="/site.js" defer></script>${script ? `\n<script type="module" src="${script}"></script>` : ''}
 ${jsonLd}
 </head>
 <body>
-<header class="site-header">
-<nav>
-<div class="brand-group">
-<a class="brand-chip" href="/">complex.md</a>
-<a class="dl-sq" href="/complex-md.skill.md" download="complex-md.skill.md" title="Download the complex-md skill" aria-label="Download the complex-md skill"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m6 9 6 6 6-6"/><path d="M19 21H5"/></svg></a>
-</div>
-<a class="nav" href="/spec/">Spec</a>
-<a class="nav" href="/skill/">Skill</a>
-<a class="nav" href="/articles/">Articles</a>
-<a class="gh-sq" href="${REPO}" title="Source on GitHub" aria-label="Source on GitHub">${GH_MARK}</a>
-</nav>
-</header>
+${siteHeader()}
 <main class="${layout === 'full' ? 'full' : 'doc'}${toc ? ' has-toc' : ''}">
 ${body}
 </main>
-<footer class="site-footer">
-<div class="inner">
-${mark('mark foot-mark', 18)}
-<small>&copy; 2026 <a href="${AUTHOR_URL}" rel="author">${AUTHOR}</a> &middot; MIT &middot; <a href="${REPO}">GitHub</a> &middot; <a href="https://www.npmjs.com/package/complex-md">npm</a></small>
-<small class="vers">spec ${specVersion} &middot; prompt ${promptVersion} &middot; cli ${cliVersion}</small>
-</div>
-</footer>
+${siteFooter()}
 </body>
 </html>
 `;
@@ -261,7 +232,8 @@ for (const file of readdirSync(join(ROOT, 'content'))) {
   const path = m.path ?? '/' + file.replace(/\.(md|html)$/, '');
   const kicker = m.kicker?.replaceAll('{{SPEC_VERSION}}', specVersion).replaceAll('{{PROMPT_VERSION}}', promptVersion);
   const doc = file.endsWith('.md') ? docify(markdown(body), { kicker }) : { body: body.replace('{{AGENT_MARQUEE}}', agentMarquee()), toc: false };
-  emit(path, shell({ title: m.title, description: m.description, path, layout: m.layout, ...doc }));
+  // script: a page's own module under site/. noindex: true keeps a utility page out of search.
+  emit(path, shell({ title: m.title, description: m.description, path, layout: m.layout, script: m.script, noindex: m.noindex === 'true', ...doc }));
   if (file === 'spec.md') writeFileSync(join(DIST, 'spec.md'), body);
   if (file.endsWith('.md')) fullDocs.push({ url: ORIGIN + path + '/', body, order: file === 'spec.md' ? 0 : 1 });
   if (path === '/') faq = faqItems(body);
@@ -315,11 +287,16 @@ mkdirSync(join(ROOT, 'cli/prompts'), { recursive: true });
 cpSync(join(ROOT, 'prompts/generate.md'), join(ROOT, 'cli/prompts/generate.md'));
 cpSync(join(ROOT, 'prompts/integration.md'), join(ROOT, 'cli/prompts/integration.md'));
 
-for (const f of ['site.css', 'site.js', '404.html', 'favicon.svg', 'logo.svg', 'og.png', 'sw.js', 'robots.txt']) cpSync(join(ROOT, 'site', f), join(DIST, f));
+for (const f of ['site.css', 'site.js', 'lookup.js', 'remove.js', 'repo-name.js', '404.html', 'favicon.svg', 'logo.svg', 'og.png', 'sw.js', 'robots.txt']) cpSync(join(ROOT, 'site', f), join(DIST, f));
 for (const d of ['fonts', 'icons']) cpSync(join(ROOT, 'site', d), join(DIST, d), { recursive: true });
+// Hosted map pages (scripts/hosted-pages.mjs) load the report renderer's
+// styles and treemap tooltip as files, since their policy allows no inline
+// style or script.
+writeFileSync(join(DIST, 'report.css'), REPORT_CSS);
+writeFileSync(join(DIST, 'report.js'), REPORT_JS);
 
 // Sitemap: every rendered page, articles included.
-const pages = ['/', '/spec/', '/skill/', '/articles/', ...articles.map((a) => `/articles/${a.slug}/`)];
+const pages = ['/', '/spec/', '/skill/', '/map/', '/articles/', ...articles.map((a) => `/articles/${a.slug}/`)];
 writeFileSync(join(DIST, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map((p) => `  <url><loc>${ORIGIN}${p}</loc></url>`).join('\n')}\n</urlset>\n`);
 
 // Dual-audience mirror (RESEARCH.md principle 7): tell agents where the raw

@@ -6,6 +6,14 @@ format.
 
 ## Unreleased
 
+**Intent:** a visitor could see a repository's map only after running the tool on a clone. complex.md had no page per repository, no way to find one by pasting an address, and no way for a maintainer to take a page down.
+
+**Change:** `scripts/hosted-pages.mjs --in maps.json --out <dir>` builds one static page per mapped repository at `/OWNER/REPO/`, the raw map at `/OWNER/REPO/COMPLEX.md`, `maps/index.json` and `sitemap-maps.xml`. The same input gives the same bytes. A page leads with the directives. A panel follows that asks the maintainer to commit the file, with the `npx complex-md` command and the one AGENTS.md line agents act on. Then come the treemap, the co-change pairs and the blind spots. A provenance line names the version, the commit and the date, and says that a template wrote the prose. A removal link ends the page. Prose shows only when a template wrote it. Indexable pages are canonical to themselves; the rest carry noindex and a canonical link to the GitHub repository. Owner and repository names must follow GitHub's naming rules. Paths outside a small character set, over 200 characters or with a `..` segment are dropped. Bidi and control characters are stripped, lists are capped, and each page loads only its own origin's files under a policy with no 'unsafe-inline'.
+
+**Change:** `/map` takes owner/name, a github.com URL, a git URL or an SSH remote. It opens the hosted page, links a committed COMPLEX.md, or shows the npx command and a request button. `/map/remove` lists the three ways a page goes away: commit COMPLEX.md, set `hosted: false`, or send the form. Each takes effect within 24 hours. The header and the home page hero link `/map`.
+
+**Change:** the report treemap is SVG, so the local report and a hosted page share one renderer. `site/reserved.json` lists the first path segments that never name an owner, and a test fails the build when a top level name is missing from it.
+
 **Change:** a brief's partner line now reads "4 commits together, 100% of
 the less active file's commits". It said "100% of this file's commits",
 which overstated coupling whenever the brief's file was the busier one of
