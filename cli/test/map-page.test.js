@@ -264,11 +264,15 @@ test('a GitLab, Codeberg or Bitbucket repository skips the index, says hosted pa
   assert.equal(app.storage.get('cx-requested:org/repo'), '1');
 });
 
-test('the removal page names the three ways, the 24 hours, and posts to the removals route', (t) => {
+test('the removal page names the three ways, the 24 hours, the review within 72 hours, and posts to the removals route', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const html = readFileSync(join(site(), 'map/remove/index.html'), 'utf8');
   assert.match(html, /<meta name="robots" content="noindex">/);
   assert.match(html, /within 24 hours/);
+  // A person reviews a form request; the exporter applies it 72 hours after the request at the latest.
+  assert.match(html, /A person\s+reviews it within 72 hours\./);
+  assert.ok(!/each takes effect within 24 hours/i.test(html), 'a form request is not a 24 hour removal');
+  assert.match(readFileSync(join(site(), 'map/index.html'), 'utf8'), /A person reviews each removal request within 72\s+hours\./);
   assert.match(html, /Commit COMPLEX\.md/);
   assert.match(html, /<code>hosted: false<\/code>/);
   assert.match(html, /<textarea id="remove-note" name="note"[^>]*maxlength="2000"/);

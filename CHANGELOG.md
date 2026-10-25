@@ -6,6 +6,10 @@ format.
 
 ## Unreleased
 
+**Intent:** /map/remove said each of the 3 ways to remove a hosted page takes effect within 24 hours. A removal request sent with the form waits for a person's review of up to 72 hours, so the form promised a time it does not keep.
+
+**Change:** /map/remove, the "Removing a page" section of /map and the form's confirmation say that a person reviews each removal request within 72 hours. A commit of COMPLEX.md or of `hosted: false` still takes effect within 24 hours.
+
 **Intent:** /map refused every repository outside GitHub with "complex.md maps repositories on GitHub", though `npx complex-md` works in a clone from any host and the request route counts requests for GitLab, Codeberg and Bitbucket.
 
 **Change:** /map reads gitlab.com (1 to 3 groups and a project), codeberg.org and bitbucket.org URLs and SSH remotes. For those it skips the hosted map index, says that hosted pages cover GitHub first, shows the command and sends the request with its `host`. A GitHub request now names `host: github` too. The removal form still takes GitHub repositories only.

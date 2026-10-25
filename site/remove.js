@@ -45,7 +45,7 @@ form.addEventListener('submit', async (e) => {
     return say('The request did not go through. Check the connection and try again.');
   }
   button.disabled = false;
-  if (res.status === 202) return say(`Request recorded. The page of ${r.key} goes away within 24 hours.`);
+  if (res.status === 202) return say(`Request recorded. A person reviews the removal of the page of ${r.key} within 72 hours.`);
   if (res.status === 429) return say('Too many requests from this network. Try again later.');
   if (res.status === 400) return say('complex.md could not read that repository name. Enter it as owner/name.');
   return say('The request did not go through. Try again later.');
