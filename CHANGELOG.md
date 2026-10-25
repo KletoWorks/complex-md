@@ -6,6 +6,11 @@ format.
 
 ## Unreleased
 
+**Change:** a brief's partner line now reads "4 commits together, 100% of
+the less active file's commits". It said "100% of this file's commits",
+which overstated coupling whenever the brief's file was the busier one of
+the pair.
+
 **Change:** zod moves from 3.25 to 4.6.7 and the MCP SDK lock moves to
 1.32.2. `npm audit` reported 18 advisories in the lock file (1 critical, 5
 high), among them zod GHSA-mrhx-c7xc-m3w5, a memory exhaustion while
