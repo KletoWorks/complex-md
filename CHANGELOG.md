@@ -4,6 +4,12 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## Unreleased
+
+**Intent:** a maintainer or a CI job could not tell whether a hand edited or third party COMPLEX.md conforms to the spec 0.4 draft.
+
+**Change:** `complex-md lint [path]` checks a map against the spec 0.4 JSON Schema and the rules the schema cannot state (relative paths, listed paths that exist, sections and directives), and warns on a file over 8,192 bytes. It prints one `path:line: rule: message` line per finding, or `{"ok", "errors", "warnings"}` with `--json`, and exits 1 on any error. It validates the front matter as written, so `commit: 1234567` is a number and `hotspots: invalid` is a schema finding. The schema validator moves from `cli/test/spec-fixtures.test.js` to `cli/src/schema.js`, and the schema ships in the package.
+
 ## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
 
 **Intent:** wire appended a block with a heading but no end, deleted any file in a brief folder whose name had the complex-md- prefix, created CLAUDE.md beside AGENTS.md, and had no way back. A default wire could add 40 or more files to a repository, a rewire never updated an old block, and a Windows checkout could leave mixed line endings.
@@ -28,12 +34,6 @@ format.
 **Change:** `/map` takes owner/name, a github.com URL, a git URL or an SSH remote. It opens the hosted page, links a committed COMPLEX.md, or shows the npx command and a request button. `/map/remove` lists the three ways a page goes away: commit COMPLEX.md, set `hosted: false`, or send the form. Each takes effect within 24 hours. The header and the home page hero link `/map`.
 
 **Change:** the report treemap is SVG, so the local report and a hosted page share one renderer. `site/reserved.json` lists the first path segments that never name an owner, and a test fails the build when a top level name is missing from it.
-
-**Change:** `complex-md lint [path]` checks a map against the spec 0.4 JSON
-Schema and the rules the schema cannot state (relative paths, listed paths
-that exist, sections and directives), and warns on a file over 8,192 bytes.
-The schema validator moves from `cli/test/spec-fixtures.test.js` to
-`cli/src/schema.js`, and the schema ships in the package.
 
 **Change:** a brief's partner line now reads "4 commits together, 100% of
 the less active file's commits". It said "100% of this file's commits",
