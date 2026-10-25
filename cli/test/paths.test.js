@@ -47,10 +47,17 @@ test("this repository's own map names no invented path", (t) => {
   if (!existsSync(join(root, 'COMPLEX.md'))) return t.skip('not a repository checkout');
   const map = readFileSync(join(root, 'COMPLEX.md'), 'utf8');
   const generatedAt = /^commit:\s*"?([^\s"]+)/m.exec(map)?.[1];
+  /* A file moved since the map was generated is stale, not invented: the
+     map is checked against the tree it was generated from as well. */
+  const files = new Set(trackedFiles(root));
   const head = git(['rev-parse', 'HEAD'], { cwd: root, allowFail: true }).trim();
-  if (generatedAt && !head.startsWith(generatedAt)) return t.skip('COMPLEX.md was generated from another commit');
+  if (generatedAt && !head.startsWith(generatedAt)) {
+    const tree = git(['ls-tree', '-r', '-z', '--name-only', generatedAt], { cwd: root, allowFail: true });
+    if (!tree) return t.skip(`commit ${generatedAt}, which COMPLEX.md was generated from, is not in this clone`);
+    for (const f of tree.split('\0')) if (f) files.add(f);
+  }
   const text = map.replace(/^---\n[\s\S]*?\n---\n/, '');
-  assert.deepEqual(inventedPaths(text, trackedFiles(root)), []);
+  assert.deepEqual(inventedPaths(text, [...files]), []);
 });
 
 test('a member access in backticks is code, not a file name', () => {
