@@ -240,7 +240,8 @@ runs in all: 60 for the screen and 240 for the arms.
 - The selection rests on one `none` run a task. Damaged tasks will look
   less damaged in the arms phase for every arm alike.
 - The dependency copy is the clone's `node_modules` at its HEAD, newer than
-  every task. The OAuth credentials are readable in the sandbox.
+  every task, or for 21 tasks an install from an older task's lockfile
+  (see Deviations). The OAuth credentials are readable in the sandbox.
 - Some uptime-kuma tests reach the network. A flaky one is confirmed on a
   second run and filtered by the gold patch, not removed.
 - The `file` arm follows this checkout's `wire`, which writes no
@@ -250,4 +251,27 @@ runs in all: 60 for the screen and 240 for the arms.
 
 ## Deviations
 
-None yet.
+**2026-10-25, before any agent run: dependency installs per task.** The
+gold pass showed that the install made at each clone's HEAD cannot load
+older bases. mocha had 0 passing test files at all 18 bases
+(`findUpSync is not a function` at the 2026 bases, a missing
+`ansi-colors` at older ones). fastify had 0 passing files at its 9 bases
+from 2024 and earlier. The rule added: a task with no passing test file
+under the HEAD install gets an install made, with `--ignore-scripts`,
+from the `package.json` (and the lockfile, where the repository commits
+one) at an older task's base, and keeps the install under which most of
+a 12 file sample of its base suite passes. The harness reads it from the
+task's `deps` field. Installs made: mocha at the parent of `55a544a409`
+(4 tasks) and of `3735873826` (13 tasks); fastify at the parent of
+`f26de5d222` (2 tasks) and of `9dc30b5040` (2 tasks). mocha `ad81ec68b5`
+and 5 fastify bases from 2023 pass with none of them and stay unusable.
+`bench/leak-lines.mjs` on the four new installs found only the generic
+lines listed above and `const yargs = require('yargs')`.
+
+**2026-10-25, before any agent run: mocha's gold pass ran three times.**
+The first ran with the HEAD install. The second ran while the host's disk
+was full and left an empty baseline file, so all its rows were deleted
+and the pass ran again. No agent run was involved.
+
+**Result of the screen set rule:** 60 tasks, fastify 21, mocha 17,
+uptime-kuma 22.
