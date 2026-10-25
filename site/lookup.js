@@ -22,10 +22,15 @@ const MESSAGES = {
 let indexPromise = null;
 function loadIndex() {
   if (!indexPromise) {
-    indexPromise = fetch('/maps/index.json', { cache: 'no-cache' })
+    const promise = fetch('/maps/index.json', { cache: 'no-cache' })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => (j && Array.isArray(j.maps) && j.committed && typeof j.committed === 'object' ? { maps: new Set(j.maps), committed: j.committed } : null))
-      .catch(() => null);
+      .catch(() => null)
+      .then((index) => {
+        if (!index && indexPromise === promise) indexPromise = null;
+        return index;
+      });
+    indexPromise = promise;
   }
   return indexPromise;
 }

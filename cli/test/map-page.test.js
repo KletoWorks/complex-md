@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { runInNewContext } from 'node:vm';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const inCheckout = existsSync(join(ROOT, 'scripts/build.mjs'));
@@ -83,6 +84,79 @@ test('the lookup script asks /maps/index.json, posts requests as JSON and writes
     const src = readFileSync(join(ROOT, 'site', f), 'utf8');
     assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(src), `${f} builds the DOM with textContent`);
   }
+});
+
+async function lookupApp(fetch) {
+  const { normaliseRepo } = await repoName();
+  const makeElement = () => ({
+    textContent: '',
+    hidden: false,
+    disabled: false,
+    value: '',
+    children: [],
+    listeners: {},
+    addEventListener(type, listener) { this.listeners[type] = listener; },
+    append(...nodes) { this.children.push(...nodes); },
+    setAttribute() {},
+    removeAttribute() {},
+    focus() {},
+  });
+  const ids = ['map-form', 'repo', 'map-result', 'map-unmapped', 'unmapped-text', 'request-btn', 'request-status'];
+  const elements = Object.fromEntries(ids.map((id) => [id, makeElement()]));
+  const storage = new Map();
+  const location = { search: '', assigned: null, assign(path) { this.assigned = path; } };
+  const source = readFileSync(join(ROOT, 'site/lookup.js'), 'utf8')
+    .replace("import { normaliseRepo } from './repo-name.js';", 'const normaliseRepo = globalThis.__normaliseRepo;');
+  runInNewContext(source, {
+    __normaliseRepo: normaliseRepo,
+    document: {
+      getElementById(id) { return elements[id]; },
+      createElement() { return makeElement(); },
+    },
+    fetch,
+    history: { replaceState() {} },
+    location,
+    localStorage: {
+      getItem(key) { return storage.get(key) ?? null; },
+      setItem(key, value) { storage.set(key, value); },
+    },
+    URLSearchParams,
+  });
+  return {
+    elements,
+    location,
+    storage,
+    submit(value) {
+      elements.repo.value = value;
+      elements['map-form'].listeners.submit({ preventDefault() {} });
+    },
+    request() {
+      return elements['request-btn'].listeners.click();
+    },
+  };
+}
+
+const nextTurn = () => new Promise((resolve) => setImmediate(resolve));
+
+test('a failed or invalid index load is retried on the next lookup', async (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  let calls = 0;
+  const app = await lookupApp(async () => {
+    calls++;
+    if (calls === 1) throw new Error('offline');
+    if (calls === 2) return { ok: false };
+    if (calls === 3) return { ok: true, json: async () => ({ maps: 'invalid', committed: {} }) };
+    return { ok: true, json: async () => ({ maps: ['org/repo'], committed: {} }) };
+  });
+  for (let expected = 1; expected <= 3; expected++) {
+    app.submit('org/repo');
+    await nextTurn();
+    assert.equal(calls, expected);
+  }
+  app.submit('org/repo');
+  await nextTurn();
+  assert.equal(calls, 4);
+  assert.equal(app.location.assigned, '/org/repo/');
 });
 
 test('the removal page names the three ways, the 24 hours, and posts to the removals route', (t) => {
