@@ -94,7 +94,8 @@ const store = {
 async function request() {
   const key = current;
   if (!key) return;
-  const done = (text) => { requestStatus.textContent = text; };
+  const isCurrent = () => current === key;
+  const done = (text) => { if (isCurrent()) requestStatus.textContent = text; };
   if (store.get(`cx-requested:${key}`)) {
     requestBtn.disabled = true;
     return done(`Already requested from this browser. Requests decide which repositories get a hosted map next.`);
@@ -111,21 +112,25 @@ async function request() {
     });
     body = await res.json().catch(() => null);
   } catch {
+    if (!isCurrent()) return;
     requestBtn.disabled = false;
     return done('The request did not go through. Check the connection and try again.');
   }
   if (res.status === 202 && body && body.ok) {
     store.set(`cx-requested:${key}`, '1');
+    if (!isCurrent()) return;
     requestBtn.textContent = 'Requested';
     return done(body.already
       ? `${key} was already requested. Requests decide which repositories get a hosted map next.`
       : `Request recorded for ${key}. Requests decide which repositories get a hosted map next.`);
   }
   if (res.status === 429 || (body && body.error === 'rate_limited')) {
+    if (!isCurrent()) return;
     requestBtn.disabled = false;
     return done('Too many requests from this network. Try again later.');
   }
   if (res.status === 400) return done('complex.md could not read that repository name.');
+  if (!isCurrent()) return;
   requestBtn.disabled = false;
   return done('The request did not go through. Try again later.');
 }

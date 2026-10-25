@@ -159,6 +159,49 @@ test('a failed or invalid index load is retried on the next lookup', async (t) =
   assert.equal(app.location.assigned, '/org/repo/');
 });
 
+test('a request response for an earlier repository cannot update the current lookup', async (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const pending = [];
+  const app = await lookupApp(async (url, options) => {
+    if (url === '/maps/index.json') return { ok: true, json: async () => ({ maps: [], committed: {} }) };
+    return new Promise((resolve, reject) => pending.push({ repo: JSON.parse(options.body).repo, resolve, reject }));
+  });
+  const respond = (request, status, body) => request.resolve({ status, json: async () => body });
+
+  app.submit('org/a');
+  await nextTurn();
+  const requestA = app.request();
+  await nextTurn();
+  app.submit('org/b');
+  await nextTurn();
+  const requestB = app.request();
+  await nextTurn();
+
+  respond(pending[0], 202, { ok: true });
+  await requestA;
+  assert.equal(app.storage.get('cx-requested:org/a'), '1', 'record success for the original key');
+  assert.equal(app.elements['request-status'].textContent, 'Sending the request.');
+  assert.equal(app.elements['request-btn'].disabled, true, 'do not enable the current request button');
+  assert.equal(app.elements['request-btn'].textContent, 'Request a map');
+  pending[1].reject(new Error('offline'));
+  await requestB;
+
+  app.submit('org/c');
+  await nextTurn();
+  const requestC = app.request();
+  await nextTurn();
+  app.submit('org/d');
+  await nextTurn();
+  const requestD = app.request();
+  await nextTurn();
+  pending[2].reject(new Error('offline'));
+  await requestC;
+  assert.equal(app.elements['request-status'].textContent, 'Sending the request.');
+  assert.equal(app.elements['request-btn'].disabled, true, 'a stale failure must not re-enable the current request');
+  pending[3].reject(new Error('offline'));
+  await requestD;
+});
+
 test('the removal page names the three ways, the 24 hours, and posts to the removals route', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const html = readFileSync(join(site(), 'map/remove/index.html'), 'utf8');
