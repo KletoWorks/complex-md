@@ -431,10 +431,13 @@ function rustModulePath(parts, base, files, fallback = null) {
   return fallback;
 }
 
-function rustModuleFile(base, files, crate, fallback) {
+// The file of the module at base. When base is a crate root's directory,
+// that is the root which owns the importing file: in a package with both
+// src/lib.rs and src/main.rs, `super::` from a module of main.rs is main.rs.
+function rustModuleFile(base, files, root, fallback) {
   if (files.has(base + '.rs')) return base + '.rs';
   if (files.has(base + '/mod.rs')) return base + '/mod.rs';
-  return crate?.roots.find((root) => posix.dirname(root) === base) || fallback;
+  return root && posix.dirname(root) === base ? root : fallback;
 }
 
 function rustCrates(files, texts) {
@@ -532,13 +535,13 @@ function rustUsePath(spec, file, crate, crates, files, scopeBase) {
   } else if (parts[0] === 'self') {
     base = scopeBase;
     moduleParts = parts.slice(1);
-    fallback = rustModuleFile(base, files, crate, file);
+    fallback = rustModuleFile(base, files, crates.rootForFile(file, crate), file);
   } else if (parts[0] === 'super') {
     base = scopeBase;
     let i = 0;
     while (parts[i] === 'super') { base = posix.dirname(base); i++; }
     moduleParts = parts.slice(i);
-    fallback = rustModuleFile(base, files, crate, file);
+    fallback = rustModuleFile(base, files, crates.rootForFile(file, crate), file);
   } else {
     const target = crates.byName.get(parts[0]);
     if (!target || !target.rootFile) return null;

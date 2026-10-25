@@ -405,6 +405,25 @@ const CASES = [
     ],
   },
   {
+    name: 'rust super and self paths reach the root that owns the module, not the library first',
+    files: {
+      'Cargo.toml': '[package]\nname = "both"\n',
+      'src/lib.rs': 'pub mod api;\npub struct LibItem;\n',
+      'src/api.rs': 'use super::LibItem;\n',
+      'src/main.rs': 'mod local;\npub struct BinaryItem;\nuse self::local::Item;\nuse self::BinaryItem as Again;\n',
+      'src/local.rs': 'use super::BinaryItem;\npub struct Item;\n',
+    },
+    edges: [
+      ['src/local.rs', 'src/main.rs'],
+      ['src/main.rs', 'src/local.rs'],
+      ['src/api.rs', 'src/lib.rs'],
+    ],
+    notEdges: [
+      ['src/local.rs', 'src/lib.rs'],
+      ['src/main.rs', 'src/lib.rs'],
+    ],
+  },
+  {
     name: 'go: an import of a package depends on every non-test file in its directory',
     files: {
       'go.mod': 'module example.com/m\n',
