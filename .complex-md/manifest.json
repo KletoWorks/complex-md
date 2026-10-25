@@ -1,116 +1,121 @@
 {
   "generator": {
     "name": "complex-md",
-    "version": "0.10.0"
+    "version": "0.11.0"
   },
   "spec": "0.3",
   "profile": "full",
   "files": [
     {
       "path": ".claude/rules/complex-md/bench-run.mjs-wagotw.md",
-      "sha256": "e7529c02343608bfbafb0c1d779b83d28719db67c1c4c81bd55cce06603c7297",
+      "sha256": "d7c14620027534cc5a00a2dde1cb4a6731ac34fd62450dda75f6c38e29a4109b",
       "target": "claude"
     },
     {
       "path": ".claude/rules/complex-md/cli-README.md-1kfeoq.md",
-      "sha256": "0511b2e56d140757563ce80cc4e3f36806d0b7df2e3415626717fdf95dfa06f5",
-      "target": "claude"
-    },
-    {
-      "path": ".claude/rules/complex-md/cli-bin-complex-md.js-rgy24.md",
-      "sha256": "4a040e1009910aebcb2102c8b8579b2daa479668a60868550b4c98d22c62a050",
+      "sha256": "e97fe44e6a85621772f5223803b3b01ce5569cb3b22af8399abe87b28d2bb65c",
       "target": "claude"
     },
     {
       "path": ".claude/rules/complex-md/cli-src-complexmd.js-dfftey.md",
-      "sha256": "1d569e4153f6b05761de1a0eed972ae6da0250c878976a3ea1a4f3c4419f2533",
+      "sha256": "900e4516f106445f771ad413abf71ceb2e2e3b8c05fc7a95800b222afd0d20c0",
       "target": "claude"
     },
     {
       "path": ".claude/rules/complex-md/cli-src-generate.js-1i7bd1.md",
-      "sha256": "8b1e895dd0d57c1875dc3947a6c6a6b398597e33682edbb24e66ab8809db71c2",
+      "sha256": "b6355252c28af4d285d26c5210ad66c84c36c614dd0835f41a2ecf90861b681d",
+      "target": "claude"
+    },
+    {
+      "path": ".claude/rules/complex-md/cli-src-git.js-1m490o.md",
+      "sha256": "07dd08cd10b2c79cc2939e253d922bcda8baeae7b5b135473eab0f2155977f0e",
       "target": "claude"
     },
     {
       "path": ".claude/rules/complex-md/cli-src-graph.js-37xq9v.md",
-      "sha256": "c43fe073a639a324fd1151978a41fd73eb236f1edf580d334957f27a3880072c",
+      "sha256": "e0e7f1394543a40bed1b7e2b7bb9070f1bac2208fe90fbcbbbdfdb08a79933ec",
+      "target": "claude"
+    },
+    {
+      "path": ".claude/rules/complex-md/cli-src-render.js-7mikqv.md",
+      "sha256": "391470cc99438201051a5c103d22282c750363ecd524544b89c249c8606790df",
       "target": "claude"
     },
     {
       "path": ".claude/rules/complex-md/cli-src-signals.js-1kmuwb.md",
-      "sha256": "a997b61e541ed7d2b06a3e7f3dacc9557e8a609b945e95bce25da6fb0a58c87a",
+      "sha256": "4439d87919ba6146d41b6fb69640c3c2d9d3e219816f18d287b881f65ca30942",
       "target": "claude"
     },
     {
       "path": ".claude/rules/complex-md/cli-src-targets.js-bmmsgf.md",
-      "sha256": "acb8fd6c135e1195f0f6d5e400932f45a09374809c2ccb28a71d00a7688e728e",
+      "sha256": "6a1bd5c94a75646950e8b1024a705ef776ff1a4bfa3ab61c3d1ab859bffdd540",
       "target": "claude"
     },
     {
       "path": ".claude/rules/complex-md/cli-src-wire.js-1bmsw5.md",
-      "sha256": "bb20cccb48d95824f8efebc289aab244512070e0d5a26bde14ce5ea7bac3e433",
-      "target": "claude"
-    },
-    {
-      "path": ".claude/rules/complex-md/content-spec.md-avvgno.md",
-      "sha256": "20bf94fb2d50a158d9a04983bd5a7ffd5ddef8c40155a588e339198d4a78f71c",
+      "sha256": "c37762260a9f5e54017fbe9620096fba394314e15af738ae328ea49830abf325",
       "target": "claude"
     },
     {
       "path": ".github/instructions/complex-md/bench-run.mjs-wagotw.instructions.md",
-      "sha256": "24a927fb4b0d58e23638d45cd674b858251c3be09da7ef912e05889505e34071",
+      "sha256": "4800cc6a96ef5b20eeac051516e7baf7c5dcc5f3062a9f2b50c91ecba45c17b6",
       "target": "copilot"
     },
     {
       "path": ".github/instructions/complex-md/cli-README.md-1kfeoq.instructions.md",
-      "sha256": "a4d11bf95634bed0a40a0232a59742ce385286d710547b449d968fab600285f5",
-      "target": "copilot"
-    },
-    {
-      "path": ".github/instructions/complex-md/cli-bin-complex-md.js-rgy24.instructions.md",
-      "sha256": "a63c853582a3bc59f7f1175d4136629af25731119472774decded6055f11d20b",
+      "sha256": "7cca87bf187ee1d7c49154354bd141a641dccef6e728e8b91f8bab5c9b00e56c",
       "target": "copilot"
     },
     {
       "path": ".github/instructions/complex-md/cli-src-complexmd.js-dfftey.instructions.md",
-      "sha256": "edb2c152faee943dbeac793851113e937f87c796b5427d7db16133af7c964802",
+      "sha256": "0ee2c54136ea2756e56b8d09bd2fed6787f44b12b9e8b67213a75060f424a6ce",
       "target": "copilot"
     },
     {
       "path": ".github/instructions/complex-md/cli-src-generate.js-1i7bd1.instructions.md",
-      "sha256": "ec23a0813a898be2b619c6e21beef10ec02aa5aba76703547b508293f813473e",
+      "sha256": "fbe40cc0a5427c1409fbe42e8f331b3ba4fbdece79c43c7b58dca57ac54b4f83",
+      "target": "copilot"
+    },
+    {
+      "path": ".github/instructions/complex-md/cli-src-git.js-1m490o.instructions.md",
+      "sha256": "07dc83b710e0d5c9df991c6bb9cf763b22a98d553af2c0ec5b335a1d80482d3c",
       "target": "copilot"
     },
     {
       "path": ".github/instructions/complex-md/cli-src-graph.js-37xq9v.instructions.md",
-      "sha256": "32fd7e80f030e32b2b9da909b425ae7d1f54c1819e331271c7073312d9e77f67",
+      "sha256": "6369b6618cd30917939bf1ff0466387197ce1fa263b7ef16b7f618780dbf84de",
+      "target": "copilot"
+    },
+    {
+      "path": ".github/instructions/complex-md/cli-src-render.js-7mikqv.instructions.md",
+      "sha256": "7e9d7401fee085728c7cdceff938b078f3407da98eb95b3f210504f47c0d4a09",
       "target": "copilot"
     },
     {
       "path": ".github/instructions/complex-md/cli-src-signals.js-1kmuwb.instructions.md",
-      "sha256": "fc030c09d06d3cb741bee2f20e11bb62333e72d574e031c397fc1223ca14dc19",
+      "sha256": "94ca65ca4d7b6e241f2aa79f75b3483bb944245f646827698197c68580a2eab7",
       "target": "copilot"
     },
     {
       "path": ".github/instructions/complex-md/cli-src-targets.js-bmmsgf.instructions.md",
-      "sha256": "1486334d34c5e780ca0564d133082dc2ba8eeea241d72544037bb1d6a4b52ffc",
+      "sha256": "97273023603ef34f3fae98fa5aad65b9df764e304b38a31582b7ee93df9d4091",
       "target": "copilot"
     },
     {
       "path": ".github/instructions/complex-md/cli-src-wire.js-1bmsw5.instructions.md",
-      "sha256": "e290222e508a408f8355ccbb5dd8f55d47a3dc7aca715824b5c30ffbefae6ae2",
+      "sha256": "c2ebb76f416b824b371ebb09fb90b26cb439510117b72f0be2f126218a3c5033",
       "target": "copilot"
     },
     {
-      "path": ".github/instructions/complex-md/content-spec.md-avvgno.instructions.md",
-      "sha256": "e6f7f6d9021661ef3ebe748f3f504fde918d9580e089a9506c2034b47f73cc46",
-      "target": "copilot"
+      "path": "CLAUDE.md",
+      "sha256": "3cbeb7b8e8fb117346bc713c0f9a239766fc44cd35fcb212d23520d259becdbe",
+      "adopted": "0.10.0"
     }
   ],
   "blocks": [
     {
       "path": ".gitattributes",
-      "sha256": "6acc195f5113ce0c70e2d3701dfa7c3d3ec308d8a265aa1d5340a1567d994e7e",
+      "sha256": "93140cc6f01f70197020c76ca8a2cc398cf1feffa32f5a4bbd4bf8aaf3a4e2b4",
       "before": "",
       "after": "",
       "created": true
@@ -126,6 +131,36 @@
       "sha256": "dd33092ec39efa28e950b1f0699f947ef7f97f1efe1db01ce6010bbda54444e6",
       "before": "\n",
       "after": ""
+    }
+  ],
+  "entries": [
+    {
+      "path": ".claude/settings.local.json",
+      "kind": "claude-hooks",
+      "records": [
+        {
+          "container": "hooks.PreToolUse",
+          "index": 0,
+          "identity": [
+            "node cli/bin/complex-md.js hook pre"
+          ],
+          "sha256": "0eadda145bc75691965186ae90847000c0a9a99dc3846f1565a97338c576e669"
+        },
+        {
+          "container": "hooks.Stop",
+          "index": 0,
+          "identity": [
+            "node cli/bin/complex-md.js hook stop"
+          ],
+          "sha256": "7b15a58396426e30f128775e0ad5496c3493abc8bf9e193227b13e6a08e1046d"
+        }
+      ],
+      "created": true,
+      "added": [
+        "hooks",
+        "hooks.PreToolUse",
+        "hooks.Stop"
+      ]
     }
   ]
 }

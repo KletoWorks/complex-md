@@ -7,4 +7,8 @@ paths: cli/src/graph.js
 
 Listed in COMPLEX.md as a file where edits are risky.
 
-    churn 11  fixes 9  fan_in 4  tests 3  loc 576  score 2244
+    churn 17  fixes 15  fan_in 4  tests 3  loc 932  score 3500
+
+cli/src/graph.js computes the structural axis from the working tree: the kind of each file and the files that depend on it. classify tests each path against an ordered list of patterns, and the order decides the kind. buildGraph resolves imports for JavaScript, Python, Rust and other languages. 15 of its 17 commits were fixes, the highest count in the repository. Its comments record a test helper and an empty `__init__.py` that it once named as tests. cli/src/signals.js imports it, so a wrong kind changes every ranked row. Only 3 test files cover it directly: cli/test/basic.test.js, cli/test/classify.test.js and cli/test/resolve.test.js. Before editing this file, run `cd cli && npm test`, because every signals test reads its output.
+
+**Before editing this file, run `cd cli && npm test`, because every signals test reads its output.**

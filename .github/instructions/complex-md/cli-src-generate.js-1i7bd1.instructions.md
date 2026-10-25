@@ -6,8 +6,13 @@ applyTo: "cli/src/generate.js"
 
 Listed in COMPLEX.md as a file where edits are risky.
 
-    churn 11  fixes 5  fan_in 5  tests 9  loc 319  score 2419
+    churn 13  fixes 7  fan_in 5  tests 10  loc 337  score 2780
 
-cli/src/generate.js writes the front matter, builds the model bundle and checks each model reply. normalizeOutput throws on a reply without all 4 REQUIRED_SECTIONS headings, so a refusal never replaces a good map. Its model calls are the only network requests that the CLI permits. 5 of its 11 commits were fixes, and a comment records an old 4000-token cap that cut large maps. 9 test files cover it, among them cli/test/generate.test.js and cli/test/template.test.js. Before editing this file, open parseFrontMatter in cli/src/complexmd.js, because it reads back the exact lines that frontMatter writes.
+cli/src/generate.js writes the front matter, builds the model bundle and checks each model reply. normalizeOutput throws on a reply without all 4 REQUIRED_SECTIONS headings, so a refusal never replaces a good map. Its model calls are the only network requests that the CLI permits. 7 of its 13 commits were fixes, and a comment records an old 4000-token cap that cut large maps. bench/run.mjs, cli/src/via.js and the bin depend on it. 10 test files cover it, among them cli/test/generate.test.js. Before editing this file, open parseFrontMatter in cli/src/complexmd.js, because it reads back the exact lines that frontMatter writes.
+
+Moves with:
+- cli/bin/complex-md.js (5 commits together, 38% of the less active file's commits)
+
+Open the partner and say in the change description whether it needed a change too.
 
 **Before editing this file, open parseFrontMatter in cli/src/complexmd.js, because it reads back the exact lines that frontMatter writes.**

@@ -7,13 +7,13 @@ paths: cli/src/wire.js
 
 Listed in COMPLEX.md as a file where edits are risky.
 
-    churn 17  fixes 7  fan_in 3  tests 17  loc 291  score 2419
+    churn 18  fixes 8  fan_in 3  tests 18  loc 395  score 2255
 
-cli/src/targets.js holds 1 entry per agent harness: how wire detects the harness and where it writes rules, hooks and MCP entries. Its ENTRY_KINDS table finds complex-md entries in user settings files and strips them without loss of other entries. OUR_HOOK and isOurs recognize the hook commands that earlier versions wrote. 9 of its 28 commits were fixes. cli/src/wire.js writes from BRIEF_SPECS, and cli/src/check.js also depends on this file. 6 test files cover it, among them cli/test/invocation.test.js, cli/test/channels.test.js and cli/test/truth.test.js. Before editing this file, run `cd cli && node --test test/channels.test.js test/cli.test.js test/generated-notice.test.js test/invocation.test.js test/plan.test.js test/truth.test.js`.
+cli/src/targets.js holds 1 entry per agent harness: how wire detects the harness and where it writes rules, hooks and MCP entries. Its ENTRY_KINDS table finds complex-md entries in user settings files and strips them without loss of other entries. OUR_HOOK and isOurs recognize the hook commands that earlier versions wrote. 12 of its 31 commits were fixes. cli/src/wire.js, cli/src/check.js, cli/src/unwire.js and the bin depend on it. Before editing this file, run `cd cli && node --test test/channels.test.js test/cli.test.js test/generated-notice.test.js test/invocation.test.js test/plan.test.js test/truth.test.js test/upgrade-0.10.test.js`.
 
 Moves with:
-- cli/src/targets.js (9 commits together, 53% of the less active file's commits)
+- cli/src/targets.js (10 commits together, 56% of the less active file's commits)
 
 Open the partner and say in the change description whether it needed a change too.
 
-**Before editing this file, run `cd cli && node --test test/channels.test.js test/cli.test.js test/generated-notice.test.js test/invocation.test.js test/plan.test.js test/truth.test.js`.**
+**Before editing this file, run `cd cli && node --test test/channels.test.js test/cli.test.js test/generated-notice.test.js test/invocation.test.js test/plan.test.js test/truth.test.js test/upgrade-0.10.test.js`.**

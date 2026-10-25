@@ -7,8 +7,7 @@ applyTo: "cli/README.md"
 Not ranked in COMPLEX.md. It is here because it moves with a file that is.
 
 Moves with:
-- content/spec.md (8 commits together, 62% of the less active file's commits)
-- cli/bin/complex-md.js (7 commits together, 44% of the less active file's commits)
-- content/index.html (6 commits together, 38% of the less active file's commits)
+- content/spec.md (8 commits together, 53% of the less active file's commits)
+- cli/bin/complex-md.js (8 commits together, 40% of the less active file's commits)
 
 Open the partner and say in the change description whether it needed a change too.

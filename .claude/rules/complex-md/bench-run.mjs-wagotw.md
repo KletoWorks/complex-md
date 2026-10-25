@@ -7,13 +7,13 @@ paths: bench/run.mjs
 
 Listed in COMPLEX.md as a file where edits are risky.
 
-    churn 26  fixes 13  fan_in 4  tests 3  loc 448  score 2831
+    churn 26  fixes 13  fan_in 4  tests 3  loc 448  score 2474
 
-bench/run.mjs runs the benchmark: the same issue at the same base commit, with and without COMPLEX.md. It imports computeSignals, buildBundle, normalizeOutput and wire, so a change to those exports breaks it. 13 of its 26 commits were fixes, the highest count in the repository. Its comments record 2 isolation defects: a node_modules link led an agent to future history, and an unknown agent name started a real model run. The script itself drives a real agent and spends account usage. Before editing this file, run `cd cli && node --test test/bench-harness.test.js test/bench-partners.test.js`.
+cli/src/generate.js writes the front matter, builds the model bundle and checks each model reply. normalizeOutput throws on a reply without all 4 REQUIRED_SECTIONS headings, so a refusal never replaces a good map. Its model calls are the only network requests that the CLI permits. 7 of its 13 commits were fixes, and a comment records an old 4000-token cap that cut large maps. bench/run.mjs, cli/src/via.js and the bin depend on it. 10 test files cover it, among them cli/test/generate.test.js. Before editing this file, open parseFrontMatter in cli/src/complexmd.js, because it reads back the exact lines that frontMatter writes.
 
 Moves with:
 - bench/agent-events.mjs (6 commits together, 86% of the less active file's commits)
 
 Open the partner and say in the change description whether it needed a change too.
 
-**Before editing this file, run `cd cli && node --test test/bench-harness.test.js test/bench-partners.test.js`.**
+**Before editing this file, open parseFrontMatter in cli/src/complexmd.js, because it reads back the exact lines that frontMatter writes.**
