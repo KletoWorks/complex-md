@@ -53,6 +53,19 @@ test('an outer fence is not a fault; a changed front matter is', async (t) => {
   assert.equal(scoreMap({ reply: GOOD.slice(FM.length), fm: FM, files: FILES, hot: HOT }).front_matter.pass, false);
 });
 
+test('written scoring uses the CLI front matter replacement and refuses prose the CLI cannot write', async (t) => {
+  if (!existsSync(BENCH)) return t.skip('not a repository checkout');
+  const { scoreMap, scoreWrittenMap } = await load();
+  const changed = GOOD.replace('abc1234', 'abc1235');
+  assert.equal(scoreMap({ reply: changed, fm: FM, files: FILES, hot: HOT }).front_matter.pass, false);
+  const written = scoreWrittenMap({ reply: changed, fm: FM, files: FILES, hot: HOT });
+  assert.equal(written.front_matter.pass, true);
+  assert.deepEqual(names(written), Object.fromEntries(['front_matter', 'sections', 'paths', 'directives', 'sentences', 'em_dashes'].map((c) => [c, true])));
+  const invalid = scoreWrittenMap({ reply: GOOD.replace('## Change coupling', '## Coupling'), fm: FM, files: FILES, hot: HOT });
+  assert.ok(Object.values(invalid).every((r) => !r.pass));
+  assert.match(invalid.sections.detail, /not written/);
+});
+
 test('each rule fails on its own fault and names it', async (t) => {
   if (!existsSync(BENCH)) return t.skip('not a repository checkout');
   const { scoreMap } = await load();

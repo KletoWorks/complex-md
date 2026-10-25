@@ -60,37 +60,68 @@
       "error": null,
       "ms": 95870,
       "usage": {
-        "input": 20295,
-        "output": 4450,
-        "reasoning": 2192
+        "prompt_tokens": 20295,
+        "completion_tokens": 4450,
+        "completion_tokens_details": {
+          "reasoning_tokens": 2192
+        }
       },
       "cost_usd": 0.0032251074,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "no front matter block"
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "no front matter block"
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "6 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts, [source/index.ts, [source/types/ky.ts"
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": false,
-          "detail": "6 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts, [source/index.ts, [source/types/ky.ts"
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "6 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "6 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts, [source/index.ts, [source/types/ky.ts"
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "deepseek/deepseek-v4-pro",
@@ -99,37 +130,68 @@
       "error": null,
       "ms": 112518,
       "usage": {
-        "input": 10101,
-        "output": 5362,
-        "reasoning": 3277
+        "prompt_tokens": 10101,
+        "completion_tokens": 5362,
+        "completion_tokens_details": {
+          "reasoning_tokens": 3277
+        }
       },
       "cost_usd": 0.002976879,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "6 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "deepseek/deepseek-v4-pro",
@@ -138,37 +200,68 @@
       "error": null,
       "ms": 64078,
       "usage": {
-        "input": 16920,
-        "output": 3108,
-        "reasoning": 1310
+        "prompt_tokens": 16920,
+        "completion_tokens": 3108,
+        "completion_tokens_details": {
+          "reasoning_tokens": 1310
+        }
       },
       "cost_usd": 0.0025506486,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "1 not in the repository: byte.go"
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 30 words: \"Files for primitive flag types (CODE, CODE, CODE, CODE, CODE...\""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": false,
-          "detail": "1 not in the repository: byte.go"
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": false,
-          "detail": "1 over the limit; first: description of 30 words: \"Files for primitive flag types (CODE, CODE, CODE, CODE, CODE...\""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "6 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "1 not in the repository: byte.go"
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 30 words: \"Files for primitive flag types (CODE, CODE, CODE, CODE, CODE...\""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "deepseek/deepseek-v4.1-flash",
@@ -177,37 +270,68 @@
       "error": null,
       "ms": 39812,
       "usage": {
-        "input": 20321,
-        "output": 7540,
-        "reasoning": 5170
+        "prompt_tokens": 20321,
+        "completion_tokens": 7540,
+        "completion_tokens_details": {
+          "reasoning_tokens": 5170
+        }
       },
       "cost_usd": 0.00960425,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "4 over the limit; first: instruction of 24 words: \"Before editing this file, run the test in test/hooks.ts and ...\""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "5 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": false,
-          "detail": "4 over the limit; first: instruction of 24 words: \"Before editing this file, run the test in test/hooks.ts and ...\""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "5 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "4 over the limit; first: instruction of 24 words: \"Before editing this file, run the test in test/hooks.ts and ...\""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "5 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "deepseek/deepseek-v4.1-flash",
@@ -216,37 +340,68 @@
       "error": null,
       "ms": 19255,
       "usage": {
-        "input": 10127,
-        "output": 5937,
-        "reasoning": 4134
+        "prompt_tokens": 10127,
+        "completion_tokens": 5937,
+        "completion_tokens_details": {
+          "reasoning_tokens": 4134
+        }
       },
       "cost_usd": 0.005614718,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "5 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "5 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "5 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "deepseek/deepseek-v4.1-flash",
@@ -255,37 +410,68 @@
       "error": null,
       "ms": 30350,
       "usage": {
-        "input": 16946,
-        "output": 8739,
-        "reasoning": 6791
+        "prompt_tokens": 16946,
+        "completion_tokens": 8739,
+        "completion_tokens_details": {
+          "reasoning_tokens": 6791
+        }
       },
       "cost_usd": 0.0094799,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "6 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "moonshotai/kimi-k2.6",
@@ -294,47 +480,85 @@
       "error": null,
       "ms": 73309,
       "usage": {
-        "input": 19298,
-        "output": 12000,
-        "reasoning": 11202
+        "prompt_tokens": 19298,
+        "completion_tokens": 12000,
+        "completion_tokens_details": {
+          "reasoning_tokens": 11202
+        }
       },
       "cost_usd": 0.0500289748,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "no front matter block"
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "no front matter block"
+          },
+          "sections": {
+            "pass": false,
+            "detail": "missing ## Where the risk lives, ## Why these files are hot, ## Change coupling, ## What to read first"
+          },
+          "paths": {
+            "pass": false,
+            "detail": "3 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts"
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/core/Ky.ts: no paragraph; source/types/options.ts: no paragraph; source/utils/merge.ts: no paragraph; source/types/hooks.ts: no paragraph; source/core/constants.ts: no paragraph"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 68 words: \"--- complex_md: \"0.3\" generated: 2026-10-09 commit: 3541888 ...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": false,
-          "detail": "missing ## Where the risk lives, ## Why these files are hot, ## Change coupling, ## What to read first"
-        },
-        "paths": {
-          "pass": false,
-          "detail": "3 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts"
-        },
-        "directives": {
-          "pass": false,
-          "detail": "source/core/Ky.ts: no paragraph; source/types/options.ts: no paragraph; source/utils/merge.ts: no paragraph; source/types/hooks.ts: no paragraph; source/core/constants.ts: no paragraph"
-        },
-        "sentences": {
-          "pass": false,
-          "detail": "1 over the limit; first: description of 68 words: \"--- complex_md: \"0.3\" generated: 2026-10-09 commit: 3541888 ...\""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
+          },
+          "sections": {
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
+          },
+          "paths": {
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
+          },
+          "directives": {
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "moonshotai/kimi-k2.6",
       "repo": "itsdangerous",
       "commit": "672971d66a2ef9f85151e53283113f33d642dabd",
-      "error": "HTTP 200: no choices[0].message.content",
+      "error": "empty_content",
       "ms": null,
-      "usage": null,
+      "usage": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "completion_tokens_details": {
+          "reasoning_tokens": null
+        }
+      },
       "cost_usd": null,
-      "checks": null
+      "checks": null,
+      "finish_reason": null
     },
     {
       "model": "moonshotai/kimi-k2.6",
@@ -343,67 +567,119 @@
       "error": null,
       "ms": 76339,
       "usage": {
-        "input": 16315,
-        "output": 12000,
-        "reasoning": 11239
+        "prompt_tokens": 16315,
+        "completion_tokens": 12000,
+        "completion_tokens_details": {
+          "reasoning_tokens": 11239
+        }
       },
       "cost_usd": 0.0473572814,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "no front matter block"
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "no front matter block"
+          },
+          "sections": {
+            "pass": false,
+            "detail": "missing ## Where the risk lives, ## Why these files are hot, ## Change coupling, ## What to read first"
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "flag.go: no paragraph; golangflag.go: no paragraph; string_slice.go: no paragraph; string_to_string.go: no paragraph; ip_slice.go: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": false,
-          "detail": "missing ## Where the risk lives, ## Why these files are hot, ## Change coupling, ## What to read first"
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": false,
-          "detail": "flag.go: no paragraph; golangflag.go: no paragraph; string_slice.go: no paragraph; string_to_string.go: no paragraph; ip_slice.go: no paragraph"
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
+          },
+          "sections": {
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
+          },
+          "paths": {
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
+          },
+          "directives": {
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "not written: model output is missing required sections \"## Where the risk lives\", \"## Why these files are hot\", \"## Change coupling\", \"## What to read first\"; COMPLEX.md not written"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "qwen/qwen3.8-27b",
       "repo": "ky",
       "commit": "3541888878c4d303a8bc2ad61815f4e048f55a5d",
-      "error": "HTTP 200: no choices[0].message.content",
+      "error": "empty_content",
       "ms": null,
-      "usage": null,
+      "usage": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "completion_tokens_details": {
+          "reasoning_tokens": null
+        }
+      },
       "cost_usd": null,
-      "checks": null
+      "checks": null,
+      "finish_reason": null
     },
     {
       "model": "qwen/qwen3.8-27b",
       "repo": "itsdangerous",
       "commit": "672971d66a2ef9f85151e53283113f33d642dabd",
-      "error": "HTTP 200: no choices[0].message.content",
+      "error": "empty_content",
       "ms": null,
-      "usage": null,
+      "usage": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "completion_tokens_details": {
+          "reasoning_tokens": null
+        }
+      },
       "cost_usd": null,
-      "checks": null
+      "checks": null,
+      "finish_reason": null
     },
     {
       "model": "qwen/qwen3.8-27b",
       "repo": "pflag",
       "commit": "d26a4dcd30a3c17923a2083b48bd6233aada9d47",
-      "error": "HTTP 200: no choices[0].message.content",
+      "error": "empty_content",
       "ms": null,
-      "usage": null,
+      "usage": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "completion_tokens_details": {
+          "reasoning_tokens": null
+        }
+      },
       "cost_usd": null,
-      "checks": null
+      "checks": null,
+      "finish_reason": null
     },
     {
       "model": "qwen/qwen3-coder-next",
@@ -412,37 +688,68 @@
       "error": null,
       "ms": 22979,
       "usage": {
-        "input": 19668,
-        "output": 2196,
-        "reasoning": 0
+        "prompt_tokens": 19668,
+        "completion_tokens": 2196,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.00411696,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "line 123: expected \"  - files: [source/core/constants.ts, source/types/ky.ts]\", got \"  - source/core/constants.ts + source/types/ky.ts: 9 shared commits, coupling 41%\""
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "line 123: expected \"  - files: [source/core/constants.ts, source/types/ky.ts]\", got \"  - source/core/constants.ts + source/types/ky.ts: 9 shared commits, coupling 41%\""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "5 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "5 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "5 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "qwen/qwen3-coder-next",
@@ -451,37 +758,68 @@
       "error": null,
       "ms": 19659,
       "usage": {
-        "input": 9833,
-        "output": 1905,
-        "reasoning": 0
+        "prompt_tokens": 9833,
+        "completion_tokens": 1905,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.00270396,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "2 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "2 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "2 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "qwen/qwen3-coder-next",
@@ -490,47 +828,85 @@
       "error": null,
       "ms": 19930,
       "usage": {
-        "input": 16644,
-        "output": 2006,
-        "reasoning": 0
+        "prompt_tokens": 16644,
+        "completion_tokens": 2006,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.00352048,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 27 words: \"This coupling is by design: each file adds a single value ty...\""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "5 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": false,
-          "detail": "1 over the limit; first: description of 27 words: \"This coupling is by design: each file adds a single value ty...\""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "5 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 27 words: \"This coupling is by design: each file adds a single value ty...\""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "5 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "z-ai/glm-5.1",
       "repo": "ky",
       "commit": "3541888878c4d303a8bc2ad61815f4e048f55a5d",
-      "error": "HTTP 200: no choices[0].message.content",
+      "error": "empty_content",
       "ms": null,
-      "usage": null,
+      "usage": {
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "completion_tokens_details": {
+          "reasoning_tokens": null
+        }
+      },
       "cost_usd": null,
-      "checks": null
+      "checks": null,
+      "finish_reason": null
     },
     {
       "model": "z-ai/glm-5.1",
@@ -539,37 +915,68 @@
       "error": null,
       "ms": 106442,
       "usage": {
-        "input": 9624,
-        "output": 5297,
-        "reasoning": 3690
+        "prompt_tokens": 9624,
+        "completion_tokens": 5297,
+        "completion_tokens_details": {
+          "reasoning_tokens": 3690
+        }
       },
       "cost_usd": 0.0178082376,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "line 65: expected \"    coupling: 46\", got \"    coupling: 46%\""
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "line 65: expected \"    coupling: 46\", got \"    coupling: 46%\""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "5 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "5 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "5 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "z-ai/glm-5.1",
@@ -578,37 +985,68 @@
       "error": null,
       "ms": 181272,
       "usage": {
-        "input": 16261,
-        "output": 8767,
-        "reasoning": 6910
+        "prompt_tokens": 16261,
+        "completion_tokens": 8767,
+        "completion_tokens_details": {
+          "reasoning_tokens": 6910
+        }
       },
       "cost_usd": 0.0295338354,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 28 words: \"The scalar type files bool.go, int.go, int8.go, int32.go, in...\""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "5 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": false,
-          "detail": "1 over the limit; first: description of 28 words: \"The scalar type files bool.go, int.go, int8.go, int32.go, in...\""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "5 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 28 words: \"The scalar type files bool.go, int.go, int8.go, int32.go, in...\""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "5 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "minimax/minimax-m2.7",
@@ -617,37 +1055,68 @@
       "error": null,
       "ms": 76759,
       "usage": {
-        "input": 19464,
-        "output": 3002,
-        "reasoning": 0
+        "prompt_tokens": 19464,
+        "completion_tokens": 3002,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.0094416,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "line 94: expected \"load_bearing:\", got \"load_bearing: []\""
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "line 94: expected \"load_bearing:\", got \"load_bearing: []\""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/core/Ky.ts: no paragraph"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "3 over the limit; first: description of 28 words: \"The options types in options.ts (555 lines, 74 commits, 21 f...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": false,
-          "detail": "source/core/Ky.ts: no paragraph"
-        },
-        "sentences": {
-          "pass": false,
-          "detail": "3 over the limit; first: description of 28 words: \"The options types in options.ts (555 lines, 74 commits, 21 f...\""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/core/Ky.ts: no paragraph"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "3 over the limit; first: description of 28 words: \"The options types in options.ts (555 lines, 74 commits, 21 f...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "minimax/minimax-m2.7",
@@ -656,37 +1125,68 @@
       "error": null,
       "ms": 8318,
       "usage": {
-        "input": 9586,
-        "output": 2371,
-        "reasoning": 661
+        "prompt_tokens": 9586,
+        "completion_tokens": 2371,
+        "completion_tokens_details": {
+          "reasoning_tokens": 661
+        }
       },
       "cost_usd": 0.0100194,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "src/itsdangerous/serializer.py: no paragraph; src/itsdangerous/timed.py: no paragraph; src/itsdangerous/exc.py: no paragraph"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "2 over the limit; first: description of 29 words: \"The exc.py file defines all exception types and is depended ...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": false,
-          "detail": "src/itsdangerous/serializer.py: no paragraph; src/itsdangerous/timed.py: no paragraph; src/itsdangerous/exc.py: no paragraph"
-        },
-        "sentences": {
-          "pass": false,
-          "detail": "2 over the limit; first: description of 29 words: \"The exc.py file defines all exception types and is depended ...\""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "src/itsdangerous/serializer.py: no paragraph; src/itsdangerous/timed.py: no paragraph; src/itsdangerous/exc.py: no paragraph"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "2 over the limit; first: description of 29 words: \"The exc.py file defines all exception types and is depended ...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "minimax/minimax-m2.7",
@@ -695,37 +1195,68 @@
       "error": null,
       "ms": 36706,
       "usage": {
-        "input": 16387,
-        "output": 2513,
-        "reasoning": 0
+        "prompt_tokens": 16387,
+        "completion_tokens": 2513,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.0079317,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "no front matter block"
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "no front matter block"
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "6 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "nousresearch/hermes-4-405b",
@@ -734,37 +1265,68 @@
       "error": null,
       "ms": 59129,
       "usage": {
-        "input": 19240,
-        "output": 1798,
-        "reasoning": 0
+        "prompt_tokens": 19240,
+        "completion_tokens": 1798,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.024634,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "line 94: expected \"load_bearing:\", got \"load_bearing: []\""
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "line 94: expected \"load_bearing:\", got \"load_bearing: []\""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/types/hooks.ts: no paragraph; source/core/constants.ts: no paragraph"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 26 words: \"CODE changes with CODE in 45% of commits and with CODE in 61...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": false,
-          "detail": "source/types/hooks.ts: no paragraph; source/core/constants.ts: no paragraph"
-        },
-        "sentences": {
-          "pass": false,
-          "detail": "1 over the limit; first: description of 26 words: \"CODE changes with CODE in 45% of commits and with CODE in 61...\""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/types/hooks.ts: no paragraph; source/core/constants.ts: no paragraph"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 26 words: \"CODE changes with CODE in 45% of commits and with CODE in 61...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "nousresearch/hermes-4-405b",
@@ -773,37 +1335,68 @@
       "error": null,
       "ms": 48146,
       "usage": {
-        "input": 9628,
-        "output": 1694,
-        "reasoning": 0
+        "prompt_tokens": 9628,
+        "completion_tokens": 1694,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.01471,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "nousresearch/hermes-4-405b",
@@ -812,37 +1405,68 @@
       "error": null,
       "ms": 46474,
       "usage": {
-        "input": 16268,
-        "output": 1777,
-        "reasoning": 0
+        "prompt_tokens": 16268,
+        "completion_tokens": 1777,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.021599,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "no front matter block"
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "no front matter block"
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "golangflag.go: no paragraph; string_slice.go: no paragraph; string_to_string.go: no paragraph; ip_slice.go: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": false,
-          "detail": "golangflag.go: no paragraph; string_slice.go: no paragraph; string_to_string.go: no paragraph; ip_slice.go: no paragraph"
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "golangflag.go: no paragraph; string_slice.go: no paragraph; string_to_string.go: no paragraph; ip_slice.go: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "mistralai/devstral-2512",
@@ -851,37 +1475,68 @@
       "error": null,
       "ms": 15729,
       "usage": {
-        "input": 20379,
-        "output": 2023,
-        "reasoning": 0
+        "prompt_tokens": 20379,
+        "completion_tokens": 2023,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.0121976,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "no front matter block"
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "no front matter block"
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "6 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts, [source/index.ts, [source/types/ky.ts"
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/core/constants.ts: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": false,
-          "detail": "6 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts, [source/index.ts, [source/types/ky.ts"
-        },
-        "directives": {
-          "pass": false,
-          "detail": "source/core/constants.ts: no paragraph"
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "6 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts, [source/index.ts, [source/types/ky.ts"
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/core/constants.ts: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "mistralai/devstral-2512",
@@ -890,37 +1545,68 @@
       "error": null,
       "ms": 10029,
       "usage": {
-        "input": 10189,
-        "output": 1723,
-        "reasoning": 0
+        "prompt_tokens": 10189,
+        "completion_tokens": 1723,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.00678432,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "src/itsdangerous/serializer.py: no paragraph; src/itsdangerous/timed.py: no paragraph; src/itsdangerous/exc.py: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": false,
-          "detail": "src/itsdangerous/serializer.py: no paragraph; src/itsdangerous/timed.py: no paragraph; src/itsdangerous/exc.py: no paragraph"
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "src/itsdangerous/serializer.py: no paragraph; src/itsdangerous/timed.py: no paragraph; src/itsdangerous/exc.py: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "mistralai/devstral-2512",
@@ -929,37 +1615,68 @@
       "error": null,
       "ms": 10911,
       "usage": {
-        "input": 17281,
-        "output": 1623,
-        "reasoning": 0
+        "prompt_tokens": 17281,
+        "completion_tokens": 1623,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.00942112,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "string_to_string.go: no paragraph; ip_slice.go: no paragraph"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 35 words: \"The numeric type files move together in perfect coupling: ui...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": false,
-          "detail": "string_to_string.go: no paragraph; ip_slice.go: no paragraph"
-        },
-        "sentences": {
-          "pass": false,
-          "detail": "1 over the limit; first: description of 35 words: \"The numeric type files move together in perfect coupling: ui...\""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "string_to_string.go: no paragraph; ip_slice.go: no paragraph"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 35 words: \"The numeric type files move together in perfect coupling: ui...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "meta-llama/llama-4-maverick",
@@ -968,37 +1685,68 @@
       "error": null,
       "ms": 131307,
       "usage": {
-        "input": 19288,
-        "output": 1942,
-        "reasoning": 0
+        "prompt_tokens": 19288,
+        "completion_tokens": 1942,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.004883655,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "no front matter block"
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "no front matter block"
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "6 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts, [source/index.ts, [source/types/ky.ts"
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": false,
-          "detail": "6 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts, [source/index.ts, [source/types/ky.ts"
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "6 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts, [source/index.ts, [source/types/ky.ts"
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "meta-llama/llama-4-maverick",
@@ -1007,37 +1755,68 @@
       "error": null,
       "ms": 91662,
       "usage": {
-        "input": 9572,
-        "output": 1597,
-        "reasoning": 0
+        "prompt_tokens": 9572,
+        "completion_tokens": 1597,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.0025639925,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "no front matter block"
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "no front matter block"
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "6 not in the repository: [src/itsdangerous/serializer.py, [src/itsdangerous/_json.py, [docs/conf.py, [src/itsdangerous/exc.py, [src/itsdangerous/timed.py"
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": false,
-          "detail": "6 not in the repository: [src/itsdangerous/serializer.py, [src/itsdangerous/_json.py, [docs/conf.py, [src/itsdangerous/exc.py, [src/itsdangerous/timed.py"
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "6 not in the repository: [src/itsdangerous/serializer.py, [src/itsdangerous/_json.py, [docs/conf.py, [src/itsdangerous/exc.py, [src/itsdangerous/timed.py"
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "meta-llama/llama-4-maverick",
@@ -1046,37 +1825,68 @@
       "error": null,
       "ms": 94176,
       "usage": {
-        "input": 16199,
-        "output": 1633,
-        "reasoning": 0
+        "prompt_tokens": 16199,
+        "completion_tokens": 1633,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.003830045,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 31 words: \"The files CODE, CODE, CODE, CODE, CODE, CODE, CODE, CODE, CO...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": false,
-          "detail": "1 over the limit; first: description of 31 words: \"The files CODE, CODE, CODE, CODE, CODE, CODE, CODE, CODE, CO...\""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: description of 31 words: \"The files CODE, CODE, CODE, CODE, CODE, CODE, CODE, CODE, CO...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "google/gemma-4-31b-it",
@@ -1085,37 +1895,68 @@
       "error": null,
       "ms": 40580,
       "usage": {
-        "input": 21948,
-        "output": 2079,
-        "reasoning": 0
+        "prompt_tokens": 21948,
+        "completion_tokens": 2079,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.00402327,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "no front matter block"
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "no front matter block"
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "6 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts, [source/index.ts, [source/types/ky.ts"
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": false,
-          "detail": "6 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts, [source/index.ts, [source/types/ky.ts"
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "6 not in the repository: [source/core/constants.ts, [source/types/options.ts, [source/types/hooks.ts, [source/index.ts, [source/types/ky.ts"
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "google/gemma-4-31b-it",
@@ -1124,37 +1965,68 @@
       "error": null,
       "ms": 34725,
       "usage": {
-        "input": 10830,
-        "output": 1584,
-        "reasoning": 0
+        "prompt_tokens": 10830,
+        "completion_tokens": 1584,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.00226989,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "google/gemma-4-31b-it",
@@ -1163,37 +2035,68 @@
       "error": null,
       "ms": 32460,
       "usage": {
-        "input": 18878,
-        "output": 1885,
-        "reasoning": 0
+        "prompt_tokens": 18878,
+        "completion_tokens": 1885,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.0025287,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "openai/gpt-oss-120b",
@@ -1202,37 +2105,68 @@
       "error": null,
       "ms": 18208,
       "usage": {
-        "input": 19367,
-        "output": 3340,
-        "reasoning": 1442
+        "prompt_tokens": 19367,
+        "completion_tokens": 3340,
+        "completion_tokens_details": {
+          "reasoning_tokens": 1442
+        }
       },
       "cost_usd": 0.0018025,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "line 83: expected \"  - path: source/utils/body.ts\", got \"load_bearing: []\""
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "line 83: expected \"  - path: source/utils/body.ts\", got \"load_bearing: []\""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "1 not in the repository: test/d/normalized-options.ts"
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/core/Ky.ts: 5 directive sentences; source/types/options.ts: 5 directive sentences; source/utils/merge.ts: 5 directive sentences; source/types/hooks.ts: 5 directive sentences; source/core/constants.ts: 5 directive sentences"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: instruction of 22 words: \"Before editing this file, run the type‑check build and revie...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": false,
-          "detail": "1 not in the repository: test/d/normalized-options.ts"
-        },
-        "directives": {
-          "pass": false,
-          "detail": "source/core/Ky.ts: 5 directive sentences; source/types/options.ts: 5 directive sentences; source/utils/merge.ts: 5 directive sentences; source/types/hooks.ts: 5 directive sentences; source/core/constants.ts: 5 directive sentences"
-        },
-        "sentences": {
-          "pass": false,
-          "detail": "1 over the limit; first: instruction of 22 words: \"Before editing this file, run the type‑check build and revie...\""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "1 not in the repository: test/d/normalized-options.ts"
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/core/Ky.ts: 5 directive sentences; source/types/options.ts: 5 directive sentences; source/utils/merge.ts: 5 directive sentences; source/types/hooks.ts: 5 directive sentences; source/core/constants.ts: 5 directive sentences"
+          },
+          "sentences": {
+            "pass": false,
+            "detail": "1 over the limit; first: instruction of 22 words: \"Before editing this file, run the type‑check build and revie...\""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "openai/gpt-oss-120b",
@@ -1241,37 +2175,68 @@
       "error": null,
       "ms": 27138,
       "usage": {
-        "input": 9627,
-        "output": 3664,
-        "reasoning": 2188
+        "prompt_tokens": 9627,
+        "completion_tokens": 3664,
+        "completion_tokens_details": {
+          "reasoning_tokens": 2188
+        }
       },
       "cost_usd": 0.00094833,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "line 61: expected \"load_bearing:\", got \"load_bearing: []\""
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "line 61: expected \"load_bearing:\", got \"load_bearing: []\""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "src/itsdangerous/serializer.py: no paragraph; src/itsdangerous/timed.py: no paragraph; src/itsdangerous/exc.py: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": false,
-          "detail": "src/itsdangerous/serializer.py: no paragraph; src/itsdangerous/timed.py: no paragraph; src/itsdangerous/exc.py: no paragraph"
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "src/itsdangerous/serializer.py: no paragraph; src/itsdangerous/timed.py: no paragraph; src/itsdangerous/exc.py: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "openai/gpt-oss-120b",
@@ -1280,37 +2245,68 @@
       "error": null,
       "ms": 44302,
       "usage": {
-        "input": 16237,
-        "output": 2382,
-        "reasoning": 966
+        "prompt_tokens": 16237,
+        "completion_tokens": 2382,
+        "completion_tokens_details": {
+          "reasoning_tokens": 966
+        }
       },
       "cost_usd": 0.001005709,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "line 83: expected \"  - path: text.go\", got \"load_bearing: []\""
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "line 83: expected \"  - path: text.go\", got \"load_bearing: []\""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "flag.go: 5 directive sentences; golangflag.go: 5 directive sentences; string_slice.go: 5 directive sentences; string_to_string.go: 5 directive sentences; ip_slice.go: 5 directive sentences"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": false,
-          "detail": "flag.go: 5 directive sentences; golangflag.go: 5 directive sentences; string_slice.go: 5 directive sentences; string_to_string.go: 5 directive sentences; ip_slice.go: 5 directive sentences"
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "flag.go: 5 directive sentences; golangflag.go: 5 directive sentences; string_slice.go: 5 directive sentences; string_to_string.go: 5 directive sentences; ip_slice.go: 5 directive sentences"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "google/gemini-3.8-flash",
@@ -1319,37 +2315,68 @@
       "error": null,
       "ms": 55152,
       "usage": {
-        "input": 21935,
-        "output": 9603,
-        "reasoning": 7139
+        "prompt_tokens": 21935,
+        "completion_tokens": 9603,
+        "completion_tokens_details": {
+          "reasoning_tokens": 7139
+        }
       },
       "cost_usd": 0.0524625,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "google/gemini-3.8-flash",
@@ -1358,37 +2385,68 @@
       "error": null,
       "ms": 52406,
       "usage": {
-        "input": 10817,
-        "output": 8362,
-        "reasoning": 6387
+        "prompt_tokens": 10817,
+        "completion_tokens": 8362,
+        "completion_tokens_details": {
+          "reasoning_tokens": 6387
+        }
       },
       "cost_usd": 0.03947025,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "google/gemini-3.8-flash",
@@ -1397,37 +2455,68 @@
       "error": null,
       "ms": 15087,
       "usage": {
-        "input": 18865,
-        "output": 2137,
-        "reasoning": 0
+        "prompt_tokens": 18865,
+        "completion_tokens": 2137,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
       },
       "cost_usd": 0.0221625,
       "checks": {
-        "front_matter": {
-          "pass": false,
-          "detail": "no front matter block"
+        "raw": {
+          "front_matter": {
+            "pass": false,
+            "detail": "no front matter block"
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "openai/gpt-6.1-sol",
@@ -1436,37 +2525,68 @@
       "error": null,
       "ms": 25020,
       "usage": {
-        "input": 19306,
-        "output": 2182,
-        "reasoning": 196
+        "prompt_tokens": 19306,
+        "completion_tokens": 2182,
+        "completion_tokens_details": {
+          "reasoning_tokens": 196
+        }
       },
       "cost_usd": 0.0700835,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/core/Ky.ts: no paragraph; source/types/options.ts: no paragraph; source/utils/merge.ts: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": false,
-          "detail": "source/core/Ky.ts: no paragraph; source/types/options.ts: no paragraph; source/utils/merge.ts: no paragraph"
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "6 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/core/Ky.ts: no paragraph; source/types/options.ts: no paragraph; source/utils/merge.ts: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "openai/gpt-6.1-sol",
@@ -1475,37 +2595,68 @@
       "error": null,
       "ms": 24554,
       "usage": {
-        "input": 9566,
-        "output": 2041,
-        "reasoning": 310
+        "prompt_tokens": 9566,
+        "completion_tokens": 2041,
+        "completion_tokens_details": {
+          "reasoning_tokens": 310
+        }
       },
       "cost_usd": 0.0443235,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "1 not in the repository: .bat"
+          },
+          "directives": {
+            "pass": false,
+            "detail": "src/itsdangerous/serializer.py: no paragraph; src/itsdangerous/timed.py: no paragraph; src/itsdangerous/exc.py: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": false,
-          "detail": "1 not in the repository: .bat"
-        },
-        "directives": {
-          "pass": false,
-          "detail": "src/itsdangerous/serializer.py: no paragraph; src/itsdangerous/timed.py: no paragraph; src/itsdangerous/exc.py: no paragraph"
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "6 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": false,
+            "detail": "1 not in the repository: .bat"
+          },
+          "directives": {
+            "pass": false,
+            "detail": "src/itsdangerous/serializer.py: no paragraph; src/itsdangerous/timed.py: no paragraph; src/itsdangerous/exc.py: no paragraph"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "openai/gpt-6.1-sol",
@@ -1514,37 +2665,68 @@
       "error": null,
       "ms": 25828,
       "usage": {
-        "input": 16189,
-        "output": 2238,
-        "reasoning": 290
+        "prompt_tokens": 16189,
+        "completion_tokens": 2238,
+        "completion_tokens_details": {
+          "reasoning_tokens": 290
+        }
       },
       "cost_usd": 0.062851,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "x-ai/grok-4.7",
@@ -1553,37 +2735,68 @@
       "error": null,
       "ms": 94379,
       "usage": {
-        "input": 21560,
-        "output": 11173,
-        "reasoning": 8801
+        "prompt_tokens": 21560,
+        "completion_tokens": 11173,
+        "completion_tokens_details": {
+          "reasoning_tokens": 8801
+        }
       },
       "cost_usd": 0.10843,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/core/Ky.ts: 0 directive sentences; source/types/options.ts: 0 directive sentences; source/utils/merge.ts: 0 directive sentences; source/types/hooks.ts: 0 directive sentences; source/core/constants.ts: 0 directive sentences"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": false,
-          "detail": "source/core/Ky.ts: 0 directive sentences; source/types/options.ts: 0 directive sentences; source/utils/merge.ts: 0 directive sentences; source/types/hooks.ts: 0 directive sentences; source/core/constants.ts: 0 directive sentences"
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "6 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": false,
+            "detail": "source/core/Ky.ts: 0 directive sentences; source/types/options.ts: 0 directive sentences; source/utils/merge.ts: 0 directive sentences; source/types/hooks.ts: 0 directive sentences; source/core/constants.ts: 0 directive sentences"
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "6 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "x-ai/grok-4.7",
@@ -1592,37 +2805,68 @@
       "error": null,
       "ms": 123121,
       "usage": {
-        "input": 11325,
-        "output": 14474,
-        "reasoning": 12473
+        "prompt_tokens": 11325,
+        "completion_tokens": 14474,
+        "completion_tokens_details": {
+          "reasoning_tokens": 12473
+        }
       },
       "cost_usd": 0.107766,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": true,
-          "detail": ""
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": true,
+            "detail": ""
+          }
         }
-      }
+      },
+      "finish_reason": null
     },
     {
       "model": "x-ai/grok-4.7",
@@ -1631,37 +2875,68 @@
       "error": null,
       "ms": 126695,
       "usage": {
-        "input": 18821,
-        "output": 12983,
-        "reasoning": 10907
+        "prompt_tokens": 18821,
+        "completion_tokens": 12983,
+        "completion_tokens_details": {
+          "reasoning_tokens": 10907
+        }
       },
       "cost_usd": 0.113812,
       "checks": {
-        "front_matter": {
-          "pass": true,
-          "detail": ""
+        "raw": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "7 em dashes"
+          }
         },
-        "sections": {
-          "pass": true,
-          "detail": ""
-        },
-        "paths": {
-          "pass": true,
-          "detail": ""
-        },
-        "directives": {
-          "pass": true,
-          "detail": ""
-        },
-        "sentences": {
-          "pass": true,
-          "detail": ""
-        },
-        "em_dashes": {
-          "pass": false,
-          "detail": "7 em dashes"
+        "written": {
+          "front_matter": {
+            "pass": true,
+            "detail": ""
+          },
+          "sections": {
+            "pass": true,
+            "detail": ""
+          },
+          "paths": {
+            "pass": true,
+            "detail": ""
+          },
+          "directives": {
+            "pass": true,
+            "detail": ""
+          },
+          "sentences": {
+            "pass": true,
+            "detail": ""
+          },
+          "em_dashes": {
+            "pass": false,
+            "detail": "7 em dashes"
+          }
         }
-      }
+      },
+      "finish_reason": null
     }
   ]
 }
