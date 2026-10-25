@@ -6,6 +6,16 @@ format.
 
 ## Unreleased
 
+**Intent:** a GitLab project had no way to get the merge request feedback
+that complex-md-action gives a GitHub pull request (issue #26).
+
+**Change:** `check --map-ref <ref>` reads COMPLEX.md from a commit instead
+of the working tree, and `check --note` prints the findings as one Markdown
+merge request note in the action's comment format: hotspots, load bearing
+files, directives and co-change partners left unchanged, with a renamed file
+counted under its old path. A clean change prints a cleared note. The CLI
+makes no request for it.
+
 **Intent:** CI ran the tests on Ubuntu with Node 22 only. The CLI writes
 files with line ending rules, runs git and builds paths, and none of that
 ran on Windows or macOS. The first run there failed 4 tests on each macOS

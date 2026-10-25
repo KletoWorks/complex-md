@@ -67,6 +67,8 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
   npx complex-md mcp             start the optional complex-md-mcp server on stdio
   npx complex-md check           report hotspots, untouched co-change partners and hand edited briefs in the change
                                  --staged | --base <ref> | --json | --strict (exit 1 on findings)
+                                 --map-ref <ref> reads COMPLEX.md from that commit, not the working tree
+                                 --note prints one Markdown merge request note, as ci/gitlab/ posts it
   npx complex-md verify          recompute the signals and compare them with COMPLEX.md, no model call
                                  exit 0 fresh, 1 drift past tolerance, 2 cannot verify  (--json)
   npx complex-md lint [path]     check a map against the spec 0.4 schema (default ./COMPLEX.md)
@@ -208,8 +210,39 @@ async function main() {
       log(`complex-md: the base ref ${base} does not exist in this checkout, so there is no change to check. A shallow CI checkout fetches one commit and no other branch: fetch the history first (actions/checkout with fetch-depth: 0, or git fetch origin).`);
       process.exit(2);
     }
+    /* --map-ref reads COMPLEX.md from a commit, so a merge request job uses
+       the target branch's map and not the copy the merge request edits. */
+    const mapRef = opt('--map-ref');
+    if (flag('--map-ref') && (!mapRef || mapRef.startsWith('-') || !resolvesCommit(root, mapRef))) {
+      log(`complex-md: --map-ref needs a commit ref in this checkout, for example --map-ref origin/main${mapRef && !mapRef.startsWith('-') ? `; ${mapRef} does not resolve` : ''}.`);
+      process.exit(2);
+    }
+    let map;
+    if (mapRef) {
+      const { readAt } = await import('../src/git.js');
+      const { parseComplexMd } = await import('../src/complexmd.js');
+      const text = readAt(root, mapRef, 'COMPLEX.md');
+      map = text === null ? null : parseComplexMd(text);
+    }
+    if (flag('--note')) {
+      const { changedFiles, commitSha, commitsBehind } = await import('../src/git.js');
+      const { loadComplexMd } = await import('../src/complexmd.js');
+      const { noteFindings, renderNote, renderNoteCleared } = await import('../src/note.js');
+      if (!mapRef) map = loadComplexMd(root);
+      if (!map) {
+        log(`complex-md: no COMPLEX.md with front matter ${mapRef ? `at ${mapRef}` : 'at the repository root'}, so there is no note. Generate one: npx complex-md`);
+        return;
+      }
+      const f = noteFindings(map, changedFiles(root, { base, staged: flag('--staged'), renames: false }));
+      const sha = mapRef ? commitSha(root, mapRef) : null;
+      const ctx = { ref: mapRef, sha, front: map.front };
+      if (f.clean) console.log(renderNoteCleared(ctx));
+      else console.log(renderNote(f, { ...ctx, behind: mapRef ? commitsBehind(root, map.front.commit, sha) : undefined }));
+      if (flag('--strict') && !f.clean) process.exit(1);
+      return;
+    }
     const { runCheck, formatCheck } = await import('../src/check.js');
-    const f = runCheck(root, { base, staged: flag('--staged') });
+    const f = runCheck(root, { base, staged: flag('--staged'), map });
     if (flag('--json')) console.log(JSON.stringify(f, null, 2));
     else console.log(formatCheck(f));
     if (flag('--strict') && !f.clean) process.exit(1);

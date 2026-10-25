@@ -217,7 +217,7 @@ registers the server. The MCP server speaks stdio and exposes six tools:
 
 ## Other commands
 
-    npx complex-md check [--staged | --base main] [--json] [--strict]
+    npx complex-md check [--staged | --base main] [--json] [--strict] [--map-ref <ref>] [--note]
     npx complex-md signals [--json | --tsv]
     npx complex-md impact <path> [--json] [--strict]
     npx complex-md report                # write .complex-md/report.html, a page of the map
@@ -238,6 +238,12 @@ absolute, has a `..` segment or starts in `.git`, and they write and
 remove nothing that a symbolic link takes outside the repository.
 
 `check --strict` exits 1 on findings, for pre-commit and CI.
+`check --map-ref <ref>` reads COMPLEX.md from that commit instead of the
+working tree, so a merge request job checks against the target branch's map.
+`check --note` prints the findings as one Markdown merge request note, in
+the format of the complex-md-action pull request comment, or a cleared note
+when the change touches nothing. With `--strict` it exits 1 when the note has
+findings. With no map it prints nothing and exits 0.
 `check --base <ref>` exits 2 when the ref is not in the checkout. In GitHub
 Actions, check out with `fetch-depth: 0` so `origin/main` exists. `check` also
 names a generated brief that differs from what `wire` writes, since review
