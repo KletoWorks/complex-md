@@ -101,3 +101,19 @@ test('Holm adjusts the secondary p values step down and keeps them monotone', ()
   assert.deepEqual(holm([0.01, 0.04, 0.03]).map((p) => Number(p.toFixed(4))), [0.03, 0.06, 0.06]);
   assert.deepEqual(holm([0.5, 0.9]), [1, 1]);
 });
+
+test('the replay says whether the tests the map names for the edited files hold each break', async () => {
+  const { replay } = await import('../../bench/damage.mjs');
+  const gold = goldBroken([row('t1', 'gold', ['test/flaky.js :: f'])]);
+  const named = { t1: { 'lib/core.js': ['test/core.test.js', 'test/api.test.js'], 'lib/other.js': ['test/other.test.js'] } };
+  const rows = [
+    row('t1', 'none', ['test/api.test.js :: get', 'test/far.test.js :: x', 'test/flaky.js :: f'], { edited: ['lib/core.js', 'README.md'] }),
+    row('t1', 'file', [], { edited: ['lib/core.js'] }),
+  ];
+  const r = replay(rows, gold, named);
+  assert.deepEqual(r.breaks, [
+    { task: 't1', arm: 'none', seed: 1, test: 'test/api.test.js :: get', caught: true },
+    { task: 't1', arm: 'none', seed: 1, test: 'test/far.test.js :: x', caught: false },
+  ]);
+  assert.deepEqual([r.caught, r.total], [1, 2]);
+});

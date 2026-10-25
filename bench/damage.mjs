@@ -6,6 +6,7 @@
 //   node bench/damage.mjs screen-set --set fastify,mocha,uptime-kuma
 //   node bench/damage.mjs select     --set fastify,mocha,uptime-kuma
 //   node bench/damage.mjs analyze    --set fastify,mocha,uptime-kuma
+//   node bench/damage.mjs replay     --set fastify,mocha,uptime-kuma
 //
 // Paths follow one convention, each overridable: datasets in --data-dir
 // (bench/data/damage-<name>.json), the screen in --screen-dir
@@ -18,7 +19,7 @@
 // agent, did not break the same test. A gold break is a test the fix itself
 // breaks or a flaky one, and it counts for no arm.
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { signTest } from './stats.mjs';
@@ -131,6 +132,22 @@ export function holm(ps) {
   return out;
 }
 
+/* The advice replay. For every damaging run, each break that the gold
+   patch does not share is caught when its test file is among the tests the
+   map names, at the base, for a file the run edited. `named` maps a task to
+   { file: [test files] }, the baseline's risky.tests. No test runs: each
+   break was already confirmed on two runs. */
+export function replay(rows, gold, named) {
+  const breaks = [];
+  for (const r of rows) {
+    if (!runDamage(r, gold)) continue;
+    const g = gold.get(r.task) || new Set();
+    const advice = new Set((r.edited || []).flatMap((f) => named[r.task]?.[f] || []));
+    for (const k of r.regressions) if (!g.has(k)) breaks.push({ task: r.task, arm: r.arm, seed: r.seed ?? 1, test: k, caught: advice.has(k.split(' :: ')[0]) });
+  }
+  return { breaks, caught: breaks.filter((b) => b.caught).length, total: breaks.length };
+}
+
 /* ---------- command line ---------- */
 const readRows = (p) => (existsSync(p) ? readFileSync(p, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
 
@@ -212,7 +229,28 @@ function cli() {
     return 0;
   }
 
-  console.error('usage: node bench/damage.mjs screen-set|select|analyze [--set a,b] [--data-dir d] [--screen-dir d] [--arms-dir d]');
+  if (cmd === 'replay') {
+    let rows = [], goldRows = [];
+    const named = {};
+    for (const n of names) {
+      const d = JSON.parse(readFileSync(ds(n), 'utf8'));
+      const screen = readRows(join(screenDir, n, 'runs.jsonl'));
+      goldRows = goldRows.concat(screen);
+      rows = rows.concat(screen.filter((r) => r.arm === 'none'), readRows(join(armsDir, n, 'runs.jsonl')).map((r) => ({ ...r, arm: `arms:${r.arm}` })));
+      for (const t of d.tasks) {
+        const bp = join(screenDir, n, 'baseline', `${t.base.slice(0, 12)}.json`);
+        if (existsSync(bp)) named[t.id] = JSON.parse(readFileSync(bp, 'utf8')).risky?.tests || {};
+      }
+    }
+    const r = replay(rows, goldBroken(goldRows), named);
+    mkdirSync(armsDir, { recursive: true });
+    writeFileSync(join(armsDir, 'replay.json'), JSON.stringify({ at: new Date().toISOString(), ...r }, null, 2) + '\n');
+    console.log(`the named tests hold ${r.caught} of ${r.total} breaks`);
+    for (const arm of [...new Set(r.breaks.map((b) => b.arm))]) { const x = r.breaks.filter((b) => b.arm === arm); console.log(`  ${arm}: ${x.filter((b) => b.caught).length} of ${x.length}`); }
+    return 0;
+  }
+
+  console.error('usage: node bench/damage.mjs screen-set|select|analyze|replay [--set a,b] [--data-dir d] [--screen-dir d] [--arms-dir d]');
   return 2;
 }
 
