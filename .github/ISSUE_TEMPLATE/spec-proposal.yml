@@ -1,0 +1,48 @@
+name: A spec proposal
+description: Propose a change to the COMPLEX.md format, with the evidence for it.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The spec changes by evidence. `AGENTS.md` says that a change to the spec or a signal cites a benchmark run in `bench/` or a source, and adds a line to `CHANGELOG.md`. The draft under change is `spec/0.4/spec.md`.
+        The bar for a spec proposal is that citation. A proposal without a run or a source stays open until it has one.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What the current text gets wrong or leaves out, and who it costs. A map, a reader or an agent run that shows it is best.
+    validations:
+      required: true
+  - type: input
+    id: section
+    attributes:
+      label: Section
+      description: The section of `spec/0.4/spec.md` that the change touches.
+      placeholder: "7. Front matter keys"
+  - type: textarea
+    id: text
+    attributes:
+      label: The proposed text
+      description: The new or the changed sentences, as they would read in the spec.
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: The benchmark run or source
+      description: A run under `bench/results/` or a run you can describe with its command, or a paper, a standard or a measurement on public repositories. Say what it shows.
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Effect on existing maps
+      description: Does a map that conforms now still conform? Does a reader or a producer have to change?
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I can send a pull request with the spec text, the CHANGELOG line and the fixtures it needs.
