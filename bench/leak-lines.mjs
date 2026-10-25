@@ -10,7 +10,9 @@
 //
 // A line counts when it is at least --min characters (30 by default) after
 // trimming, so short generic lines like `return null` do not match by
-// chance. Exit 1 when any line is found, 0 when none is.
+// chance. Lines of package manifests and lock files do not count. A hit can
+// still be a generic line that any code has; read each one. Exit 1 when any
+// line is found, 0 when none is.
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -25,12 +27,17 @@ const [datasetPath, ...rest] = args.filter((a, i) => !a.startsWith('--') && args
 const dirs = rest;
 const dataset = JSON.parse(readFileSync(datasetPath, 'utf8'));
 
-/* The added lines of each fix's source change, keyed to the task. */
+/* The added lines of each fix's source change, keyed to the task. Lines of
+   dependency manifests and lock files are left out: every install carries
+   them, so a hit there says only that the dependency is installed. */
+const MANIFEST = /(^|\/)(package(-lock)?\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml)$/;
 const byLine = new Map();
 for (const t of dataset.tasks) {
   const diff = fixSourceDiff(dataset.path, t.base, t.fix);
+  let file = '';
   for (const l of diff.split('\n')) {
-    if (!l.startsWith('+') || l.startsWith('+++')) continue;
+    if (l.startsWith('+++ ')) { file = l.replace(/^\+\+\+ (b\/)?/, ''); continue; }
+    if (!l.startsWith('+') || MANIFEST.test(file)) continue;
     const s = l.slice(1).trim();
     if (s.length < min) continue;
     if (!byLine.has(s)) byLine.set(s, new Set());
