@@ -280,9 +280,9 @@ Open the partner and say in the change description whether it needed a change to
 { "hooks": {
   "PreToolUse": [{ "matcher": "Edit|Write|MultiEdit|NotebookEdit",
                    "hooks": [{ "type": "command", "timeout": 30,
-                               "command": "if [ -x node_modules/.bin/complex-md ]; then node_modules/.bin/complex-md hook pre; elif command -v complex-md >/dev/null 2>&1; then complex-md hook pre; else npx -y --prefer-offline complex-md@0.10.0 hook pre; fi" }] }],
+                               "command": "if [ -x node_modules/.bin/complex-md ]; then node_modules/.bin/complex-md hook pre; elif command -v complex-md >/dev/null 2>&1; then complex-md hook pre; else npx -y --prefer-offline complex-md@0.11.0 hook pre; fi" }] }],
   "Stop": [{ "hooks": [{ "type": "command", "timeout": 60,
-                         "command": "if [ -x node_modules/.bin/complex-md ]; then node_modules/.bin/complex-md hook stop; elif command -v complex-md >/dev/null 2>&1; then complex-md hook stop; else npx -y --prefer-offline complex-md@0.10.0 hook stop; fi" }] }] } }
+                         "command": "if [ -x node_modules/.bin/complex-md ]; then node_modules/.bin/complex-md hook stop; elif command -v complex-md >/dev/null 2>&1; then complex-md hook stop; else npx -y --prefer-offline complex-md@0.11.0 hook stop; fi" }] }] } }
 ```
 
    `.cursor/hooks.json` when `.cursor/` exists:
@@ -290,9 +290,9 @@ Open the partner and say in the change description whether it needed a change to
 ```json
 { "version": 1, "hooks": {
   "preToolUse": [{ "matcher": "Write|StrReplace|Edit|MultiEdit|SearchReplace|Delete", "timeout": 30,
-                   "command": "if [ -x node_modules/.bin/complex-md ]; then node_modules/.bin/complex-md hook cursor-pre; elif command -v complex-md >/dev/null 2>&1; then complex-md hook cursor-pre; else npx -y --prefer-offline complex-md@0.10.0 hook cursor-pre; fi" }],
+                   "command": "if [ -x node_modules/.bin/complex-md ]; then node_modules/.bin/complex-md hook cursor-pre; elif command -v complex-md >/dev/null 2>&1; then complex-md hook cursor-pre; else npx -y --prefer-offline complex-md@0.11.0 hook cursor-pre; fi" }],
   "stop": [{ "timeout": 60, "loop_limit": 1,
-             "command": "if [ -x node_modules/.bin/complex-md ]; then node_modules/.bin/complex-md hook cursor-stop; elif command -v complex-md >/dev/null 2>&1; then complex-md hook cursor-stop; else npx -y --prefer-offline complex-md@0.10.0 hook cursor-stop; fi" }] } }
+             "command": "if [ -x node_modules/.bin/complex-md ]; then node_modules/.bin/complex-md hook cursor-stop; elif command -v complex-md >/dev/null 2>&1; then complex-md hook cursor-stop; else npx -y --prefer-offline complex-md@0.11.0 hook cursor-stop; fi" }] } }
 ```
 
    Each command runs the project's own install first, then a `complex-md`

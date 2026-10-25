@@ -7,13 +7,14 @@ paths: cli/src/targets.js
 
 Listed in COMPLEX.md as a file where edits are risky.
 
-    churn 17  fixes 4  fan_in 2  tests 2  loc 471  score 1960
+    churn 28  fixes 9  fan_in 5  tests 6  loc 666  score 4301
 
-cli/src/targets.js holds 1 entry per agent harness: how wire detects the harness and where it writes rules, hooks and MCP entries. cli/src/wire.js writes from its BRIEF_SPECS table and cli/src/check.js reads the table back, so a changed header changes both. isOurs and LEGACY_HOOK recognize the hook commands that earlier versions wrote, so that wire adds no duplicate. 4 of its 17 commits were fixes, 2 of them for hook commands. cli/test/invocation.test.js and cli/test/truth.test.js cover it, and cli/test/channels.test.js exercises the `--for` targets. Before editing this file, run `cd cli && node --test test/invocation.test.js test/truth.test.js test/channels.test.js`.
+cli/src/targets.js holds 1 entry per agent harness: how wire detects the harness and where it writes rules, hooks and MCP entries. Its ENTRY_KINDS table finds complex-md entries in user settings files and strips them without loss of other entries. OUR_HOOK and isOurs recognize the hook commands that earlier versions wrote. 9 of its 28 commits were fixes. cli/src/wire.js writes from BRIEF_SPECS, and cli/src/check.js also depends on this file. 6 test files cover it, among them cli/test/invocation.test.js, cli/test/channels.test.js and cli/test/truth.test.js. Before editing this file, run `cd cli && node --test test/channels.test.js test/cli.test.js test/generated-notice.test.js test/invocation.test.js test/plan.test.js test/truth.test.js`.
 
 Moves with:
-- cli/bin/complex-md.js (7 commits together, 44% of the less active file's commits)
+- cli/src/wire.js (9 commits together, 53% of the less active file's commits)
+- cli/bin/complex-md.js (10 commits together, 36% of the less active file's commits)
 
 Open the partner and say in the change description whether it needed a change too.
 
-**Before editing this file, run `cd cli && node --test test/invocation.test.js test/truth.test.js test/channels.test.js`.**
+**Before editing this file, run `cd cli && node --test test/channels.test.js test/cli.test.js test/generated-notice.test.js test/invocation.test.js test/plan.test.js test/truth.test.js`.**
