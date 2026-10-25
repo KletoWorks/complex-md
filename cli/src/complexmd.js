@@ -15,6 +15,7 @@ export function parseComplexMd(text) {
   const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text);
   if (!m) return null;
   const fm = parseFrontMatter(m[1]);
+  if (!Object.hasOwn(fm, 'complex_md')) return null;
   /* A commit sha is a string even when every character is a digit. The
      scalar reader turns an all digit value into a Number, and a map whose
      sha happened to be 1234567 then failed every string comparison against

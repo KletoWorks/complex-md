@@ -30,7 +30,6 @@ const REQUIRED_SECTIONS = ['Where the risk lives', 'Why these files are hot', 'C
 const DIRECTIVE = 'Before editing this file,';
 
 const READER_GAPS = {
-  'no-version': 'the reader returns a map for front matter that has no complex_md key',
   'older-0.3': 'the reader does not read the 0.3 key tool as generator',
   'comma-path': 'the reader splits a flow list at every comma, also inside a double quoted path',
   'empty-test-files': 'the reader reads an empty flow list inside a list item as [""]',
