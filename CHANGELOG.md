@@ -4,6 +4,14 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-10-25  bench: a collateral damage study, pre-registered
+
+**Intent:** no run had shown that the map cuts the tests an agent breaks outside its task. Earlier damage was too rare to compare: 0 of 130 runs on the fastify danger set and 4 of 55 runs with a verdict on undici.
+
+**Change:** `bench/PREREG.md` fixes a study before its first run: Sonnet 5.5 on fastify, mocha and uptime-kuma, a 60 task screen of high fan-in fixes, 15 damaged and 15 clean tasks chosen by a salted hash order, four arms with 2 seeds, and `file` against `none` per task by an exact sign test as the primary comparison.
+
+**Change:** the harness gains `--seeds`, the `stop` arm (the map and the Stop check, no edit gate), a dataset `suite` object for the runner, files and environment, `make-dataset.mjs --min-fan-in` and `--min-tests`, `bench/leak-lines.mjs` for fixed code in readable directories, and `bench/damage.mjs` for scoring, selection, analysis and the advice replay. The TAP reader accepts mocha's lines.
+
 ## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
 
 **Intent:** wire appended a block with a heading but no end, deleted any file in a brief folder whose name had the complex-md- prefix, created CLAUDE.md beside AGENTS.md, and had no way back. A default wire could add 40 or more files to a repository, a rewire never updated an old block, and a Windows checkout could leave mixed line endings.
