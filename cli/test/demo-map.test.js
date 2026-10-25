@@ -60,7 +60,8 @@ test('one tile and one panel per hotspot, with the map\'s numbers and directives
 test('the legend steps follow the most fixed file and the File view is the front matter verbatim', async (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const { DEMO, demoCard, heatSteps } = await demo();
-  const text = readFileSync(join(ROOT, DEMO.file), 'utf8');
+  // With LF, as demoCard reads it: a Windows checkout has the map with CRLF.
+  const text = readFileSync(join(ROOT, DEMO.file), 'utf8').replace(/\r\n/g, '\n');
   const html = demoCard(text, DEMO);
   assert.deepEqual(heatSteps(51), [[1, 12], [13, 25], [26, 38], [39, 51]]);
   assert.deepEqual(heatSteps(2), [[1, 1], [2, 2]], 'an empty step is left out');
