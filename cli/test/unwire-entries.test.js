@@ -94,6 +94,25 @@ test('unwire leaves and reports an MCP entry whose settings changed after wire',
   assert.ok(result.left.some((entry) => entry.path === '.mcp.json'));
 });
 
+test('wire does not claim a pre-existing user complex-md MCP server', () => {
+  const custom = { command: 'custom-server', args: ['serve'], env: { TOKEN: 'user-value' } };
+  const original = pretty({ mcpServers: { 'complex-md': custom } });
+  const dir = repo({ '.mcp.json': original });
+  wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  assert.equal(readManifest(dir).entries.some((entry) => entry.kind === 'mcp-json'), false);
+  unwire(dir);
+  assert.equal(read(dir, '.mcp.json'), original);
+});
+
+test('wire claims a recognized legacy MCP entry so unwire can remove it', () => {
+  const original = pretty({ mcpServers: { 'complex-md': { command: 'npx', args: ['-y', 'complex-md', 'mcp'] } } });
+  const dir = repo({ '.mcp.json': original });
+  wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  assert.equal(readManifest(dir).entries.some((entry) => entry.kind === 'mcp-json'), true);
+  unwire(dir);
+  assert.equal(read(dir, '.mcp.json'), pretty({ mcpServers: {} }));
+});
+
 test('hooks an earlier version wrote are recorded by wire --hooks and removed by unwire', () => {
   const legacy = { hooks: { PreToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: 'npx -y complex-md hook pre', timeout: 30 }] }] } };
   const dir = repo({ '.claude/settings.json': pretty(legacy) });

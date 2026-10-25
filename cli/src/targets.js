@@ -218,12 +218,13 @@ export const ENTRY_KINDS = {
 
 /* Edit a JSON file of the user's in place, and record in the manifest that
    it holds our entries and which keys wire created for them. */
-function editJson(ctx, rel, kind, mutate) {
+function editJson(ctx, rel, kind, mutate, shouldRecord = () => true) {
   if (!ctx.own.inside(rel)) return void ctx.report.skipped.push(`${rel} (a symbolic link takes it outside the repository; not written)`);
   const p = join(ctx.root, rel);
   const existed = existsSync(p);
   const text = existed ? readFileSync(p, 'utf8') : '';
   const obj = readJson(p, {});
+  const original = JSON.parse(JSON.stringify(obj));
   const k = ENTRY_KINDS[kind];
   const had = k.containers.filter((c) => getPath(obj, c) !== undefined);
   const before = JSON.stringify(obj);
@@ -232,8 +233,8 @@ function editJson(ctx, rel, kind, mutate) {
     ctx.own.ensureDir(dirname(rel));
     writeFileSync(p, jsonText(obj, text));
   }
-  if (!k.holds(obj)) return;
   const prev = ctx.ledger.previous?.entries?.find((e) => e.path === rel && e.kind === kind);
+  if (!k.holds(obj) || !shouldRecord({ obj, original, prev })) return;
   const currentRecords = k.records(obj);
   const records = currentRecords.map((record) => {
     const old = prev?.records?.find((r) =>
@@ -284,11 +285,22 @@ function pinLegacy(entries, sub, inv) {
 }
 
 function addMcpJson(ctx, rel, entry) {
+  let installed = false;
   editJson(ctx, rel, 'mcp-json', (m) => {
     if (m.mcpServers?.['complex-md']) return;
     m.mcpServers ||= {};
     m.mcpServers['complex-md'] = entry;
+    installed = true;
     ctx.report.mcp.push(rel);
+  }, ({ original, prev }) => {
+    const current = original.mcpServers?.['complex-md'];
+    const args = current?.args;
+    const legacy = current?.command === 'npx'
+      && Object.keys(current).sort().join(',') === 'args,command'
+      && Array.isArray(args)
+      && ((args.length === 3 && args[0] === '-y' && args[1] === 'complex-md' && args[2] === 'mcp')
+        || (args.length === 4 && args[0] === '-y' && args[1] === '--prefer-offline' && /^complex-md@\d/.test(args[2]) && args[3] === 'mcp'));
+    return installed || !!prev || legacy;
   });
 }
 
