@@ -288,6 +288,7 @@ const RS_USE_RE = /^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([\s\S]*?);/gm;
 const RS_CHAR_RE = /'(?:\\(?:x[0-9A-Fa-f]{2}|u\{[0-9A-Fa-f]{1,6}\}|.)|[^'\\\n])'/y;
 const RS_RAW_OPEN_RE = /(?:b|c)?r(#*)"/y;
 const RS_PLAIN_RE = /[\/"'bcr]/g;
+const RS_TARGET_ROOT_RE = /^(?:src\/bin|tests|benches|examples)\/(?:[^/]+\.rs|[^/]+\/main\.rs)$/;
 // Anything that looks like a repo path with an extension, for scripts, cron,
 // compose files and configs that name files without an import keyword.
 const PATH_LITERAL_RE = /(?<![\w@])((?:\.\.?\/|\/)?(?:[\w@][\w@.-]*\/)+[\w@][\w@.-]*\.[A-Za-z0-9]{1,8})(?![\w/])/g;
@@ -377,10 +378,12 @@ function maskRustText(text) {
   };
 }
 
-function rustModuleBase(file, scopes = [], at = Infinity) {
+// A crate root and a mod.rs file own the modules in their directory; any
+// other module file owns the directory named after it.
+function rustModuleBase(file, scopes = [], at = Infinity, isRoot = false) {
   const dir = posix.dirname(file);
   const name = posix.basename(file);
-  let base = /^(?:lib|main|mod)\.rs$/.test(name) ? dir : posix.join(dir, name.slice(0, -3));
+  let base = isRoot || /^(?:lib|main|mod)\.rs$/.test(name) ? dir : posix.join(dir, name.slice(0, -3));
   for (const scope of scopes.filter((s) => s.start <= at && at < s.end).sort((a, b) => a.start - b.start)) {
     base = posix.join(base, scope.name);
   }
@@ -390,8 +393,8 @@ function rustModuleBase(file, scopes = [], at = Infinity) {
 // The file a `mod name;` match loads. A #[path] literal is relative to the
 // declaring file's directory, or, inside an inline module, to that module's
 // directory, as the Rust Reference states for path attributes.
-function rustModTarget(file, match, scopes, rust, files) {
-  const base = rustModuleBase(file, scopes, match.index);
+function rustModTarget(file, match, scopes, rust, files, isRoot = false) {
+  const base = rustModuleBase(file, scopes, match.index, isRoot);
   if (!match[1]) {
     const path = posix.join(base, match[2]);
     return files.has(path + '.rs') ? path + '.rs' : files.has(path + '/mod.rs') ? path + '/mod.rs' : null;
@@ -451,10 +454,9 @@ function rustCrates(files, texts) {
     }
     if (!name) continue;
     const dir = posix.dirname(manifest) === '.' ? '' : posix.dirname(manifest);
-    const lib = posix.join(dir, 'src/lib.rs');
-    const main = posix.join(dir, 'src/main.rs');
-    const roots = [lib, main].filter((f) => files.has(f));
-    crates.push({ dir, name: name.replace(/-/g, '_'), roots, rootFile: roots[0] || null });
+    const lib = files.has(posix.join(dir, 'src/lib.rs')) ? posix.join(dir, 'src/lib.rs') : null;
+    const main = files.has(posix.join(dir, 'src/main.rs')) ? posix.join(dir, 'src/main.rs') : null;
+    crates.push({ dir, name: name.replace(/-/g, '_'), roots: [lib, main].filter(Boolean), lib, rootFile: lib || main });
   }
   const byName = new Map(crates.map((crate) => [crate.name, crate]));
   const forFile = (file) => {
@@ -465,6 +467,17 @@ function rustCrates(files, texts) {
     }
     return best;
   };
+  // Cargo's other target roots: each binary, integration test, benchmark and
+  // example is its own crate that may import the package library by name.
+  for (const f of files) {
+    if (!f.endsWith('.rs')) continue;
+    const crate = forFile(f);
+    if (!crate) continue;
+    const rel = crate.dir ? f.slice(crate.dir.length + 1) : f;
+    if (RS_TARGET_ROOT_RE.test(rel)) crate.roots.push(f);
+  }
+  const rootSet = new Set(crates.flatMap((crate) => crate.roots));
+  const isRoot = (file) => rootSet.has(file);
   const rootOwners = new Map();
   const visit = (file, root, crate, seen) => {
     if (seen.has(file)) return;
@@ -476,7 +489,7 @@ function rustCrates(files, texts) {
     RS_MOD_RE.lastIndex = 0;
     let match;
     while ((match = RS_MOD_RE.exec(rust.text))) {
-      const target = rustModTarget(file, match, scopes, rust, files);
+      const target = rustModTarget(file, match, scopes, rust, files, isRoot(file));
       if (target && forFile(target) === crate) visit(target, root, crate, seen);
     }
   };
@@ -486,7 +499,13 @@ function rustCrates(files, texts) {
     const owners = rootOwners.get(file);
     return owners?.size === 1 ? [...owners][0] : crate?.rootFile || null;
   };
-  return { byName, forFile, rootForFile };
+  const ownedBy = (file, root) => rootOwners.get(file)?.has(root) || false;
+  return { byName, forFile, rootForFile, isRoot, ownedBy };
+}
+
+function rootOwnedElsewhere(file, crate, crates) {
+  if (crates.ownedBy(file, crate.lib)) return false;
+  return crate.roots.some((root) => root !== crate.lib && crates.ownedBy(file, root));
 }
 
 function expandRustUse(spec) {
@@ -525,10 +544,10 @@ function rustUsePath(spec, file, crate, crates, files, scopeBase) {
     if (!target || !target.rootFile) return null;
     let root = target.rootFile;
     if (target === crate) {
-      const lib = target.roots.find((path) => posix.basename(path) === 'lib.rs');
-      const main = target.roots.find((path) => posix.basename(path) === 'main.rs');
-      if (!lib || crates.rootForFile(file, target) !== main) return null;
-      root = lib;
+      // Inside the library its own name is not a path; every other target
+      // of the package reaches the library by that name.
+      if (!target.lib || !rootOwnedElsewhere(file, target, crates)) return null;
+      root = target.lib;
     }
     base = posix.dirname(root);
     moduleParts = parts.slice(1);
@@ -720,11 +739,11 @@ export function buildGraph(root, tracked) {
       const crate = rustCratesByFile.forFile(f);
       RS_MOD_RE.lastIndex = 0;
       while ((m = RS_MOD_RE.exec(rust.text))) {
-        add(f, rustModTarget(f, m, scopes, rust, files));
+        add(f, rustModTarget(f, m, scopes, rust, files, rustCratesByFile.isRoot(f)));
       }
       RS_USE_RE.lastIndex = 0;
       while ((m = RS_USE_RE.exec(rust.text))) {
-        const base = rustModuleBase(f, scopes, m.index);
+        const base = rustModuleBase(f, scopes, m.index, rustCratesByFile.isRoot(f));
         for (const spec of expandRustUse(m[1])) add(f, rustUsePath(spec, f, crate, rustCratesByFile, files, base));
       }
     } else if (family === 'caddy') {

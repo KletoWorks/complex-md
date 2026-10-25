@@ -381,6 +381,30 @@ const CASES = [
     ],
   },
   {
+    name: 'rust integration tests, binaries and examples are crate roots that import their own library',
+    files: {
+      'Cargo.toml': '[package]\nname = "sample"\n',
+      'src/lib.rs': 'pub mod public;\n',
+      'src/public.rs': 'pub struct Thing;\nuse sample::public::Thing as Again;\n',
+      'tests/integration.rs': 'mod common;\nuse sample::public::Thing;\nuse crate::common::helper;\n',
+      'tests/common/mod.rs': 'pub fn helper() {}\n',
+      'src/bin/tool.rs': 'mod args;\nuse sample::public::Thing;\n',
+      'src/bin/args.rs': '',
+      'examples/demo.rs': 'use sample::public::Thing;\n',
+    },
+    edges: [
+      ['tests/integration.rs', 'src/public.rs'],
+      ['tests/integration.rs', 'tests/common/mod.rs'],
+      ['src/bin/tool.rs', 'src/public.rs'],
+      ['src/bin/tool.rs', 'src/bin/args.rs'],
+      ['examples/demo.rs', 'src/public.rs'],
+    ],
+    notEdges: [
+      ['tests/integration.rs', 'src/lib.rs'],
+      ['src/public.rs', 'src/lib.rs'],
+    ],
+  },
+  {
     name: 'go: an import of a package depends on every non-test file in its directory',
     files: {
       'go.mod': 'module example.com/m\n',
