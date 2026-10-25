@@ -149,7 +149,10 @@ export function sandboxCommand({ cmd, args, cwd, dir, roots, keeps, port = PROXY
     'set +e',
     "trap 'kill -INT $C 2>/dev/null' INT",
     "trap 'kill -TERM $C 2>/dev/null' TERM",
-    'setpriv --no-new-privs --inh-caps=-all --ambient-caps=-all --bounding-set=-all -- "$@" <&0 &',
+    /* A background command gets /dev/null as stdin before its own
+       redirections, so the prompt goes through fd 3, saved first. */
+    'exec 3<&0',
+    'setpriv --no-new-privs --inh-caps=-all --ambient-caps=-all --bounding-set=-all -- "$@" <&3 3<&- &',
     'C=$!',
     'while :; do wait $C; s=$?; kill -0 $C 2>/dev/null || break; done',
     'exit $s',

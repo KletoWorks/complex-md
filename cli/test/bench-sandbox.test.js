@@ -44,14 +44,14 @@ test('the mask plan hides every entry beside the kept path, and leaves symlinks 
 });
 
 /* Runs `script` in the sandbox. `during(child)` runs once the child starts. */
-function inSandbox(t, script, { keeps = [], allow, during } = {}) {
+function inSandbox(t, script, { keeps = [], allow, during, input = '' } = {}) {
   return new Promise(async (resolve) => {
     const dir = join(t, 'sbx');
     mkdirSync(dir, { recursive: true });
     const [cmd, args, env, { socket }] = sandboxCommand({ cmd: process.execPath, args: ['-e', script], cwd: join(t, 'keep'), dir, roots: [t], keeps: [join(t, 'keep', 'deep'), ...keeps] });
     const proxy = await startProxy({ socket, allow });
     const child = spawn(cmd, args, { env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
-    child.stdin.end('');
+    child.stdin.end(input);
     let out = '', err = '';
     child.stdout.on('data', (d) => { out += d; });
     child.stderr.on('data', (d) => { err += d; });
@@ -165,6 +165,19 @@ test('a command named by PATH runs even when the masks hide its PATH entry', ns,
     await proxy.close();
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /tool ran/);
+  } finally { rmSync(t, { recursive: true, force: true }); }
+});
+
+/* The harness writes the prompt to the agent's stdin. A shell gives a
+   background command /dev/null before its own redirections, so `<&0` on
+   the agent's line passed it nothing, and every real run ended with
+   "Input must be provided either through stdin or as a prompt argument". */
+test('the prompt written to stdin reaches the agent inside the namespace', ns, async () => {
+  const t = layout();
+  try {
+    const { code, out, err } = await inSandbox(t, "let s = ''; process.stdin.on('data', (d) => { s += d; }).on('end', () => console.log('stdin:', s));", { input: 'the prompt' });
+    assert.equal(code, 0, err);
+    assert.match(out, /stdin: the prompt/);
   } finally { rmSync(t, { recursive: true, force: true }); }
 });
 
