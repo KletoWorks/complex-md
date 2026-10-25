@@ -38,6 +38,12 @@ Spec, research and the downloadable skill: https://complex.md
    0 and prints one warning line with the reason. The reply itself is never
    written.
 
+   A reply whose prose uses an em dash or an en dash as punctuation gets 1
+   more call to the same model or `--via` CLI. That call rewrites only those
+   sentences, and never the front matter. A dash that is left becomes a
+   comma or a space, and the run prints how many it replaced. A dash in a
+   code span, a path or a code block stays.
+
    Before the first write, the run prints every file it will create or
    change. On a keyed run, the wiring lines come under "After the model
    call". In a terminal it asks once, and `--yes` skips the question. A
@@ -231,7 +237,10 @@ registers the server. The MCP server speaks stdio and exposes six tools:
 `unwire` reads `.complex-md/manifest.json`, where wire records each file and
 marked section it wrote with a hash. It deletes those files and cuts out
 those sections. A file or section edited since wire wrote it stays, and
-unwire names it. COMPLEX.md stays too. `--dry-run` on `wire` or `unwire`
+unwire names it. COMPLEX.md stays too. A `CLAUDE.md` that holds only the
+2 import lines that 0.10.0 wrote is recorded by the next wire, so unwire
+deletes it. wire and unwire remove a brief folder named after complex-md,
+such as `.claude/rules/complex-md/`, once it is empty. `--dry-run` on `wire` or `unwire`
 prints the file plan and writes nothing. The manifest is committed, so it
 can come from someone else: wire and unwire ignore a listed path that is
 absolute, has a `..` segment or starts in `.git`, and they write and

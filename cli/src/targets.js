@@ -395,6 +395,13 @@ export const BRIEF_SPECS = {
   cline: { dir: '.clinerules', ext: '.md', prefix: 'complex-md-', header: (b) => `---\npaths:\n  - ${JSON.stringify(literalGlob(b.path))}\n---\n` },
 };
 
+/* The brief folders that carry the complex-md name, such as
+   .claude/rules/complex-md. No other tool writes into them, so wire and
+   unwire remove each one once it is empty, also when an earlier version
+   created it and no manifest records it. A shared folder such as
+   .clinerules goes only when the manifest records that wire created it. */
+export const OWN_BRIEF_DIRS = Object.values(BRIEF_SPECS).filter((s) => !s.prefix).map((s) => s.dir);
+
 /* The files one spec produces for these briefs, as relative path to
    content. Pure, so check can compute it without writing anything. */
 export function briefFiles(spec, briefs) {

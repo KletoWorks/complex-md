@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync
 import { join, dirname, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import { BLOCK_HEADING } from './prompts.js';
-import { GENERATED_NOTICE, ENTRY_KINDS, jsonText, getPath } from './targets.js';
+import { GENERATED_NOTICE, ENTRY_KINDS, OWN_BRIEF_DIRS, jsonText, getPath } from './targets.js';
 import { findRegion, removeRegion, outsideRegion, normalizedHash } from './markers.js';
 import { safeRelPath } from './manifest.js';
 
@@ -293,6 +293,7 @@ export function createOwner({ root, ledger, report, log = () => {} }) {
         if (!entries.has(`${entry.kind} ${entry.path}`) && existsSync(join(root, entry.path))) ledger.entries.push(entry);
       }
       ledger.dirs = pruneDirs(root, [...(prev.dirs || []), ...ledger.dirs]);
+      pruneDirs(root, OWN_BRIEF_DIRS);
     },
   };
 }

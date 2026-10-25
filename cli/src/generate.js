@@ -9,7 +9,8 @@ import { loadComplexMd } from './complexmd.js';
 import { ignoreWorkDir, gitignoreAction, WORK_DIR } from './gitignore.js';
 import { generatePrompt, promptVersion } from './prompts.js';
 import { resolveProvider, PROVIDERS } from './providers.js';
-import { runVia, viaSelection, viaInvocation } from './via.js';
+import { runVia, askVia, viaSelection, viaInvocation } from './via.js';
+import { removeDashes } from './dashes.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json');
@@ -194,6 +195,18 @@ async function callOpenAICompat(prompt, p) {
   return { text: content, usage: { input: j.usage?.prompt_tokens, output: j.usage?.completion_tokens } };
 }
 
+/* `out` with no em dash or en dash as punctuation in its prose. `ask`
+   makes the 1 repair call (dashes.js). The front matter is never sent and
+   never changed. A failed repair call falls back to the replacement. */
+async function withoutDashes(out, fm, ask, log) {
+  const r = await removeDashes(out.slice(fm.length), { ask });
+  if (!r.sentences) return out;
+  if (r.error) log(`note: the dash repair call failed (${r.error}).`);
+  if (r.repaired) log(`the model rewrote ${r.repaired} of ${r.sentences} sentence${r.sentences === 1 ? '' : 's'} that used an em dash or an en dash.`);
+  if (r.replaced) log(`replaced ${r.replaced} em or en dash${r.replaced === 1 ? '' : 'es'} in the prose with a comma or a space.`);
+  return fm + r.prose;
+}
+
 /** COMPLEX.md with template prose (template.js): the computed front matter, marked `prose: template`, and prose from the same signals. */
 export function templateMap(root, sig, tool) {
   const g = graphFor(root);
@@ -313,6 +326,11 @@ export async function generate(root, { model = null, provider = null, agent = fa
     log(`Rerun to try the model call again. Or use the agent you already run. ${TELL}`);
     return { sig, written: true, prose: 'template', fallback: reason, promptPath };
   }
+  // The repair goes to the same model or --via CLI as the map call.
+  const ask = sel.via
+    ? (prompt) => askVia(sel.via, { root, prompt, model, timeoutMs: viaTimeoutMs, log })
+    : async (prompt) => (sel.name === 'anthropic' ? await callAnthropic(prompt, sel.model) : await callOpenAICompat(prompt, sel)).text;
+  out = await withoutDashes(out, fm, ask, log);
   writeFileSync(join(root, 'COMPLEX.md'), out);
   log(`wrote COMPLEX.md (${out.split('\n').length} lines); tokens in ${r.usage.input ?? '?'} out ${r.usage.output ?? '?'}; prompt ${promptVersion()}; ${Date.now() - t0} ms`);
   return { sig, written: true, usage: r.usage };
