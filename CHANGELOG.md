@@ -18,7 +18,7 @@ format.
 
 **Intent:** every cold `npx complex-md` downloaded the MCP SDK and zod, though most runs never start the MCP server.
 
-**Change:** the MCP server moves to the package `complex-md-mcp` in `packages/complex-md-mcp`, whose version matches `cli/package.json`. The core has no runtime dependency. `complex-md mcp` keeps working through 0.x: it prints one line and runs `npx -y complex-md-mcp@<same version> mcp`. `wire --mcp` writes entries that start `complex-md-mcp` directly. An entry that an earlier version wrote, or one whose manifest hash still matches, moves to the current version, and an entry edited since stays. CI tests both packages, and a `v*` tag publishes `complex-md` and then `complex-md-mcp`.
+**Change:** the MCP server moves to the package `complex-md-mcp` in `packages/complex-md-mcp`, whose version matches `cli/package.json`. The core has no runtime dependency. `complex-md mcp` keeps working through 0.x: it prints one line and runs `npx -y complex-md-mcp@<same version> mcp`. `wire --mcp` writes entries that start `complex-md-mcp` directly. An entry that an earlier version wrote, or one whose manifest hash still matches, moves to the current version, and an entry edited since stays. CI tests both packages, and a `v*` tag publishes `complex-md` and then `complex-md-mcp`. A cold install of the 0.11.0 core installed 92 packages in 17,672,997 bytes; from this branch it installs 1 package in 350,754 bytes. The packed tarball goes from 120,447 to 118,594 bytes.
 
 ## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
 
