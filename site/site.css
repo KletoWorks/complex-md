@@ -44,7 +44,7 @@ h1, h2, h3 { font-family: var(--cx-sans); font-weight: 600; margin: 0; }
 .brand-group { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
 .brand-chip { font-family: var(--cx-mono); font-weight: 700; font-size: 13px; text-decoration: none; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 7px 11px; line-height: 1; }
 .brand-chip:hover { border-color: var(--ink); }
-.dl-sq, .gh-sq { display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--radius); text-decoration: none; }
+.dl-sq, .gh-sq { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--radius); text-decoration: none; }
 .dl-sq svg, .gh-sq svg { display: block; }
 .dl-sq:hover, .gh-sq:hover { border-color: var(--ink); }
 .site-header a.nav { font-size: 14px; font-weight: 500; text-decoration: none; }
@@ -240,8 +240,14 @@ main.doc .toc a:hover { text-decoration: underline; }
   main.doc pre, .faq-item pre { white-space: pre-wrap; overflow-wrap: anywhere; }
   .site-footer { margin-top: 64px; padding: 40px 16px; }
 }
-@media (max-width: 380px) {
+/* Four nav links fit a 360px phone with 8px gaps and a 390px one with 10px. */
+@media (max-width: 420px) {
   .site-header nav { gap: 10px; }
+}
+@media (max-width: 370px) {
+  .site-header nav { gap: 8px; }
+}
+@media (max-width: 380px) {
   .brand-chip { font-size: 12px; padding: 6px 8px; }
   .site-header a.nav { font-size: 13px; }
   .install { display: flex; width: 100%; }
@@ -256,3 +262,55 @@ main.doc .toc a:hover { text-decoration: underline; }
 .file-card .copy:hover { color: var(--ink); border-color: var(--line); background: var(--band); }
 .file-card .copy.done { color: var(--ink); }
 .file-card .copy svg { display: block; }
+
+/* Hosted map pages (scripts/hosted.mjs): the report sections from
+   report.css inside the site shell, with the source link under the name,
+   the panel that asks the maintainer to commit the file, and the
+   provenance footer. */
+.hosted .src { margin: 6px 0 0; font-family: var(--cx-mono); font-size: 13px; line-height: 20px; color: var(--muted); overflow-wrap: anywhere; }
+.hosted .src a { color: inherit; }
+.hosted .commit { margin-top: 32px; padding: 24px; border: 1px solid var(--line); border-radius: var(--card-radius); background: var(--band); }
+.hosted .commit .note { margin: 8px 0 0; font-size: 15px; line-height: 23px; color: var(--ink-2); max-width: 72ch; }
+.hosted .commit-steps { margin: 20px 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 18px; }
+.hosted .commit-steps li::marker { color: var(--muted); font-weight: 600; }
+.hosted .commit-steps p { margin: 0; }
+.hosted .commit .install { margin: 10px 0; }
+.hosted .commit .file-card { margin: 10px 0 0; max-width: 72ch; }
+.hosted .commit .file-card pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.hosted .commit .install code, .hosted .commit pre code { background: none; border: 0; border-radius: 0; padding: 0; font-size: inherit; }
+.hosted .commit pre code { font-weight: 700; }
+.hosted .prov { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 22px; color: var(--muted); }
+.hosted .prov a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 640px) {
+  .hosted .commit { padding: 18px 16px; }
+  .hosted .commit .install { display: flex; width: 100%; }
+}
+
+/* The /map lookup and the removal form: a labelled input and a button on
+   one row, a hint, and a status panel the script fills. */
+.lookup { display: flex; flex-direction: column; gap: 8px; margin: 0 0 24px; }
+.lookup label { font-size: 14px; font-weight: 600; }
+.lookup-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.lookup-row input { flex: 1 1 240px; width: auto; }
+.lookup input, .lookup textarea { box-sizing: border-box; min-width: 0; width: 100%; font-family: var(--cx-mono); font-size: 15px; line-height: 22px; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 10px 12px; }
+.lookup textarea { font-family: var(--cx-sans); resize: vertical; }
+.lookup input::placeholder, .lookup textarea::placeholder { color: var(--muted-2); }
+.lookup input[aria-invalid="true"] { border-color: var(--heat-3); }
+.lookup input:focus-visible, .lookup textarea:focus-visible, .lookup .btn:focus-visible, .lookup-unmapped .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.lookup .btn, .lookup-unmapped .btn { border: 1px solid transparent; cursor: pointer; font-family: inherit; }
+.lookup .btn.solid { border-color: var(--ink); }
+.lookup-unmapped .btn.line { background: var(--ground); border-color: var(--line-2); color: var(--ink); }
+.lookup-unmapped .btn:disabled { cursor: default; opacity: 0.6; }
+main.doc .lookup .hint { margin: 0; font-size: 13px; line-height: 20px; color: var(--muted); }
+.lookup-result:empty { display: none; }
+.lookup-result, .lookup-unmapped { margin: 0 0 24px; padding: 16px; border: 1px solid var(--line); border-radius: var(--card-radius); background: var(--band); }
+main.doc .lookup-result p, main.doc .lookup-unmapped p { margin: 0; }
+main.doc .lookup-unmapped p + p, main.doc .lookup-unmapped .install + p { margin-top: 12px; }
+.lookup-unmapped .install { margin: 12px 0 0; }
+main.doc .lookup-unmapped .request-status:empty { display: none; }
+@media (max-width: 640px) {
+  .lookup-row .btn { width: 100%; }
+  .lookup-unmapped .install { display: flex; width: 100%; }
+}
+main.doc ol.ways { margin: 0 0 32px; }
+main.doc ol.ways li { margin: 0 0 12px; }

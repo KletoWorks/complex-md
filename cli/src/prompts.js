@@ -36,3 +36,8 @@ export function promptVersion() {
 }
 
 export const BLOCK_HEADING = '## COMPLEX.md: the structural risk map';
+
+/* What the minimal profile writes near the top of AGENTS.md: one line,
+   between markers, that sends an agent to the map before it edits a file
+   the map lists. */
+export const INTEGRATION_LINE = 'COMPLEX.md at the repository root maps where edits are risky. Before you edit a file it lists, read that file\'s paragraph there and do what its last sentence says.';

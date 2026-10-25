@@ -242,7 +242,7 @@ async function armSetup(task, arm, wt) {
      CLAUDE.md carries the block, so a rerun of the file arm is not the arm
      those runs measured. Compare a rerun with rows of the same
      cli_version and cli_commit, not with the published rows. */
-  wire(wt, { agents: ['claude'], hooks: arm === 'hooks', block: skillText });
+  wire(wt, { agents: ['claude'], profile: 'full', hooks: arm === 'hooks', block: skillText });
   // The hooks call this checkout's binary, so a run measures this CLI.
   const settings = join(wt, '.claude/settings.json');
   if (existsSync(settings)) writeFileSync(settings, readFileSync(settings, 'utf8').replace(/"command": "[^"]*\bcomplex-md\b[^"]*?\b(hook [\w-]+)[^"]*"/g, `"command": "node ${BIN} $1"`));

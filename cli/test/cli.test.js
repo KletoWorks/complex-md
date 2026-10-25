@@ -46,7 +46,7 @@ test('a run with no provider key writes COMPLEX.md with template prose and wires
   const r = runNoKey(dir, ['generate']);
   assert.equal(r.status, 0, r.stderr);
   assert.match(readFileSync(join(dir, 'COMPLEX.md'), 'utf8'), /^prose: template$/m);
-  assert.match(readFileSync(join(dir, 'AGENTS.md'), 'utf8'), /## COMPLEX\.md: the structural risk map/);
+  assert.match(readFileSync(join(dir, 'AGENTS.md'), 'utf8'), /^<!-- BEGIN complex-md \(spec [\d.]+\) -->[\s\S]*^COMPLEX\.md at the repository root maps where edits are risky\./m);
 });
 
 test('the run prints the file plan before it writes, and an open stdin that is not a terminal never blocks it', async () => {

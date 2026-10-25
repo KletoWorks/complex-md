@@ -17,6 +17,17 @@ const log = (s) => process.stderr.write(s + '\n');
 const SITE_URL = 'https://complex.md/?utm_source=cli';
 /* Hooks are written only on request: --hooks to the committed settings,
    --hooks --local to Claude Code's per user settings file. */
+/* --profile minimal (the default) or full; --for names agents whose
+   files are wanted, so it implies full when no profile is given. */
+const profileOption = () => {
+  if (!flag('--profile')) return null;
+  const p = opt('--profile');
+  if (!['minimal', 'full'].includes(p)) {
+    log('complex-md: --profile takes minimal or full.');
+    process.exit(2);
+  }
+  return p;
+};
 const hooksOption = () => {
   if (!flag('--hooks')) {
     if (flag('--local')) log('complex-md: --local applies to --hooks; no hooks written.');
@@ -27,23 +38,28 @@ const hooksOption = () => {
 
 const HELP = `complex-md ${pkg.version}  https://complex.md
 
-  npx complex-md                 generate COMPLEX.md, then wire it in (a brief per hot path)
+  npx complex-md                 generate COMPLEX.md, then wire it in (by default one marked line in AGENTS.md)
   npx complex-md generate        same; --agent writes the prompt bundle for your agent instead of calling a model
                                  --template writes template prose from the computed numbers, with no model call
-                                 --model <id>  --provider <name>  --no-wire  --hooks  --local
+                                 --model <id>  --provider <name>  --no-wire  --profile  --hooks  --local
                                  prints the file plan first; asks once in a terminal, --yes skips the question
                                  --via <cli> writes the prose with an agent CLI you already run, in its print
                                  mode, under your own login: claude, codex, gemini, opencode, qwen, kimi, crush,
                                  goose, cursor-agent, copilot, hermes, openclaw (--model is passed to it;
                                  --via-timeout <s>, default 600)
   npx complex-md wire            wire an existing COMPLEX.md into agent files (idempotent)
+                                 --profile minimal (default): one marked line near the top of AGENTS.md
+                                 --profile full: the integration block and at most 10 briefs per agent
+                                 --dry-run prints the file plan and writes nothing
                                  --hooks also writes the edit hooks: .claude/settings.json, .cursor/hooks.json
                                  --hooks --local writes them to .claude/settings.local.json only, kept out of git
                                  --for {targets}
-                                 (default: detect repo-local targets; openclaw/hermes are opt-in only and get
-                                  .agents/skills/complex-md/SKILL.md)
+                                 (default: detect repo-local targets; naming targets implies --profile full;
+                                  openclaw/hermes are opt-in only and get .agents/skills/complex-md/SKILL.md)
                                  --mcp also registers the MCP server; openclaw/hermes are global
                                  registries, wired with --mcp --for openclaw,hermes through their own CLIs
+  npx complex-md unwire          remove what wire wrote, as .complex-md/manifest.json records it; a file or
+                                 section edited since wire wrote it is left in place and named (--dry-run)
   npx complex-md impact <path>   what changing a file reaches, against .complex-md/bounds.json
                                  --json | --strict (exit 1 when a declared bound is exceeded)
   npx complex-md check           report hotspots, untouched co-change partners and hand edited briefs in the change
@@ -124,6 +140,21 @@ async function main() {
     log('complex-md: not inside a git repository. It reads git history; run it from inside a checked-out repository.');
     process.exit(2);
   }
+  // unwire reads the manifest, not the history.
+  if (cmd === 'unwire') {
+    if (flag('--dry-run')) {
+      const { planUnwire, formatPlan } = await import('../src/plan.js');
+      const { plan, lines } = planUnwire(root);
+      log(formatPlan(plan));
+      for (const l of lines) if (/^(left|complex-md: no)/.test(l)) log(l);
+      log('Dry run: nothing was written.');
+      return;
+    }
+    const { unwire } = await import('../src/unwire.js');
+    unwire(root, { log });
+    return;
+  }
+
   if (!hasCommits(root)) {
     log('complex-md: this repository has no commits yet; the map needs history. Make a first commit and run again.');
     process.exit(2);
@@ -200,16 +231,36 @@ async function main() {
     return;
   }
 
+  /* In CI, regeneration writes on the default branch only (branch.js). A
+     dry run still prints its plan. */
+  if ((cmd === 'wire' || cmd === 'generate') && !flag('--dry-run')) {
+    const { regenerationBlocked } = await import('../src/branch.js');
+    const why = regenerationBlocked(root);
+    if (why) return log(why);
+  }
+
   if (cmd === 'wire') {
+    if (flag('--dry-run')) {
+      const { readFileSync, existsSync } = await import('node:fs');
+      const { join } = await import('node:path');
+      if (!existsSync(join(root, 'COMPLEX.md'))) {
+        log('complex-md: no COMPLEX.md at the repository root; generate it first.');
+        process.exit(2);
+      }
+      const { planWire, formatPlan } = await import('../src/plan.js');
+      log(formatPlan(planWire(root, readFileSync(join(root, 'COMPLEX.md'), 'utf8'), { profile: profileOption(), hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(',') })));
+      log('Dry run: nothing was written.');
+      return;
+    }
     const { wire } = await import('../src/wire.js');
-    wire(root, { hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
+    wire(root, { profile: profileOption(), hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(','), log });
     return;
   }
 
   if (cmd === 'generate') {
     const { generate } = await import('../src/generate.js');
     const { planWire, formatPlan, confirmPlan } = await import('../src/plan.js');
-    const wireOpts = { hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(',') };
+    const wireOpts = { profile: profileOption(), hooks: hooksOption(), mcp: flag('--mcp'), agents: opt('--for')?.split(',') };
     // The file plan goes out before the first write; a terminal gets one
     // question, and --yes or a non terminal stdin never waits.
     // On a keyed run the wiring follows the model call, so the plan says so.
