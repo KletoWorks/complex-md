@@ -44,6 +44,8 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                   .agents/skills/complex-md/SKILL.md)
                                  --mcp also registers the MCP server; openclaw/hermes are global
                                  registries, wired with --mcp --for openclaw,hermes through their own CLIs
+  npx complex-md unwire          remove what wire wrote, as .complex-md/manifest.json records it; a file or
+                                 section edited since wire wrote it is left in place and named
   npx complex-md impact <path>   what changing a file reaches, against .complex-md/bounds.json
                                  --json | --strict (exit 1 when a declared bound is exceeded)
   npx complex-md check           report hotspots, untouched co-change partners and hand edited briefs in the change
@@ -124,6 +126,13 @@ async function main() {
     log('complex-md: not inside a git repository. It reads git history; run it from inside a checked-out repository.');
     process.exit(2);
   }
+  // unwire reads the manifest, not the history.
+  if (cmd === 'unwire') {
+    const { unwire } = await import('../src/unwire.js');
+    unwire(root, { log });
+    return;
+  }
+
   if (!hasCommits(root)) {
     log('complex-md: this repository has no commits yet; the map needs history. Make a first commit and run again.');
     process.exit(2);
