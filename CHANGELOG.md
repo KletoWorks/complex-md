@@ -51,6 +51,9 @@ plan compares paths with the OS separator.
 **Intent:** a maintainer or a CI job could not tell whether a hand edited or third party COMPLEX.md conforms to the spec 0.4 draft.
 
 **Change:** `complex-md lint [path]` checks a map against the spec 0.4 JSON Schema and the rules the schema cannot state (relative paths, listed paths that exist, sections and directives), and warns on a file over 8,192 bytes. It prints one `path:line: rule: message` line per finding, or `{"ok", "errors", "warnings"}` with `--json`, and exits 1 on any error. It validates the front matter as written, so `commit: 1234567` is a number and `hotspots: invalid` is a schema finding. The schema validator moves from `cli/test/spec-fixtures.test.js` to `cli/src/schema.js`, and the schema ships in the package.
+**Intent:** the import graph gave Rust files no edges, so a Rust repository had no `load_bearing` rows and no covering tests from the graph ([issue #9](https://github.com/KletoWorks/complex-md/issues/9)).
+
+**Change:** Rust `mod` declarations and `use` paths resolve through module files, crate roots, literal `#[path]` attributes and Cargo package names, as the [Rust Reference on modules](https://doc.rust-lang.org/reference/items/modules.html) states. Every Cargo target is a crate root: `src/lib.rs`, `src/main.rs`, and the files under `src/bin`, `tests`, `benches` and `examples`. An integration test that imports its own library by the package name now counts as a covering test. External crates and `std` add no edge. Comments and string literals are read in source order, so a `mod` or `use` inside either adds no edge. On ripgrep's `crates/ignore` at commit 6892bc2, edges from Rust files went from 2 to 29.
 
 ## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
 
