@@ -34,6 +34,19 @@ test('wire --hooks then unwire leaves the user\'s settings and hook files byte i
   assert.deepEqual(snapshot(dir), before);
 });
 
+test('unwire leaves and reports a hook entry whose settings changed after wire', () => {
+  const dir = repo({ '.claude': null });
+  wire(dir, { agents: ['claude'], hooks: true, profile: 'full' });
+  const settings = JSON.parse(read(dir, '.claude/settings.json'));
+  const group = settings.hooks.PreToolUse.find((g) => g.hooks.some((h) => /complex-md.*hook pre/.test(h.command)));
+  group.matcher = 'Write';
+  writeFileSync(join(dir, '.claude/settings.json'), pretty(settings));
+  const result = unwire(dir);
+  const after = JSON.parse(read(dir, '.claude/settings.json'));
+  assert.ok(after.hooks.PreToolUse.some((g) => g.matcher === 'Write'));
+  assert.ok(result.left.some((entry) => entry.path === '.claude/settings.json'));
+});
+
 test('settings and hook files that wire created are deleted by unwire', () => {
   const dir = repo({ '.claude': null, '.cursor': null });
   const before = snapshot(dir);
@@ -65,6 +78,20 @@ test('wire --mcp then unwire leaves the user\'s MCP servers and Codex config as 
   assert.ok(existsSync(join(dir, '.cursor/mcp.json')));
   unwire(dir);
   assert.deepEqual(snapshot(dir), before);
+});
+
+test('unwire leaves and reports an MCP entry whose settings changed after wire', () => {
+  const dir = repo();
+  wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  const config = JSON.parse(read(dir, '.mcp.json'));
+  config.mcpServers['complex-md'].env = { CUSTOM: 'keep' };
+  writeFileSync(join(dir, '.mcp.json'), pretty(config));
+  const manifest = readManifest(dir);
+  assert.match(manifest.entries.find((entry) => entry.kind === 'mcp-json').records[0].sha256, /^[a-f0-9]{64}$/);
+  const result = unwire(dir);
+  const after = JSON.parse(read(dir, '.mcp.json'));
+  assert.deepEqual(after.mcpServers['complex-md'].env, { CUSTOM: 'keep' });
+  assert.ok(result.left.some((entry) => entry.path === '.mcp.json'));
 });
 
 test('hooks an earlier version wrote are recorded by wire --hooks and removed by unwire', () => {

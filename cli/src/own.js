@@ -9,6 +9,7 @@
 // the recorded hash was edited by someone: it is reported and left.
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, rmdirSync, statSync, lstatSync, realpathSync } from 'node:fs';
 import { join, dirname, sep } from 'node:path';
+import { createHash } from 'node:crypto';
 import { BLOCK_HEADING } from './prompts.js';
 import { GENERATED_NOTICE, ENTRY_KINDS, jsonText, getPath } from './targets.js';
 import { findRegion, removeRegion, outsideRegion, normalizedHash } from './markers.js';
@@ -130,7 +131,27 @@ export function removeListedEntry(root, entry) {
   }
   if (!obj || typeof obj !== 'object') return 'edited';
   const before = JSON.stringify(obj);
-  kind.strip(obj);
+  if (!Array.isArray(entry.records) || !entry.records.length) {
+    return kind.holds(obj) ? 'edited' : 'missing';
+  }
+  const hash = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const edited = [];
+  for (const record of entry.records) {
+    const container = getPath(obj, record.container);
+    if (record.key !== undefined) {
+      const value = container?.[record.key];
+      if (value === undefined) continue;
+      if (hash(value) !== record.sha256) { edited.push(record); continue; }
+      delete container[record.key];
+      continue;
+    }
+    if (!Array.isArray(container)) continue;
+    let index = container.findIndex((value) => kind.matches(value, record.identity));
+    if (index < 0 && container[record.index] !== undefined) index = record.index;
+    if (index < 0) continue;
+    if (hash(container[index]) !== record.sha256) { edited.push(record); continue; }
+    container.splice(index, 1);
+  }
   const added = entry.added || [];
   for (const k of [...added].sort((a, b) => b.split('.').length - a.split('.').length)) {
     const v = getPath(obj, k);
@@ -147,9 +168,10 @@ export function removeListedEntry(root, entry) {
     rmSync(p);
     return 'deleted';
   }
-  if (JSON.stringify(obj) === before) return 'missing';
+  if (edited.length) entry.records = edited;
+  if (JSON.stringify(obj) === before) return edited.length ? 'edited' : 'missing';
   writeFileSync(p, jsonText(obj, text));
-  return 'removed';
+  return edited.length ? 'edited' : 'removed';
 }
 
 /** Remove the listed folders that are empty, deepest first. Returns the ones that remain. */

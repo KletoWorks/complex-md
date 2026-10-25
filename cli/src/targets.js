@@ -7,6 +7,7 @@
 // editing another tool's global file behind the user's back.
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, statSync } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { git } from './git.js';
 import { hookCommand } from './invoke.js';
@@ -155,6 +156,8 @@ export function jsonText(obj, like = '') {
 const OUR_HOOK = /complex-md(@\S+)?(\.js)?\s+hook\s/;
 const oursCmd = (h) => OUR_HOOK.test(String(h?.command || ''));
 export const getPath = (o, k) => k.split('.').reduce((v, x) => (v && typeof v === 'object' ? v[x] : undefined), o);
+const entryHash = (v) => createHash('sha256').update(JSON.stringify(v)).digest('hex');
+const hookRecord = (container, index, value, identity) => ({ container, index, identity, sha256: entryHash(value) });
 
 /* The JSON entries wire adds to files the user also edits: the keys it may
    create on the way, how to tell that the file holds ours, and how to take
@@ -163,6 +166,17 @@ export const ENTRY_KINDS = {
   'claude-hooks': {
     containers: ['hooks', 'hooks.PreToolUse', 'hooks.Stop'],
     holds: (o) => ['PreToolUse', 'Stop'].some((e) => (Array.isArray(o.hooks?.[e]) ? o.hooks[e] : []).some((g) => (g?.hooks || []).some(oursCmd))),
+    records(o) {
+      return ['PreToolUse', 'Stop'].flatMap((event) =>
+        (Array.isArray(o.hooks?.[event]) ? o.hooks[event] : []).flatMap((group, index) => {
+          const identity = (group?.hooks || []).filter(oursCmd).map((h) => String(h.command));
+          return identity.length ? [hookRecord(`hooks.${event}`, index, group, identity)] : [];
+        }),
+      );
+    },
+    matches(group, identity) {
+      return JSON.stringify((group?.hooks || []).filter(oursCmd).map((h) => String(h.command))) === JSON.stringify(identity);
+    },
     strip(o) {
       for (const e of ['PreToolUse', 'Stop']) {
         const list = o.hooks?.[e];
@@ -175,6 +189,16 @@ export const ENTRY_KINDS = {
   'cursor-hooks': {
     containers: ['version', 'hooks', 'hooks.preToolUse', 'hooks.stop'],
     holds: (o) => ['preToolUse', 'stop'].some((e) => (Array.isArray(o.hooks?.[e]) ? o.hooks[e] : []).some(oursCmd)),
+    records(o) {
+      return ['preToolUse', 'stop'].flatMap((event) =>
+        (Array.isArray(o.hooks?.[event]) ? o.hooks[event] : []).flatMap((hook, index) =>
+          oursCmd(hook) ? [hookRecord(`hooks.${event}`, index, hook, String(hook.command))] : [],
+        ),
+      );
+    },
+    matches(hook, identity) {
+      return oursCmd(hook) && String(hook.command) === identity;
+    },
     strip(o) {
       for (const e of ['preToolUse', 'stop']) if (Array.isArray(o.hooks?.[e])) o.hooks[e] = o.hooks[e].filter((x) => !oursCmd(x));
     },
@@ -182,6 +206,10 @@ export const ENTRY_KINDS = {
   'mcp-json': {
     containers: ['mcpServers'],
     holds: (o) => !!o.mcpServers?.['complex-md'],
+    records(o) {
+      const value = o.mcpServers?.['complex-md'];
+      return value === undefined ? [] : [{ container: 'mcpServers', key: 'complex-md', identity: 'complex-md', sha256: entryHash(value) }];
+    },
     strip(o) {
       if (o.mcpServers) delete o.mcpServers['complex-md'];
     },
@@ -206,8 +234,24 @@ function editJson(ctx, rel, kind, mutate) {
   }
   if (!k.holds(obj)) return;
   const prev = ctx.ledger.previous?.entries?.find((e) => e.path === rel && e.kind === kind);
+  const currentRecords = k.records(obj);
+  const records = currentRecords.map((record) => {
+    const old = prev?.records?.find((r) =>
+      r.container === record.container
+      && r.key === record.key
+      && JSON.stringify(r.identity) === JSON.stringify(record.identity),
+    );
+    return old ? { ...record, sha256: old.sha256 } : record;
+  });
+  for (const old of prev?.records || []) {
+    if (!currentRecords.some((record) =>
+      record.container === old.container
+      && record.key === old.key
+      && JSON.stringify(record.identity) === JSON.stringify(old.identity),
+    )) records.push(old);
+  }
   const added = [...new Set([...(prev?.added || []), ...k.containers.filter((c) => !had.includes(c) && getPath(obj, c) !== undefined)])];
-  ctx.ledger.entries.push({ path: rel, kind, ...(!existed || prev?.created ? { created: true } : {}), ...(added.length ? { added } : {}) });
+  ctx.ledger.entries.push({ path: rel, kind, records, ...(!existed || prev?.created ? { created: true } : {}), ...(added.length ? { added } : {}) });
 }
 
 // Ours whether installed as `npx -y complex-md hook pre`, pinned as

@@ -57,7 +57,7 @@ export function unwire(root, { log = () => {} } = {}) {
     else {
       report.left.push(entry);
       left.entries.push(entry);
-      log(`left ${entry.path}: it is not valid JSON, so unwire cannot take the complex-md entries out. Fix it and run unwire again.`);
+      log(`left ${entry.path}: the JSON or a recorded complex-md entry was edited after wire wrote it. Restore it and run unwire again, or remove the entry by hand.`);
     }
   }
   if ((m.entries || []).some((e) => e.path === '.claude/settings.local.json')) {
