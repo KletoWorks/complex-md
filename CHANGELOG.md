@@ -48,6 +48,9 @@ plan compares paths with the OS separator.
 **Change:** front matter with no `complex_md` key is not a valid map, and the reader returns null for it. A 0.3 map with `tool` and no `generator` reads `tool` as `generator`: the text before the first `/` is `name`, and the text after it is `version`. A flow list splits only at a comma outside a double quoted item. A quote opens a quoted item only as its first character, so the plain path `lib/a"b.js` stays 1 path. `[]` inside a list item reads as the empty list. The 5 fixture checks now run, with 0 todo.
 
 **Change:** the report footer names the producer from `generator.name` and `generator.version`, with `tool` as the fallback. A 0.3 map written by complex-md 0.9.2 still shows `complex-md/0.9.2` there.
+**Intent:** a maintainer or a CI job could not tell whether a hand edited or third party COMPLEX.md conforms to the spec 0.4 draft.
+
+**Change:** `complex-md lint [path]` checks a map against the spec 0.4 JSON Schema and the rules the schema cannot state (relative paths, listed paths that exist, sections and directives), and warns on a file over 8,192 bytes. It prints one `path:line: rule: message` line per finding, or `{"ok", "errors", "warnings"}` with `--json`, and exits 1 on any error. It validates the front matter as written, so `commit: 1234567` is a number and `hotspots: invalid` is a schema finding. The schema validator moves from `cli/test/spec-fixtures.test.js` to `cli/src/schema.js`, and the schema ships in the package.
 
 ## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
 

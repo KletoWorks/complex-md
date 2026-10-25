@@ -679,6 +679,14 @@ is the same report on the command line, for pre-commit hooks and CI. It
 also names a generated brief in the change that differs from what `wire`
 writes, because review bots read those files from the pull request.
 
+### Lint
+
+`npx complex-md lint [path] [--json]` checks a map against the 0.4 draft
+schema and its path rules, for a maintainer or a CI job that wants to know
+whether a hand edited or third party map conforms. It prints one
+`path:line: rule: message` per finding and exits 1 on an error. A file over
+8,192 bytes is a warning.
+
 The block is normative: generators and hand authors copy it exactly, because
 identical wording across repositories is what makes it recognizable to
 agents and quotable by search. Canonical source:

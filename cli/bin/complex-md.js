@@ -66,6 +66,8 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  --staged | --base <ref> | --json | --strict (exit 1 on findings)
   npx complex-md verify          recompute the signals and compare them with COMPLEX.md, no model call
                                  exit 0 fresh, 1 drift past tolerance, 2 cannot verify  (--json)
+  npx complex-md lint [path]     check a map against the spec 0.4 schema (default ./COMPLEX.md)
+                                 path:line: rule: message; exit 1 on an error; over 8,192 bytes warns  (--json)
   npx complex-md signals         print the signals table  (--json | --tsv)
   npx complex-md report          render COMPLEX.md as a page: .complex-md/report.html (treemap, directives,
                                  co-change, blind spots); one self contained file, no network
@@ -132,6 +134,18 @@ async function main() {
       process.exit(2);
     }
     console.log(out);
+    return;
+  }
+
+  // Lint reads one file and the working tree; it needs no git history.
+  if (cmd === 'lint') {
+    const { resolve, dirname } = await import('node:path');
+    const { lintFile, formatLint } = await import('../src/lint.js');
+    const file = resolve(args.find((a) => !a.startsWith('-')) || 'COMPLEX.md');
+    const r = lintFile(file, { root: dirname(file) });
+    if (flag('--json')) console.log(JSON.stringify({ ok: r.ok, errors: r.errors, warnings: r.warnings }, null, 2));
+    else if (r.errors.length || r.warnings.length) console.log(formatLint(args.find((a) => !a.startsWith('-')) || 'COMPLEX.md', r));
+    process.exitCode = r.ok ? 0 : 1;
     return;
   }
 

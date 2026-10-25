@@ -174,6 +174,20 @@ a list only at 125% of the fresh cut and drops off only under 75%, so two
 files that trade the last place never flip the result. In CI, check out the
 full history (`fetch-depth: 0`) and run `npx complex-md verify`.
 
+## Is the map valid?
+
+    npx complex-md lint [path] [--json]
+
+`lint` checks a COMPLEX.md (default `./COMPLEX.md`) against the spec 0.4
+draft, with no model call and no network. It validates the front matter
+against `spec/0.4/complex-md.schema.json`, which the package carries, and then
+the rules the schema cannot state: every path is relative to the repository
+root, every listed path exists in the working tree, and the sections and
+directives are in place. It prints one line per finding as
+`path:line: rule: message` and exits 1 on any error, 0 otherwise. A file over
+8,192 bytes gets a warning, which does not fail. `--json` prints
+`{"ok": bool, "errors": [...], "warnings": [...]}`.
+
 ## Optional: the MCP server (`--mcp`)
 
 Off by default. `wire --mcp` registers it in `.mcp.json`, `.cursor/mcp.json`
