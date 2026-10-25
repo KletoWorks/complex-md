@@ -2,7 +2,7 @@
 // here is a stub executable on PATH; no test starts a real agent.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, mkdirSync, chmodSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, mkdirSync, chmodSync, rmSync, symlinkSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
@@ -136,7 +136,8 @@ test('runVia sends the bundle on stdin and returns the checked map', { skip: !po
   assert.match(seen.input, /^THE BUNDLE\n/);
   assert.match(seen.input, /Print the complete COMPLEX\.md to standard output/);
   assert.equal(seen.argv[0], '-p');
-  assert.equal(seen.cwd, root);
+  // The child reads its working folder with links resolved: /private/var for /var on macOS.
+  assert.equal(seen.cwd, realpathSync.native(root));
 });
 
 test('a file mode CLI reads the bundle from .complex-md/prompt.md', { skip: !posix }, async () => {
