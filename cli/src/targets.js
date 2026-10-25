@@ -218,7 +218,7 @@ export const ENTRY_KINDS = {
 
 /* Edit a JSON file of the user's in place, and record in the manifest that
    it holds our entries and which keys wire created for them. */
-function editJson(ctx, rel, kind, mutate, shouldRecord = () => true) {
+function editJson(ctx, rel, kind, mutate, shouldRecord = () => true, refreshHash = false) {
   if (!ctx.own.inside(rel)) return void ctx.report.skipped.push(`${rel} (a symbolic link takes it outside the repository; not written)`);
   const p = join(ctx.root, rel);
   const existed = existsSync(p);
@@ -236,13 +236,16 @@ function editJson(ctx, rel, kind, mutate, shouldRecord = () => true) {
   const prev = ctx.ledger.previous?.entries?.find((e) => e.path === rel && e.kind === kind);
   if (!k.holds(obj) || !shouldRecord({ obj, original, prev })) return;
   const currentRecords = k.records(obj);
+  const replaceHash = typeof refreshHash === 'function'
+    ? refreshHash({ obj, original, prev })
+    : refreshHash;
   const records = currentRecords.map((record) => {
     const old = prev?.records?.find((r) =>
       r.container === record.container
       && r.key === record.key
       && JSON.stringify(r.identity) === JSON.stringify(record.identity),
     );
-    return old ? { ...record, sha256: old.sha256 } : record;
+    return old && !replaceHash ? { ...record, sha256: old.sha256 } : record;
   });
   for (const old of prev?.records || []) {
     if (!currentRecords.some((record) =>
@@ -284,24 +287,52 @@ function pinLegacy(entries, sub, inv) {
   return n;
 }
 
+function legacyMcpEntry(entry) {
+  const args = entry?.args;
+  if (!Array.isArray(args) || Object.keys(entry).sort().join(',') !== 'args,command') return false;
+  if (entry.command === 'npx') {
+    const start = args[1] === '--prefer-offline' ? 2 : 1;
+    const spec = args[start];
+    return args[0] === '-y'
+      && (spec === 'complex-md' || /^complex-md@[0-9A-Za-z][0-9A-Za-z.+-]*$/.test(spec || ''))
+      && args[start + 1] === 'mcp'
+      && (args.length === start + 2 || (args.length === start + 4 && args[start + 2] === '--root'));
+  }
+  return entry.command === 'node'
+    && typeof args[0] === 'string'
+    && /(?:^|[/\\])complex-md\.js$/.test(args[0])
+    && args[1] === 'mcp'
+    && (args.length === 2 || (args.length === 4 && args[2] === '--root'));
+}
+
 function addMcpJson(ctx, rel, entry) {
   let installed = false;
+  let replaced = false;
+  const previous = ctx.ledger.previous?.entries?.find((e) => e.path === rel && e.kind === 'mcp-json');
   editJson(ctx, rel, 'mcp-json', (m) => {
-    if (m.mcpServers?.['complex-md']) return;
+    const current = m.mcpServers?.['complex-md'];
+    if (current) {
+      if (JSON.stringify(current) === JSON.stringify(entry)) return;
+      if (!legacyMcpEntry(current)) return;
+      const previousRecord = previous?.records?.find((r) => r.container === 'mcpServers' && r.key === 'complex-md');
+      if (previous && (!previousRecord || previousRecord.sha256 !== entryHash(current))) return;
+      replaced = true;
+      m.mcpServers['complex-md'] = entry;
+      installed = true;
+      ctx.report.mcp.push(rel);
+      if (Array.isArray(ctx.report.replaced)) ctx.report.replaced.push(rel);
+      return;
+    }
     m.mcpServers ||= {};
     m.mcpServers['complex-md'] = entry;
     installed = true;
     ctx.report.mcp.push(rel);
   }, ({ original, prev }) => {
     const current = original.mcpServers?.['complex-md'];
-    const args = current?.args;
-    const legacy = current?.command === 'npx'
-      && Object.keys(current).sort().join(',') === 'args,command'
-      && Array.isArray(args)
-      && ((args.length === 3 && args[0] === '-y' && args[1] === 'complex-md' && args[2] === 'mcp')
-        || (args.length === 4 && args[0] === '-y' && args[1] === '--prefer-offline' && /^complex-md@\d/.test(args[2]) && args[3] === 'mcp'));
-    return installed || !!prev || legacy;
-  });
+    const previousRecord = prev?.records?.find((r) => r.container === 'mcpServers' && r.key === 'complex-md');
+    const unchanged = current && previousRecord && previousRecord.sha256 === entryHash(current);
+    return installed || !!prev || (legacyMcpEntry(current) && (!prev || unchanged));
+  }, () => replaced);
 }
 
 /* The portable skill, in the Agent Skills layout: a folder whose name is the
@@ -420,8 +451,8 @@ export const TARGETS = {
       if (local) keepOutOfGit(root, rel);
     },
     mcp(ctx) {
-      const { inv } = ctx;
-      addMcpJson(ctx, '.mcp.json', { command: inv.command, args: [...inv.args, 'mcp'] });
+      const { mcpInv } = ctx;
+      addMcpJson(ctx, '.mcp.json', { command: mcpInv.command, args: [...mcpInv.args, 'mcp'] });
     },
   },
 
@@ -454,8 +485,8 @@ export const TARGETS = {
       });
     },
     mcp(ctx) {
-      const { inv } = ctx;
-      addMcpJson(ctx, '.cursor/mcp.json', { command: inv.command, args: [...inv.args, 'mcp'] });
+      const { mcpInv } = ctx;
+      addMcpJson(ctx, '.cursor/mcp.json', { command: mcpInv.command, args: [...mcpInv.args, 'mcp'] });
     },
   },
 
@@ -493,15 +524,15 @@ export const TARGETS = {
 
   codex: {
     detect: (root) => existsSync(join(root, '.codex')),
-    mcp({ root, inv, report, mark }) {
+    mcp({ root, mcpInv, report, mark }) {
       const p = join(root, '.codex/config.toml');
       const existed = existsSync(p);
       const cur = existed ? readFileSync(p, 'utf8') : '';
       /* A table outside the markers is one an earlier version appended, or
          the user's own; either way it stays, and no second one is added. */
       if (/\[mcp_servers\.complex-md\]/.test(outsideRegion(cur))) return;
-      const args = [...inv.args, 'mcp'];
-      const table = `[mcp_servers.complex-md]\ncommand = ${JSON.stringify(inv.command)}\nargs = [${args.map((a) => JSON.stringify(a)).join(', ')}]\n`;
+      const args = [...mcpInv.args, 'mcp'];
+      const table = `[mcp_servers.complex-md]\ncommand = ${JSON.stringify(mcpInv.command)}\nargs = [${args.map((a) => JSON.stringify(a)).join(', ')}]\n`;
       if (mark('.codex/config.toml', table, { style: 'hash', create: true, created: !existed }) === 'written') report.mcp.push('.codex/config.toml');
     },
   },
@@ -619,8 +650,8 @@ export const TARGETS = {
   openclaw: {
     global: true,
     rules: writeSkill,
-    mcp({ root, inv, report, log }) {
-      const args = ['mcp', 'add', 'complex-md', '--command', inv.command, ...[...inv.args, 'mcp', '--root', root].flatMap((a) => ['--arg', a])];
+    mcp({ root, mcpInv, report, log }) {
+      const args = ['mcp', 'add', 'complex-md', '--command', mcpInv.command, ...[...mcpInv.args, 'mcp', '--root', root].flatMap((a) => ['--arg', a])];
       if (cliAvailable('openclaw')) {
         try {
           execFileSync('openclaw', args, { stdio: 'pipe' });
@@ -642,8 +673,8 @@ export const TARGETS = {
       writeSkill(ctx);
       ctx.log('hermes loads project skills once the repository is trusted: run `hermes skills trust` in it.');
     },
-    mcp({ root, inv, report, log }) {
-      const command = `${inv.shell} mcp --root ${root}`;
+    mcp({ root, mcpInv, report, log }) {
+      const command = `${mcpInv.shell} mcp --root ${root}`;
       if (cliAvailable('hermes')) {
         try {
           execFileSync('hermes', ['mcp', 'add', 'complex-md', '--command', command], { stdio: 'pipe' });

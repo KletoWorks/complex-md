@@ -6,6 +6,13 @@ format.
 
 ## Unreleased
 
+**Change:** the MCP server and its SDK and zod dependencies move to the
+version-matched `complex-md-mcp` package. The core `complex-md mcp` command
+hands off to that package for 0.x compatibility, while `wire --mcp` writes
+package entries and preserves the manifest's hash-checked ownership.
+CI tests both packages; a release publishes the core before the server.
+Source: `cli/package.json` and `packages/complex-md-mcp/package.json`.
+
 **Intent:** wire appended a block with a heading but no end, deleted any file in a brief folder whose name had the complex-md- prefix, created CLAUDE.md beside AGENTS.md, and had no way back. A default wire could add 40 or more files to a repository, a rewire never updated an old block, and a Windows checkout could leave mixed line endings.
 
 **Change:** each text wire writes into a file the user owns sits between `<!-- BEGIN complex-md (spec 0.3) -->` and `<!-- END complex-md (spec 0.3) -->` (`#` comments in `.gitattributes` and TOML). Text outside the markers is never changed, and a rewire replaces only the marked text. A file wire writes whole opens with a notice. In a file with front matter, the notice is a YAML comment on line 2.

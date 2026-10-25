@@ -1,0 +1,48 @@
+{
+  "name": "complex-md-mcp",
+  "version": "0.10.0",
+  "description": "Optional MCP server for the COMPLEX.md structural risk map.",
+  "license": "MIT",
+  "author": "James L. Cowan Jr.",
+  "homepage": "https://complex.md",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KletoWorks/complex-md.git",
+    "directory": "packages/complex-md-mcp"
+  },
+  "type": "module",
+  "bin": {
+    "complex-md-mcp": "bin/complex-md-mcp.js"
+  },
+  "exports": {
+    ".": "./src/server.js",
+    "./register": "./src/register.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "coding-agents",
+    "hotspots",
+    "COMPLEX.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "complex-md": "0.10.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "complex-md": "file:../../cli"
+  }
+}

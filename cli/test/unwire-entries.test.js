@@ -3,6 +3,7 @@
 // exactly those, and the rest of the file keeps its bytes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { wire } from '../src/wire.js';
@@ -113,13 +114,58 @@ test('wire does not claim a pre-existing user complex-md MCP server', () => {
   assert.equal(read(dir, '.mcp.json'), original);
 });
 
+test('wire leaves a legacy-looking MCP server with user fields untouched', () => {
+  const entry = { command: 'npx', args: ['-y', 'complex-md@0.9.2', 'mcp'], env: { CUSTOM: 'keep' } };
+  const original = pretty({ mcpServers: { 'complex-md': entry } });
+  const dir = repo({ '.mcp.json': original });
+  wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  assert.equal(read(dir, '.mcp.json'), original);
+  assert.equal(readManifest(dir).entries.some((record) => record.kind === 'mcp-json'), false);
+});
+
 test('wire claims a recognized legacy MCP entry so unwire can remove it', () => {
   const original = pretty({ mcpServers: { 'complex-md': { command: 'npx', args: ['-y', 'complex-md', 'mcp'] } } });
   const dir = repo({ '.mcp.json': original });
   wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  const migrated = JSON.parse(read(dir, '.mcp.json')).mcpServers['complex-md'];
+  assert.deepEqual(migrated.args, ['-y', `complex-md-mcp@${JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8')).version}`, 'mcp']);
   assert.equal(readManifest(dir).entries.some((entry) => entry.kind === 'mcp-json'), true);
   unwire(dir);
   assert.equal(read(dir, '.mcp.json'), pretty({ mcpServers: {} }));
+});
+
+test('rewiring an unchanged manifest-owned MCP entry refreshes its hash during migration', () => {
+  const version = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8')).version;
+  const previous = { command: 'npx', args: ['-y', '--prefer-offline', 'complex-md@0.9.2', 'mcp'] };
+  const dir = repo({ '.mcp.json': pretty({ mcpServers: { 'complex-md': previous } }) });
+  wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  const config = JSON.parse(read(dir, '.mcp.json'));
+  config.mcpServers['complex-md'] = previous;
+  writeFileSync(join(dir, '.mcp.json'), pretty(config));
+  const manifest = readManifest(dir);
+  const record = manifest.entries.find((entry) => entry.kind === 'mcp-json').records[0];
+  record.sha256 = createHash('sha256').update(JSON.stringify(previous)).digest('hex');
+  writeFileSync(join(dir, '.complex-md/manifest.json'), pretty(manifest));
+
+  wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  const current = JSON.parse(read(dir, '.mcp.json')).mcpServers['complex-md'];
+  assert.deepEqual(current.args, ['-y', `complex-md-mcp@${version}`, 'mcp']);
+  assert.equal(readManifest(dir).entries.find((entry) => entry.kind === 'mcp-json').records[0].sha256,
+    createHash('sha256').update(JSON.stringify(current)).digest('hex'));
+  unwire(dir);
+  assert.deepEqual(JSON.parse(read(dir, '.mcp.json')).mcpServers, {});
+});
+
+test('rewiring does not replace a legacy-looking MCP entry edited since the manifest was written', () => {
+  const dir = repo();
+  wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  const config = JSON.parse(read(dir, '.mcp.json'));
+  config.mcpServers['complex-md'] = { command: 'npx', args: ['-y', 'complex-md@0.9.2', 'mcp'] };
+  writeFileSync(join(dir, '.mcp.json'), pretty(config));
+  wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  assert.deepEqual(JSON.parse(read(dir, '.mcp.json')).mcpServers['complex-md'], config.mcpServers['complex-md']);
+  unwire(dir);
+  assert.deepEqual(JSON.parse(read(dir, '.mcp.json')).mcpServers['complex-md'], config.mcpServers['complex-md']);
 });
 
 test('hooks an earlier version wrote are recorded by wire --hooks and removed by unwire', () => {

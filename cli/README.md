@@ -176,11 +176,21 @@ full history (`fetch-depth: 0`) and run `npx complex-md verify`.
 
 ## Optional: the MCP server (`--mcp`)
 
-Off by default. `wire --mcp` registers it in `.mcp.json`, `.cursor/mcp.json`
-and `.codex/config.toml`. OpenClaw and Hermes keep a machine-level registry,
+The server and its MCP SDK and zod dependencies live in the separate
+`complex-md-mcp` package, so a normal `complex-md` install does not download
+them. It is off by default. `wire --mcp` registers the package in
+`.mcp.json`, `.cursor/mcp.json` and `.codex/config.toml`; those entries use
+the same version as `complex-md`, and their ownership and hashes stay in
+`.complex-md/manifest.json`. OpenClaw and Hermes keep a machine-level registry,
 so `wire --mcp --for openclaw,hermes` registers it through their own CLIs,
-with `mcp --root <repo>` pinning it to this repository. `npx complex-md mcp`
-runs it on stdio. Six tools:
+with `--root <repo>` pinning it to this repository.
+
+    npx complex-md mcp
+    npx complex-md-mcp register
+
+The first command remains a compatibility handoff to the matching, pinned
+`complex-md-mcp` package and prints one line to stderr. The second directly
+registers the server. The MCP server speaks stdio and exposes six tools:
 
 | Tool | Use it when |
 | --- | --- |

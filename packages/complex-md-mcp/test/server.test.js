@@ -6,9 +6,12 @@ import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { buildServer } from '../src/mcp.js';
-import { computeSignals } from '../src/signals.js';
-import { frontMatter } from '../src/generate.js';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+import { buildServer } from '../src/server.js';
+import { computeSignals } from 'complex-md/src/signals.js';
+import { frontMatter } from 'complex-md/src/generate.js';
 
 function makeRepo() {
   const dir = mkdtempSync(join(tmpdir(), 'cx-mcp-'));
@@ -32,6 +35,7 @@ function makeRepo() {
 }
 
 const PROSE = '\n## Where the risk lives\n\nRisk sits in src/a.js, where 2 fixes landed.\n\n## Why these files are hot\n\nsrc/a.js defines alpha and every module reads it. Before editing this file, run test/a.test.js.\n\n## Change coupling\n\nsrc/a.js and src/b.js move together by design. Open both.\n\n## What to read first\n\n1. src/a.js: the root.\n';
+const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'complex-md-mcp.js');
 
 function writeMap(dir) {
   writeFileSync(join(dir, 'COMPLEX.md'), frontMatter(computeSignals(dir), 'test') + PROSE);
@@ -137,4 +141,25 @@ test('complex_refresh: live table, co-change and a stale-map notice', async () =
   execFileSync('git', ['commit', '-q', '-am', 'feat: more'], { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x' } });
   const stale = await call(buildServer(dir), 'complex_refresh', {});
   assert.match(stale, /COMPLEX\.md was generated at [0-9a-f]+; regenerate with `npx complex-md`/);
+});
+
+test('stdio initializes, lists six tools and answers complex_impact', () => {
+  const dir = makeRepo();
+  writeMap(dir);
+  const input = [
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } } },
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+    { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+    { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'complex_impact', arguments: { path: 'src/a.js' } } },
+  ].map((message) => JSON.stringify(message)).join('\n') + '\n';
+  const r = spawnSync(process.execPath, [BIN, '--root', dir], { input, encoding: 'utf8', timeout: 15000 });
+  assert.equal(r.status, 0, r.stderr);
+  const replies = r.stdout.split('\n').filter(Boolean).map((line) => JSON.parse(line));
+  const list = replies.find((reply) => reply.id === 2);
+  const call = replies.find((reply) => reply.id === 3);
+  assert.deepEqual(list.result.tools.map((tool) => tool.name).sort(), [
+    'complex_check', 'complex_impact', 'complex_lookup', 'complex_refresh', 'complex_refs', 'complex_where_to_look',
+  ]);
+  assert.match(call.result.content[0].text, /- src\/b\.js/);
+  assert.match(call.result.content[0].text, /Covering tests: test\/a\.test\.js/);
 });
