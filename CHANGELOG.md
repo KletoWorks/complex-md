@@ -4,6 +4,12 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## Unreleased
+
+**Intent:** the import graph gave Rust files no edges, so a Rust repository had no `load_bearing` rows and no covering tests from the graph ([issue #9](https://github.com/KletoWorks/complex-md/issues/9)).
+
+**Change:** Rust `mod` declarations and `use` paths resolve through module files, crate roots, literal `#[path]` attributes and Cargo package names, as the [Rust Reference on modules](https://doc.rust-lang.org/reference/items/modules.html) states. Every Cargo target is a crate root: `src/lib.rs`, `src/main.rs`, and the files under `src/bin`, `tests`, `benches` and `examples`. An integration test that imports its own library by the package name now counts as a covering test. External crates and `std` add no edge. Comments and string literals are read in source order, so a `mod` or `use` inside either adds no edge. On ripgrep's `crates/ignore` at commit 6892bc2, edges from Rust files went from 2 to 29.
+
 ## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
 
 **Intent:** wire appended a block with a heading but no end, deleted any file in a brief folder whose name had the complex-md- prefix, created CLAUDE.md beside AGENTS.md, and had no way back. A default wire could add 40 or more files to a repository, a rewire never updated an old block, and a Windows checkout could leave mixed line endings.
@@ -28,12 +34,6 @@ format.
 **Change:** `/map` takes owner/name, a github.com URL, a git URL or an SSH remote. It opens the hosted page, links a committed COMPLEX.md, or shows the npx command and a request button. `/map/remove` lists the three ways a page goes away: commit COMPLEX.md, set `hosted: false`, or send the form. Each takes effect within 24 hours. The header and the home page hero link `/map`.
 
 **Change:** the report treemap is SVG, so the local report and a hosted page share one renderer. `site/reserved.json` lists the first path segments that never name an owner, and a test fails the build when a top level name is missing from it.
-
-**Change:** Rust `mod` declarations and `use` paths now resolve through
-module files, crate roots, literal `#[path]` attributes and Cargo package
-names; external crates remain unresolved. This follows the
-[Rust Reference on modules](https://doc.rust-lang.org/reference/items/modules.html)
-and addresses [issue #9](https://github.com/KletoWorks/complex-md/issues/9).
 
 **Change:** a brief's partner line now reads "4 commits together, 100% of
 the less active file's commits". It said "100% of this file's commits",
