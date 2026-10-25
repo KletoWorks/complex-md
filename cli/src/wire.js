@@ -120,6 +120,16 @@ export function markBlock(root, rel, content, { place = 'end', style = 'html', l
   return 'written';
 }
 
+/* Every generated path gets eol=lf and linguist-generated in a marked
+   block of .gitattributes. LF on every checkout keeps a Windows clone with
+   core.autocrlf from rewriting them, and GitHub folds them in a diff. The
+   leading slash anchors each path at the repository root. */
+function markGenerated(root, ledger, mark) {
+  const paths = [...new Set(['COMPLEX.md', MANIFEST_PATH, ...ledger.files.map((f) => f.path)])].sort();
+  const lines = paths.map((p) => `/${p} eol=lf linguist-generated`);
+  mark('.gitattributes', `# Files complex-md generates. Edit COMPLEX.md, not them.\n${lines.join('\n')}\n`, { style: 'hash', create: true, created: !existsSync(join(root, '.gitattributes')) });
+}
+
 /* The manifest tells a teammate's unwire what this wire wrote, so it
    belongs in the commit. A .gitignore that hides it gets one line of
    advice; wire does not edit .gitignore. */
@@ -265,7 +275,9 @@ export function wire(root, { profile = null, hooks = false, mcp = false, rules =
   }
 
   ledger.target = null;
-  own.finish(new Set(active));
+  own.finishFiles(new Set(active));
+  markGenerated(root, ledger, mark);
+  own.finishBlocks(new Set(active));
   writeManifest(root, ledger, { profile });
   manifestCommittable(root, log);
 

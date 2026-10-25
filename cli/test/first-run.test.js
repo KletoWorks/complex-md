@@ -24,9 +24,9 @@ const first = run(dir);
 const map = readFileSync(join(dir, 'COMPLEX.md'), 'utf8');
 const parsed = parseComplexMd(map);
 
-test('the first run exits 0 and lands COMPLEX.md, AGENTS.md, the wiring manifest and the .gitignore entry, nothing else in git', () => {
+test('the first run exits 0 and lands COMPLEX.md, AGENTS.md, the wiring manifest, .gitattributes and the .gitignore entry, nothing else in git', () => {
   assert.equal(first.status, 0, first.stderr);
-  assert.deepEqual(status(dir), ['?? .complex-md/manifest.json', '?? .gitignore', '?? AGENTS.md', '?? COMPLEX.md']);
+  assert.deepEqual(status(dir), ['?? .complex-md/manifest.json', '?? .gitattributes', '?? .gitignore', '?? AGENTS.md', '?? COMPLEX.md']);
   assert.match(readFileSync(join(dir, '.gitignore'), 'utf8'), /^\.complex-md\/\*$/m);
   assert.match(readFileSync(join(dir, 'AGENTS.md'), 'utf8'), /^<!-- BEGIN complex-md \(spec [\d.]+\) -->[\s\S]*^COMPLEX\.md at the repository root maps where edits are risky\./m);
 });
@@ -50,7 +50,7 @@ test('the plan comes first and lists every file the run wrote; the fact and the 
   const at = lines.indexOf('File plan:');
   assert.ok(at >= 0 && lines.slice(0, at).every((l) => !/^(wrote|created|added)/.test(l)), 'nothing written before the plan');
   const planned = lines.slice(at + 1).filter((l) => /^ {2}(create|change)/.test(l)).map((l) => l.trim().split(/\s+/)[1]);
-  assert.deepEqual(planned, ['COMPLEX.md', '.complex-md/prompt.md', '.complex-md/front-matter.yaml', '.gitignore', '.complex-md/manifest.json', 'AGENTS.md']);
+  assert.deepEqual(planned, ['COMPLEX.md', '.complex-md/prompt.md', '.complex-md/front-matter.yaml', '.gitignore', '.complex-md/manifest.json', '.gitattributes', 'AGENTS.md']);
   assert.equal(lines.at(-2), 'Fact: src/price.js received 2 of the 3 fix commits in the last 7 commits.');
   assert.equal(lines.at(-1), 'https://complex.md/?utm_source=cli');
 });
@@ -60,7 +60,7 @@ test('a second run on the same commit writes byte identical files and plans no c
   assert.equal(again.status, 0, again.stderr);
   assert.equal(readFileSync(join(dir, 'COMPLEX.md'), 'utf8'), map);
   assert.match(again.stderr, /^File plan: no file changes\.$/m);
-  assert.deepEqual(status(dir), ['?? .complex-md/manifest.json', '?? .gitignore', '?? AGENTS.md', '?? COMPLEX.md']);
+  assert.deepEqual(status(dir), ['?? .complex-md/manifest.json', '?? .gitattributes', '?? .gitignore', '?? AGENTS.md', '?? COMPLEX.md']);
 });
 
 test('the same fixture built twice gives the same COMPLEX.md', () => {

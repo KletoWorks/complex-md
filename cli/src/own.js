@@ -186,9 +186,9 @@ export function createOwner({ root, ledger, report, log = () => {} }) {
     /* Everything the previous run wrote that this run did not: removed when
        unchanged, reported when edited. An entry of a target this run did
        not wire (OpenClaw's skill, after a wire without --for openclaw) is
-       kept, and stays in the manifest. Then the folders wire created that
-       are now empty. */
-    finish(active = new Set()) {
+       kept, and stays in the manifest. Files first, so the .gitattributes
+       list can be written from what is left. */
+    finishFiles(active = new Set()) {
       const keep = (e) => e.target && !active.has(e.target);
       const files = new Set(ledger.files.map((f) => f.path));
       for (const entry of prev.files) {
@@ -199,6 +199,12 @@ export function createOwner({ root, ledger, report, log = () => {} }) {
         }
         if (removeListedFile(root, entry) === 'edited') log(`${entry.path} was edited after wire wrote it; left in place. Delete it by hand if it is no longer wanted.`);
       }
+    },
+
+    /* The same for marked blocks and JSON entries, then the folders wire
+       created that are now empty. */
+    finishBlocks(active = new Set()) {
+      const keep = (e) => e.target && !active.has(e.target);
       const blocks = new Set(ledger.blocks.map((b) => b.path));
       for (const entry of prev.blocks) {
         if (blocks.has(entry.path)) continue;

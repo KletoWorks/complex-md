@@ -47,10 +47,10 @@ function repoWith(files) {
   return dir;
 }
 
-test('the plan for a repository with no agent config is a new AGENTS.md and the manifest, and the dry run writes nothing', () => {
+test('the plan for a repository with no agent config is a new AGENTS.md, the manifest and .gitattributes, and the dry run writes nothing', () => {
   const dir = repoWith({ 'COMPLEX.md': MAP });
   const before = snapshot(dir);
-  assert.deepEqual(planWire(dir, MAP, {}), [{ path: '.complex-md/manifest.json', action: 'create' }, { path: 'AGENTS.md', action: 'create' }]);
+  assert.deepEqual(planWire(dir, MAP, {}), [{ path: '.complex-md/manifest.json', action: 'create' }, { path: '.gitattributes', action: 'create' }, { path: 'AGENTS.md', action: 'create' }]);
   assert.deepEqual(snapshot(dir), before);
 });
 
