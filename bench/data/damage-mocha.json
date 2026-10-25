@@ -49,7 +49,8 @@
       "fan_in": {
         "lib/nodejs/parallel-buffered-runner.cjs": 1,
         "lib/runner.js": 22
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-55a544a409"
     },
     {
       "id": "a75b43b0d6",
@@ -71,7 +72,8 @@
       "names_gold": false,
       "fan_in": {
         "lib/runner.js": 22
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-55a544a409"
     },
     {
       "id": "163377915b",
@@ -92,7 +94,8 @@
       "names_gold": false,
       "fan_in": {
         "lib/utils.cjs": 20
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-55a544a409"
     },
     {
       "id": "90f48e40b9",
@@ -112,7 +115,8 @@
       "names_gold": false,
       "fan_in": {
         "lib/reporters/base.js": 16
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-55a544a409"
     },
     {
       "id": "ad81ec68b5",
@@ -155,7 +159,8 @@
       "names_gold": false,
       "fan_in": {
         "lib/reporters/base.js": 16
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     },
     {
       "id": "35413b6610",
@@ -175,7 +180,8 @@
       "names_gold": false,
       "fan_in": {
         "lib/mocha.js": 10
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     },
     {
       "id": "5525da60cf",
@@ -197,7 +203,8 @@
       "names_gold": false,
       "fan_in": {
         "lib/suite.js": 7
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     },
     {
       "id": "bc9fc84221",
@@ -220,7 +227,8 @@
       "names_gold": false,
       "fan_in": {
         "lib/mocha.js": 10
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     },
     {
       "id": "2a0bce02f6",
@@ -240,7 +248,8 @@
       "names_gold": false,
       "fan_in": {
         "lib/utils.js": 26
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     },
     {
       "id": "8f1c8d888b",
@@ -264,7 +273,8 @@
         "lib/cli/cli.js": 2,
         "lib/cli/run.js": 1,
         "lib/mocha.js": 6
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     },
     {
       "id": "210d658678",
@@ -290,7 +300,8 @@
         "lib/cli/options.js": 2,
         "lib/cli/run-option-metadata.js": 4,
         "lib/utils.js": 25
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     },
     {
       "id": "e3da641b08",
@@ -312,7 +323,8 @@
       "fan_in": {
         "lib/interfaces/common.js": 3,
         "lib/suite.js": 7
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     },
     {
       "id": "ba0fefe10b",
@@ -337,7 +349,8 @@
       "fan_in": {
         "lib/nodejs/serializer.js": 3,
         "lib/utils.js": 25
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     },
     {
       "id": "579e047802",
@@ -357,7 +370,8 @@
       "names_gold": false,
       "fan_in": {
         "lib/utils.js": 25
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     },
     {
       "id": "02c04c48d7",
@@ -380,7 +394,8 @@
       "fan_in": {
         "lib/nodejs/serializer.js": 3,
         "lib/utils.js": 25
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     },
     {
       "id": "a2e600d70f",
@@ -398,7 +413,8 @@
       "names_gold": true,
       "fan_in": {
         "lib/reporters/base.js": 16
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     },
     {
       "id": "3735873826",
@@ -421,7 +437,8 @@
       "fan_in": {
         "lib/reporters/base.js": 16,
         "lib/runner.js": 19
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
     }
   ]
 }

@@ -1,0 +1,422 @@
+{
+  "repo": "mochajs/mocha",
+  "path": "/root/var/bench/e2/mocha",
+  "created": "2026-10-25",
+  "months": 48,
+  "min_fan_in": 6,
+  "min_tests": 1,
+  "suite": {
+    "runner": {
+      "name": "mocha-self",
+      "cmd": "node",
+      "args": [
+        "bin/mocha.js",
+        "--reporter",
+        "tap",
+        "--timeout",
+        "10000",
+        "--no-parallel"
+      ]
+    },
+    "files": [
+      "test/unit/**/*.spec.{js,cjs,mjs}",
+      "test/node-unit/**/*.spec.{js,cjs,mjs}",
+      "test/reporters/*.spec.{js,cjs,mjs}",
+      "test/integration/**/*.spec.{js,cjs,mjs}"
+    ],
+    "include": "\\.spec\\.(c|m)?js$",
+    "exclude": "/fixtures/"
+  },
+  "tasks": [
+    {
+      "id": "55a544a409",
+      "repo": "mochajs/mocha",
+      "base": "ee351334a007970a06ae1810a85d6cd3297fcac4",
+      "fix": "55a544a409cc1dc8171b715ab4010c705ab53027",
+      "date": "2026-09-15",
+      "title": "🐛 Bug: `--parallel` worker death loses spec file path on synthetic failure",
+      "text": "### Bug Report Checklist\n\n\n\n\n\n\n### Expected\n\nWhen a `--parallel` worker dies unexpectedly, the synthetic `\"Uncaught error outside test suite\"` failure should have a `.file` property pointing to the spec that crashed — same as any other test failure.\n\n### Actual\n\nThe synthetic failure has `file: undefined`. Every reporter (JSON, xUnit, spec, custom) and any tooling that keys on `test.file` loses track of which spec crashed.\n\nConfirmed on **11.7.5** and **12.0.0**.\n\n### Minimal, Complete and Verifiable Example\n\n```js\n// crash.js\ndescribe('crash', () => {\n  it('passes before death', () => {});\n  after(() => process.exit(1));\n});\n```\n\n```js\n// healthy.js\ndescribe('healthy', () => { it('ok', () => {}); });\n```\n\n```bash\nnpx mocha --parallel --jobs 2 --reporter json crash.js healthy.js\n```\n\nOutput (trimmed):\n\n```json\n{\n  \"failures\": [{\n    \"title\": \"Uncaught error outside test suite\",\n    \"file\": null\n  }]\n}\n\n```\n\nAll worker-death paths (`process.exit`, OOM kill, segfault, unhandled rejection) flow through the same `pool.run` rejection → `_uncaught` path, so a fix covers them uniformly.\n\n### Versions\n\n- `mocha --version`: 11.7.5 (also reproduced on 12.0.0)\n- `node --version`: v22.22.2\n- OS: macOS Darwin 25.6.0\n\n### Additional Info\n\n**Root cause:** The catch in `_createFileRunner` (`parallel-buffered-runner.cjs` ~225) re-throws without `err.file = file`. `Runner#_uncaught` (`runner.cjs` ~1142) then creates a phony Runnable without propagating it.\n\n**Proposed fix** — two changes, 6 lines, no API changes (`file` is already a standard Runnable property):\n\n1\\. `lib/nodejs/parallel-buffered-runner.cjs` — tag the error before re-throwing:\n\n```diff\n           if (this.allowUncaught) {\n             this._state = ABORTING;\n             await pool.terminate(true);\n           }\n+          if (err && typeof err === 'object') {\n+            try { err.file = file; } catch { /* frozen or non-writable */ }\n+          }\n           throw err;\n```\n\n2\\. `lib/runner.cjs` — propagate to the phony Runnable:\n\n```diff\n     runnable = new Runnable(\"Uncaught error outside test suite\");\n     debug(\"uncaught(): no current Runnable; created a phony one\");\n     runnable.parent = this.suite;\n+    if (err.file) {\n+      runnable.file = err.file;\n+    }\n```\n\n**Related:**\n- #3200 — broader request for file in failure reports (open since 2017, `semver-major`). This fix is narrower: parallel worker deaths only, mechanical propagation of a value already in scope, no API surface change.\n- #6233 — complementary: fixes whether/how a worker failure is reported (exit code, `STATE_RUNNING`), but does not touch file attribution.",
+      "source": "issue",
+      "gold": [
+        "lib/nodejs/parallel-buffered-runner.cjs",
+        "lib/runner.js"
+      ],
+      "tests": [
+        "test/integration/fixtures/parallel/worker-death.js",
+        "test/integration/parallel.spec.cjs"
+      ],
+      "names_gold": true,
+      "fan_in": {
+        "lib/nodejs/parallel-buffered-runner.cjs": 1,
+        "lib/runner.js": 22
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-55a544a409"
+    },
+    {
+      "id": "a75b43b0d6",
+      "repo": "mochajs/mocha",
+      "base": "f5c8acac5f556e58d6d7327e660070684b8d06bb",
+      "fix": "a75b43b0d69fb0529945bc71aaca9a1a5dc24188",
+      "date": "2026-09-13",
+      "title": "🐛 Bug: `--fail-hook-affected-tests` drops nested-suite tests when a `beforeEach` hook fails",
+      "text": "### Bug Report Checklist\n\n\n\n\n\n\n### Expected behavior\n\n`--fail-hook-affected-tests` (added in v12) is documented to report tests as failed when they are affected by a hook failure, instead of silently skipping them. A failing `beforeEach` affects every test the hook would have run before, including tests in nested `describe` blocks, so all of them should be reported as failed. This is what `before`/`beforeAll` already does.\n\n### Actual behavior\n\nWith `--fail-hook-affected-tests` on, a failing `beforeEach` only fails the remaining tests of the immediate suite. Tests inside nested sub-suites vanish from the run entirely (not failed, not pending), so the failure and total counts are under-reported in every reporter (spec, json, tap, xunit).\n\n### Minimal, Complete, and Verifiable Example\n\n```js\n// repro.mjs\ndescribe('outer', function () {\n  beforeEach(function () { throw new Error('boom'); });\n  it('direct test', function () {});\n  describe('nested', function () {\n    it('nested test 1', function () {});\n    it('nested test 2', function () {});\n  });\n});\n```\n\nRun: `mocha --fail-hook-affected-tests repro.mjs`\n\n`beforeEach` result: **2 failing** (the hook and `direct test`); the two nested tests are dropped.\n\nSwap `beforeEach` for `before`: **4 failing** (the hook, `direct test`, `nested test 1`, `nested test 2`) are all reported. That is the behavior the `beforeEach` path should match.\n\n### Versions\n\n- mocha 12.0.0-rc.1 (also reproduces on current `main`)\n- Node.js 24\n- Platform-independent (reproduced on macOS)\n\n### Additional Information\n\n`before`/`beforeAll` already recurses into sub-suites via its `failAffectedTests` path; the `beforeEach` branch fails only the immediate suite's not-yet-run tests and never recurses. The two branches should be consistent.",
+      "source": "issue",
+      "gold": [
+        "lib/runner.js"
+      ],
+      "tests": [
+        "test/integration/fixtures/hooks/before-each-hook-error-with-fail-affected-nested.fixture.js",
+        "test/integration/hook-err.spec.cjs",
+        "test/unit/runner.spec.cjs"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/runner.js": 22
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-55a544a409"
+    },
+    {
+      "id": "163377915b",
+      "repo": "mochajs/mocha",
+      "base": "5f4b926a80bc953affaed87da345f1720e34a8ff",
+      "fix": "163377915b2ae96194b721b662e9dee0b6dfd4c5",
+      "date": "2026-09-06",
+      "title": "🐛 Bug (v12): spec file stating with a number rejected",
+      "text": "See parent issue, this also affects v12+",
+      "source": "issue",
+      "gold": [
+        "lib/utils.cjs"
+      ],
+      "tests": [
+        "test/node-unit/cli/options.spec.js",
+        "test/node-unit/utils.spec.cjs"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/utils.cjs": 20
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-55a544a409"
+    },
+    {
+      "id": "90f48e40b9",
+      "repo": "mochajs/mocha",
+      "base": "a6b5d981b641525b09a0f4b11f6c8be7ff85bae3",
+      "fix": "90f48e40b95eb622ad7123915e730c284652a1e8",
+      "date": "2026-09-04",
+      "title": "🐛 Bug: Reports the Error twice when its message contains something similar to a stack",
+      "text": "### Prerequisites\r\r\r\r\r\n\r\n### Description\r\n\r\nMocha reports twice the `Error` instance when it contains something that looks similar to a stacktrace.\r\n\r\nAs a consequence `throw new Error(\"Oups.\");` and `throw new Error(\"Oups. at plouf (C:\\\\dev\\\\try-mocha\\\\test.js:9:15)\");` will not be treated the same way in the report of Mocha.\r\n\r\n### Steps to Reproduce\r\n\r\nHere is a small spec file to reproduce:\r\n\r\n```js\r\nfunction oups() {\r\n  throw new Error(`Oups.`);\r\n}\r\nfunction oupsStack() {\r\n  throw new Error(`Oups. at plouf (C:\\\\dev\\\\try-mocha\\\\test.js:9:15)`);\r\n}\r\ndescribe(\"describe\", () => {\r\n  it(\"it oups\", () => {\r\n    oups();\r\n  });\r\n  it(\"it oupsStack\", () => {\r\n    oupsStack();\r\n  });\r\n});\r\n```\r\n\r\nError related to https://github.com/dubzzz/fast-check/issues/399\r\n\r\n**Expected behavior:** [What you expect to happen]\r\n\r\nThe reports of `oups` and `oupsStack` should be similar (even if oupsStack contains something similar to a stack trace).\r\nI would have expected the following error report from mocha:\r\n\r\n```\r\n  1) describe\r\n       it oups:\r\n     Error: Oups.\r\n      at oups (test\\test2.js:2:9)\r\n      at Context.<anonymous> (test\\test2.js:11:5)\r\n      at processImmediate (internal/timers.js:439:21)\r\n\r\n  2) describe\r\n       it oupsStack:\r\n     Error: Oups. at plouf (C:\\dev\\try-mocha\\test.js:9:15)\r\n      at oupsStack (test\\test2.js:6:9)\r\n      at Context.<anonymous> (test\\test2.js:14:5)\r\n      at processImmediate (internal/timers.js:439:21)\r\n```\r\n\r\n**Actual behavior:** [What actually happens]\r\n\r\nHere is the actual report I got from Mocha:\r\n\r\n```\r\n  1) describe\r\n       it oups:\r\n     Error: Oups.\r\n      at oups (test\\test2.js:2:9)\r\n      at Context.<anonymous> (test\\test2.js:11:5)\r\n      at processImmediate (internal/timers.js:439:21)\r\n\r\n  2) describe\r\n       it oupsStack:\r\n     Oups. at plouf (C:\\dev\\try-mocha\\test.js:9:15)\r\n  Error: Oups. at plouf (test.js:9:15)\r\n      at oupsStack (test\\test2.js:6:9)\r\n      at Context.<anonymous> (test\\test2.js:14:5)\r\n      at processImmediate (internal/timers.js:439:21)\r\n```\r\n\r\nWe can see that `Oups. at plouf` is visible twice in the log while `Oups.` is only visible once.\r\n\r\n**Reproduces how often:** [What percentage of the time does it reproduce?]\r\n\r\n### Versions\r\n\r\n\r\n\r\n- The output of `mocha --version` and `node node_modules/.bin/mocha --version`:\r\n  - `mocha --version`: none\r\n  - `node_modules/.bin/mocha --version`: 6.2.0\r\n- The output of `node --version`: 12.6.0\r\n- Your operating system\r\n  - name and version: Windows 10\r\n  - architecture (32 or 64-bit): 64bits\r\n- Your shell (e.g., bash, zsh, PowerShell, cmd): git bash\r\n- Any code transpiler (e.g., TypeScript, CoffeeScript, Babel) being used (and its version): pure js without any transpilers",
+      "source": "issue",
+      "gold": [
+        "lib/reporters/base.js"
+      ],
+      "tests": [
+        "test/reporters/base.spec.cjs"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/reporters/base.js": 16
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-55a544a409"
+    },
+    {
+      "id": "6695fba397",
+      "repo": "mochajs/mocha",
+      "base": "4718476be9727d8ce1c22be65d8f5cca5babc78b",
+      "fix": "6695fba397a6d1ca2d7cd4de86d9dda2d3fba342",
+      "date": "2026-05-18",
+      "title": "🐛 Bug: Comparing buffers hangs when computing the diff report",
+      "text": "I am having the very same issue as #1433 mocha 2.2.1 and chai 2.1.1. When 2 buffers are not equal, the diff computation hangs and CPU gets crazy.\n\nAny chance of a regression bug here?\n\nSample code to reproduce this:\n\n``` js\nvar chai = require('chai');\nvar expect = chai.expect;\n\n// chai.config.showDiff = false; // Without this line, the diff generation hangs\n\ndescribe('Testing buffer equality', function () {\n  it('should not take foreveeeeeer', function () {\n    var file1 = Fs.readFileSync('/tmp/file1');\n    var file2 = Fs.readFileSync('/tmp/file2');\n    expect(file1).to.deep.equal(file2);\n  });\n});\n```\n\nAt this point of writing, I am unclear if this issue comes from mocha or from chai, though...",
+      "source": "issue",
+      "gold": [
+        "lib/reporters/base.js"
+      ],
+      "tests": [
+        "test/integration/fixtures/diff-hang-protection.fixture.js",
+        "test/unit/reporters/base-diff-protection.spec.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/reporters/base.js": 16
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    },
+    {
+      "id": "35413b6610",
+      "repo": "mochajs/mocha",
+      "base": "a3c3a1cb295cd177542846004eae735467b31122",
+      "fix": "35413b661023ff3e5e27b120843ee2ebf5902aa4",
+      "date": "2026-04-26",
+      "title": "🐛 Bug: Mocha#grep fails to parse modern RegExp flags (u, s, v) from string input",
+      "text": "### Expected\nMocha#grep should support all valid modern RegExp flags, including u, s, and v.\n\n### Actual\nMocha#grep only supports g, i, m, y, and defaults to a literal string match if other flags are present.\n\n### Minimal, Complete and Verifiable Example\n```javascript\nconst Mocha = require('mocha');\nconst mocha = new Mocha();\nmocha.grep('/foo/u'); // Results in a RegExp matching literal \"/foo/u\" instead of flag 'u'\n```\n\n### Versions\nMocha 12.0.0-beta.10, Node v20.19.4\n\n### Additional Info\nI have submitted PR #5825 with the fix and unit tests.",
+      "source": "issue",
+      "gold": [
+        "lib/mocha.js"
+      ],
+      "tests": [
+        "test/unit/grep.spec.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/mocha.js": 10
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    },
+    {
+      "id": "5525da60cf",
+      "repo": "mochajs/mocha",
+      "base": "e06cce7a49b79a163e33db166e9b078b0d7b4001",
+      "fix": "5525da60cf8d2596e14ff5441ea518d47bd732da",
+      "date": "2026-01-22",
+      "title": "🐛 Bug: timeout() chain call on `describe` not working as expected",
+      "text": "> @mark-wiemer Thanks for your reply. \"Copying the docs works\" is because you have `.timeout(1000)` on `it()`, delete that and you'll find out the issue. I give you this snippet for example, by default mocha timesout 2000, so case failing for timeout has to be longer than that.\n> \n> ```javascript\n> describe('my suite', () => {\n>   it('my test', async () => {\n>     await new Promise((resolve) => {\n>       setTimeout(resolve, 4000);\n>     });\n>   });\n> }).timeout(5000);\n> ```\n> The issue is because mocha runs the \"hook function\" immediately, in which the test cases get created with a default timeout 2000. After that `suite.timeout(5000)` changes `suite._timeout` but has no effect on cases inside it.\n> I'd open a new issue if you consider it a bug and would fix it. \n\n _Originally posted by @satouriko in [#2018](https://github.com/mochajs/mocha/issues/2018#issuecomment-3177546053)_\n\nFrom a discussion on an old closed issue, opening now for later attempts to repro it. I don't fully understand at the moment but I don't want to lose track of it :)",
+      "source": "issue",
+      "gold": [
+        "lib/suite.js"
+      ],
+      "tests": [
+        "test/integration/fixtures/timeout-chained-call.fixture.js",
+        "test/integration/timeout.spec.js",
+        "test/unit/timeout.spec.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/suite.js": 7
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    },
+    {
+      "id": "bc9fc84221",
+      "repo": "mochajs/mocha",
+      "base": "add4cf8166b330c9af4342def643c606459331d7",
+      "fix": "bc9fc842213d00cf7ac4a4b0de898bf29e38bdad",
+      "date": "2025-12-31",
+      "title": "🐛 Bug: Can't ESM (default) import custom interfaces and reporters",
+      "text": "### Bug Report Checklist\n\n\n\n\n\n### Expected\n\nUsing a ESM module for reporter or interface and `export default` works\n\n### Actual\n\nMocha returns `Error: null` (https://github.com/mochajs/mocha/issues/5078)\n\n\n\n### Minimal, Reproducible Example\n\nIn https://gist.github.com/Lightning00Blade/f4f8c57225d77f7a60a983c4645a57ec (from https://github.com/mochajs/mocha/issues/5078#issuecomment-3608237322)\nUsing them via the CLI should yield the correct errors. \n\n### Versions\n\nMocha v11.7.5\nNode v24\n\n### Additional Info\n\n_No response_",
+      "source": "issue",
+      "gold": [
+        "lib/mocha.js"
+      ],
+      "tests": [
+        "test/integration/fixtures/options/reporter-esm.fixture.mjs",
+        "test/integration/fixtures/simple-ui.fixture.mjs",
+        "test/integration/options/reporter.spec.js",
+        "test/integration/options/ui.spec.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/mocha.js": 10
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    },
+    {
+      "id": "2a0bce02f6",
+      "repo": "mochajs/mocha",
+      "base": "fb0215bd4fba44fde0cc7b8f9b91a4f07020a13b",
+      "fix": "2a0bce02f6f696c74fb8fdcd9f72089e82935903",
+      "date": "2025-11-09",
+      "title": "🐛 Bug: thrown error `.expected` with `null` prototype throws `TypeError: value.toString is not a function`",
+      "text": "### Bug Report Checklist\n\n\n\n\n\n### Expected\n\nTest should fail.\n\n### Actual\n\nSuite stops mid-way, returning status code zero.\n\n### Minimal, Reproducible Example\n\n# `package.json`\n\n```json\n{\n  \"name\": \"mocha-bug\",\n  \"packageManager\": \"yarn@4.9.2\",\n  \"devDependencies\": {\n    \"chai\": \"^6.2.0\",\n    \"mocha\": \"^11.7.4\"\n  },\n  \"volta\": {\n    \"node\": \"24.10.0\"\n  }\n}\n```\n\n# `test.js`\n\n```js\nconst { assert } = require('chai');\n\ndescribe('deepEqual()', () => {\n  const o = { a:true };\n\n  describe('sync', () => {\n    it('should not equal null', () => { assert.deepEqual(o, null); });\n    it('should not equal plain object', () => { assert.deepEqual(o, {}); });\n    it('should not equal null-prototyped', () => { assert.deepEqual(o, Object.create(null)); });\n  });\n\n  describe('async', () => {\n    it('should not equal null', async () => { assert.deepEqual(o, null); });\n    it('should not equal plain object', async () => { assert.deepEqual(o, {}); });\n    it('should not equal null-prototyped', async () => { assert.deepEqual(o, Object.create(null)); });\n  });\n});\n```\n\n# execute:\n\n```sh\n$ yarn mocha test.js \n\n\n  deepEqual()\n    sync\n      1) should not equal null\n      2) should not equal plain object\n      3) should not equal null-prototyped\n    async\n      4) should not equal null\n      5) should not equal plain object\n$ echo $?\n0\n```\n\n### Versions\n\nnode 24.10.0\nchai 6.2.0\nmocha 11.7.4\n\n### Additional Info\n\n_No response_",
+      "source": "issue",
+      "gold": [
+        "lib/utils.js"
+      ],
+      "tests": [
+        "test/unit/utils.spec.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/utils.js": 26
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    },
+    {
+      "id": "8f1c8d888b",
+      "repo": "mochajs/mocha",
+      "base": "6caa9026eb120b136dc8210614b31310f8bff83b",
+      "fix": "8f1c8d888b0104afcd95ca55a517320399755749",
+      "date": "2025-01-01",
+      "title": "🔒 Security: Upgrade yargs-parser and yargs to latest stable version",
+      "text": "Currently the mocha@10.0.0 version has not upgraded its yarg-parser and yargs which is causing a security vulnerability  (NO-CVE: Regular Expression Denial Of Service (ReDoS)) . Please help upgrade both to the most stable version as of current date. Thank you . Attached are the vulnerability and the most stable release in the npm package library\r\n![image](https://user-images.githubusercontent.com/109644072/179895841-a95810b7-dc70-45e4-9886-98cdc58efe6f.png)\r\n![image](https://user-images.githubusercontent.com/109644072/179895952-0c16c07f-acb3-4bce-bce9-11bb65914235.png)",
+      "source": "issue",
+      "gold": [
+        "lib/cli/cli.js",
+        "lib/cli/run.js",
+        "lib/mocha.js"
+      ],
+      "tests": [
+        "test/node-unit/cli/run.spec.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/cli/cli.js": 2,
+        "lib/cli/run.js": 1,
+        "lib/mocha.js": 6
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    },
+    {
+      "id": "210d658678",
+      "repo": "mochajs/mocha",
+      "base": "6f10d12c6c6dfa4df7d5221a3ce688f687aaf320",
+      "fix": "210d658678a2ec3b6f85c59d4b300b4722671099",
+      "date": "2024-12-09",
+      "title": "`TypeError: arg.split is not a function` when passed a numerical argument",
+      "text": "### Prerequisites\r\r\r\r\r\n\r\n### Description\r\n\r\nWith similar symptoms to https://github.com/mochajs/mocha/issues/3861, Mocha fails when given a numerical argument:\r\n\r\n```\r\n>npx mocha 1234                                                                 \r\n/Users/nf/.npm/_npx/508606763866ae01/node_modules/mocha/lib/cli/options.js:113\r\n      const pair = arg.split('=');\r\n                       ^\r\n\r\nTypeError: arg.split is not a function\r\n    at /Users/nf/.npm/_npx/508606763866ae01/node_modules/mocha/lib/cli/options.js:113:24\r\n    at Array.reduce (<anonymous>)\r\n    at parse (/Users/nf/.npm/_npx/508606763866ae01/node_modules/mocha/lib/cli/options.js:111:67)\r\n    at loadOptions (/Users/nf/.npm/_npx/508606763866ae01/node_modules/mocha/lib/cli/options.js:246:10)\r\n    at Object.<anonymous> (/Users/nf/.npm/_npx/508606763866ae01/node_modules/mocha/bin/mocha.js:27:14)\r\n    at Module._compile (node:internal/modules/cjs/loader:1159:14)\r\n    at Module._extensions..js (node:internal/modules/cjs/loader:1213:10)\r\n    at Module.load (node:internal/modules/cjs/loader:1037:32)\r\n    at Module._load (node:internal/modules/cjs/loader:878:12)\r\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:81:12)\r\n\r\nNode.js v18.12.1\r\n[1]    79408 exit 1     npx mocha 1234\r\n```\r\n\r\n**Expected behavior:**\r\nMocha to proceed as expected, or to throw a more descriptive error message. \r\n\r\n**Actual behavior:** \r\nA crash and a stacktrace.\r\n\r\n**Reproduces how often:** \r\n100%\r\n\r\n### Versions\r\n\r\nMocha 10.2.0\r\nNode v18.12.1\r\nmacOS Sonoma 14.0\r\nzsh 5.9 (x86_64-apple-darwin23.0)\r\n\r\n### Additional Information\r\n\r\nIt can be expected that `argv` is a string array, but it appears that `yargsParser.Arguments._` which is fed back into `parse` at https://github.com/mochajs/mocha/blob/48002bc60144c25060bf91359620c4a0284e8284/lib/cli/options.js#L246 will contain numbers.",
+      "source": "issue",
+      "gold": [
+        "lib/cli/options.js",
+        "lib/cli/run-option-metadata.js",
+        "lib/utils.js"
+      ],
+      "tests": [
+        "test/node-unit/cli/mocha-flags.spec.js",
+        "test/node-unit/cli/options.spec.js",
+        "test/node-unit/utils.spec.js"
+      ],
+      "names_gold": true,
+      "fan_in": {
+        "lib/cli/options.js": 2,
+        "lib/cli/run-option-metadata.js": 4,
+        "lib/utils.js": 25
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    },
+    {
+      "id": "e3da641b08",
+      "repo": "mochajs/mocha",
+      "base": "05097db4f2e0118f033978b8503aec36b1867c55",
+      "fix": "e3da641b08bed20f12df524fc64cb9579f980c1e",
+      "date": "2024-10-30",
+      "title": "🚀 Feature: Allow to set timeout on before/after/beforeEach/afterEach in declaration",
+      "text": "### Feature Request Checklist\n\n\n\n\n### Overview\n\n`it` returns a `TestFunction` that has a `timeout` method. This is useful for setting timeouts in slow tests, without needing to define the test code inside a `function() {}` block.\r\nAn analogous feature would be useful for the `before/beforeEach/after/afterEach` hooks. The current workaround would be:\r\n\r\n```javascript\r\nbefore(function() {\r\n  this.timeout(3000);\r\n});\r\n```\n\n### Suggested Solution\n\n`before/beforeEach/after/afterEach` could return a `HookFunction`, analogous to `TestFunction`, which has a `timeout` method. The code above could be rewritten:\r\n\r\n```javascript\r\nbefore(() => {}).timeout(3000);\r\n```\n\n### Alternatives\n\nNone\n\n### Additional Info\n\n_No response_",
+      "source": "issue",
+      "gold": [
+        "lib/interfaces/common.js",
+        "lib/suite.js"
+      ],
+      "tests": [
+        "test/unit/timeout.spec.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/interfaces/common.js": 3,
+        "lib/suite.js": 7
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    },
+    {
+      "id": "ba0fefe10b",
+      "repo": "mochajs/mocha",
+      "base": "f44f71bd2897c4f5dcd688d838fec33fdb5818a9",
+      "fix": "ba0fefe10b08a689cf49edc3818026938aa3a240",
+      "date": "2024-10-29",
+      "title": "🐛 Bug: Setting readOnly properties in `breakCircularDeps` breaks the reporter in `parallel` mode with `allow-uncaught`",
+      "text": "### Bug Report Checklist\n\n\n\n\n\n### Expected\n\nTests should run perfectly even if a `it` block (test) is failing\r\nError in it block (test) should not break `parallel-buffered-runner.js` even if `--allow-uncaught` is passed\n\n### Actual\n\nAll the tests get executed in the expected behaviour, but before the EVENT_RUN_END the process fails while serializing the results with the below error:\r\n\r\n```\r\n/XXX/node_modules/mocha/lib/nodejs/parallel-buffered-runner.js:357\r\n          throw err;\r\n          \r\nTypeError: Cannot set property maxHeaderSize of #<Object> which has only a getter\r\n    at _breakCircularDeps (/XXX/node_modules/mocha/lib/utils.js:679:16)\r\n    at _breakCircularDeps (/XXXnode_modules/mocha/lib/utils.js:679:18)\r\n    at _breakCircularDeps (/XXX/node_modules/mocha/lib/utils.js:679:18)\r\n    at _breakCircularDeps (/XXX/node_modules/mocha/lib/utils.js:679:18)\r\n    at _breakCircularDeps (/XXX/node_modules/mocha/lib/utils.js:679:18)\r\n    at _breakCircularDeps (/XXX/node_modules/mocha/lib/utils.js:679:18)\r\n    at _breakCircularDeps (/XXX/node_modules/mocha/lib/utils.js:679:18)\r\n    at _breakCircularDeps (/XXX/node_modules/mocha/lib/utils.js:679:18)\r\n    at _breakCircularDeps (/XXX/node_modules/mocha/lib/utils.js:679:18)\r\n    at _breakCircularDeps (/XXX/node_modules/mocha/lib/utils.js:679:18)\r\n```\r\n    \r\nFailure point:\r\n<img width=\"596\" alt=\"Screenshot 2024-08-06 at 3 43 31 PM\" src=\"https://github.com/user-attachments/assets/c537f4cf-e898-47a1-85cb-53fe30ec7b6c\">\r\nReason: Trying to set a read-only property, which only has a getter \n\n### Minimal, Reproducible Example\n\nConfig:\r\n- allow-uncaught: true\r\n- parallel: true\r\n\r\nLibrary dependency (easy to reproduce):\r\naxios: 1.6.8\r\n\r\nCreate a suite, create a test in it, and make an incorrect/failing API call\r\n\r\nRun the tests it will break\n\n### Versions\n\nMocha version: 10.7.0\r\nNode: v20.15.1\r\nOS: MacOS Sonoma 14.2.1 (23C71)\n\n### Additional Info\n\n_No response_",
+      "source": "issue",
+      "gold": [
+        "lib/nodejs/serializer.js",
+        "lib/utils.js"
+      ],
+      "tests": [
+        "test/integration/fixtures/parallel/circular-error-array.mjs",
+        "test/integration/fixtures/parallel/circular-error-object.mjs",
+        "test/integration/fixtures/parallel/getter-error-object.mjs",
+        "test/integration/parallel.spec.js"
+      ],
+      "names_gold": true,
+      "fan_in": {
+        "lib/nodejs/serializer.js": 3,
+        "lib/utils.js": 25
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    },
+    {
+      "id": "579e047802",
+      "repo": "mochajs/mocha",
+      "base": "6d24689b2905dd4615f317d80e8388979263bab5",
+      "fix": "579e047802d1b4e22ddf4162622d5e1322c2caac",
+      "date": "2024-07-20",
+      "title": "fix: support canonical module",
+      "text": "ORIGINAL PR: https://github.com/mochajs/mocha/pull/4888\r\nClosed out of staleness, but now trying to re-open under new maintenance\r\n\r\nDescription of the Change\r\n\r\nHandle canonicalizing Module, prevent implicit stringification failures\r\nAlternate Designs\r\n\r\n    Have canonicalType return 'object' for modules (not chosen as that could be breaking, not sure...)\r\n    Have 'module' fallthrough to 'object' with no custom logic (not chosen so we can indicate different between \"object\" and \"module\")\r\n\r\nWhy should this be in core?\r\n\r\nCurrent module canonicalization is broken, see https://github.com/mochajs/mocha/issues/4887\r\nBenefits\r\n\r\nTests can properly handle errors with a Module inside\r\nPossible Drawbacks\r\n\r\nSmall chance there is some internal/custom handling expecting canonicalization of modules to fail... Seems unlikely?\r\nApplicable issues\r\n\r\nFixes https://github.com/mochajs/mocha/issues/4887\r\n\r\nBug fix, patch release",
+      "source": "pr",
+      "gold": [
+        "lib/utils.js"
+      ],
+      "tests": [
+        "test/unit/utils.spec.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/utils.js": 25
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    },
+    {
+      "id": "02c04c48d7",
+      "repo": "mochajs/mocha",
+      "base": "103c56b63542e36ba7a289ec25913d77bf2156b6",
+      "fix": "02c04c48d751554532ceeeb59786b457847cd4f3",
+      "date": "2024-06-26",
+      "title": "🐛 Bug: Parallel mode crashes if test exception contains circular references",
+      "text": "### Prerequisites\r\r\r\r\r\n\r\n### Description\r\n\r\nParallel mode crashes or hangs if test exception contains circular references\r\n\r\n### Steps to Reproduce\r\n\r\n#### 1. Hangs if error has self reference:\r\n\r\n_Test file `test.js`_\r\n```javascript\r\ndescribe('Test', () => {\r\n  it('test', () => {\r\n    const error = new Error('Foo');\r\n    error.self = error;\r\n    throw error;\r\n  });\r\n});\r\n```\r\n\r\nRunning following will simply hang:\r\n\r\n```bash\r\n$ mocha --parallel test.js\r\n```\r\n\r\n\r\n#### 2. Crashes if error has circular references passed within array properties\r\n\r\n_Test file `test.js`_\r\n```javascript\r\ndescribe('Test', () => {\r\n  it('test', () => {\r\n    const error = new Error('Foo');\r\n    error.foo = { props: [] };\r\n    error.foo.props.push(error.foo);\r\n    throw error;\r\n  });\r\n});\r\n```\r\n\r\nRunning following\r\n\r\n```bash\r\n$ mocha --parallel test.js\r\n```\r\n\r\nwill result with an error as:\r\n\r\n```\r\n 1) Uncaught error outside test suite\r\n\r\n  0 passing (308ms)\r\n  1 failing\r\n\r\n  1) Uncaught error outside test suite:\r\n     Uncaught TypeError: Converting circular structure to JSON\r\n    --> starting at object with constructor 'Object'\r\n    |     property 'props' -> object with constructor 'Array'\r\n    --- index 0 closes the circle\r\n      at stringify (<anonymous>)\r\n      at writeChannelMessage (node:internal/child_process/serialization:120:20)\r\n      at process.target._send (node:internal/child_process:819:17)\r\n      at process.target.send (node:internal/child_process:719:19)\r\n      at processTicksAndRejections (node:internal/process/task_queues:93:5)\r\n```\r\n\r\n\r\n**Expected behavior:** \r\n\r\nOriginally thrown exception should surface in report\r\n\r\n### Versions\r\n\r\n\r\n\r\n- The output of `mocha --version` and `node node_modules/.bin/mocha --version`: 8.2.1\r\n- The output of `node --version`: 15.5.1\r\n- Your operating system\r\n  - name and version: macOS 10.15.7 \r\n  - architecture (32 or 64-bit): 64-bit\r\n- Your shell (e.g., bash, zsh, PowerShell, cmd): zsh",
+      "source": "issue",
+      "gold": [
+        "lib/nodejs/serializer.js",
+        "lib/utils.js"
+      ],
+      "tests": [
+        "test/integration/fixtures/parallel/circular-error.mjs",
+        "test/integration/parallel.spec.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/nodejs/serializer.js": 3,
+        "lib/utils.js": 25
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    },
+    {
+      "id": "a2e600d70f",
+      "repo": "mochajs/mocha",
+      "base": "37358738260cfae7c244c157aee21654f2b588f2",
+      "fix": "a2e600d70f4d7ca6ba8741ebe8c70cfec438ef1b",
+      "date": "2024-03-08",
+      "title": "🐛 Bug: Eleventy template builds crash with 'unexpected token at \": string, msg...\"'",
+      "text": "### Bug Report Checklist\n\n\n\n\n\n### Expected\n\nRunning `npm start docs` should build the docs without errors.\n\n### Actual\n\nThe following error from Eleventy is popping up:\r\n\r\n```\r\n[11ty] Problem writing Eleventy templates: (more in DEBUG output)\r\n[11ty] 1. Having trouble rendering liquid template ./docs/api/reporters_base.js.html (via TemplateContentRenderError)\r\n[11ty] 2. unexpected token at \": string, msg...\", file:./docs/api/reporters_base.js.html, line:273, col:12 (via ParseError)\r\n[11ty] 3. unexpected token at \": string, msg...\" (via AssertionError)\r\n[11ty]\r\n[11ty] Original error stack trace: AssertionError: unexpected token at \": string, msg...\"\r\n[11ty]     at new AssertionError (/Users/marjorie/Documents/github/courses/mocha/node_modules/liquidjs/dist/liquid.node.cjs.js:1201:28)\r\n[11ty]     at assert (/Users/marjorie/Documents/github/courses/mocha/node_modules/liquidjs/dist/liquid.node.cjs.js:1236:15)\r\n[11ty]     at Tokenizer.readFilter (/Users/marjorie/Documents/github/courses/mocha/node_modules/liquidjs/dist/liquid.node.cjs.js:2245:9)\r\n[11ty]     at Tokenizer.readFilters (/Users/marjorie/Documents/github/courses/mocha/node_modules/liquidjs/dist/liquid.node.cjs.js:2234:31)\r\n[11ty]     at new Value (/Users/marjorie/Documents/github/courses/mocha/node_modules/liquidjs/dist/liquid.node.cjs.js:2788:34)\r\n[11ty]     at new Output (/Users/marjorie/Documents/github/courses/mocha/node_modules/liquidjs/dist/liquid.node.cjs.js:4472:23)\r\n[11ty]     at Parser.parseToken (/Users/marjorie/Documents/github/courses/mocha/node_modules/liquidjs/dist/liquid.node.cjs.js:4541:24)\r\n[11ty]     at Parser.parseTokens (/Users/marjorie/Documents/github/courses/mocha/node_modules/liquidjs/dist/liquid.node.cjs.js:4531:33)\r\n[11ty]     at Parser.parse (/Users/marjorie/Documents/github/courses/mocha/node_modules/liquidjs/dist/liquid.node.cjs.js:4525:21)\r\n[11ty]     at Liquid.parse (/Users/marjorie/Documents/github/courses/mocha/node_modules/liquidjs/dist/liquid.node.cjs.js:4663:28)\r\n[11ty] Benchmark   3054ms  73%     1× (Data) `./docs/_data/supporters.js`\r\n[11ty] Benchmark    380ms   9%     1× (Data) `./docs/_data/toc.js`\r\n[11ty] Wrote 0 files in 4.06 seconds (v1.0.2)\r\nThe script called \"doc\" which runs \"nps docs.clean && nps docs.api && eleventy && nps docs.linkcheck\" failed with exit code 1 https://github.com/sezna/nps/blob/master/other/ERRORS_AND_WARNINGS.md#failed-with-exit-code\r\n```\r\n![Screenshot 2024-03-07 at 11 29 39](https://github.com/mochajs/mocha/assets/18129844/5fa20062-5f83-4e32-91f5-ec3fcd260e53)\r\n\r\n\n\n### Minimal, Reproducible Example\n\nThis error happens when building the docs by running `npm start docs`\n\n### Versions\n\nmocha version: 10.3.0\r\nnode version: v21.7.0\n\n### Additional Info\n\n_No response_",
+      "source": "issue",
+      "gold": [
+        "lib/reporters/base.js"
+      ],
+      "tests": [],
+      "names_gold": true,
+      "fan_in": {
+        "lib/reporters/base.js": 16
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    },
+    {
+      "id": "3735873826",
+      "repo": "mochajs/mocha",
+      "base": "b88978deb3c12f9b95502828f6ac29ebe8be85ef",
+      "fix": "37358738260cfae7c244c157aee21654f2b588f2",
+      "date": "2024-03-04",
+      "title": "🚀 Feature: Add support for outputting Error cause",
+      "text": "We are using VError to gather up nested traces which is something proving to be very useful with promises and generators (we can actually get complete stack traces that way). However the default reporting with Mocha only outputs the first error in the stack.\r\n\r\nFor example, with this code:\r\n\r\n```\r\nconst VError = require('verror');\r\n\r\ndescribe('Test', () => {\r\n  it('Test', () => {\r\n    function1();\r\n  });\r\n});\r\n\r\nfunction function1() {\r\n  try {\r\n    function2();\r\n  } catch (e) {\r\n    throw new VError(e);\r\n  }\r\n}\r\n\r\nfunction function2() {\r\n  throw new Error('Something Bad');\r\n}\r\n```\r\n\r\nYou get the output: \r\n```\r\n VError: : Something Bad\r\n  at function1 (test\\sandbox.js:13:11)\r\n  at Context.it (test\\sandbox.js:5:5)\r\n  at Test.Runnable.run (node_modules\\co-mocha\\lib\\co-mocha.js:43:16)\r\n```\r\n\r\nThis doesn't actually tell me where the root error came from (in `function2`)\r\n\r\nIf I add a try...catch and then `console.error(e)` the top level error, I got a lot more detail:\r\n\r\n```\r\n{ VError: : Something Bad\r\n    at function1 (C:\\Work\\NPS\\nps-dev\\test\\sandbox.js:17:11)\r\n    at Context.it (C:\\Work\\NPS\\nps-dev\\test\\sandbox.js:6:7)\r\n    at callFn (C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runnable.js:343:21)\r\n    at Test.Runnable.run (C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runnable.js:335:7)\r\n    at Test.Runnable.run (C:\\Work\\NPS\\nps-dev\\node_modules\\co-mocha\\lib\\co-mocha.js:43:16)\r\n    at Runner.runTest (C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runner.js:444:10)\r\n    at C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runner.js:550:12\r\n    at next (C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runner.js:361:14)\r\n    at C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runner.js:371:7\r\n    at next (C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runner.js:295:14)\r\n    at Immediate.<anonymous> (C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runner.js:339:5)\r\n    at runCallback (timers.js:649:20)\r\n    at tryOnImmediate (timers.js:622:5)\r\n    at processImmediate [as _immediateCallback] (timers.js:594:5)\r\n  jse_shortmsg: '',\r\n  jse_cause: \r\n   Error: Something Bad\r\n       at function2 (C:\\Work\\NPS\\nps-dev\\test\\sandbox.js:22:9)\r\n       at function1 (C:\\Work\\NPS\\nps-dev\\test\\sandbox.js:15:5)\r\n       at Context.it (C:\\Work\\NPS\\nps-dev\\test\\sandbox.js:6:7)\r\n       at callFn (C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runnable.js:343:21)\r\n       at Test.Runnable.run (C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runnable.js:335:7)\r\n       at Test.Runnable.run (C:\\Work\\NPS\\nps-dev\\node_modules\\co-mocha\\lib\\co-mocha.js:43:16)\r\n       at Runner.runTest (C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runner.js:444:10)\r\n       at C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runner.js:550:12\r\n       at next (C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runner.js:361:14)\r\n       at C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runner.js:371:7\r\n       at next (C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runner.js:295:14)\r\n       at Immediate.<anonymous> (C:\\Work\\NPS\\nps-dev\\node_modules\\mocha\\lib\\runner.js:339:5)\r\n       at runCallback (timers.js:649:20)\r\n       at tryOnImmediate (timers.js:622:5)\r\n       at processImmediate [as _immediateCallback] (timers.js:594:5),\r\n  jse_info: {},\r\n  message: ': Something Bad' }\r\n```\r\n\r\nOf course, this is incredibly verbose but I would prefer this over less. I suspect this is because of the features that have been implemented that clean up the stack traces. I don't see why those couldn't run recursively and clean up all the nested stacks and output something more like this:\r\n\r\n```\r\n{ VError: : Something Bad\r\n    at function1 (C:\\Work\\NPS\\nps-dev\\test\\sandbox.js:17:11)\r\n    at Context.it (C:\\Work\\NPS\\nps-dev\\test\\sandbox.js:6:7)\r\n    at Test.Runnable.run (C:\\Work\\NPS\\nps-dev\\node_modules\\co-mocha\\lib\\co-mocha.js:43:16)\r\n   Error: Something Bad\r\n       at function2 (C:\\Work\\NPS\\nps-dev\\test\\sandbox.js:22:9)\r\n       at function1 (C:\\Work\\NPS\\nps-dev\\test\\sandbox.js:15:5)\r\n       at Context.it (C:\\Work\\NPS\\nps-dev\\test\\sandbox.js:6:7)\r\n       at Test.Runnable.run (C:\\Work\\NPS\\nps-dev\\node_modules\\co-mocha\\lib\\co-mocha.js:43:16)\r\n```\r\n\r\nNow I can see the original exception in `function2`.",
+      "source": "issue",
+      "gold": [
+        "lib/reporters/base.js",
+        "lib/runner.js"
+      ],
+      "tests": [
+        "test/reporters/base.spec.js",
+        "test/unit/runner.spec.js"
+      ],
+      "names_gold": true,
+      "fan_in": {
+        "lib/reporters/base.js": 16,
+        "lib/runner.js": 19
+      },
+      "deps": "/root/var/bench/e2/deps/mocha-3735873826"
+    }
+  ]
+}

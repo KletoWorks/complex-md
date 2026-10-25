@@ -405,7 +405,8 @@
       "names_gold": false,
       "fan_in": {
         "lib/errors.js": 15
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/fastify-f26de5d222"
     },
     {
       "id": "79042e60b9",
@@ -425,7 +426,8 @@
       "names_gold": false,
       "fan_in": {
         "lib/hooks.js": 7
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/fastify-f26de5d222"
     },
     {
       "id": "9dc30b5040",
@@ -449,7 +451,8 @@
       "fan_in": {
         "lib/pluginUtils.js": 2,
         "lib/warnings.js": 7
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/fastify-9dc30b5040"
     },
     {
       "id": "6b9b093183",
@@ -467,7 +470,8 @@
       "names_gold": true,
       "fan_in": {
         "lib/warnings.js": 7
-      }
+      },
+      "deps": "/root/var/bench/e2/deps/fastify-9dc30b5040"
     },
     {
       "id": "59050e5745",

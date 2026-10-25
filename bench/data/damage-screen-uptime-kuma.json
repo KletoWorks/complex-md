@@ -1,0 +1,463 @@
+{
+  "repo": "louislam/uptime-kuma",
+  "path": "/root/var/bench/e2/uptime-kuma",
+  "created": "2026-10-25",
+  "months": 48,
+  "min_fan_in": 6,
+  "min_tests": 1,
+  "suite": {
+    "runner": {
+      "name": "node-tsx",
+      "cmd": "node",
+      "args": [
+        "--import=tsx",
+        "--test",
+        "--test-reporter=tap"
+      ],
+      "env": {
+        "TEST_BACKEND": "1",
+        "DOCKER_HOST": "tcp://127.0.0.1:1",
+        "TESTCONTAINERS_RYUK_DISABLED": "true"
+      }
+    },
+    "files": [
+      "test/backend-test/**/*.{js,ts,mjs}",
+      "test/frontend-test/**/*.{js,ts,mjs}"
+    ],
+    "include": "^test/(backend|frontend)-test/.*\\.(m?js|ts)$",
+    "exclude": "\\.d\\.ts$"
+  },
+  "tasks": [
+    {
+      "id": "4e7c4ae382",
+      "repo": "louislam/uptime-kuma",
+      "base": "0d9728993df67b50505aeb0aff89dfd27b96fa06",
+      "fix": "4e7c4ae382f4038369922a7981babba43403ff1c",
+      "date": "2026-10-09",
+      "title": "Setup and 2.x login break permanently when the haveibeenpwned check fails once",
+      "text": "### 📑 I have found these related issues/pull requests\n\nCouldn't find an existing issue for this. #7944 (fixed in #7945) is on the same 2.x → 3.0 upgrade path but is a different bug. #6759 is about password complexity rules, not this.\n\n### 🛡️ Security Policy\n\n\n\n### 📝 Description\n\n`haveIBeenPwned()` (added in #6276) runs inside `auth().api.createUser`, which both `/api/setup` and `migrateUser()` use. better-auth's admin `createUser` inserts the user row first and only hashes the password after that (`better-auth/dist/plugins/admin/routes.mjs`, 1.6.30). When the pwned check throws during that hash, the user row stays behind without a credential account.\n\nUptime Kuma then treats that half-created user as a real one:\n\n- `needSetup()` returns false, so setup can't be run again.\n- `hasUser()` returns true, so `migrateUser()` never runs again for a 2.x user.\n\nThe check throws in two cases: the password is in the HIBP list, or `api.pwnedpasswords.com` can't be reached (offline, firewall, DNS). In the second case it happens with any password.\n\nUsers that are already migrated aren't affected, sign-in doesn't run the check.\n\n### 👟 Reproduction steps\n\nFresh install:\n\n1. Start master with an empty data dir and pick SQLite.\n2. Set up the admin with a breached password, e.g. `Admin123!x`. You get \"The password you entered has been compromised\".\n3. Set it up again with a strong password. You get \"Uptime Kuma has been initialized. If you want to run setup again, please delete the database.\"\n\nUpgrade from 2.x:\n\n1. 2.5.5 instance with an admin whose password is in HIBP (`Admin123!x` again).\n2. Switch to master and log in. You get \"Invalid username or password\".\n3. Log in again. Same error, and the migration isn't attempted anymore (no new log line).\n\nSame result with a strong password when the server can't reach api.pwnedpasswords.com (I made `fetch` to that host reject). It stays locked out after the network is back.\n\nIn all cases `better_auth_user` has 1 row and `better_auth_account` has 0.\n\n### 👀 Expected behavior\n\nA failed password check shouldn't leave a user behind. Setup should be retryable with another password, and a 2.x login should be migrated on the next attempt.\n\nProbably the migration of a 2.x user shouldn't run the pwned check at all, since it's the password they already have. Otherwise anyone upgrading with a breached password or without internet access can't log in after the upgrade.\n\n### 😓 Actual Behavior\n\nFresh install: setup is stuck until the database is deleted.\n\nUpgrade: the 2.x user is locked out for good. From the code, `npm run reset-password` doesn't help either, it updates the existing credential account and there isn't one. The only way back I found is restoring the 2.x data.\n\n### 🐻 Uptime-Kuma Version\n\nmaster @ 0d97289 (3.0.0-beta.0)\n\n### 💻 Operating System and Arch\n\nmacOS 26.6.2 (arm64)\n\n### 🌐 Browser\n\nGoogle Chrome 154.0.8037.98 (arm64)\n\n### 🖥️ Deployment Environment\n\n- **Runtime Environment**:\n  - Node.js: Version `26.9.0` (LTS: No)\n- **Database**:\n  - SQLite: Embedded\n- **Database Storage**:\n  - **Filesystem**:\n    - macOS: APFS\n  - **Storage Medium**: NVMe\n- **Uptime Kuma Setup**:\n  - Number of monitors: `1`\n\n### 📝 Relevant log output\n\n```bash session\n[AUTH] ERROR: Failed to migrate legacy user admin: [APIError: The password you entered has been compromised. Please choose a different password.]\n[AUTH] ERROR: Failed to migrate legacy user admin: [APIError: Failed to check password. Please try again later.]\n```",
+      "source": "issue",
+      "gold": [
+        "server/better-auth.ts"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "server/better-auth.ts": 8
+      }
+    },
+    {
+      "id": "1b03894338",
+      "repo": "louislam/uptime-kuma",
+      "base": "2340d4380b0e0d9c783f722116e277b231de2e38",
+      "fix": "1b03894338dd144664d9b7ae4e6668464b6f88e7",
+      "date": "2026-09-16",
+      "title": "fix: better auth register issue",
+      "text": "Very stupid mistake.\r\n\r\n<details>\r\n<summary>Please follow this checklist to avoid unnecessary back and forth (click to expand)</summary>\r\r\r\n      I understand that I am responsible for and able to explain every line of code I submit.\r\r\r\r\r\r\r\r\n\r\n</details>",
+      "source": "pr",
+      "gold": [
+        "server/better-auth.ts"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "server/better-auth.ts": 8
+      }
+    },
+    {
+      "id": "6398a9581d",
+      "repo": "louislam/uptime-kuma",
+      "base": "3bb164439dc1fe461268d5d9a3b36aa9c96061f0",
+      "fix": "6398a9581d1c3c427a7536559f47ccf45dac08b4",
+      "date": "2026-08-22",
+      "title": "fix:  move afterCreate to initial mariadb pool config",
+      "text": "# Summary\r\n\r\nIn this pull request, the following changes are made:\r\n\r\n- avoid overwriting the MariaDB poolConfig\r\n\r\n- Relates to #6486\r\n\r\n<details>\r\n<summary>Please follow this checklist to avoid unnecessary back and forth (click to expand)</summary>\r\r\r\n      I understand that I am responsible for and able to explain every line of code I submit.\r\r\r\r\r\r\r\r\n\r\n</details>",
+      "source": "pr",
+      "gold": [
+        "server/database.js"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "server/database.js": 14
+      }
+    },
+    {
+      "id": "be51de4e73",
+      "repo": "louislam/uptime-kuma",
+      "base": "28ee14d30df728c30c96c9e05ab93d8bb483fd85",
+      "fix": "be51de4e73184420095a7784bce3e67258a8cafb",
+      "date": "2026-07-04",
+      "title": "fix: [3.0.X] Migrate to better-sqlite",
+      "text": "Failed to previously, but I think I found the issue. `patch-monitor-tls-info-add-fk.sql` does some unsafe sql, which is not allowed in better-sqlite by default.\r\n\r\n\r\n<details>\r\n<summary>Please follow this checklist to avoid unnecessary back and forth (click to expand)</summary>\r\r\r\n      I understand that I am responsible for and able to explain every line of code I submit.\r\r\r\r\r\r\r\r\n\r\n</details>",
+      "source": "pr",
+      "gold": [
+        "db/patch-monitor-tls-info-add-fk.sql",
+        "server/database.js"
+      ],
+      "tests": [
+        "test/backend-test/test-migration.js"
+      ],
+      "names_gold": true,
+      "fan_in": {
+        "db/patch-monitor-tls-info-add-fk.sql": 0,
+        "server/database.js": 14
+      }
+    },
+    {
+      "id": "cf1bfc3321",
+      "repo": "louislam/uptime-kuma",
+      "base": "8d36977569730b430c269c73c2e4d528e02ecc56",
+      "fix": "cf1bfc3321ab31bcc2874f358287fcd0b5d892c9",
+      "date": "2026-06-16",
+      "title": "fix: omit resolver port from DNS monitor service URL",
+      "text": "## Summary\r\n\r\nThe DNS monitor Service URL includes the resolver port, showing `example.com:53`. While this suggests TCP port 53 monitoring, the DNS monitor's port is the resolver's port, not a service port.\r\n\r\nIn contrast, The `globalping` → `dns` case already correctly omits the port and returns only the hostname:\r\n\r\nhttps://github.com/louislam/uptime-kuma/blob/8d36977569730b430c269c73c2e4d528e02ecc56/server/notification-providers/notification-provider.js#L49-L53\r\n\r\n<details>\r\n<summary>Please follow this checklist to avoid unnecessary back and forth (click to expand)</summary>\r\r\r\n      I understand that I am responsible for and able to explain every line of code I submit.\r\r\r\r\r\r\r\r\n\r\n</details>\r\n\r\n> [!NOTE]\r\n> There are no existing tests for `extractAddress()`, so no test changes are included.\r\n\r\n## Screenshots for Visual Changes\r\n\r\nDiscord notification:\r\n\r\n| Event              | Before                | After                |\r\n| ------------------ | --------------------- | -------------------- |\r\n| `UP`             | <img width=\"281\" height=\"363\" alt=\"image\" src=\"https://github.com/user-attachments/assets/40ae6ce9-6517-44e0-aef4-b31d66c2d75e\" /> | <img width=\"279\" height=\"362\" alt=\"image\" src=\"https://github.com/user-attachments/assets/05b835dd-8a74-4086-ab99-9d05ddcec766\" />\r\n| `DOWN`             | <img width=\"323\" height=\"309\" alt=\"image\" src=\"https://github.com/user-attachments/assets/1b562fc9-b495-4084-a2bc-e4dbba9a44c7\" /> | <img width=\"320\" height=\"312\" alt=\"image\" src=\"https://github.com/user-attachments/assets/c81abc5c-3b5d-4bf9-8624-1c67ca20a576\" />",
+      "source": "pr",
+      "gold": [
+        "server/notification-providers/notification-provider.js"
+      ],
+      "tests": [],
+      "names_gold": true,
+      "fan_in": {
+        "server/notification-providers/notification-provider.js": 94
+      }
+    },
+    {
+      "id": "6a2f07144a",
+      "repo": "louislam/uptime-kuma",
+      "base": "b45c6374d577de76b58ab2df51df1592a1e5c143",
+      "fix": "6a2f07144a86500741d53702e7a32129c95d90ff",
+      "date": "2026-05-13",
+      "title": "UPTIME_KUMA_HIDE_LOG does not work for warn level due to case mismatch in Logger.log()",
+      "text": "### 📑 I have found these related issues/pull requests\n\n### Related issues/pull requests\n\n- #6898 — DOMAIN_EXPIRY log entries (workaround: `LOG_LEVEL=error`, but this is a sledgehammer)\n- #6880 — Domain expiry notification defaults to enabled for unsupported TLDs\n- #6633 — Domain expiry monitor logs messages twice on every check\n\n### 🛡️ Security Policy\n\n\n\n### 📝 Description\n\n# `UPTIME_KUMA_HIDE_LOG` does not work for `warn` level due to case mismatch in `Logger.log()`\n\n> **Disclosure:** This bug was reproduced manually. The root cause analysis, suggested fix, and text of this report were written with AI assistance.\n\n\n\n### Root cause\n\nIn [`[src/util.ts](https://github.com/louislam/uptime-kuma/blob/master/src/util.ts)`](https://github.com/louislam/uptime-kuma/blob/master/src/util.ts), the `Logger` class has a case mismatch between how `hideLog` is populated and how it is checked.\n\n**Constructor** — parses the env var and stores entries under **lowercase** keys:\n\n```typescript\nhideLog: Record<string, string[]> = {\n    info: [],   // lowercase\n    warn: [],   // lowercase\n    error: [],  // lowercase\n    debug: [],  // lowercase\n};\n\nconstructor() {\n    if (typeof process !== \"undefined\" && process.env.UPTIME_KUMA_HIDE_LOG) {\n        const list = process.env.UPTIME_KUMA_HIDE_LOG.split(\",\").map(v => v.toLowerCase());\n        for (const pair of list) {\n            const values = pair.split(/_(.*)/s);\n            if (values.length >= 2) {\n                this.hideLog[values[0]].push(values[1]);\n                // values[0] is \"warn\" (lowercase) → pushes to this.hideLog[\"warn\"]\n            }\n        }\n    }\n}\n```\n\n**`log()` method** — checks using the **uppercase** `level` parameter:\n\n```typescript\nlog(module: string, level: \"INFO\" | \"WARN\" | \"ERROR\" | \"DEBUG\", ...msg: unknown[]) {\n    if (this.hideLog[level] && this.hideLog[level].includes(module.toLowerCase())) {\n        return;\n    }\n    // level is \"WARN\" (uppercase), but the key in hideLog is \"warn\" (lowercase)\n    // this.hideLog[\"WARN\"] → undefined → check is skipped → log is never hidden\n}\n```\n\n`this.hideLog[\"WARN\"]` is always `undefined` because the dictionary only has lowercase keys (`\"warn\"`). The `&&` short-circuits, so the hide check silently does nothing.\n\n### Suggested fix\n\nIn the `log()` method, lowercase the `level` before looking it up in `hideLog`:\n\n```typescript\nconst levelLower = level.toLowerCase();\nif (this.hideLog[levelLower] && this.hideLog[levelLower].includes(module.toLowerCase())) {\n    return;\n}\n```\n\nAlternatively, store the `hideLog` keys in uppercase to match the `level` type signature — but lowercasing the lookup is the smaller, safer change since the constructor already normalizes input to lowercase.\n\nLinux (Docker)\n\n### Browser\n\nN/A (backend logging issue)\n\n### Deployment Environment\n\nDocker Compose\n\n### 👟 Reproduction steps\n\n### Reproduction steps\n\n1. Set `UPTIME_KUMA_HIDE_LOG=warn_domain_expiry` in `.env` or Docker Compose environment.\n2. Have any HTTP(s) monitor targeting a domain with an unsupported TLD (e.g. `.ch`, `.at`, `.me`).\n3. Restart Uptime Kuma.\n4. Observe that `[DOMAIN_EXPIRY] WARN:` messages still appear in the logs despite the hide rule.\n\n\n\n\n### 👀 Expected behavior\n\n### Expected behavior\n\n`UPTIME_KUMA_HIDE_LOG=warn_domain_expiry` should suppress all WARN-level log entries from the `DOMAIN_EXPIRY` module, as documented in the wiki and code comments.\n\n\n\n### 😓 Actual Behavior\n\n### Actual behavior\n\nThe `UPTIME_KUMA_HIDE_LOG` variable has no effect on WARN (or INFO/ERROR) level messages. Only DEBUG-level filtering could theoretically work (in development mode), though this is untested.\n\n### 🐻 Uptime-Kuma Version\n\n2.3.2\n\n### 💻 Operating System and Arch\n\nLinux Docker\n\n### 🌐 Browser\n\nN/A\n\n### 🖥️ Deployment Environment\n\nDocker version 29.1.3, build 29.1.3-0ubuntu3~24.04.2\n\n\n### 📝 Relevant log output\n\n```bash session\nuptime-kuma-1  | 2026-05-11T11:34:14+02:00 [DOMAIN_EXPIRY] WARN: Domain expiry unsupported for '.ch' because its RDAP endpoint is not listed in the IANA database.\n```",
+      "source": "issue",
+      "gold": [
+        "src/util.js",
+        "src/util.ts"
+      ],
+      "tests": [],
+      "names_gold": true,
+      "fan_in": {
+        "src/util.js": 108,
+        "src/util.ts": 18
+      }
+    },
+    {
+      "id": "07b38184bb",
+      "repo": "louislam/uptime-kuma",
+      "base": "a4030ba7963552367b16043a907914d438fa487e",
+      "fix": "07b38184bb7a0be574d3d7f33b9375c7c485d9b8",
+      "date": "2026-05-04",
+      "title": "fix: Revert back to single SQLite connection by default",
+      "text": "Reverts louislam/uptime-kuma#7312\r\n\r\n\r\navoid unnecessary back and forth",
+      "source": "pr",
+      "gold": [
+        "server/database.js"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "server/database.js": 14
+      }
+    },
+    {
+      "id": "913105f2de",
+      "repo": "louislam/uptime-kuma",
+      "base": "9e84e3cbc0837705875045299302dd642bc649e3",
+      "fix": "913105f2de24adaab7ce599db46bea1acfc83b14",
+      "date": "2026-05-02",
+      "title": "`SQLITE_BUSY: database is locked` errors",
+      "text": "### 📑 I have found these related issues/pull requests\n\n* #1957 - introduced a `busy_timeout`\n* bc86f8b - reverted it again\n\n* #6979 - the presumed cause for my issue\n\n* #7095, #6486, #7260 might be related, sometimes in part, although the reported error message isn't always the exact same.\n\n### 🛡️ Security Policy\n\n\n\n### 📝 Description\n\nAfter upgrading to 2.2.0, I keep seeing regular (sometimes daily) `SQLITE_BUSY: database is locked` errors in the error log. The log does not show errors before the release of 2.2.0.\n\nI suspect this is a consequence/regression from #6979 , probably because I am running uptime kuma on a Raspberry Pi with an SD card.\n\nI noticed that #1957 introduced a `busy_timeout` but it was reverted in bc86f8b (without further context). As far as I know, the default is 0, meaning it fails immediately when a lock is held. On an SD card, this could be an issue with concurrent writes on a slower medium.\n\nMy instance isn't very big, I have 13 Monitors, most are HTTPS, some TCP.\n\nThe errors seem to appear mostly around times when scheduled tasks are running, such as a nightly backup script (in my case at 01:30).\n\nWould you be open to reintroducing `busy_timeout` or a config paramter to allow manually setting the connection pool size?\n\n### 👟 Reproduction steps\n\n1. Run Uptime Kuma 2.2.0 or later on a Raspberry Pi with an SD card as storage medium\n2. Configure a dozen HTTP(S) monitors with 60s interval\n3. Add scheduled tasks that involve reading/writing to the SD card (concurrent disk I/O)\n4. Check error.log in the data directory\n\n### 👀 Expected behavior\n\nNo `SQLITE_BUSY` errors in error.log, as was the case before 2.2.0.\n\n### 😓 Actual Behavior\n\n`SQLITE_BUSY: database is locked` errors appear regularly in error.log, affecting `stat_minutely`, `stat_hourly`, `stat_daily`, `heartbeat`, and `monitor_tls_info` tables. Errors occur particularly when daily stat rollups coincide with regular heartbeat writes or TLS certificate updates.\n\n### 🐻 Uptime-Kuma Version\n\n2.2.1\n\n### 💻 Operating System and Arch\n\nRaspberry Pi OS 13 (6.12.75), arm64\n\n### 🌐 Browser\n\nFirefox 149\n\n### 🖥️ Deployment Environment\n\n- **Runtime Environment**:\n  - Docker: Version `29.4.0` (Build `9d7ad9f`)\n  - Docker Compose: Version `5.1.3`\n- **Database**:\n  - SQLite: Embedded\n- **Database Storage**:\n  - **Filesystem**:\n    - Linux: ext4\n  - **Storage Medium**: SD card\n- **Uptime Kuma Setup**:\n  - Number of monitors: `13`\n\n\n### 📝 Relevant log output\n\n```bash session\n[2026-04-12 01:30:55] [Error: update `monitor_tls_info` set ... - SQLITE_BUSY: database is locked] {\n  errno: 5,\n  code: 'SQLITE_BUSY'\n}\n[2026-04-12 01:30:55] [Error: update `stat_daily` set ... - SQLITE_BUSY: database is locked] {\n  errno: 5,\n  code: 'SQLITE_BUSY'\n}\n```",
+      "source": "issue",
+      "gold": [
+        "server/database.js"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "server/database.js": 14
+      }
+    },
+    {
+      "id": "ba85804c23",
+      "repo": "louislam/uptime-kuma",
+      "base": "2f45b46315bf8dae4e906dec41a341765c59a3f0",
+      "fix": "ba85804c23d67f5c051a3d797e21a7b0bcf0eb86",
+      "date": "2026-04-26",
+      "title": "`SQLITE_BUSY: database is locked` errors",
+      "text": "### 📑 I have found these related issues/pull requests\n\n* #1957 - introduced a `busy_timeout`\n* bc86f8b - reverted it again\n\n* #6979 - the presumed cause for my issue\n\n* #7095, #6486, #7260 might be related, sometimes in part, although the reported error message isn't always the exact same.\n\n### 🛡️ Security Policy\n\n\n\n### 📝 Description\n\nAfter upgrading to 2.2.0, I keep seeing regular (sometimes daily) `SQLITE_BUSY: database is locked` errors in the error log. The log does not show errors before the release of 2.2.0.\n\nI suspect this is a consequence/regression from #6979 , probably because I am running uptime kuma on a Raspberry Pi with an SD card.\n\nI noticed that #1957 introduced a `busy_timeout` but it was reverted in bc86f8b (without further context). As far as I know, the default is 0, meaning it fails immediately when a lock is held. On an SD card, this could be an issue with concurrent writes on a slower medium.\n\nMy instance isn't very big, I have 13 Monitors, most are HTTPS, some TCP.\n\nThe errors seem to appear mostly around times when scheduled tasks are running, such as a nightly backup script (in my case at 01:30).\n\nWould you be open to reintroducing `busy_timeout` or a config paramter to allow manually setting the connection pool size?\n\n### 👟 Reproduction steps\n\n1. Run Uptime Kuma 2.2.0 or later on a Raspberry Pi with an SD card as storage medium\n2. Configure a dozen HTTP(S) monitors with 60s interval\n3. Add scheduled tasks that involve reading/writing to the SD card (concurrent disk I/O)\n4. Check error.log in the data directory\n\n### 👀 Expected behavior\n\nNo `SQLITE_BUSY` errors in error.log, as was the case before 2.2.0.\n\n### 😓 Actual Behavior\n\n`SQLITE_BUSY: database is locked` errors appear regularly in error.log, affecting `stat_minutely`, `stat_hourly`, `stat_daily`, `heartbeat`, and `monitor_tls_info` tables. Errors occur particularly when daily stat rollups coincide with regular heartbeat writes or TLS certificate updates.\n\n### 🐻 Uptime-Kuma Version\n\n2.2.1\n\n### 💻 Operating System and Arch\n\nRaspberry Pi OS 13 (6.12.75), arm64\n\n### 🌐 Browser\n\nFirefox 149\n\n### 🖥️ Deployment Environment\n\n- **Runtime Environment**:\n  - Docker: Version `29.4.0` (Build `9d7ad9f`)\n  - Docker Compose: Version `5.1.3`\n- **Database**:\n  - SQLite: Embedded\n- **Database Storage**:\n  - **Filesystem**:\n    - Linux: ext4\n  - **Storage Medium**: SD card\n- **Uptime Kuma Setup**:\n  - Number of monitors: `13`\n\n\n### 📝 Relevant log output\n\n```bash session\n[2026-04-12 01:30:55] [Error: update `monitor_tls_info` set ... - SQLITE_BUSY: database is locked] {\n  errno: 5,\n  code: 'SQLITE_BUSY'\n}\n[2026-04-12 01:30:55] [Error: update `stat_daily` set ... - SQLITE_BUSY: database is locked] {\n  errno: 5,\n  code: 'SQLITE_BUSY'\n}\n```",
+      "source": "issue",
+      "gold": [
+        "server/database.js"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "server/database.js": 14
+      }
+    },
+    {
+      "id": "07d28d8181",
+      "repo": "louislam/uptime-kuma",
+      "base": "7136dd7832971beb5691d09e86b28a0fcb5fa0fb",
+      "fix": "07d28d818180796123b7876c161c2712d80cd0d1",
+      "date": "2026-04-10",
+      "title": "24h view counts only 12h",
+      "text": "### 📑 I have found these related issues/pull requests\n\n![image](https://github.com/user-attachments/assets/71c44f3f-8d29-4632-ad26-14eab6a62472)\r\n\r\n\r\n\n\n### 🛡️ Security Policy\n\n\n### Description\n\n_No response_\n\n### 👟 Reproduction steps\n\nall monitor item has same time table\n\n### 👀 Expected behavior\n\nit should show us 24 hours time table data\n\n### 😓 Actual Behavior\n\nonly give us a 12hours data in 24h view\n\n### 🐻 Uptime-Kuma Version\n\n2.0.0-beta.0\n\n### 💻 Operating System and Arch\n\naws linux 2023\n\n### 🌐 Browser\n\nchrome 131.0.6778.86\n\n### 🖥️ Deployment Environment\n\n- Runtime: \r\n- Database: \r\n- Filesystem used to store the database on: \r\n- number of monitors: \r\n\n\n### 📝 Relevant log output\n\n_No response_",
+      "source": "issue",
+      "gold": [
+        "server/uptime-calculator.js"
+      ],
+      "tests": [
+        "test/backend-test/test-uptime-calculator.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "server/uptime-calculator.js": 7
+      }
+    },
+    {
+      "id": "c4b73ce1ce",
+      "repo": "louislam/uptime-kuma",
+      "base": "a53158af98dbdd11850ba34dc0066af1c5a259ba",
+      "fix": "c4b73ce1cea6169e43ec9e8476a7dd4bf78277df",
+      "date": "2026-03-24",
+      "title": "When HTTPS is configured database creation still only works on HTTP",
+      "text": "### 📑 I have found these related issues/pull requests\n\nHaven't found any\n\n### 🛡️ Security Policy\n\n\n\n### 📝 Description\n\nWhen running Uptime Kuma behind an Nginx reverse proxy, the application logs indicate that it has started using HTTPS. However, if no database exists yet, the initial database setup can only be accessed over HTTP. After completing the database initialization, the UI does not automatically refresh or redirect. This happens because the application becomes accessible only via HTTPS at that point, leaving the HTTP session stuck on a non‑updating page.\n\n**Summary of the issue:**\n- Uptime Kuma starts and logs that it's running on HTTPS when behind an Nginx proxy.\n- If no database is present, the initial setup page requires HTTP instead of HTTPS.\n- After the database is created, the interface does not refresh or redirect to the HTTPS URL.\n- This results in the setup page appearing frozen until the user manually switches to HTTPS.\n\n### 👟 Reproduction steps\n\n1. Set up Uptime Kuma behind an Nginx reverse proxy that terminates HTTPS.\n2. Ensure no existing Uptime Kuma database is present (fresh install).\n3. Start Uptime Kuma.\n4. Check the application logs — they report that Uptime Kuma is running using HTTPS.\n5. Attempt to access the setup page using HTTPS — it will not load because the initial setup is only available over HTTP.\n6. Open the setup page using HTTP and complete the database initialization.\n7. After completing the setup, observe the setup page in the browser.\n\n### 👀 Expected behavior\n\n- After database initialization completes, the UI should **automatically refresh or redirect** to the correct (HTTPS) URL.\n- Alternatively, the setup page should support HTTPS from the start when behind a reverse proxy.\n- Users should be able to complete setup smoothly without needing to manually change protocols.\n\n### 😓 Actual Behavior\n\n- The UI does **not refresh or redirect** after the database is created.\n- The screen appears stuck even though the initialization is complete.\n- Uptime Kuma becomes accessible only via **HTTPS**, but the browser remains on the HTTP setup page, which no longer updates.\n- Users must manually switch to the HTTPS URL to continue.\n\n### 🐻 Uptime-Kuma Version\n\n2.1.3\n\n### 💻 Operating System and Arch\n\nRed Hat Enterprise Linux 9\n\n### 🌐 Browser\n\nGoogle Chrome Version 145.0.7632.117 (Official Build) (64-bit)\n\n### 🖥️ Deployment Environment\n\n- **Runtime Environment**:\n  - Podman: Version `5.6.0` \n- **Database**:\n  - MariaDB: Embedded\n- **Database Storage**:\n  - **Filesystem**:\n    - Linux: XFS\n  - **Storage Medium**: HDD\n- **Uptime Kuma Setup**:\n  - Number of monitors: `not relevant, happens on an fresh install`\n\n\n### 📝 Relevant log output\n\n```bash session\n\n```",
+      "source": "issue",
+      "gold": [
+        "server/server.js",
+        "server/setup-database.js",
+        "server/util-server.js"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "server/server.js": 2,
+        "server/setup-database.js": 1,
+        "server/util-server.js": 36
+      }
+    },
+    {
+      "id": "aa40ffdf23",
+      "repo": "louislam/uptime-kuma",
+      "base": "59345444e507574846abf48459edc7907fe02900",
+      "fix": "aa40ffdf2348cda83ce0e5b9e9c8ad051de52bdf",
+      "date": "2026-03-16",
+      "title": "fix: propagate create errors",
+      "text": "# Summary\r\n\r\n- switch `propagateCreateError` back to the knex default value of `true` (see https://github.com/knex/knex/issues/6043#issuecomment-3393827568)\r\n- Relates to #6486 \r\n\r\n<details>\r\n<summary>Please follow this checklist to avoid unnecessary back and forth (click to expand)</summary>\r\r\r\n      I understand that I am responsible for and able to explain every line of code I submit.\r\r\r\r\r\r\r\r\n\r\n</details>",
+      "source": "pr",
+      "gold": [
+        "server/database.js"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "server/database.js": 14
+      }
+    },
+    {
+      "id": "9df8a957c7",
+      "repo": "louislam/uptime-kuma",
+      "base": "baaf14c594749a1e67aaa66533d130c7164aac72",
+      "fix": "9df8a957c7cba8cb198ba220e3001b5efdfb1beb",
+      "date": "2026-02-07",
+      "title": "Explicitly pushing down status does not work anymore",
+      "text": "### 📑 I have found these related issues/pull requests\n\n- https://github.com/louislam/uptime-kuma/issues/5742 seems to be similar\n\n### 🛡️ Security Policy\n\n\n\n### 📝 Description\n\nSince the v2 bump (I guess), the push monitor behavior changed in a way that I am not able to explicitly push a down status anymore.\nBefore, pushing with `?status=down&msg=fail` in the URL explicitly put the monitor status to Down (red). Now, it simply put my monitor in Pending (Orange).\nI expect to obtain this pending state only in a missing heartbeat case, not when I explicitly push a down status.\n\n### 👟 Reproduction steps\n\n1. Configure a push monitor with an heartbeat interval and retry interval, and a retries value of (let's say) 6.\n2. Push with curl an explicit down status (e.g. `?status=down&msg=fail`)\n3. Notice that the monitor is in pending state and not down state as expected\n\n### 👀 Expected behavior\n\nPushing a down state should put the monitor in down state in any case.\n\n### 😓 Actual Behavior\n\nPushing a down state put the monitor in pending state.\n\n### 🐻 Uptime-Kuma Version\n\n2.0.2\n\n### 💻 Operating System and Arch\n\nDebian (with docker compose stack with official image)\n\n### 🌐 Browser\n\nSafari\n\n### 🖥️ Deployment Environment\n\n- **Runtime Environment**:\n  - Docker: Version `27.5.1, build 9f9e405\n  - Docker Compose: Version `v2.32.4`\n- **Database**:\n  - SQLite: Embedded\n- **Database Storage**:\n  - **Filesystem**:\n    - Linux: ext4\n  - **Storage Medium**: SSD\n- **Uptime Kuma Setup**:\n  - Number of monitors: `50`\n\n\n### 📝 Relevant log output\n\n```bash session\n\n```",
+      "source": "issue",
+      "gold": [
+        "server/model/rdap-dns.json",
+        "server/routers/api-router.js",
+        "src/util.ts"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "server/model/rdap-dns.json": 0,
+        "server/routers/api-router.js": 1,
+        "src/util.ts": 123
+      }
+    },
+    {
+      "id": "574d42ca51",
+      "repo": "louislam/uptime-kuma",
+      "base": "aca6d02dc16dd2120118a11bf4483555f4ec71af",
+      "fix": "574d42ca51cd5ed7ad6893aa92ae180dcdae6ca3",
+      "date": "2026-01-31",
+      "title": "fix: certificate expiry (use Settings.set instead of Settings.setSetting)",
+      "text": "Settings has .set(), not .setSetting(). The code was calling a method that doesn't exist, so cert expiry checks crashed with 'Settings.setSetting is not a function' and no notifications were sent. Fix: call Settings.set(...) with the same arguments.\r\n\r\n# Summary\r\n\r\nIn this pull request, the following changes are made:\r\n\r\n- In `checkCertExpiryNotifications` (util-server.js), when saving the default `tlsExpiryNotifyDays`, the code now calls `Settings.set(\"tlsExpiryNotifyDays\", [7, 14, 21], \"general\")` instead of `Settings.setSetting(...)`, because the Settings class only has `.set()`, not `.setSetting()`.\r\n\r\n<details>\r\n<summary>Please follow this checklist to avoid unnecessary back and forth (click to expand)</summary>\r\r\r\r\r\r\r\r\r\r\n\r\n</details>\r\n\r\n## Screenshots for Visual Changes\r\n```\r\n# docker logs uptime-kuma-nightly 2>&1 | grep -A 2 \"Settings.setSetting is not a function\" | head -20\r\nTrace: TypeError: Settings.setSetting is not a function\r\n    at checkCertExpiryNotifications (/app/server/util-server.js:935:24)\r\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\r\n--\r\n```\r\n\r\nNo visual or UI changes. Server-side fix only.",
+      "source": "pr",
+      "gold": [
+        "server/util-server.js"
+      ],
+      "tests": [],
+      "names_gold": true,
+      "fan_in": {
+        "server/util-server.js": 44
+      }
+    },
+    {
+      "id": "236d74238c",
+      "repo": "louislam/uptime-kuma",
+      "base": "a38c6dea2521caa672034e4b30e08a7786182a46",
+      "fix": "236d74238cf31e3eacbebe9d09c76daa7d8f7e27",
+      "date": "2026-01-22",
+      "title": "fix: improve RADIUS client error handling and socket cleanup",
+      "text": "## Changes\n\nThis PR improves error handling and resource cleanup in the RADIUS client implementation.\n\n### Improvements\n\n1. **Enhanced error messages** (`server/util-server.js`):\n   - Preserves error stack traces for better debugging\n   - Adds hostname and port context to error messages\n   - Maintains original error information for troubleshooting\n\n2. **Fixed race conditions and memory leaks** (`server/radius-client.js`):\n   - Added proper socket cleanup function to prevent multiple cleanup calls\n   - Introduced `socketClosed` flag to prevent operations on closed sockets\n   - Improved timeout handling to ensure resources are properly released\n   - Fixed potential race conditions between timeout callbacks and response handlers\n\n### Benefits\n\n- Better error messages help identify RADIUS authentication issues faster\n- Prevents potential memory leaks from improperly closed sockets\n- Eliminates race conditions that could cause unexpected behavior\n- More robust error handling improves overall reliability\n\n### Testing\n\nThese changes maintain backward compatibility and improve error handling without changing the API contract.",
+      "source": "pr",
+      "gold": [
+        "server/radius-client.js",
+        "server/util-server.js"
+      ],
+      "tests": [],
+      "names_gold": true,
+      "fan_in": {
+        "server/radius-client.js": 1,
+        "server/util-server.js": 43
+      }
+    },
+    {
+      "id": "f8d494a03d",
+      "repo": "louislam/uptime-kuma",
+      "base": "f8652c27afba6744174e887e40e39c4e1bca80c2",
+      "fix": "f8d494a03dcbb30895343093635291350ade89db",
+      "date": "2026-01-19",
+      "title": "fix: json parse crashes in monitor model with safe parsing",
+      "text": "fixes json parse crashes when invalid json is stored in database for kafka and rabbitmq monitors.\r\n\r\nadded safe json parsing with fallback to default values instead of crashing.",
+      "source": "pr",
+      "gold": [
+        "server/model/monitor.js",
+        "src/util.js"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "server/model/monitor.js": 4,
+        "src/util.js": 104
+      }
+    },
+    {
+      "id": "f8652c27af",
+      "repo": "louislam/uptime-kuma",
+      "base": "8bf929a9586e23ec644229a2540f1f0358dcc4d0",
+      "fix": "f8652c27afba6744174e887e40e39c4e1bca80c2",
+      "date": "2026-01-19",
+      "title": "fix(domain_expiry): include static RDAP DNS data with auto-updates instead of dynamically requesting it",
+      "text": "## Fix Deployment Failure Due to RDAP Lookup\n\n### Summary\nFixed deployment failures in Kubernetes and restricted network environments by replacing runtime RDAP DNS data fetch with a static JSON file.\n\n### Changes Completed\n\n\n\n\n\n\n\n\n\n\n\n\n\n### CI Auto-Update\n- Added step to existing `.github/workflows/autofix.yml` workflow\n- Uses simple `wget` command to fetch latest data from IANA\n- Job name: \"Update RDAP DNS data from IANA\" (explicit and clear)\n- Runs automatically with other autofix jobs on PRs and master/1.23.X branches\n- Uses autofix.ci to commit changes (handled by existing infrastructure)\n\n### Testing Results\n✅ Module loads correctly with file location\n✅ Linting passes without errors  \n✅ Code formatting applied\n✅ Code review: No issues found\n✅ Security scan: No vulnerabilities found\n✅ wget successfully downloads RDAP data (tested)\n\n### Benefits\n- Eliminates network dependency that caused ETIMEDOUT errors\n- Makes RDAP lookup instantaneous (no network latency)\n- Prevents deployment failures in restricted environments\n- Automatic updates via existing CI infrastructure\n- Simpler implementation using existing autofix workflow\n\n\n\n\n\n<details>\n\n<summary>Original prompt</summary>\n\n\n----\n\n*This section details on the original issue you should resolve*\n\n<issue_title>Deployment Fails After Upgrading to 2.1.0-beta.1 and Above due to domain expiry check</issue_title>\n<issue_description>### 📑 I have found these related issues/pull requests\n- https://github.com/louislam/uptime-kuma/issues/944\n\nAfter upgrading Uptime Kuma Helm deployment on Kubernetes from louislam/uptime-kuma:2.1.0-beta.0 → 2.1.0-beta.1 (or newer), The dashboard becomes unavailable and the container logs repeatedly show RDAP lookup failures and domain-expiry warnings.\n\nDeployment works flawlessly on 2.1.0-beta.0, but any version afterward results in continuous errors and a non‑functional dashboard.\n**Environment**\nPlatform: Kubernetes\nDeployment method: Helm\nImage: louislam/uptime-kuma:2.1.0-beta.1 and later\nLast working version: 2.1.0-beta.0\n\n\n```\n2026-01-13T14:51:00+01:00 [RDAP] DEBUG: FetchError: request to https://data.iana.org/rdap/dns.json failed, reason:\n    at ClientRequest.<anonymous> (file:///app/node_modules/node-fetch-cache/node_modules/node-fetch/src/index.js:108:11)\n    at ClientRequest.emit (node:events:519:28)\n    at emitErrorEvent (node:_http_client:107:11)\n    at TLSSocket.socketErrorListener (node:_http_client:574:5)\n    at TLSSocket.emit (node:events:519:28)\n    at emitErrorNT (node:internal/streams/destroy:170:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:129:3)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {\n  type: 'system',\n  errno: 'ETIMEDOUT',\n  code: 'ETIMEDOUT',\n  erroredSysCall: undefined\n}\n2026-01-13T14:51:00+01:00 [DOMAIN_EXPIRY] WARN: Domain expiry unsupported for '.com' because its RDAP endpoint is not listed in the IANA database.\n2026-01-13T14:51:02+01:00 [SETTINGS] DEBUG: Get Setting (cache): trustProxy: null\n2026-01-13T14:51:02+01:00 [ENTRY] DEBUG: Request Domain: 127.0.0.1\n2026-01-13T14:51:05+01:00 [SETTINGS] DEBUG: Get Setting (cache): trustProxy: null\n2026-01-13T14:51:05+01:00 [ENTRY] DEBUG: Request Domain: 100.67.131.246\n2026-01-13T14:51:12+01:00 [SETTINGS] DEBUG: Get Setting (cache): trustProxy: null\n2026-01-13T14:51:12+01:00 [ENTRY] DEBUG: Request Domain: 127.0.0.1\n2026-01-13T14:51:15+01:00 [SETTINGS] DEBUG: Get Setting (cache): trustProxy: null\n2026-01-13T14:51:15+01:00 [ENTRY] DEBUG: Request Domain: 100.67.131.246\n2026-01-13T14:51:22+01:00 [SETTINGS] DEBUG: Get Setting (cache): trustProxy: null\n2026-01-13T14:51:22+01:00 [ENTRY] DEBUG: Request Domain: 127.0.0.1\n2026-01-13T14:51:25+01:00 [SETTINGS] DEBUG: Get Setting (cache): trustProxy: null\n2026-01-13T14:51:25+01:00 [ENTRY] DEBUG: Request Domain: 100.67.131.246\n2026-01-13T14:51:28+01:00 [SETTINGS] DEBUG: Cache Cleaner is just started.\n```\n\nThe dashboard stops loading completely and the application does not become ready.\n\n**Additional Notes**\nNo configuration changes were made during upgrade.\nIssue appears only after upgrading beyond beta.0.\nThe RDAP failure should not block the entire app from starting.\nSeems possibly linked to new domain-expiry/ RDAP behavior introduced after beta.0.\n\n### 🛡️ Security Policy\n\n\n\n### 📝 Description\n\n_No response_\n\n### 👟 Reproduction steps\n\n**Steps to Reproduce**\nDeploy Uptime Kuma on Kubernetes using Helm.\nUse image louislam/uptime-kuma:2.1.0-beta.1 or newer.\nWait for pod to start.\nObserve container logs.\nDashboard fails to load; readiness never reaches a working state.\n\n### 👀 Expected behavior\n\n**Expected Behavior**\nIf RDAP or domain expiry checks fail (e.g., domain not supported, timeout), Uptime Kuma should continue operating normally.\nDashboard should load and monitoring should function.\n\n### 😓 Actual Behavior\n\nAfter upgrading Uptime Kuma Helm deployment on Kubernetes from louislam/uptime-kuma:2.1.0-beta.0 → 2.1.0-beta.1 (or newer), The dashboard becomes unavailable and the container logs repeatedly show RDAP lookup failures and domain-expiry warnings.\n\n### 🐻 Uptime-Kuma Version\n\nlouislam/uptime-kuma:2.1.0-beta.1\n\n### 💻 Operating System and Arch\n\nUbuntu\n\n### 🌐 Browser\n\nGoogle Chrome\n\n### 🖥️ Deployment Environment\n\n- **Runtime Environment**:\n  - MariaDB: embedded\n  - Node.js: Version `X.X.X` (LTS: Yes/No)\n  - Kubernetes (K3S/K8S): GKE 1.33.5\n- **Database**:\n  - MariaDB: Embedded/External\n- **Uptime Kuma Setup**:\n  - Number of monitors: `10`\n\n\n### 📝 Relevant log output\n\n```bash session\n2026-01-13T14:51:00+01:00 [RDAP] DEBUG: FetchError: request to https://data.iana.org/rdap/dns.json failed, reason:\n    at ClientRequest.<anonymous> (file:///app/node_modules/node-fetch-cache/node_modules/node-fetch/src/index.js:108:11)\n    at ClientRequest.emit (node:events:519:28)\n    at emitErrorEvent (node:_http_client:107:11)\n    at TLSSocket.socketErrorListener (node:_http_client:574:5)\n    at TLSSocket.emit (node:events:519:28)\n    at emitErrorNT (node:internal/streams/destroy:170:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:129...\n\n</details>\n\n\n\n\n\n- Fixes louislam/uptime-kuma#6768\n\n\n---\n\n💡 You can make Copilot smarter by setting up custom instructions, customizing its development environment and configuring Model Context Protocol (MCP) servers. Learn more [Copilot coding agent tips](https://gh.io/copilot-coding-agent-tips) in the docs.",
+      "source": "pr",
+      "gold": [
+        "server/model/domain_expiry.js",
+        "server/model/rdap-dns.json",
+        "src/util.js"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "server/model/domain_expiry.js": 2,
+        "server/model/rdap-dns.json": 0,
+        "src/util.js": 104
+      }
+    },
+    {
+      "id": "da693e01c7",
+      "repo": "louislam/uptime-kuma",
+      "base": "c5675ae9ebf68505480a055076c1c951226a9140",
+      "fix": "da693e01c7237477530237aba5930afcc3dedbc6",
+      "date": "2026-01-11",
+      "title": "Ping monitor, fails to punicode decode international domain names like münchen.de",
+      "text": "### 📑 I have found these related issues/pull requests\n\n- #570 is old and closed, but may be related\n\n### 🛡️ Security Policy\n\n\n\n### 📝 Description\n\nAdding a  ping monitor for \"münchen.de\" results in the following message\n```bash\n2026-01-09T12:23:06+01:00 [MONITOR] WARN: Monitor #33 'münchen.de': Failing: ping: münchen.de: Parameter string not correctly encoded\n```\n\n### 👟 Reproduction steps\n\nAdding a Ping monitor with any IDN domain name\n\n### 👀 Expected behavior\n\nAdding a Ping monitor for a IDN domain should behave equally to any other domain name\n\n### 😓 Actual Behavior\n\n<img width=\"610\" height=\"119\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/d7644bb0-354c-4c7d-92d5-4bd150179cc8\" />\n\n### 🐻 Uptime-Kuma Version\n\nLatest\n\n### 💻 Operating System and Arch\n\nUbuntu 25.10\n\n### 🌐 Browser\n\nAny\n\n### 🖥️ Deployment Environment\n\n- **Runtime Environment**:\n  - Node.js: Version `X.X.X` (LTS: Yes/No)\n- **Database**:\n  - SQLite: Embedded\n- **Database Storage**:\n  - **Filesystem**:\n    - Linux: ext4\n  - **Storage Medium**: NVMe\n- **Uptime Kuma Setup**:\n  - Number of monitors: `1`\n\n\n### 📝 Relevant log output\n\n```bash session\n2026-01-09T12:23:06+01:00 [MONITOR] WARN: Monitor #33 'münchen.de': Failing: ping: münchen.de: Parameter string not correctly encoded\n```",
+      "source": "issue",
+      "gold": [
+        "server/util-server.js"
+      ],
+      "tests": [
+        "test/backend-test/test-util-server.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "server/util-server.js": 43
+      }
+    },
+    {
+      "id": "a117add908",
+      "repo": "louislam/uptime-kuma",
+      "base": "0f61d7ee1b6d6fb76b5dbf5d2e71e73dddbf1d16",
+      "fix": "a117add9081443109ec8b221e08c942b2cb14eed",
+      "date": "2026-01-09",
+      "title": "fix: Proper processing of date fields (Domain Expiry) with cleanup of unnecessary Date comparison functions",
+      "text": "Unlike SQLite, MariaDB/MySQL returns dates as strings. This fix converts those strings back to Date objects.\r\n\r\nFixes: Domain name xxxxx will expire in NaN days #6618",
+      "source": "pr",
+      "gold": [
+        "server/model/domain_expiry.js",
+        "server/util-server.js"
+      ],
+      "tests": [
+        "test/backend-test/test-domain.js",
+        "test/backend-test/test-util.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "server/model/domain_expiry.js": 2,
+        "server/util-server.js": 43
+      }
+    },
+    {
+      "id": "d23ff8c486",
+      "repo": "louislam/uptime-kuma",
+      "base": "2d9e6c39114200f6382212c7c8cc1621de26be13",
+      "fix": "d23ff8c4860b09cdd8c57ba9ab6ced5321dd3782",
+      "date": "2025-12-22",
+      "title": "fix: v2 migration process report is always 0 when having many monitors / dates",
+      "text": "## 📝 Summary of changes done and why they are done\r\n\r\n\r\n\r\nSee https://github.com/louislam/uptime-kuma/issues/6211#issuecomment-3682054218. The migration process can sometimes be constant 0 during the whole process, which confuses the users.\r\n\r\nThis PR fixes the calculation of progress.\r\n\r\n## 📋 Related issues\r\n\r\n- Relates to #6211\r\n\r\n## 📄 Checklist\r\n\r\n<details>\r\n<summary>Please follow this checklist to avoid unnecessary back and forth (click to expand)</summary>\r\r\r\r\r\r\r\r\r\r\r\r\n\r\n</details>\r\n\r\n## 📷 Screenshots or Visual Changes\r\n\r\nN/A",
+      "source": "pr",
+      "gold": [
+        "server/database.js"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "server/database.js": 14
+      }
+    },
+    {
+      "id": "fd7435fa51",
+      "repo": "louislam/uptime-kuma",
+      "base": "2135adfed584544fbd136c9a4340cd1fdf6e223e",
+      "fix": "fd7435fa518fc87709818872947e7b68ae6631f5",
+      "date": "2025-12-09",
+      "title": "JSON query mismatch between v1 and v2. jsonata.org not fully supported",
+      "text": "After upgrading 10+ monitors turned red. What caused this? Incorrect jsonata parsing. \n\nMonitors turn red with \"Error evaluating JSON query: The post-JSON query evaluated response from the server is of type object, which cannot be directly compared to the expected value. Response from server was: [true]\" message\n\n\n### 👟 Reproduction steps\n\nhttps://try.jsonata.org/ with the data from https://docevent.instatus.com/v2/components.json and the expression \"components[id='ckphsjmoj2164539voqw574wdrf'].[status='OPERATIONAL']\" turns true, but a monitor with this expression and true as expected condition result in the message above. Or\n\n `{\n  \"data\": [\n    {\n      \"status\": \"ready\",\n      \"storage_info\": {\n        \"used_percentage\": 14\n      }\n    }\n  ]\n}`\n\nwith \"$.data.[status = 'ready' and storage_info.used_percentage < 75]\" return the same error.\n\n### 👀 Expected behavior\n\nCondition work identical to playground of jsonata\n\n### 😓 Actual Behavior\n\nCondition work different then the playground of jsonata\n\n### 🐻 Uptime-Kuma Version\n\n2.0.2\n\n### 💻 Operating System and Arch\n\nPikapods\n\n### 🌐 Browser\n\nChrome\n\n### 🖥️ Deployment Environment\n\nNA\n\n### 📝 Relevant log output\n\n```bash session\n\n```",
+      "source": "issue",
+      "gold": [
+        "src/util.js",
+        "src/util.ts"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "src/util.js": 99,
+        "src/util.ts": 19
+      }
+    },
+    {
+      "id": "609429bd7e",
+      "repo": "louislam/uptime-kuma",
+      "base": "3b6a78bd80eb6a3067a8d4c6f2e47dbceb99f33e",
+      "fix": "609429bd7ecc9bba72eff385d82c35bd74363096",
+      "date": "2025-06-15",
+      "title": "Fix dayjs",
+      "text": "It seems that due to the #5868 fix, the dayjs is broken during dev mode again (#4881).\r\n\r\nIt seems that a signle import statement can never be possible to fullfill three situations (server side, frontend dev mode, frontend build) in one.\r\n\r\nSo now I try to load the dayjs, depending on the current environment.",
+      "source": "pr",
+      "gold": [
+        "src/util.js",
+        "src/util.ts"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "src/util.js": 92,
+        "src/util.ts": 17
+      }
+    }
+  ]
+}
