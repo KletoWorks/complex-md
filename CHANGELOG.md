@@ -4,6 +4,12 @@ Dated record of notable changes, newest on top: what changed and why. One
 entry per change that affects behavior, the published site, or the file
 format.
 
+## 2026-10-25  GitLab merge request comment
+
+**Intent:** GitLab users had no counterpart to the pull request comment of KletoWorks/complex-md-action, although `check` already finds touched hotspots and unchanged co-change partners in any git repository.
+
+**Change:** `ci/gitlab/complex-md.gitlab-ci.yml` is an include file with one job for merge request pipelines. It reads COMPLEX.md from the target branch, runs `check --base` at a pinned CLI version, and posts, edits or deletes one merge request note in the action's comment format. `cli/test/gitlab-ci.test.js` runs its script against a fixture repository and a stubbed API.
+
 ## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
 
 **Intent:** wire appended a block with a heading but no end, deleted any file in a brief folder whose name had the complex-md- prefix, created CLAUDE.md beside AGENTS.md, and had no way back. A default wire could add 40 or more files to a repository, a rewire never updated an old block, and a Windows checkout could leave mixed line endings.

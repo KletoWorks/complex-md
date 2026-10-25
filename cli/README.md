@@ -231,6 +231,32 @@ tests the map names on 14 of 15 risky edits, against 3 of 17 without it
 Code. Results and method: `bench/RESULTS.md` in
 https://github.com/KletoWorks/complex-md.
 
+## GitLab merge request comments
+
+`ci/gitlab/complex-md.gitlab-ci.yml` in the complex-md repository is the
+GitLab counterpart of `KletoWorks/complex-md-action`. Include it from
+`.gitlab-ci.yml`, pinned to a commit:
+
+    include:
+      - remote: https://raw.githubusercontent.com/KletoWorks/complex-md/<commit>/ci/gitlab/complex-md.gitlab-ci.yml
+
+The job runs on merge request pipelines only. It reads COMPLEX.md from the
+target branch, so a merge request cannot edit the map it is checked against,
+and it runs no file from the merge request: the CLI is
+`npx -y complex-md@$COMPLEX_MD_VERSION check --base origin/<target>`, a
+pinned version. It posts one note in the same format as the action, edits it
+on each push, and deletes it when the change touches no hotspot and leaves no
+partner behind. It sets `allow_failure: true`, so it never blocks a merge.
+
+Writing a note needs a token that GitLab accepts on the merge request notes
+API. As far as the GitLab documentation lists, the `CI_JOB_TOKEN` is not
+accepted on that endpoint, so create a project access token with the `api`
+scope and the Reporter role or above, and store it as a masked CI/CD
+variable named `COMPLEX_MD_TOKEN`. To use another variable name, set
+`COMPLEX_MD_TOKEN_VAR` to that name. Without a token variable the job tries
+`CI_JOB_TOKEN` and fails with the status GitLab returned. A merge request
+from a fork gets no project variables and so no note.
+
 ## Limits, stated plainly
 
 The analysis is text-level: regular expressions and lightweight parsers

@@ -1,0 +1,99 @@
+# complex-md merge request comment for GitLab, the counterpart of
+# KletoWorks/complex-md-action. Include it from .gitlab-ci.yml:
+#
+#   include:
+#     - remote: https://raw.githubusercontent.com/KletoWorks/complex-md/<commit>/ci/gitlab/complex-md.gitlab-ci.yml
+#
+# Variables, all optional except the token:
+#   COMPLEX_MD_VERSION    the pinned CLI version
+#   COMPLEX_MD_TOKEN_VAR  the name of the CI/CD variable that holds the token
+#                         (default COMPLEX_MD_TOKEN): a project access token
+#                         with the api scope and the Reporter role or above,
+#                         masked. Without it the job falls back to CI_JOB_TOKEN,
+#                         which GitLab does not accept on the notes endpoints.
+#   COMPLEX_MD_CMD        the command that runs the CLI
+#
+# The job runs on merge request pipelines only. It reads COMPLEX.md from the
+# target branch and runs no file from the merge request: the CLI comes from
+# npm at the pinned version, and the merge request branch is read as data.
+complex-md-comment:
+  stage: test
+  image: node:22
+  allow_failure: true
+  variables:
+    GIT_DEPTH: "0"
+    COMPLEX_MD_VERSION: "0.11.0"
+    COMPLEX_MD_TOKEN_VAR: "COMPLEX_MD_TOKEN"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - |
+      set -eu
+      CMD=${COMPLEX_MD_CMD:-"npx -y complex-md@${COMPLEX_MD_VERSION:-0.11.0}"}
+      TOKEN_VAR=${COMPLEX_MD_TOKEN_VAR:-COMPLEX_MD_TOKEN}
+      TARGET=$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+      case $TOKEN_VAR in *[!A-Za-z0-9_]*|'') echo "COMPLEX_MD_TOKEN_VAR must be a variable name"; exit 2;; esac
+      eval "TOKEN=\${$TOKEN_VAR:-}"
+      git fetch --quiet origin "+refs/heads/$TARGET:refs/remotes/origin/$TARGET"
+      if ! git show "origin/$TARGET:COMPLEX.md" > "${TMPDIR:-/tmp}/target-complex.md" 2>/dev/null; then
+        echo "No COMPLEX.md on $TARGET: nothing to check."
+        exit 0
+      fi
+      cp "${TMPDIR:-/tmp}/target-complex.md" COMPLEX.md
+      $CMD check --base "origin/$TARGET" --json > "${TMPDIR:-/tmp}/check.json"
+      COMPLEX_MD_TOKEN=$TOKEN CHECK_JSON="${TMPDIR:-/tmp}/check.json" node --input-type=module - <<'NODE'
+      import { readFileSync } from 'node:fs';
+      const env = process.env;
+      const f = JSON.parse(readFileSync(env.CHECK_JSON, 'utf8'));
+      const MARK = '<!-- complex-md -->';
+      const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+      const parts = [];
+      if (f.hotspots.length) parts.push(`${plural(f.hotspots.length, 'hotspot')} touched`);
+      if (f.partners.length) parts.push(`${plural(f.partners.length, 'co-change partner')} not in this merge request`);
+      if (f.generated?.length) parts.push(`${plural(f.generated.length, 'generated file')} edited`);
+      let body = null;
+      if (f.map_present && parts.length) {
+        const out = [MARK, `**COMPLEX.md**: ${parts.join(', ')}.`, ''];
+        if (f.hotspots.length) {
+          out.push('| Hotspot | Score | Churn | Fixes | Fan in | Tests |', '|---|--:|--:|--:|--:|--:|');
+          for (const h of f.hotspots) out.push(`| \`${h.path}\` | ${h.row.score} | ${h.row.churn} | ${h.row.fixes ?? '?'} | ${h.row.fan_in} | ${h.tests.length} |`);
+          out.push('');
+          for (const h of f.hotspots) if (h.directive) out.push(`- \`${h.path}\`: ${h.directive}`);
+          out.push('');
+        }
+        if (f.partners.length) {
+          out.push('**Co-change partners not in this merge request**', '');
+          const by = new Map();
+          for (const p of f.partners) (by.get(p.changed) || by.set(p.changed, []).get(p.changed)).push(p);
+          for (const [changed, list] of by) out.push(`- \`${changed}\` changed. Unchanged: ${list.slice(0, 3).map((p) => `\`${p.partner}\` (${p.count} commits together)`).join(', ')}${list.length > 3 ? `, and ${list.length - 3} more in COMPLEX.md` : ''}. Say whether each needs a change.`);
+          out.push('');
+        }
+        if (f.generated?.length) {
+          out.push('**Generated files that differ from what `wire` writes**', '');
+          for (const g of f.generated) out.push(`- \`${g.path}\` (${g.reason})`);
+          out.push('');
+        }
+        body = out.join('\n').trimEnd();
+      }
+      const token = env.COMPLEX_MD_TOKEN || env.CI_JOB_TOKEN;
+      const headers = { [env.COMPLEX_MD_TOKEN ? 'PRIVATE-TOKEN' : 'JOB-TOKEN']: token, 'Content-Type': 'application/json' };
+      const base = `${env.CI_API_V4_URL}/projects/${encodeURIComponent(env.CI_PROJECT_ID)}/merge_requests/${env.CI_MERGE_REQUEST_IID}/notes`;
+      const call = async (method, url, payload) => {
+        const r = await fetch(url, { method, headers, body: payload ? JSON.stringify(payload) : undefined });
+        if (!r.ok) {
+          console.error(`complex-md: GitLab answered ${r.status} to ${method} ${url.replace(env.CI_API_V4_URL, '')}. A project access token with the api scope, named by COMPLEX_MD_TOKEN_VAR, can write merge request notes; CI_JOB_TOKEN cannot.`);
+          process.exit(1);
+        }
+        return r.status === 204 ? null : r.json();
+      };
+      let mine = null;
+      for (let page = 1; !mine; page++) {
+        const notes = await call('GET', `${base}?per_page=100&page=${page}`);
+        mine = notes.find((n) => !n.system && typeof n.body === 'string' && n.body.startsWith(MARK)) || null;
+        if (notes.length < 100) break;
+      }
+      if (body && mine) { await call('PUT', `${base}/${mine.id}`, { body }); console.log('complex-md: note updated'); }
+      else if (body) { await call('POST', base, { body }); console.log('complex-md: note created'); }
+      else if (mine) { await call('DELETE', `${base}/${mine.id}`); console.log('complex-md: note cleared'); }
+      else console.log('complex-md: nothing to report');
+      NODE
