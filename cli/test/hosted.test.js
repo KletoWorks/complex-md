@@ -238,6 +238,25 @@ test('lists are capped, so a map with many rows makes a bounded page', (t) => {
   assert.ok(Buffer.byteLength(html) < 200_000, `${Buffer.byteLength(html)} bytes`);
 });
 
+test('a long NUL warning keeps an extractable, bounded file list', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const paths = Array.from({ length: 30 }, (_, i) => `src/nul-${String(i).padStart(2, '0')}.js`);
+  const note = `${paths.length} source files contain a NUL byte, so ripgrep, which Claude Code's Grep tool runs, skips them with no match and no warning, and GNU grep prints a binary file notice and no line: ${paths.join(', ')}. Search with git grep -I --text, and fix the byte: it is almost always a separator that should have been written as an escape.`;
+  const hot = paths.slice(0, 20);
+  const raw = cleanMap({ hot, pair: hot.slice(0, 2) }).replace(
+    '  - "2 generated or lock files excluded"',
+    `  - ${JSON.stringify(note)}`,
+  );
+  const r = run({ version: 1, maps: [entry('nul', 'files', { raw_text: raw })], committed: [] });
+  assert.equal(r.status, 0, r.stderr);
+  const html = readFileSync(join(r.out, 'nul/files/index.html'), 'utf8');
+  assert.match(html, /\. Search with git grep -I --text/);
+  assert.match(html, /<h3>Files search tools skip<\/h3>/);
+  assert.match(html, /<a class="tile[^"]*\bblind\b[^"]*"[^>]*data-path="src\/nul-00\.js"/);
+  assert.match(html, /<li><code>src\/nul-00\.js<\/code><\/li>/);
+  assert.ok(!html.includes(paths.at(-1)), 'the file list has an independent bound');
+});
+
 test('bad usage and a bad input file exit 2 and write nothing', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const none = spawnSync(process.execPath, [SCRIPT], { encoding: 'utf8' });

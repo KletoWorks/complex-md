@@ -17,7 +17,7 @@ import { ROOT, ORIGIN, mark, siteHeader, siteFooter } from './chrome.mjs';
 export const RESERVED = new Set(JSON.parse(readFileSync(join(ROOT, 'site/reserved.json'), 'utf8')));
 
 // Caps. A page with every list full stays near 100 kB.
-export const LIMITS = { hotspots: 25, load_bearing: 10, co_change: 15, seams: 8, blind_spots: 12, rawText: 262_144, page: 400_000 };
+export const LIMITS = { hotspots: 25, load_bearing: 10, co_change: 15, seams: 8, blind_spots: 12, blindFileList: 400, rawText: 262_144, page: 400_000 };
 
 // The one line of the AGENTS.md section that agents act on, for a person who
 // wires the map by hand.
@@ -92,14 +92,28 @@ export function cleanFront(fm, { shortSha, date, tool }) {
   const blind_spots = (Array.isArray(fm.blind_spots) ? fm.blind_spots : [])
     .filter((b) => typeof b === 'string')
     .map((b) => {
-      // The NUL byte note lists file names; keep the safe ones only.
-      const named = grepBlindFiles([b]);
-      if (!named.length) return b;
-      const kept = named.filter(safePath);
-      return kept.length ? b.replace(named.join(', '), kept.join(', ')) : null;
+      const match = /^(.*NUL byte[^:]*:\s*)(.+?)(\.\s+Search with[\s\S]*)$/.exec(b);
+      if (!match) return cleanText(b, 400);
+      const named = grepBlindFiles([b]).filter(safePath);
+      const kept = [];
+      for (const path of named) {
+        const next = [...kept, path].join(', ');
+        if (next.length > LIMITS.blindFileList) break;
+        kept.push(path);
+      }
+      if (!kept.length) return null;
+      let head = cleanText(match[1], 260);
+      if (!head.endsWith(':')) {
+        const nulAt = match[1].lastIndexOf('NUL byte');
+        const colonAt = match[1].indexOf(':', nulAt);
+        const label = colonAt >= 0 ? cleanText(match[1].slice(nulAt, colonAt + 1), 40) : 'NUL byte:';
+        const lead = cleanText(match[1].slice(0, nulAt), 260 - label.length - 1);
+        head = `${lead}${lead ? ' ' : ''}${label}`;
+      }
+      const tail = cleanText(match[3], Math.max(0, 399 - head.length));
+      return `${head} ${kept.join(', ')}${tail}`;
     })
     .filter(Boolean)
-    .map((b) => cleanText(b, 400))
     .filter((b) => b && !/[<>]/.test(b))
     .slice(0, LIMITS.blind_spots);
   const confidence = typeof prof.confidence === 'string' && /^[a-z0-9+, -]{1,60}$/.test(prof.confidence) ? prof.confidence : undefined;
