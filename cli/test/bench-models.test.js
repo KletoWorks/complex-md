@@ -153,12 +153,15 @@ test('a run scores each map, records a failed call and never writes the key', as
   const summary = readFileSync(join(s.out, 'summary.md'), 'utf8');
   assert.match(summary, /\| open\/model-a \| fixture \| pass \| pass \| pass \| pass/);
   assert.match(summary, /\| closed\/model-b \| fixture \| error \|/);
+  const errorLine = summary.split('\n').find((line) => line.includes('| closed/model-b |'));
+  assert.equal(errorLine.split('|').length - 2, 2 + 2 * 6);
   assert.match(summary, /not a ranking/i);
   assert.match(summary, /Written maps passing every check: 1 of 1 scored maps/);
   assert.equal(r.rows.length, 2);
 
-  const { rescoreResults } = await load();
-  const rescored = rescoreResults(s.out);
+  const stdout = execFileSync('node', [join(BENCH, 'models.mjs'), '--rescore', s.out], { encoding: 'utf8' });
+  assert.match(stdout, /rescored 2 calls/);
+  const rescored = JSON.parse(readFileSync(join(s.out, 'results.json'), 'utf8'));
   assert.deepEqual(Object.values(rescored.rows[0].checks.written).map((c) => c.pass), [true, true, true, true, true, true]);
   for (const text of [JSON.stringify(results), summary, s.logs.join('\n'), ...readdirSync(join(s.out, 'maps', 'fixture')).map((f2) => readFileSync(join(s.out, 'maps', 'fixture', f2), 'utf8'))]) {
     assert.ok(!text.includes(KEY), 'the key appears in no output');

@@ -196,7 +196,7 @@ export function summaryTable(rows) {
   ];
   for (const r of rows) {
     const cells = r.error
-      ? ['error', ...CHECKS.flatMap(() => ['', ''])]
+      ? ['error', ...Array(CHECKS.length * 2 - 1).fill('')]
       : CHECKS.flatMap((c) => ['raw', 'written'].map((kind) => (r.checks[kind][c].pass ? 'pass' : 'fail')));
     lines.push(`| ${r.model} | ${r.repo} | ${cells.join(' | ')} |`);
   }
