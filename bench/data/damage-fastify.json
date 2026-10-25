@@ -1,0 +1,585 @@
+{
+  "repo": "fastify/fastify",
+  "path": "/root/var/bench/e2/fastify",
+  "created": "2026-10-25",
+  "months": 48,
+  "min_fan_in": 6,
+  "min_tests": 1,
+  "tasks": [
+    {
+      "id": "bc25b7499a",
+      "repo": "fastify/fastify",
+      "base": "c3051e5b60c0e0e95ac0638fae342e82099fe534",
+      "fix": "bc25b7499acedb803ef3cef644d0d56cf4e7c725",
+      "date": "2026-09-27",
+      "title": "fix: remove error when HTTP QUERY request has empty body",
+      "text": "The `FST_ERR_ROUTE_MISSING_CONTENT` error doesn't seem to align with [the spec](https://datatracker.ietf.org/doc/html/rfc10008#section-2).\r\n\r\n> Servers MUST fail the request if the Content-Type request field ([[HTTP](https://datatracker.ietf.org/doc/html/rfc9110)], [Section 8.3](https://rfc-editor.org/rfc/rfc9110#section-8.3)) is missing or is inconsistent with the request content.\r\n\r\nThis part doesn't say anything about request body being empty.\r\nInconsistency between `Content-Type` and request body (i.e. if media type itself does not allow empty content) should be handled by content parser rather than here.",
+      "source": "pr",
+      "gold": [
+        "lib/errors.js",
+        "lib/handle-request.js",
+        "types/errors.d.ts"
+      ],
+      "tests": [
+        "test/internals/errors.test.js",
+        "test/rfc-10008.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/errors.js": 17,
+        "lib/handle-request.js": 2,
+        "types/errors.d.ts": 0
+      }
+    },
+    {
+      "id": "f5ef34443c",
+      "repo": "fastify/fastify",
+      "base": "9a1535bcfe2a780cc6f9c6555df86e5072ca9a29",
+      "fix": "f5ef34443c5be0cfc7fbde44f84253ef5d0ec66e",
+      "date": "2026-08-14",
+      "title": "fix: run preClose hook exactly once per declaring instance",
+      "text": "## What\n\nA single `preClose` hook added to a Fastify instance is executed once for **every** instance in the encapsulation subtree (the declaring instance plus each descendant plugin) instead of exactly once.\n\n### Reproduction\n\n```js\nconst fastify = Fastify()\nlet count = 0\n\nfastify.register(async (child) => {\n  child.get('/x', async () => 'ok')\n})\nfastify.addHook('preClose', async () => { count++ })\n\nawait fastify.ready()\nawait fastify.close()\n\nconsole.log(count) // 2, expected 1\n```\n\nWith two levels of nested plugins the same hook runs 3 times. An equivalent `onReady` hook in the identical setup correctly runs once.\n\n### Root cause\n\nIn `addHook`, the hooks `onReady`, `onListen`, and `onRoute` are special-cased to be stored only on the declaring instance via `this[kHooks].add`. `preClose` was omitted from that list, so it falls into the `else` branch and goes through `_addHook`, which copies the hook into every child via `this[kChildren].forEach`. At close time, `hookRunnerApplication('preClose')` already walks the entire child tree, so each propagated copy fires again.\n\nThat `preClose` is not meant to be inherited is already established elsewhere in the codebase: `buildHooks` in `lib/hooks.js` resets `onReady`, `onListen`, and `preClose` to empty arrays for children. `preClose` was simply left off the special-case list in `addHook`.\n\n### Fix\n\nAdd `preClose` to the same special-case branch as `onReady`/`onListen`/`onRoute` so it is stored only on the declaring instance and not propagated into children. Since `hookRunnerApplication` already recurses the child tree and `buildHooks` already excludes `preClose` from inheritance, each declared hook now fires exactly once.\n\n### Tests\n\nAdded two regression tests in `test/close.test.js` (a single child plugin and nested child plugins) asserting the hook runs exactly once. Both fail on `main` (count 2 and 3) and pass with this change. The full `test/close.test.js` suite (26 tests) stays green.",
+      "source": "pr",
+      "gold": [
+        "fastify.js"
+      ],
+      "tests": [
+        "test/close.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "fastify.js": 7
+      }
+    },
+    {
+      "id": "9ba6d6016f",
+      "repo": "fastify/fastify",
+      "base": "74c44c94afea276256721316d25218d1cdd1aae4",
+      "fix": "9ba6d6016fa932118e6cb2a2f68617cab0824f12",
+      "date": "2026-08-03",
+      "title": "fix: do not force close in-flight connections when forceCloseConnections is 'idle'",
+      "text": "### Summary\r\n\r\n`fastify.close()` destroys connections that are still serving a request when\r\n`forceCloseConnections` is `'idle'`. Since `'idle'` is the default whenever the\r\nserver supports `closeIdleConnections()`, this affects the default\r\nconfiguration.\r\n\r\n```\r\nfastify 5.8.5  (before #6669) → 200 OK\r\nfastify 5.10.0 (after #6669)  → ECONNRESET\r\n```\r\n\r\nReproduced with a handler that sleeps 400ms while `close()` is called after\r\n100ms.\r\n\r\n### Root cause\r\n\r\nRegression from #6669. That PR correctly avoided the redundant\r\n`closeIdleConnections()` call on native servers by narrowing the first branch\r\nto `serverFactory`, but the next branch was left with a loose truthiness check\r\ndating back to #3925:\r\n\r\n```js\r\nif (forceCloseConnections === 'idle' && options.serverFactory) {\r\n  instance.server.closeIdleConnections()\r\n} else if (serverHasCloseAllConnections && forceCloseConnections) {\r\n  instance.server.closeAllConnections()\r\n}\r\n```\r\n\r\nThe loose check was safe while the first branch caught `'idle'`\r\nunconditionally — it could only ever see `true`. After #6669 the string\r\n`'idle'` falls through to it, and being truthy it takes the\r\n`closeAllConnections()` path.\r\n\r\n### Fix\r\n\r\nTighten the check to `=== true`, matching the branch below it. Native servers\r\nwith `'idle'` now call neither method and rely on `server.close()`, which has\r\nclosed idle connections since Node.js v19 — the premise of #6669. All\r\nsupported Node.js versions (20, 22, 24, 26) have this behaviour.\r\n\r\nThe `serverFactory` path, `forceCloseConnections: true`, and the\r\n`kKeepAliveConnections` reap loop for servers without `closeAllConnections()`\r\nare unchanged.\r\n\r\n### Tests\r\n\r\nTwo tests added to `test/close.test.js`, both failing on `main` with\r\n`UND_ERR_SOCKET: other side closed`.\r\n\r\nThe existing `'idle'` coverage (`shutsdown while keep-alive connections are\r\nactive (non-async, idle, native)`) calls `close()` from the response callback,\r\nso the socket is already idle by then. The only behavioural difference between\r\n`'idle'` and `true` is what happens to an active request, and nothing\r\nexercised it.\r\n\r\n### Notes\r\n\r\nNo documentation change: this restores the behaviour already described in\r\n`Server.md`, both in the option reference and in the shutdown lifecycle\r\nsection (\"`\\\"idle\\\"` — idle keep-alive connections are closed; in-flight\r\nrequests continue\").\r\n\r\n/cc @trivikr",
+      "source": "pr",
+      "gold": [
+        "fastify.js"
+      ],
+      "tests": [
+        "test/close.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "fastify.js": 7
+      }
+    },
+    {
+      "id": "0e9a3b35d8",
+      "repo": "fastify/fastify",
+      "base": "b93d611c7cefc2cd4a0b6f05cc864f2b6c397a6d",
+      "fix": "0e9a3b35d8b13c9f261bf29bef46168a5d43c28f",
+      "date": "2026-07-30",
+      "title": "`addHttpMethod` override existing http standard methods",
+      "text": "### Prerequisites\n\n\n\n\n### Issue\n\nWhile reading ticket #6283 and checking the source code, I realized that `addHttpMethod` override existing methods, including standard http methods.\n\nSurprisingly, the name of the function does not reflect its implementation, nor does [the documentation](https://fastify.dev/docs/latest/Reference/Server/#addhttpmethod).\n\nI wonder if we should do something about this. \n\nHere are a few options:\n1. At a minimum, document this behavior.\n2. Disable the override behavior in the next major and add an alternative method (e.g., `setHttpMethod` or `overrideHttpMethod`) or option (e.g. `override: true`).\n3. Perhaps a combination of both.",
+      "source": "issue",
+      "gold": [
+        "fastify.js",
+        "lib/warnings.js",
+        "types/instance.d.ts"
+      ],
+      "tests": [
+        "test/http-methods/custom-http-methods.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "fastify.js": 7,
+        "lib/warnings.js": 5,
+        "types/instance.d.ts": 0
+      }
+    },
+    {
+      "id": "01ca8393b9",
+      "repo": "fastify/fastify",
+      "base": "b6cdc6a40598d15f38fe7d399eb17f4b84b7bf06",
+      "fix": "01ca8393b9d10a897f0d2daedbe2f9eb90076ef5",
+      "date": "2026-07-30",
+      "title": "fix: uncatchable throws in writeHead when using async hook",
+      "text": "Catch the errors throw by `writeHead` when using async `onSend` and `preSerialization` hooks.\r\n\r\nCredit @matiasinsaurralde - Thanks for the finding.",
+      "source": "pr",
+      "gold": [
+        "lib/hooks.js"
+      ],
+      "tests": [
+        "test/reply-error.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/hooks.js": 7
+      }
+    },
+    {
+      "id": "c647de44cc",
+      "repo": "fastify/fastify",
+      "base": "27f4d6222dd945238e96c1fdaa632d5dc3c37b2c",
+      "fix": "c647de44cceaf8ec6ce81796374ff6ffd944d873",
+      "date": "2026-06-09",
+      "title": "fix: replace `AssertionError` with `FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED` in `checkDependencies`",
+      "text": "## Summary\r\n\r\n`checkDependencies` throws a generic `AssertionError` when a plugin dependency\r\nis not registered, making it impossible to identify the error via `error.code`.\r\nThis was missed during the #2842 improvement pass — `checkDecorators` was\r\nalready migrated to `FST_ERR_PLUGIN_NOT_PRESENT_IN_INSTANCE` but\r\n`checkDependencies` was left with a bare `assert()`.\r\n\r\n## Root cause\r\n\r\n```js\r\ndependencies.forEach(dependency => {\r\n  assert(                              // throws AssertionError ❌\r\n    this[kRegisteredPlugins].indexOf(dependency) > -1,\r\n    `The dependency '${dependency}' of plugin '${meta.name}' is not registered`\r\n  )\r\n})\r\n```\r\n\r\n## Fix\r\n\r\nAdd `FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED` and replace `assert()` with\r\na proper `throw`, matching the existing pattern in `checkDecorators`.\r\n\r\n## Test\r\n\r\n- `test/internals/errors.test.js`: unit test for the new error constructor,\r\n  including interpolated arguments\r\n- `test/internals/plugin.test.js`: updated the existing errored case to also\r\n  assert `error.code === 'FST_ERR_PLUGIN_DEPENDENCY_NOT_REGISTERED'` and\r\n  `error.name === 'FastifyError'`\r\n- `test/types/errors.test-d.ts`: type-level assertion via `expectAssignable<FastifyErrorConstructor>`",
+      "source": "pr",
+      "gold": [
+        "lib/errors.js",
+        "lib/plugin-utils.js",
+        "types/errors.d.ts"
+      ],
+      "tests": [
+        "test/internals/errors.test.js",
+        "test/internals/plugin.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/errors.js": 17,
+        "lib/plugin-utils.js": 2,
+        "types/errors.d.ts": 0
+      }
+    },
+    {
+      "id": "47670c1fce",
+      "repo": "fastify/fastify",
+      "base": "3e04cff927534744290f26cf15220f6824e9dc66",
+      "fix": "47670c1fced0dbdd630ef7719823cce74241cc63",
+      "date": "2026-05-30",
+      "title": "fix: include hint and docs URL in FSTWRN004 warning message",
+      "text": "## Summary\r\n\r\nThe `FSTWRN004` warning was created in `lib/warnings.js` with a static\r\nmessage that contained no `%s` format placeholder. As a result, the\r\nhint string passed at the call site in `fastify.js` was silently dropped\r\nby `process-warning`, and users who triggered the warning never saw the\r\nactionable information about `allowErrorHandlerOverride`.\r\n\r\n## Root Cause\r\n\r\n`process-warning`'s `createWarning` only interpolates arguments when the\r\nmessage contains `%s` placeholders. With no placeholder present, any\r\nargument passed to the emitter function is a no-op.\r\n\r\n## Changes\r\n\r\n- **`lib/warnings.js`**: Embed the hint and docs URL directly into the\r\n  static message of `FSTWRN004`.\r\n- **`fastify.js`**: Remove the now-unused string argument from the\r\n  `FSTWRN004()` call.\r\n- **`test/set-error-handler.test.js`**: Add a test that asserts the\r\n  warning is emitted with `name`, `code`, and the docs URL in the\r\n  message when `setErrorHandler` is called more than once in the same\r\n  scope.",
+      "source": "pr",
+      "gold": [
+        "fastify.js",
+        "lib/warnings.js"
+      ],
+      "tests": [],
+      "names_gold": true,
+      "fan_in": {
+        "fastify.js": 6,
+        "lib/warnings.js": 5
+      }
+    },
+    {
+      "id": "6d202c6203",
+      "repo": "fastify/fastify",
+      "base": "10c69d153c6ee4a61878eabfb2a8f3ec34ab9c8c",
+      "fix": "6d202c6203f33ceb709dbcf6311b2d7152a8a057",
+      "date": "2026-05-07",
+      "title": "fix: enable diagnostics tracking for async error handlers",
+      "text": "When an async error handler returns a promise, `wrapThenable` was called\r\nwithout the `store` parameter, causing diagnostics channels to miss async\r\noperations in error handlers.\r\n\r\nThis fix creates a diagnostics store when channels have subscribers and\r\npasses it to `wrapThenable`, ensuring consistent diagnostics tracking\r\nacross both regular handlers and error handlers.",
+      "source": "pr",
+      "gold": [
+        "lib/error-handler.js",
+        "lib/handle-request.js",
+        "lib/symbols.js"
+      ],
+      "tests": [
+        "test/diagnostics-channel/async-error-handler.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/error-handler.js": 4,
+        "lib/handle-request.js": 2,
+        "lib/symbols.js": 19
+      }
+    },
+    {
+      "id": "2ae3e1d734",
+      "repo": "fastify/fastify",
+      "base": "d76dbcd58bf6d82bba167cdc74a79d2f74dbcb97",
+      "fix": "2ae3e1d73491c023080efed566204c470cb49fd0",
+      "date": "2026-04-21",
+      "title": "Server crashes when using an invalid `logLevel` in route options",
+      "text": "### Prerequisites\n\n\n\n\n### Fastify version\n\n5.3.3\n\n### Plugin version\n\n_No response_\n\n### Node.js version\n\n22.14.0\n\n### Operating system\n\nmacOS\n\n### Operating system version (i.e. 20.04, 11.3, 10)\n\n-\n\n### Description\n\nWhen defining a route in Fastify with an invalid `logLevel`, the server crashes at runtime without a clear or handled error.\n\nSteps to Reproduce\n```js\nconst fastify = require(\"fastify\")({ logger: true });\n\nfastify.get(\"/\", { logLevel: \"invalid\" }, async () => \"hello world\");\n\nfastify.listen({ port: 3000 }, (err) => {\n  if (err) {\n    fastify.log.error(err);\n    process.exit(1);\n  }\n});\n```\n\nThen, a call to `/` causes the server to crash.\n\n### Link to code that reproduces the bug\n\n-\n\n### Expected Behavior\n\nthe error should not crash the server ungracefully or throw a descriptive error at startup or during route registration",
+      "source": "issue",
+      "gold": [
+        "lib/errors.js",
+        "lib/route.js",
+        "types/errors.d.ts"
+      ],
+      "tests": [
+        "test/internals/errors.test.js",
+        "test/logger/options.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/errors.js": 17,
+        "lib/route.js": 1,
+        "types/errors.d.ts": 0
+      }
+    },
+    {
+      "id": "c2ba18c177",
+      "repo": "fastify/fastify",
+      "base": "d33f017ffef3a9beec687b4d4b1777e2e1180afa",
+      "fix": "c2ba18c17769dacce61472ec0397560b3b4eebde",
+      "date": "2026-04-19",
+      "title": "fix: avoid duplicate closeIdleConnections call on native servers",
+      "text": "## Summary\r\n\r\nAvoid an extra `closeIdleConnections()` call when Fastify is using a native Node.js server and `forceCloseConnections: 'idle'`.\r\n\r\nNative HTTP servers already close idle keep-alive sockets as part of `server.close()`, so the additional Fastify call is redundant there. The explicit call is still preserved for custom `serverFactory` servers to maintain the existing `forceCloseConnections: 'idle'` behavior.\r\n\r\n## Changes\r\n\r\n- Restrict the extra `closeIdleConnections()` call in the shutdown path to `serverFactory` servers only.\r\n- Update the pipelining test comment to reflect native Node.js server behavior more accurately.\r\n- Add coverage to verify:\r\n  - native servers do not get an extra `closeIdleConnections()` call\r\n  - custom servers created through `serverFactory` still receive the extra call",
+      "source": "pr",
+      "gold": [
+        "fastify.js"
+      ],
+      "tests": [
+        "test/close-pipelining.test.js",
+        "test/custom-http-server.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "fastify.js": 6
+      }
+    },
+    {
+      "id": "1e0be1294e",
+      "repo": "fastify/fastify",
+      "base": "8fad07272bf8042db8c0074c6fd40ed50fb6b0f7",
+      "fix": "1e0be1294e85734f1e6ac651f3ff664d389d7799",
+      "date": "2026-02-28",
+      "title": "fix: remove format placeholder from FST_ERR_CTP_INVALID_MEDIA_TYPE message",
+      "text": "## Summary\n\n- The error message template `'Unsupported Media Type: %s'` produced the literal string `%s` when instantiated without arguments (as in `lib/handle-request.js`).\n- Rather than reflecting the raw `content-type` header back to the client (which would expose unsanitized user input in error responses and logs), the template is changed to the static message `'Unsupported Media Type'`.\n- Both callsites (`lib/handle-request.js` and `lib/content-type-parser.js`) now instantiate the error with no arguments.\n\n## Breaking change\n\nThis is a **minor breaking change** for consumers that match on the exact `error.message` string (previously `'Unsupported Media Type: <content-type>'`, now `'Unsupported Media Type'`). The error code `FST_ERR_CTP_INVALID_MEDIA_TYPE` and HTTP status `415` are unchanged and should be used for programmatic error handling instead.\n\n## Test plan\n\n\n\n\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+      "source": "pr",
+      "gold": [
+        "lib/content-type-parser.js",
+        "lib/errors.js"
+      ],
+      "tests": [
+        "test/content-parser.test.js",
+        "test/internals/errors.test.js"
+      ],
+      "names_gold": true,
+      "fan_in": {
+        "lib/content-type-parser.js": 2,
+        "lib/errors.js": 17
+      }
+    },
+    {
+      "id": "1d5f8ae199",
+      "repo": "fastify/fastify",
+      "base": "c02c5f5696c8695184f355891106ec26139cb559",
+      "fix": "1d5f8ae199edddea68f6df4c5d68b62279e6c59d",
+      "date": "2026-01-03",
+      "title": "fix: ajv options type validation",
+      "text": "First of all: Happy holidays! :)\r\n\r\nThe reason for this PR stems from https://github.com/fastify/fastify/pull/6223\r\n\r\nBelow i enumerate the two issues i found, with a bullet list:\r\n\r\n- Currently, in a TS project if I try to use the `onCreate` ajv option I still get met with a typescript error (requiring a ts-expect-error), as such option is not defined in the exposed fastify type, although made available by `fastify/ajv-compiler`\r\n(My suggested fix is to mirror the entire ajv options field type definition from the `ajv-compiler` itself, as fastify already proxies the object to it in the js implementation, this way the type definitions remain transparent to the implementation and future updates)\r\n\r\n- Additionally I have added also a test to showcase an error in the current ajv plugin type definition where the override of the plugin types is too generous, and allows for plugins to be passed, that would break the [ajv plugin definition fluent standard](https://github.com/ajv-validator/ajv/blob/82735a15826a30cc51e97a1bbfb59b3d388e4b98/lib/core.ts#L24-L27), so if i provide my own validatorCompiler, leveraging this Ajv feature, i get no warning from TS to alert me that perhaps these plugins might break my implementation because they are not returning the Ajv instance. \r\n(Again proxying the type directly from the library solves this as it enforces the Ajv plugin definition)\r\n\r\nI have committed types tests showcasing the 2 different use cases above, that would fail with the current type definition and following them up with the related fix, together with the dependency update of `fastify/ajv-compiler` that is required to apply these improvements.\r\n\r\nLastly I have added a small enrichment in docs for the ajv options and a little fix in jsdocs for fastify which i found while browsing the js code.",
+      "source": "pr",
+      "gold": [
+        "fastify.d.ts",
+        "fastify.js"
+      ],
+      "tests": [],
+      "names_gold": false,
+      "fan_in": {
+        "fastify.d.ts": 0,
+        "fastify.js": 6
+      }
+    },
+    {
+      "id": "79ab8e9564",
+      "repo": "fastify/fastify",
+      "base": "970c575832521fff01cc018d928d84454811173b",
+      "fix": "79ab8e956482971a8cc0544ab9a846168b11998d",
+      "date": "2025-12-23",
+      "title": "fix: use JSON.stringify in onBadUrl for proper escaping",
+      "text": "## Summary\n- Use `JSON.stringify` to properly escape special characters in the bad URL path instead of template string interpolation\n- Use `Buffer.byteLength` for accurate Content-Length calculation with multi-byte characters\n- Add test case to verify JSON escaping works correctly\n\n## Test plan",
+      "source": "pr",
+      "gold": [
+        "fastify.js"
+      ],
+      "tests": [
+        "test/404s.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "fastify.js": 6
+      }
+    },
+    {
+      "id": "e1f58aba76",
+      "repo": "fastify/fastify",
+      "base": "387b168997acbffb82ea9b10377a43b21aceb259",
+      "fix": "e1f58aba76e0510cd69e4e69b507598253b70070",
+      "date": "2025-10-07",
+      "title": "fix: respect child logger factory in fastify options",
+      "text": "#### Summary\r\nSince https://github.com/fastify/fastify/commit/2695adacfc0963c82d2dd3f2d237f7d5ca7bfc14, fastify's initialisation options allow provision of a `childLoggerFactory` function as an alternative to the `.setChildLoggerFactory()` method for setting a child logger factory on an instance. However, this initialisation option is ignored, with the child logger factory always taking the value of the `defaultChildLoggerFactory`.\r\n\r\nThis change will allow provision of a child logger factory through fastify's initialiser.\r\nI have not introduced an additional test to cover this behaviour, but have instead corrected the implementation of an existing test that was intended to cover it.",
+      "source": "pr",
+      "gold": [
+        "fastify.js"
+      ],
+      "tests": [
+        "test/child-logger-factory.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "fastify.js": 6
+      }
+    },
+    {
+      "id": "36498f85a9",
+      "repo": "fastify/fastify",
+      "base": "4e5a3631ec731fa9b82689e140b399f21a8b96fd",
+      "fix": "36498f85a91cebc107282fe8128e08e48567bde0",
+      "date": "2025-09-22",
+      "title": "fix: close http2 sessions on close server",
+      "text": "Refs: https://github.com/fastify/fastify/issues/5716\r\n\r\n1) collecting http2 sessions into a Map\r\n2) close sessionts on fastify.close()",
+      "source": "pr",
+      "gold": [
+        "fastify.js",
+        "lib/server.js",
+        "lib/symbols.js"
+      ],
+      "tests": [
+        "test/http2/closing.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "fastify.js": 6,
+        "lib/server.js": 1,
+        "lib/symbols.js": 18
+      }
+    },
+    {
+      "id": "c277b9f0ec",
+      "repo": "fastify/fastify",
+      "base": "95292098426943822fcbc40beaacb314db4bbfbd",
+      "fix": "c277b9f0ec27356de6551d7777117bd739057e99",
+      "date": "2025-07-20",
+      "title": "fix: add FST_ERR_CTP_INVALID_JSON_BODY",
+      "text": "While working at fastify-compress I realized, that our default content type parser for json is not returning fastify errors.\r\n\r\nSee the code in https://github.com/fastify/fastify-compress/pull/342\r\n\r\nThis also avoids, that we get a potential reflection attack.",
+      "source": "pr",
+      "gold": [
+        "lib/contentTypeParser.js",
+        "lib/errors.js",
+        "types/errors.d.ts"
+      ],
+      "tests": [
+        "test/buffer.test.js",
+        "test/internals/errors.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/contentTypeParser.js": 2,
+        "lib/errors.js": 16,
+        "types/errors.d.ts": 0
+      }
+    },
+    {
+      "id": "3bcb8cfb2e",
+      "repo": "fastify/fastify",
+      "base": "c5f4a17b1342470e4de80414164723f812d095a1",
+      "fix": "3bcb8cfb2e5c635a5ce60fd00f1d78ef150b91a5",
+      "date": "2025-01-03",
+      "title": "Sending the same JavaScript Response twice can crash the server",
+      "text": "### Prerequisites\r\r\r\n\r\n\r\n### Fastify version\r\n\r\n5.2.0\r\n\r\n### Plugin version\r\n\r\n_No response_\r\n\r\n### Node.js version\r\n\r\n18.19.1\r\n\r\n### Operating system\r\n\r\nLinux\r\n\r\n### Operating system version (i.e. 20.04, 11.3, 10)\r\n\r\nUbuntu 24.04.1\r\n\r\n### Description\r\n\r\nWith https://github.com/fastify/fastify/pull/5286, request handlers in Fastify can return JavaScript [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response)s, whose response bodies are backed by [ReadableStream](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream)s. If the same response is sent multiple times instead of a fresh one for each request, it's possible for Fastify to crash when converting the `ReadableStream` underlying the response into a `Readable`. This is done here:\r\nhttps://github.com/fastify/fastify/blob/c5f4a17b1342470e4de80414164723f812d095a1/lib/reply.js#L673\r\n\r\nOne can reproduce this error by running the following server and issuing a GET request to `/`:\r\n```javascript\r\nconst fastify = require('fastify');\r\nconst app = fastify({\r\n\tlogger: true,\r\n});\r\n\r\nconst stream = new ReadableStream();\r\nconst response = new Response(stream);\r\n\r\nstream.getReader();\r\n\r\napp.get('/', (request, reply) => {\r\n\treply.send(response);\r\n});\r\n\r\napp.addHook('onSend', async () => {});\r\napp.listen({\r\n\tport: 8000,\r\n});\r\n```\r\n\r\n```\r\n{\"level\":30,\"time\":1735846078242,\"pid\":130836,\"hostname\":\"???\",\"msg\":\"Server listening at http://127.0.0.1:8000\"}\r\n{\"level\":30,\"time\":1735846082740,\"pid\":130836,\"hostname\":\"???\",\"reqId\":\"req-1\",\"req\":{\"method\":\"GET\",\"url\":\"/locked\",\"host\":\"localhost:8000\",\"remoteAddress\":\"127.0.0.1\",\"remotePort\":43396},\"msg\":\"incoming request\"}\r\nonSend has been triggered.\r\nnode:internal/errors:496\r\n    ErrorCaptureStackTrace(err);\r\n    ^\r\n\r\nTypeError [ERR_INVALID_STATE]: Invalid state: ReadableStream is locked\r\n    at new NodeError (node:internal/errors:405:5)\r\n    at setupReadableStreamDefaultReader (node:internal/webstreams/readablestream:2153:11)\r\n    at new ReadableStreamDefaultReader (node:internal/webstreams/readablestream:829:5)\r\n    at ReadableStream.getReader (node:internal/webstreams/readablestream:350:14)\r\n    at Object.newStreamReadableFromReadableStream (node:internal/webstreams/adapters:500:33)\r\n    at Readable.fromWeb (node:internal/streams/readable:1444:27)\r\n    at sendWebStream (/home/jpeterson/Downloads/fastify-test/node_modules/fastify/lib/reply.js:673:31)\r\n    at onSendEnd (/home/jpeterson/Downloads/fastify-test/node_modules/fastify/lib/reply.js:636:5)\r\n    at wrapOnSendEnd (/home/jpeterson/Downloads/fastify-test/node_modules/fastify/lib/reply.js:536:5)\r\n    at next (/home/jpeterson/Downloads/fastify-test/node_modules/fastify/lib/hooks.js:292:7) {\r\n  code: 'ERR_INVALID_STATE'\r\n}\r\n\r\nNode.js v18.19.1\r\n```\r\n\r\nI think a good fix would be to wrap the `Readable.fromWeb` call in a `try`/`catch` block, but there may be a better place higher up in the call stack to wrap to prevent other errors from crashing the server.\r\n\r\n### Link to code that reproduces the bug\r\n\r\n_No response_\r\n\r\n### Expected Behavior\r\n\r\n_No response_",
+      "source": "issue",
+      "gold": [
+        "lib/errors.js",
+        "lib/reply.js"
+      ],
+      "tests": [
+        "test/internals/errors.test.js",
+        "test/web-api.test.js"
+      ],
+      "names_gold": true,
+      "fan_in": {
+        "lib/errors.js": 16,
+        "lib/reply.js": 3
+      }
+    },
+    {
+      "id": "f26de5d222",
+      "repo": "fastify/fastify",
+      "base": "42cf27ca459319f5682a14167220709d870827ab",
+      "fix": "f26de5d22256b1980fac5abf30214967ec91527b",
+      "date": "2024-02-09",
+      "title": "fix: amend error codes for latest avvio v8.3.0",
+      "text": "@Uzlopak one of your changes in avvio caused a slight regression as it changed an error code we were using inside Fastify.",
+      "source": "pr",
+      "gold": [
+        "lib/errors.js"
+      ],
+      "tests": [
+        "test/hooks.on-ready.test.js",
+        "test/plugin.4.test.js",
+        "test/pretty-print.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/errors.js": 15
+      }
+    },
+    {
+      "id": "79042e60b9",
+      "repo": "fastify/fastify",
+      "base": "7dc69db818c59460f5578bd5d2fe01e5eba1f788",
+      "fix": "79042e60b9fc51f4969183f2d8b9ce977eb320d6",
+      "date": "2024-01-17",
+      "title": "fix: ensure `onListen` hooks are called when they should be",
+      "text": "This PR fixes an issue where the `onListen` application hooks don't run in some cases when they should:\r\n1. When there is an `onListen` hook registered in a child encapsulation context, but the parent context does not have one\r\n2. When there are multiple encapsulation contexts that are peers (i.e. at the same level / both children of the same parent), only the first will run\r\n\r\nSee example code:\r\n```js\r\nconst Fastify = require('./fastify.js')\r\n\r\nconst fastify = Fastify({ logger: true })\r\n\r\nfastify.addHook('onListen', (done) => {\r\n  console.log('i am called')\r\n  done()\r\n})\r\n\r\nfastify.register((instance, opts, done) => {\r\n  instance.addHook('onListen', (hookDone) => {\r\n    console.log('i am also called')\r\n    hookDone()\r\n  })\r\n\r\n  // create an encapsulation, and then create another immediately inside it\r\n  instance.register((instance2, opts, done2) => {\r\n    instance2.register((instance3, opts, done3) => {\r\n      instance3.addHook('onListen', (hookDone) => {\r\n        console.log('i am not called, because my parent does not have an onListen hook')\r\n        hookDone()\r\n      })\r\n      done3()\r\n    })\r\n    done2()\r\n  })\r\n  done()\r\n})\r\n\r\n// since there is another context at this level (i.e. peer context), the hook inside this context won't run.\r\nfastify.register((instance, opts, done) => {\r\n  instance.addHook('onListen', (hookDone) => {\r\n    console.log('i am not called because I am a peer context')\r\n    hookDone()\r\n  })\r\n  done()\r\n})\r\n\r\nfastify.listen({ port: 3000 })\r\n```\r\n\r\nWith the current version of fastify, this produces the following log output:\r\n```\r\n{\"level\":30,\"time\":1705470523577,\"pid\":99149,\"hostname\":\"AJs-MacBook-Pro.local\",\"msg\":\"Server listening at http://[::1]:3000\"}\r\n{\"level\":30,\"time\":1705470523578,\"pid\":99149,\"hostname\":\"AJs-MacBook-Pro.local\",\"msg\":\"Server listening at http://127.0.0.1:3000\"}\r\ni am called\r\ni am also called\r\n```\r\n\r\nI believe the appropriate output would be:\r\n```\r\n{\"level\":30,\"time\":1705470550633,\"pid\":99225,\"hostname\":\"AJs-MacBook-Pro.local\",\"msg\":\"Server listening at http://[::1]:3000\"}\r\n{\"level\":30,\"time\":1705470550634,\"pid\":99225,\"hostname\":\"AJs-MacBook-Pro.local\",\"msg\":\"Server listening at http://127.0.0.1:3000\"}\r\ni am called\r\ni am also called\r\ni am not called, because my parent does not have an onListen hook\r\ni am not called because I am a peer context\r\n```",
+      "source": "pr",
+      "gold": [
+        "lib/hooks.js"
+      ],
+      "tests": [
+        "test/hooks.on-listen.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/hooks.js": 7
+      }
+    },
+    {
+      "id": "9dc30b5040",
+      "repo": "fastify/fastify",
+      "base": "67ee5958e1d75caf338e3392640eb1af18c44f7a",
+      "fix": "9dc30b504002aba9db5e432c21807018f107bdc5",
+      "date": "2023-11-06",
+      "title": "throw an error for wrong plugin interfaces",
+      "text": "I think once a week I see this error (callback style mixed with async):\r\n\r\n```js\r\napp.register(async function plugin (app, opts, next) {\r\n  next()\r\n})\r\n```\r\n\r\nI propose to trigger an error when a plugin function has 3 parameters and is an async function.\r\n\r\nWDYT? Minor or v5?",
+      "source": "issue",
+      "gold": [
+        "lib/pluginUtils.js",
+        "lib/warnings.js"
+      ],
+      "tests": [
+        "test/hooks.test.js",
+        "test/plugin.4.test.js",
+        "test/register.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/pluginUtils.js": 2,
+        "lib/warnings.js": 7
+      }
+    },
+    {
+      "id": "6b9b093183",
+      "repo": "fastify/fastify",
+      "base": "cea0536c49af460f7e6da0f76fb892576f12f2bb",
+      "fix": "6b9b09318397b23c2feeb8c7d8699fb0c17eb48e",
+      "date": "2023-09-12",
+      "title": "request.routeOptions.config.url doesn't exist",
+      "text": "### Prerequisites\r\r\r\n\r\n\r\n### Fastify version\r\n\r\n4.23.0\r\n\r\n### Plugin version\r\n\r\nn/a\r\n\r\n### Node.js version\r\n\r\nn/a\r\n\r\n### Operating system\r\n\r\nLinux\r\n\r\n### Operating system version (i.e. 20.04, 11.3, 10)\r\n\r\nn/a\r\n\r\n### Description\r\n\r\nWhen using `request.routerPath`, Fastify emits a deprecation warning [1]:\r\n\r\n> You are accessing the deprecated \"request.routerPath\" property. Use \"request.routeOptions.config.url\" instead. Property \"req.routerPath\" will be removed in `fastify@5`.\r\n\r\nThe docs also were updated to point to this, but I believe the correct property should be `request.routeOptions.url`. Not only does it make more sense since URL isn't passed in as part of the config object to a route, but if no config is passed, `request.routeOptions.config.url` won't exist.\r\n\r\nCould someone please verify if this is correct or if I'm misunderstanding?\r\n\r\n[1] https://github.com/fastify/fastify/blob/main/lib/warnings.js#L34\r\n\r\n### Steps to Reproduce\r\n\r\n```mjs\r\n// Import the framework and instantiate it\r\nimport Fastify from 'fastify'\r\nconst fastify = Fastify({\r\n  logger: true\r\n})\r\n\r\n// Declare a route\r\nfastify.get('/', async function handler (request, reply) {\r\n  console.dir(request.routeOptions); // config doesn't exist but url does\r\n  return { hello: 'world' }\r\n})\r\n\r\n// Run the server!\r\ntry {\r\n  await fastify.listen({ port: 3000 })\r\n} catch (err) {\r\n  fastify.log.error(err)\r\n  process.exit(1)\r\n}\r\n```\r\n\r\n### Expected Behavior\r\n\r\nI believe the docs and deprecation warning need to be updated to point at `request.routeOptions.url`.",
+      "source": "issue",
+      "gold": [
+        "lib/warnings.js"
+      ],
+      "tests": [],
+      "names_gold": true,
+      "fan_in": {
+        "lib/warnings.js": 7
+      }
+    },
+    {
+      "id": "59050e5745",
+      "repo": "fastify/fastify",
+      "base": "7053ea7756bf05d9b7049342045a6e79d9c0351c",
+      "fix": "59050e57458274cdaa038cd50a387cf28e18dd8a",
+      "date": "2023-09-04",
+      "title": "Access handler name",
+      "text": "### Prerequisites\r\r\r\n\r\n\r\n### 🚀 Feature Proposal\r\n\r\nOpen Telemetry accesses the (now deprecated via #4216) `request.context` property so it can try to get the name of the handler function. See https://github.com/open-telemetry/opentelemetry-js-contrib/blob/4cafe6becc19cfb76c53393cb03a5c0574a68b0d/plugins/node/opentelemetry-instrumentation-fastify/src/instrumentation.ts#L264-L268\r\n\r\nWith `request.context` deprecated, we now get a big deprecation warning printed every the app gets its first request. Would it be possible to expose this information in a meaningful way?\r\n\r\nThere's an issue in their repo as well: https://github.com/open-telemetry/opentelemetry-js-contrib/issues/1275\r\n\r\n### Motivation\r\n\r\nIt's useful to get the name of a handler function as a span name in traces.\r\n\r\n### Example\r\n\r\nWould replace `request.context.handler.name`",
+      "source": "issue",
+      "gold": [
+        "lib/request.js",
+        "lib/warnings.js"
+      ],
+      "tests": [
+        "test/request.deprecated.test.js",
+        "test/router-options.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/request.js": 3,
+        "lib/warnings.js": 7
+      }
+    },
+    {
+      "id": "1c50da371c",
+      "repo": "fastify/fastify",
+      "base": "53164c16f640bfe936b61757bb15dbc29fee99c2",
+      "fix": "1c50da371c1ede2bd344cf5b52bbd9f3ebdd12a0",
+      "date": "2023-07-13",
+      "title": "Synchronous start Fastify server to listen receives aborted signal from `AbortController` before `listenCallback.call`.",
+      "text": "### Prerequisites\n\n\n\n\n### Fastify version\n\n4.18.0\n\n### Plugin version\n\n_No response_\n\n### Node.js version\n\nv16.16.0\n\n### Operating system\n\nmacOS\n\n### Operating system version (i.e. 20.04, 11.3, 10)\n\n10.11.6\n\n### Description\n\nThe example from https://www.fastify.io/ of Fastify server start (TypeScript Support ) has an issue with ignoring abort signal. \r\nProbably issue related to call [this.ready(listenCallback.call(this, server, listenOptions))](https://github.com/fastify/fastify/blob/61b86760019c85afbef6cc0f175c75870381ed04/lib/server.js#L100) of  `createServer(...)` sub-function `listen(listenOptions, ...args)` at`lib/server.js` because [server.listen(listenOptions, wrap)](https://github.com/fastify/fastify/blob/61b86760019c85afbef6cc0f175c75870381ed04/lib/server.js#L195) has been called with already true aborted signal. \r\n\r\n```js\r\nlistenOptions before call this.ready(listenCallback.call(this, server, listenOptions))\r\n{\r\n  port: 0,\r\n  signal: AbortSignal { aborted: false },\r\n  cb: [Function (anonymous)],\r\n  host: 'localhost'\r\n}\r\nlistenOptions before call server.listen(listenOptions, wrap)\r\n{\r\n  port: 0,\r\n  signal: AbortSignal { aborted: true },\r\n  cb: [Function (anonymous)],\r\n  host: 'localhost'\r\n}\r\nlistenOptions before call server.listen(listenOptions, wrap)\r\n{\r\n  port: 54991,\r\n  signal: AbortSignal { aborted: true },\r\n  cb: [Function: cb],\r\n  host: '::1'\r\n}\r\n\r\n```\r\n\n\n### Steps to Reproduce\n\n```typescript\r\nconst controller = new AbortController();\r\nserver.listen({port: 0, signal: controller.signal}, () => { console.log(server.server.address())});\r\ncontroller.abort();\r\n```\r\n\r\n\n\n### Expected Behavior\n\nExpected behaviour should be the same to call `listen(...)` of RawServer or at least documentation should be updated. \r\n```typescript\r\nconst controller = new AbortController();\r\nserver.server.listen({port: 0, signal: controller.signal}, () => { console.log(server.server.address())});\r\ncontroller.abort();\r\n```",
+      "source": "issue",
+      "gold": [
+        "lib/errors.js",
+        "lib/server.js"
+      ],
+      "tests": [
+        "test/internals/errors.test.js",
+        "test/server.test.js"
+      ],
+      "names_gold": true,
+      "fan_in": {
+        "lib/errors.js": 15,
+        "lib/server.js": 1
+      }
+    },
+    {
+      "id": "8f9f3677d7",
+      "repo": "fastify/fastify",
+      "base": "f449b8af736da8f39c295f5f3e2576dd1aaa624b",
+      "fix": "8f9f3677d7bd3682974a75b060e6d0aeca809091",
+      "date": "2023-07-10",
+      "title": "fix: rework FastifyErrors, ensure documentation completeness",
+      "text": "I saw first some issues on the Errors documentation on fastify.dev, like so:\r\n![image](https://github.com/fastify/fastify/assets/5059100/9429785e-722b-48fb-a21c-00863ce32815)\r\n\r\nSo I started fixing them manually. But then I realized, that I am a lazy guy. So I wrote unit tests, to ensure that the documentation is regarding Errors complete. \r\n\r\nThen I realized, that some of those Errors should be TypeErrors, so I also fixed that.",
+      "source": "pr",
+      "gold": [
+        "lib/errors.js"
+      ],
+      "tests": [
+        "test/internals/errors.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/errors.js": 15
+      }
+    },
+    {
+      "id": "d0a1e8c1c9",
+      "repo": "fastify/fastify",
+      "base": "30eba8b97be115843f00f63ea377d80ac8940c73",
+      "fix": "d0a1e8c1c9be33aa6cae9631163dd18e2bd3f784",
+      "date": "2023-04-07",
+      "title": "Error: Schema for validaton is undefined",
+      "text": "### Prerequisites\r\r\r\n\r\n\r\n### Fastify version\r\n\r\n4.15.0\r\n\r\n### Plugin version\r\n\r\n_No response_\r\n\r\n### Node.js version\r\n\r\nany\r\n\r\n### Operating system\r\n\r\nWindows\r\n\r\n### Operating system version (i.e. 20.04, 11.3, 10)\r\n\r\n10\r\n\r\n### Description\r\n\r\n4.15 release have a backward compatibility issue ([PR](https://github.com/fastify/fastify/pull/4620)): it throws an error if schema for validation is undefined. \r\n\r\nFor example, we get a schemas and pass them to fastify.\r\n\r\n```ts\r\nconst { headers, body } = getSchemas();\r\n\r\nfastify.post('/', {\r\n  schema: {\r\n    headers,\r\n    body\r\n  }\r\n}\r\n```\r\n\r\n### Steps to Reproduce\r\n\r\n```ts\r\nconst fastify = require(\"fastify\")({ logger: true });\r\n\r\nfastify.get(\r\n  \"/\",\r\n  {\r\n    schema: {\r\n      headers: undefined,\r\n    },\r\n  },\r\n  () => {\r\n    return \"hello\";\r\n  }\r\n);\r\n\r\nconst start = async () => {\r\n  try {\r\n    await fastify.listen({ port: 3000 });\r\n  } catch (err) {\r\n    fastify.log.error(err);\r\n    process.exit(1);\r\n  }\r\n};\r\n\r\nstart();\r\n```\r\n\r\nServer throws an error `Failed building the validation schema for GET: /, due to error headers schema is undefined\"` when started\r\n\r\n\r\n\r\n### Expected Behavior\r\n\r\nI think that `undefined` is acceptable value, which means that validation will be skipped.",
+      "source": "issue",
+      "gold": [
+        "lib/validation.js",
+        "lib/warnings.js"
+      ],
+      "tests": [
+        "test/schema-feature.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/validation.js": 2,
+        "lib/warnings.js": 6
+      }
+    },
+    {
+      "id": "9e92e4f383",
+      "repo": "fastify/fastify",
+      "base": "2ba790f86c89d0885e441d8a5838ff8abb00696f",
+      "fix": "9e92e4f3838794c1d4a6b51f46d835e74460bb85",
+      "date": "2023-03-12",
+      "title": "Logger validator throws",
+      "text": "This pull request addresses issue https://github.com/fastify/fastify/issues/4510",
+      "source": "pr",
+      "gold": [
+        "lib/errors.js",
+        "lib/logger.js",
+        "types/errors.d.ts"
+      ],
+      "tests": [
+        "test/logger.test.js"
+      ],
+      "names_gold": false,
+      "fan_in": {
+        "lib/errors.js": 15,
+        "lib/logger.js": 2,
+        "types/errors.d.ts": 0
+      }
+    }
+  ]
+}
