@@ -38,7 +38,7 @@ test('register writes pinned package entries once for each configured target', (
   const entry = { command: 'npx', args: ['-y', `complex-md-mcp@${pkg.version}`, 'mcp'] };
   assert.deepEqual(json(join(dir, '.mcp.json')).mcpServers['complex-md'], entry);
   assert.deepEqual(json(join(dir, '.cursor/mcp.json')).mcpServers['complex-md'], entry);
-  assert.match(readFileSync(join(dir, '.codex/config.toml'), 'utf8'), /complex-md-mcp@0\.10\.0/);
+  assert.ok(readFileSync(join(dir, '.codex/config.toml'), 'utf8').includes(`complex-md-mcp@${pkg.version}`));
   assert.deepEqual(register(dir).mcp, []);
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "complex-md-mcp",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Optional MCP server for the COMPLEX.md structural risk map.",
   "license": "MIT",
   "author": "James L. Cowan Jr.",
@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "complex-md": "0.10.0",
+    "complex-md": "0.11.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
