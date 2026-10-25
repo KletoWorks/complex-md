@@ -6,6 +6,10 @@ format.
 
 ## Unreleased
 
+**Intent:** an audit of 20 hosted maps checked 95 "Before editing this file" directives of template prose against the repositories and found 11 false. 4 named a test command for another language, 2 named a test that does not test the file, and 5 said no test covers a file that has a test.
+
+**Change:** template prose takes the test command per file from the nearest test setup of its language (`package.json` scripts for JavaScript and TypeScript, pytest configuration for Python, `go.mod`, `Cargo.toml`), names its folder when it is not the root, and names no command when none fits. A covering test must run a test case: `__init__.py` never counts, and a Python or Go file needs a test function. A name match needs the same package and language, and a stem that 2 files of 1 package share matches only the file beside the test. A test found only by its name is named as such ("which matches it by name"), and "no test file imports it or matches its name" replaces "no test covers it". On the 5 audited repositories at the audited commits, all 11 directives now name a true command or test. `cli/test/directive-truth.test.js` rebuilds each case.
+
 **Intent:** after a new `wire` and `unwire`, a repository first wired by 0.10.0 kept 2 leftovers: the `CLAUDE.md` that 0.10.0 created with only `@AGENTS.md` and `@COMPLEX.md`, and the brief folders that a minimal rewire empties ([issue #25](https://github.com/KletoWorks/complex-md/issues/25)).
 
 **Change:** wire records a `CLAUDE.md` whose text is exactly those 2 lines, with CRLF or without the last newline, in the manifest, and unwire deletes it. Any other byte makes it the user's: it stays, and wire says so. wire and unwire remove `.claude/rules/complex-md/`, `.cursor/rules/complex-md/` and `.github/instructions/complex-md/` once they are empty, and never a folder that holds another file. `cli/test/upgrade-0.10.test.js` models a 0.10.0 repository.

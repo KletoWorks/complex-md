@@ -100,6 +100,44 @@ export function isTestHelper(path, ctx = null) {
   return TEST_HELPER_RE.test(path) && !matchesTestPatterns(path, ctx);
 }
 
+/* The language family of a path, for the test case check and the name
+   match. A JavaScript test never tests a Python module of the same name. */
+const FAMILY_EXT = {
+  js: 'js', mjs: 'js', cjs: 'js', jsx: 'js', ts: 'js', mts: 'js', cts: 'js', tsx: 'js', vue: 'js', svelte: 'js', astro: 'js',
+  py: 'py', pyi: 'py', go: 'go', rs: 'rs', rb: 'rb', php: 'php',
+};
+export function languageFamily(path) {
+  return FAMILY_EXT[posix.extname(path).slice(1)] || null;
+}
+
+/* A covering test runs at least 1 test case. A test folder also holds
+   package initializers and modules of shared data, and before this check
+   voicebox's empty backend/tests/__init__.py was named as a test to run.
+   pytest, unittest and go test run only the cases they collect, so a
+   Python or Go file needs one. In other languages a file named as a test
+   (a.test.js, a_spec.rb) can be a plain script that a runner executes, so
+   only a file that is a test by its folder alone needs a case. The
+   patterns are wide on purpose: a family without a pattern, or a file too
+   large to read, counts as a test. */
+const NAMED_TEST_RE = /\.(tests?|specs?|tst|e2e)\.[a-z]+$|[_-](test|spec)\.[a-z]+$|(^|\/)test_[^/]+$/;
+const CASES_REQUIRED = new Set(['py', 'go']);
+const TEST_CASE_RE = {
+  js: /\b(?:describe|it|test|suite|bench|specify|context)(?:\.\w+)*\s*[(`]|\bDeno\.test\b|\b(?:expect|assert|expectType|expectTypeOf|expectError|assertType)\b/,
+  py: /^[ \t]*(?:async[ \t]+)?def[ \t]+test|^[ \t]*class[ \t]+Test/m,
+  go: /^func\s+(?:\([^)]*\)\s*)?(?:Test|Benchmark|Example|Fuzz)/m,
+  rs: /#\[\s*(?:\w+::)*test\b/,
+  rb: /\b(?:describe|context|it|test|specify|scenario)\b|\bdef\s+test_/,
+  php: /\bfunction\s+test|@test\b|#\[Test\]|\b(?:test|it|describe)\s*\(/,
+};
+export function hasTestCases(path, text) {
+  if (/(^|\/)__init__\.py$/.test(path)) return false;
+  const family = languageFamily(path);
+  const re = TEST_CASE_RE[family];
+  if (text === undefined || text === null || !re) return true;
+  if (!CASES_REQUIRED.has(family) && NAMED_TEST_RE.test(path)) return true;
+  return re.test(text);
+}
+
 /* pytest collects python_files only under testpaths when the config sets
    them. Without testpaths, a pattern that also matches __init__.py, such
    as *.py, would make every module a test, so it names nothing. */
@@ -797,13 +835,15 @@ export function buildGraph(root, tracked) {
 
   const fanIn = new Map();
   const tests = new Map();
+  // A covering test runs: it is no helper, and it defines a test case.
+  const runs = (t) => !isTestHelper(t, ctx) && hasTestCases(t, texts.get(t));
   for (const [from, set] of edges) {
     const k = kinds.get(from);
     for (const to of set) {
       // Only files that can be hotspots have a blast radius worth counting.
       if (!(kinds.get(to) in RANKED_KINDS)) continue;
       if (TEST_KINDS.has(k)) {
-        if (isTestHelper(from, ctx)) continue;
+        if (!runs(from)) continue;
         let t = tests.get(to);
         if (!t) tests.set(to, (t = new Set()));
         t.add(from);
@@ -814,35 +854,58 @@ export function buildGraph(root, tracked) {
       }
     }
   }
-  // Name-adjacent tests: a.test.js next to a.js, or test/a.test.js for src/a.js,
-  // exact stem only. Never a substring match; that is how the 0.2 tool told an
-  // agent app.js was covered by admin.test.mjs.
+  /* Name matched tests: a.test.js beside a.js, test/a.test.js or
+     test/specs/a.tests.js for src/a.js, test_a.py for a.py. Exact stem
+     only, never a substring: that is how the 0.2 tool told an agent app.js
+     was covered by admin.test.mjs. The test and the file share a package
+     (the folder of the nearest manifest) and a language family. Before the
+     package rule, the same top folder was enough, and in vite's packages/
+     the plugin-legacy spec index.spec.ts was named for the dev server's
+     index.ts. A stem that 2 ranked files of 1 package share names neither
+     of them by itself, so it matches only the file beside the test or
+     beside its test folder. byName records the tests that only the name
+     found, so the prose can say how each test was found. */
+  const manifestDirs = new Set();
+  for (const f of files) if (MANIFEST_RE.test(f) && kinds.get(f) === 'manifest') manifestDirs.add(posix.dirname(f));
+  const packageOf = (p) => {
+    let d = posix.dirname(p);
+    while (d !== '.' && !manifestDirs.has(d)) d = posix.dirname(d);
+    return d;
+  };
   const byStem = new Map();
-  for (const [f, k] of kinds) if (k === 'test' && !isTestHelper(f, ctx)) {
-    const stem = posix.basename(f).replace(/\.(test|spec|tst|e2e)\.[a-z]+$|_test\.[a-z]+$|\.[a-z]+$/g, '').replace(/^test_/, '');
+  for (const [f, k] of kinds) if (k === 'test' && runs(f)) {
+    const stem = posix.basename(f).replace(/\.(tests?|specs?|tst|e2e)\.[a-z]+$|[_-](test|spec)\.[a-z]+$|\.[a-z]+$/, '').replace(/^test_/, '');
     if (!byStem.has(stem)) byStem.set(stem, []);
     byStem.get(stem).push(f);
   }
+  const fileStem = (f) => posix.basename(f).replace(/\.d\.ts$|\.[a-z]+$/, '');
+  const shared = new Map();
+  for (const [f, k] of kinds) if (k in RANKED_KINDS && byStem.has(fileStem(f))) {
+    const key = packageOf(f) + '\0' + fileStem(f);
+    shared.set(key, (shared.get(key) || 0) + 1);
+  }
+  const byName = new Map();
   for (const [f, k] of kinds) {
     if (!(k in RANKED_KINDS)) continue;
-    const stem = posix.basename(f).replace(/\.d\.ts$|\.[a-z]+$/g, '');
+    const stem = fileStem(f);
     const cands = byStem.get(stem);
     if (!cands) continue;
+    const family = languageFamily(f);
+    const pkg = packageOf(f);
+    const ambiguous = shared.get(pkg + '\0' + stem) > 1;
     for (const t of cands) {
-      // Same top-level area, or a sibling tests dir: keep it local.
-      if (topDir(t) === topDir(f) || posix.dirname(t).replace(/\/(tests?|__tests__|specs?)$/, '') === posix.dirname(f)) {
-        let s = tests.get(f);
-        if (!s) tests.set(f, (s = new Set()));
-        s.add(t);
-      }
+      if (!family || languageFamily(t) !== family || packageOf(t) !== pkg) continue;
+      const beside = (posix.dirname(t).replace(/(^|\/)(tests?|__tests__|specs?)$/, '') || '.') === posix.dirname(f);
+      if (ambiguous && !beside) continue;
+      let s = tests.get(f);
+      if (!s) tests.set(f, (s = new Set()));
+      if (s.has(t)) continue;
+      s.add(t);
+      if (!byName.has(f)) byName.set(f, new Set());
+      byName.get(f).add(t);
     }
   }
-  return { kinds, loc, edges, fanIn, tests, skippedLarge, grepBlind };
-}
-
-function topDir(p) {
-  const i = p.indexOf('/');
-  return i < 0 ? '' : p.slice(0, i);
+  return { kinds, loc, edges, fanIn, tests, byName, skippedLarge, grepBlind };
 }
 
 // Root-relative URLs in HTML ("/app.js") resolve against the nearest ancestor
