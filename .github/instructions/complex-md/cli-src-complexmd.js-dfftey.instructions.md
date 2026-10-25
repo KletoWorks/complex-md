@@ -1,0 +1,12 @@
+---
+applyTo: "cli/src/complexmd.js"
+---
+# cli/src/complexmd.js
+
+Listed in COMPLEX.md as a file where edits are risky.
+
+    churn 7  fixes 5  fan_in 7  tests 4  loc 238  score 2853
+
+cli/src/complexmd.js reads a COMPLEX.md back into its front matter and its prose, with no YAML library. It indexes the prose so that a tool can give an agent the paragraph and the directive for 1 file. 7 files depend on it, and a parse that returns null silences every hook and brief at once. 5 of its 7 commits were fixes: CRLF line ends, an inline list, route paths with brackets, and paragraphs given to the wrong file. 4 test files cover it, among them cli/test/complexmd.test.js and cli/test/basic.test.js. Before editing this file, open frontMatter in cli/src/generate.js, because parseFrontMatter reads exactly the shape it writes.
+
+**Before editing this file, open frontMatter in cli/src/generate.js, because parseFrontMatter reads exactly the shape it writes.**
