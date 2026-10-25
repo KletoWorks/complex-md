@@ -36,7 +36,13 @@ test('a run that hits the budget cap is recorded as capped and still judged', ()
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });
 
-test('a timed out run asks the agent to stop, keeps the cost it reports and the harness clock', () => {
+/* On Windows, Node has no SIGINT to send: child.kill('SIGINT') ends the
+   process at once, as SIGKILL does. An agent there cannot catch the stop
+   request to print its result, and cannot ignore it, so the next 2 tests
+   check behaviour that does not exist on Windows. */
+const NO_SIGINT = process.platform === 'win32' && 'Windows has no SIGINT for a child process';
+
+test('a timed out run asks the agent to stop, keeps the cost it reports and the harness clock', { skip: NO_SIGINT }, () => {
   const fx = buildBenchRepo();
   try {
     const { status, stderr, rows } = runHarness(fx, ['--agent', 'mock', '--arms', 'none', '--stop-at', 'none', '--timeout', '2', '--grace', '10'], { env: { CX_MOCK_END: 'hang' } });
@@ -49,7 +55,7 @@ test('a timed out run asks the agent to stop, keeps the cost it reports and the 
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });
 
-test('an agent that ignores the stop request is killed after the grace period and still recorded', () => {
+test('an agent that ignores the stop request is killed after the grace period and still recorded', { skip: NO_SIGINT }, () => {
   const fx = buildBenchRepo();
   try {
     const { status, stderr, rows } = runHarness(fx, ['--agent', 'mock', '--arms', 'none', '--stop-at', 'none', '--timeout', '1', '--grace', '1'], { env: { CX_MOCK_END: 'hang-hard' } });
