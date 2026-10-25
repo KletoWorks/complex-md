@@ -3,5 +3,7 @@ node_modules/
 analytics/
 .env
 .env.*
-.complex-md/
+.complex-md/*
+!.complex-md/manifest.json
+!.complex-md/bounds.json
 plugins/complex-md/evals/results/

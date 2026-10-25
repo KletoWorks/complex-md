@@ -37,6 +37,7 @@ These rules are for a coding agent that works on either part.
   answers to review comments to a person. Fill in each section of
   `.github/PULL_REQUEST_TEMPLATE.md`, including the AI assistance box.
 
+<!-- BEGIN complex-md (spec 0.3) -->
 ## COMPLEX.md: the structural risk map
 
 `COMPLEX.md` at the repository root is a computed map of where edits are
@@ -59,3 +60,4 @@ lists name specific files and areas. When your work touches one of them:
 
 After refactoring a listed hotspot, regenerate the map: `npx complex-md`, or
 run the complex-md skill.
+<!-- END complex-md (spec 0.3) -->

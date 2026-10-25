@@ -32,8 +32,11 @@ test('the header names the repository, the commit and the generation date', () =
   assert.match(header, /2026-10-20/);
 });
 
+// The wide and the phone layout each draw every tile; the tests read the wide one.
+const wideSvg = () => html.slice(html.indexOf('<svg class="tm-svg wide"'), html.indexOf('</svg>', html.indexOf('<svg class="tm-svg wide"')));
+
 test('the treemap draws one focusable tile per hotspot, sized by lines and colored by fixes', () => {
-  const tiles = html.match(/<a class="tile[^"]*"[^>]*>/g) || [];
+  const tiles = wideSvg().match(/<a class="tile[^"]*"[^>]*>/g) || [];
   assert.equal(tiles.length, map.hotspots.length);
   for (const t of tiles) assert.match(t, /href="#f-\d+"/);
   assert.match(html, /area: lines/i);
@@ -72,6 +75,39 @@ test('blind spots are listed, and files search tools skip are named one by one',
   // GNU grep prints a notice for a binary file, so the page never says grep prints nothing.
   assert.doesNotMatch(html, /prints nothing/);
   assert.match(html, /<a class="tile[^"]*\bblind\b[^"]*"[^>]*data-path="src\/net\/parser\.js"/);
+});
+
+/* A hosted page is served under a Content-Security-Policy with no
+   'unsafe-inline' for styles, and a browser drops every style attribute
+   under it. The treemap places its tiles with SVG geometry attributes, so
+   the same markup lays out in both places. */
+test('the treemap is SVG and the markup carries no style attribute', () => {
+  assert.ok(!/\sstyle=/.test(html), 'no style attribute anywhere');
+  for (const kind of ['wide', 'tall']) {
+    const at = html.indexOf(`<svg class="tm-svg ${kind}"`);
+    assert.ok(at > 0, `the ${kind} layout is drawn`);
+    const svg = html.slice(at, html.indexOf('</svg>', at));
+    assert.equal((svg.match(/<a class="tile/g) || []).length, map.hotspots.length, `${kind}: one tile per hotspot`);
+    for (const m of svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)) {
+      const [x, y, w, h] = m.slice(1).map(Number);
+      const [W, H] = kind === 'wide' ? [1000, 500] : [400, 500];
+      assert.ok(x >= 0 && y >= 0 && x + w <= W + 0.01 && y + h <= H + 0.01, `${kind} tile inside the view box`);
+    }
+  }
+});
+
+test('reportParts gives the sections a hosted page composes, and the CSS a site file can carry', async () => {
+  const { reportParts, REPORT_CSS, REPORT_JS } = await import('../src/render.js');
+  const parts = reportParts(map, { repo: 'acme/widgets' });
+  for (const k of ['facts', 'lede', 'hotspots', 'directives', 'coupling', 'blindSpots']) assert.equal(typeof parts[k], 'string', k);
+  assert.match(parts.directives, /Before editing this file, run <code>npm test -- engine<\/code>/);
+  assert.match(parts.hotspots, /<svg class="tm-svg wide"/);
+  // Scoped: every rule sits under .cxr, so the site's own styles stay as they are.
+  for (const rule of REPORT_CSS.replace(/@media[^{]*\{/g, '').split('}').map((r) => r.trim()).filter((r) => r && r.includes('{'))) {
+    assert.match(rule, /^\.cxr\b/, rule.slice(0, 60));
+  }
+  assert.ok(!REPORT_CSS.includes('url('), 'the CSS fetches nothing');
+  assert.ok(REPORT_JS.includes("querySelectorAll('.tile')"));
 });
 
 // The renderer reads the file names out of the NUL byte blind spot sentence.
@@ -120,7 +156,8 @@ test('the page loads nothing from the network', () => {
   assert.match(html, /<meta http-equiv="Content-Security-Policy" content="default-src 'none';/);
   assert.ok(!/<link\b/i.test(html), 'no stylesheet or icon links');
   assert.ok(!/\bsrc=/i.test(html), 'no src attribute anywhere');
-  assert.ok(!/@import|url\(/i.test(html), 'no CSS fetches');
+  // url(#id) names a pattern in the same document and fetches nothing.
+  assert.ok(!/@import|url\((?!#)/i.test(html), 'no CSS fetches');
   // The only http(s) text is the one outbound anchor to the project.
   const urls = [...html.matchAll(/https?:\/\/[^\s"'<)]+/g)].map((m) => m[0]);
   assert.deepEqual([...new Set(urls)], ['https://complex.md']);
