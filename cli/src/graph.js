@@ -281,6 +281,9 @@ const CADDY_IMPORT_RE = /^\s*import\s+([^\s]+)/gm;
 // go.mod; standard library and third-party paths do not resolve.
 const GO_IMPORT_BLOCK_RE = /^import\s*\(([\s\S]*?)\)|^import\s+(?:\w+\s+)?"([^"]+)"/gm;
 const GO_IMPORT_LINE_RE = /(?:^|\n)\s*(?:\w+\s+)?"([^"]+)"/g;
+const RS_MOD_RE = /^\s*(?:#\[path\s*=\s*(__RUST_STRING_\d+__)\]\s*)?(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_]\w*)\s*;/gm;
+const RS_USE_RE = /^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([\s\S]*?);/gm;
+const RS_TOKEN_RE = /(?:br|r)(#{0,})"[\s\S]*?"\1|b?"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\\n])*'|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
 // Anything that looks like a repo path with an extension, for scripts, cron,
 // compose files and configs that name files without an import keyword.
 const PATH_LITERAL_RE = /(?<![\w@])((?:\.\.?\/|\/)?(?:[\w@][\w@.-]*\/)+[\w@][\w@.-]*\.[A-Za-z0-9]{1,8})(?![\w/])/g;
@@ -305,6 +308,112 @@ function pyModuleToPath(mod, fromDir, files, roots) {
     if (files.has(base + '/__init__.py')) return base + '/__init__.py';
   }
   return null;
+}
+
+function maskRustText(text) {
+  const strings = [];
+  const masked = text.replace(RS_TOKEN_RE, (token) => {
+    if (/^(?:br|r)#{0,}"|^b?"|^'/.test(token)) {
+      return `__RUST_STRING_${strings.push(token) - 1}__`;
+    }
+    return token.replace(/[^\n]/g, ' ');
+  });
+  return {
+    text: masked,
+    string(index) {
+      const token = strings[Number(index)];
+      if (!token) return null;
+      const raw = /^(?:br|r)(#{0,})"/.exec(token);
+      if (raw) return token.slice(raw[0].length, -(raw[1].length + 1));
+      const body = token.replace(/^(?:b)?"/, '').replace(/"$/, '');
+      return body.replace(/\\(["'\\])/g, '$1');
+    },
+  };
+}
+
+function rustModuleBase(file) {
+  const dir = posix.dirname(file);
+  const name = posix.basename(file);
+  return /^(?:lib|main|mod)\.rs$/.test(name) ? dir : posix.join(dir, name.slice(0, -3));
+}
+
+function rustModulePath(parts, base, files) {
+  for (let n = parts.length; n > 0; n--) {
+    const path = posix.join(base, ...parts.slice(0, n));
+    if (files.has(path + '.rs')) return path + '.rs';
+    if (files.has(path + '/mod.rs')) return path + '/mod.rs';
+  }
+  return null;
+}
+
+function rustCrates(root, files, texts) {
+  const crates = [];
+  for (const manifest of files) {
+    if (posix.basename(manifest) !== 'Cargo.toml') continue;
+    const text = texts.get(manifest) || '';
+    let section = '';
+    let name = null;
+    for (const line of text.split(/\r?\n/)) {
+      const heading = /^\s*\[([^\]]+)\]\s*$/.exec(line);
+      if (heading) { section = heading[1]; continue; }
+      if (section === 'package') {
+        const value = /^\s*name\s*=\s*"([^"]+)"/.exec(line);
+        if (value) { name = value[1]; break; }
+      }
+    }
+    if (!name) continue;
+    const dir = posix.dirname(manifest) === '.' ? '' : posix.dirname(manifest);
+    const lib = posix.join(dir, 'src/lib.rs');
+    const main = posix.join(dir, 'src/main.rs');
+    const roots = [lib, main].filter((f) => files.has(f));
+    crates.push({ dir, name: name.replace(/-/g, '_'), roots, rootFile: roots[0] || null });
+  }
+  const byName = new Map(crates.map((crate) => [crate.name, crate]));
+  const forFile = (file) => {
+    let best = null;
+    for (const crate of crates) {
+      if (file !== crate.dir && !file.startsWith(crate.dir ? crate.dir + '/' : '')) continue;
+      if (!best || crate.dir.length > best.dir.length) best = crate;
+    }
+    return best;
+  };
+  return { byName, forFile };
+}
+
+function expandRustUse(spec) {
+  const group = /^(.*)::\{([^{}]*)\}(.*)$/.exec(spec);
+  if (!group) return [spec];
+  const prefix = group[1] ? group[1] + '::' : '';
+  return group[2].split(',').map((part) => part.trim()).filter(Boolean)
+    .flatMap((part) => expandRustUse(prefix + (part === 'self' ? '' : part) + group[3]));
+}
+
+function rustUsePath(spec, file, crate, crates, files) {
+  const path = spec.trim().replace(/\s+as\s+[\w_]+$/, '').replace(/\s+/g, '');
+  const parts = path.split('::').filter(Boolean);
+  if (!parts.length) return null;
+  let base;
+  let moduleParts;
+  if (parts[0] === 'crate') {
+    const root = crate?.roots.includes(file) ? file : crate?.rootFile;
+    if (!root) return null;
+    base = posix.dirname(root);
+    moduleParts = parts.slice(1);
+  } else if (parts[0] === 'self') {
+    base = rustModuleBase(file);
+    moduleParts = parts.slice(1);
+  } else if (parts[0] === 'super') {
+    base = rustModuleBase(file);
+    let i = 0;
+    while (parts[i] === 'super') { base = posix.dirname(base); i++; }
+    moduleParts = parts.slice(i);
+  } else {
+    const target = crates.byName.get(parts[0]);
+    if (!target || target === crate || !target.rootFile) return null;
+    base = posix.dirname(target.rootFile);
+    moduleParts = parts.slice(1);
+  }
+  return rustModulePath(moduleParts, base, files);
 }
 
 function globToRe(g) {
@@ -379,6 +488,7 @@ export function buildGraph(root, tracked) {
   const workspaces = loadWorkspaces(root, trackedList);
   const importMaps = loadImportMaps(root, trackedList);
   const pyRoots = pythonRoots(files);
+  const rustCratesByFile = rustCrates(root, files, texts);
   const goModule = files.has('go.mod') ? (/^module\s+(\S+)/m.exec(texts.get('go.mod') || '') || [])[1] : null;
   const goPkgFiles = new Map();
   if (goModule) for (const f of files) if (/\.go$/.test(f) && !/_test\.go$/.test(f)) {
@@ -433,6 +543,7 @@ export function buildGraph(root, tracked) {
       : /\.(sh|bash|zsh)$/.test(f) || /^#!.*\b(ba|z)?sh\b/.test(heads.get(f) || '') ? 'sh'
       : /(^|\/)Caddyfile$|\.caddy$/.test(f) ? 'caddy'
       : /\.go$/.test(f) && goModule ? 'go'
+      : /\.rs$/.test(f) ? 'rs'
       : null;
     let m;
     if (family === 'js') {
@@ -481,6 +592,22 @@ export function buildGraph(root, tracked) {
           const dir = spec === goModule ? '.' : spec.slice(goModule.length + 1);
           for (const g of goPkgFiles.get(dir) || []) add(f, g);
         }
+      }
+    } else if (family === 'rs') {
+      const rust = maskRustText(text);
+      const crate = rustCratesByFile.forFile(f);
+      RS_MOD_RE.lastIndex = 0;
+      while ((m = RS_MOD_RE.exec(rust.text))) {
+        const path = m[1]
+          ? posix.normalize(posix.join(fromDir, rust.string(m[1].match(/\d+/)[0]) || ''))
+          : posix.join(rustModuleBase(f), m[2]);
+        add(f, m[1]
+          ? files.has(path) && !path.startsWith('../') ? path : null
+          : files.has(path + '.rs') ? path + '.rs' : files.has(path + '/mod.rs') ? path + '/mod.rs' : null);
+      }
+      RS_USE_RE.lastIndex = 0;
+      while ((m = RS_USE_RE.exec(rust.text))) {
+        for (const spec of expandRustUse(m[1])) add(f, rustUsePath(spec, f, crate, rustCratesByFile, files));
       }
     } else if (family === 'caddy') {
       CADDY_IMPORT_RE.lastIndex = 0;
