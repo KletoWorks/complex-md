@@ -12,7 +12,7 @@ import { wire } from './wire.js';
 import { TARGETS } from './targets.js';
 
 /* Never mirrored: git itself, dependencies, nested worktrees, the CLI's own
-   working directory, the map (the plan supplies it), and dot directories
+   working directory except its manifest, the map (the plan supplies it), and dot directories
    that hold caches or environments, never agent configuration. A file over
    1 MB is no agent configuration either. The deepest path wire writes is
    three folders down (.github/instructions/complex-md/), so the mirror stops
@@ -27,6 +27,17 @@ const MAX_DEPTH = 3;
 
 function mirror(src, dest, depth = 0) {
   for (const name of readdirSync(src)) {
+    /* wire reads the manifest of the run before, so the dry run needs it. */
+    if (depth === 0 && name === '.complex-md') {
+      const m = join(src, name, 'manifest.json');
+      try {
+        if (statSync(m).isFile()) {
+          mkdirSync(join(dest, name), { recursive: true });
+          copyFileSync(m, join(dest, name, 'manifest.json'));
+        }
+      } catch {}
+      continue;
+    }
     if (SKIP.has(name)) continue;
     const from = join(src, name);
     let st;

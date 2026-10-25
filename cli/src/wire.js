@@ -8,6 +8,9 @@ import { join, dirname, relative, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { integrationBlock, BLOCK_HEADING } from './prompts.js';
 import { SPEC_VERSION } from './signals.js';
+import { readManifest, writeManifest, MANIFEST_PATH } from './manifest.js';
+import { createOwner, ensureDir } from './own.js';
+import { git } from './git.js';
 import { findRegion, outsideRegion, upsertRegion, removeRegion, renderRegion, eolOf, normalizedHash } from './markers.js';
 import { loadComplexMd } from './complexmd.js';
 import { pathBriefs } from './brief.js';
@@ -109,11 +112,20 @@ export function markBlock(root, rel, content, { place = 'end', style = 'html', l
     next = r.text;
     if (!r.replaced) sep = { before: r.before, after: r.after };
   }
-  if (ledger) ledger.blocks.push({ path: rel, sha256: normalizedHash(findRegion(next).text), ...sep, ...(created || prev?.created ? { created: true } : {}) });
+  if (ledger) ledger.blocks.push({ path: rel, sha256: normalizedHash(findRegion(next).text), ...sep, ...(created || prev?.created ? { created: true } : {}), ...(ledger.target ? { target: ledger.target } : {}) });
   if (next === cur) return 'unchanged';
-  mkdirSync(dirname(p), { recursive: true });
+  if (!exists) ensureDir(root, dirname(rel), ledger);
   writeFileSync(p, next);
   return 'written';
+}
+
+/* The manifest tells a teammate's unwire what this wire wrote, so it
+   belongs in the commit. A .gitignore that hides it gets one line of
+   advice; wire does not edit .gitignore. */
+function manifestCommittable(root, log) {
+  if (!existsSync(join(root, MANIFEST_PATH))) return;
+  if (!git(['check-ignore', MANIFEST_PATH], { cwd: root, allowFail: true }).trim()) return;
+  log(`${MANIFEST_PATH} is ignored by git. To commit it, ignore .complex-md/* rather than .complex-md/, and add the line !${MANIFEST_PATH} to .gitignore.`);
 }
 
 /** `agents`: explicit target names (see targets.js); null detects repo-local targets from existing config. */
@@ -162,7 +174,12 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
   // GEMINI.md that imports it (the shape this function creates) loads the
   // block through that import; a second copy would load it twice. Each
   // file gets one marked region; text outside it is never changed.
-  const ledger = { blocks: [], files: [], entries: [], previous: null };
+  const ledger = { blocks: [], files: [], entries: [], dirs: [], previous: readManifest(root) };
+  if (ledger.previous?.invalid) {
+    log(`${MANIFEST_PATH} is not readable JSON; wire writes a new one and removes no file it cannot prove it wrote.`);
+    ledger.previous = null;
+  }
+  const own = createOwner({ root, ledger, report, log });
   const mark = (rel, content, opts = {}) => markBlock(root, rel, content, { ledger, log, ...opts });
   let any = false;
   const agentsCarries = existsSync(join(root, 'AGENTS.md'));
@@ -218,7 +235,8 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
   for (const name of active) {
     const t = TARGETS[name];
     const tinv = t.global ? { shell: inv.absShell, command: inv.absCommand, args: inv.absArgs } : inv;
-    const ctx = { root, inv: tinv, block, paths, briefs, report, log, carried, ledger, mark };
+    const ctx = { root, inv: tinv, block, paths, briefs, report, log, carried, ledger, mark, own };
+    ledger.target = name;
     if (rules && t.rules) t.rules(ctx);
     if (hooks && t.hooks) t.hooks({ ...ctx, local: hooks === 'local' });
     else if (!hooks && t.hookFile && holdsOurHooks(root, t.hookFile)) {
@@ -226,6 +244,11 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
     }
     if (mcp && t.mcp) t.mcp(ctx);
   }
+
+  ledger.target = null;
+  own.finish(new Set(active));
+  writeManifest(root, ledger);
+  manifestCommittable(root, log);
 
   for (const [k, v] of Object.entries(report)) if (v.length) log(`${k}: ${v.join(', ')}`);
   return report;

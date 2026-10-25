@@ -106,7 +106,7 @@ test('wiring clears briefs for paths the map no longer lists', async () => {
      dropped. Advice nothing recomputes is worse than no advice. */
   const rulesDir = join(dir, '.claude/rules/complex-md');
   mkdirSync(rulesDir, { recursive: true });
-  writeFileSync(join(rulesDir, 'stale-file-abcdef.md'), '# src/gone.js\n');
+  writeFileSync(join(rulesDir, 'stale-file-abcdef.md'), '---\nalwaysApply: false\npaths: src/gone.js\n---\n# src/gone.js\n\nListed in COMPLEX.md as a file where edits are risky.\n');
 
   wire(dir, { agents: ['claude'] });
   const files = existsSync(rulesDir) ? readdirSync(rulesDir) : [];
@@ -166,7 +166,7 @@ test('openhands briefs are path triggered rules, and a rewire leaves the user\'s
   w(join(dir, 'src/core.js'), 'export const a = 1;\n');
   md(join(dir, '.agents/skills'), { recursive: true });
   w(join(dir, '.agents/skills/deploy.md'), '---\nname: deploy\npaths:\n  - "infra/**"\n---\nthe user\'s own rule\n');
-  w(join(dir, '.agents/skills/complex-md-stale-x.md'), '---\nname: complex-md-stale-x\n---\nours, stale\n');
+  w(join(dir, '.agents/skills/complex-md-stale-x.md'), '---\nname: complex-md-stale-x\n---\n# src/gone.js\n\nListed in COMPLEX.md as a file where edits are risky.\n');
   w(join(dir, 'COMPLEX.md'), rf(join(import.meta.dirname, 'fixtures', 'brief-map.md'), 'utf8'));
   wire(dir, { agents: ['openhands'] });
   const files = rd(join(dir, '.agents/skills'));

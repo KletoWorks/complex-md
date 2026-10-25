@@ -189,7 +189,7 @@ test('review: a line inside an open code fence or comment would not include, so 
 test('antigravity: flat .agents/rules briefs with a glob trigger; the user\'s rules stay', () => {
   const dir = repo({
     '.agents/rules/house.md': '---\ntrigger: always_on\n---\nmine\n',
-    '.agents/rules/complex-md-stale-x.md': '---\ntrigger: glob\n---\nours, stale\n',
+    '.agents/rules/complex-md-stale-x.md': '---\ntrigger: glob\n---\n# src/gone.js\n\nListed in COMPLEX.md as a file where edits are risky.\n',
   });
   const r = wire(dir, {});
   const got = briefsIn(dir, '.agents/rules');

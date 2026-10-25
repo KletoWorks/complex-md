@@ -25,21 +25,17 @@ import { outsideRegion } from './markers.js';
  * left behind for a file that is no longer listed is worse than no brief: it
  * is advice that nothing recomputes.
  */
-export function writeBriefs(root, spec, briefs, report) {
-  /* `spec.prefix` scopes the clear to this tool's own files. A directory
-     that is ours alone (.claude/rules/complex-md/) is cleared wholesale; a
-     directory shared with the user's own rules (.agents/skills/) is cleared
-     only of files carrying the prefix, so nothing of theirs is ever removed. */
-  const prefix = spec.prefix || '';
-  const dir = join(root, spec.dir);
-  if (existsSync(dir)) {
-    for (const f of readdirSync(dir)) {
-      if ((f.endsWith('.md') || f.endsWith('.mdc')) && f.startsWith(prefix)) rmSync(join(dir, f));
-    }
-  }
+export function writeBriefs(ctx, spec) {
+  const { briefs, report, own } = ctx;
+  const files = briefFiles(spec, briefs);
+  /* Only files complex-md wrote are cleared: the manifest's, or ones that
+     carry the notice or an earlier version's brief shape. A file of the
+     user's in the same folder, prefix or not, stays. */
+  own.clear(spec.dir, (name) => specOwns(spec, `${spec.dir}/${name}`) && !files.has(`${spec.dir}/${name}`));
   if (!briefs.length) return;
-  for (const [rel, content] of briefFiles(spec, briefs)) write(join(root, rel), content);
-  report.rules.push(`${spec.prefix ? `${spec.dir}/${spec.prefix}*` : `${spec.dir}/`} (${briefs.length} paths)`);
+  let n = 0;
+  for (const [rel, content] of files) if (own.write(rel, content)) n++;
+  if (n) report.rules.push(`${spec.prefix ? `${spec.dir}/${spec.prefix}*` : `${spec.dir}/`} (${briefs.length} paths)`);
 }
 
 /* The first line of every file complex-md writes whole. Every agent that
@@ -58,20 +54,16 @@ export function withNotice(content) {
  * The copy is then not written, and one an earlier version wrote is removed.
  * Without the block in AGENTS.md the copy is the agent's only source of it.
  */
-function blockRule(root, rel, content, carried, report) {
-  if (carried) return dropBlockCopy(root, rel, report);
-  write(join(root, rel), withNotice(content));
-  report.rules.push(rel);
+function blockRule(ctx, rel, content) {
+  if (ctx.carried) return dropBlockCopy(ctx, rel);
+  if (ctx.own.write(rel, withNotice(content))) ctx.report.rules.push(rel);
 }
 
-/* Removes a file at a path complex-md once wrote, but only when it still
-   holds our heading; a file of the user's at the same path stays. */
-export function dropBlockCopy(root, rel, report) {
-  const p = join(root, rel);
-  if (existsSync(p) && readFileSync(p, 'utf8').includes(BLOCK_HEADING)) {
-    rmSync(p);
-    report.removed.push(rel);
-  }
+/* Removes a file at a path complex-md once wrote, but only when it is ours:
+   it holds our heading, or the manifest lists it. A file of the user's at
+   the same path stays. */
+export function dropBlockCopy(ctx, rel) {
+  if (ctx.own.drop(rel)) ctx.report.removed.push(rel);
 }
 
 const isDir = (p) => existsSync(p) && statSync(p).isDirectory();
@@ -211,9 +203,8 @@ ${block.trim()}
 `);
 }
 
-function writeSkill({ root, block, report }) {
-  write(join(root, SKILL_PATH), portableSkill(block));
-  if (!report.rules.includes(SKILL_PATH)) report.rules.push(SKILL_PATH);
+function writeSkill({ block, report, own }) {
+  if (own.write(SKILL_PATH, portableSkill(block)) && !report.rules.includes(SKILL_PATH)) report.rules.push(SKILL_PATH);
 }
 
 function cliAvailable(bin) {
@@ -258,8 +249,8 @@ export function specOwns(spec, rel) {
   return rel.startsWith(head) && rel.endsWith(spec.ext) && !rel.slice(spec.dir.length + 1).includes('/');
 }
 
-function writeSpec(root, spec, briefs, report) {
-  writeBriefs(root, spec, briefs, report);
+function writeSpec(ctx, spec) {
+  writeBriefs(ctx, spec);
 }
 
 /**
@@ -274,11 +265,12 @@ function writeSpec(root, spec, briefs, report) {
 export const TARGETS = {
   claude: {
     detect: (root) => existsSync(join(root, '.claude')) || existsSync(join(root, 'CLAUDE.md')),
-    rules({ root, briefs, report }) {
+    rules(ctx) {
+      const { root, briefs, report } = ctx;
       // CLAUDE.md always carries the block once wire has run: appended,
       // imported from AGENTS.md, or written when CLAUDE.md is created.
-      dropBlockCopy(root, '.claude/rules/complex-md.md', report);
-      writeSpec(root, BRIEF_SPECS.claude, briefs, report);
+      dropBlockCopy(ctx, '.claude/rules/complex-md.md');
+      writeSpec(ctx, BRIEF_SPECS.claude);
     },
     hookFile: '.claude/settings.json',
     /* `local`: the per user .claude/settings.local.json, which Claude Code
@@ -309,9 +301,10 @@ export const TARGETS = {
 
   cursor: {
     detect: (root) => existsSync(join(root, '.cursor')),
-    rules({ root, block, paths, briefs, report, carried }) {
-      blockRule(root, '.cursor/rules/complex-md.mdc', `---\ndescription: COMPLEX.md structural risk map\nglobs: ${paths.map(literalGlob).join(', ')}\nalwaysApply: false\n---\n${block}`, carried, report);
-      writeSpec(root, BRIEF_SPECS.cursor, briefs, report);
+    rules(ctx) {
+      const { root, block, paths, briefs, report, carried } = ctx;
+      blockRule(ctx, '.cursor/rules/complex-md.mdc', `---\ndescription: COMPLEX.md structural risk map\nglobs: ${paths.map(literalGlob).join(', ')}\nalwaysApply: false\n---\n${block}`);
+      writeSpec(ctx, BRIEF_SPECS.cursor);
     },
     hookFile: '.cursor/hooks.json',
     hooks({ root, inv, report, local }) {
@@ -348,9 +341,10 @@ export const TARGETS = {
      directory too and only ours may be cleared. */
   openhands: {
     detect: (root) => existsSync(join(root, '.openhands')) || agentsInUse(root),
-    rules({ root, block, paths, briefs, report, carried }) {
-      blockRule(root, '.agents/skills/complex-md.md', `---\nname: complex-md\npaths:\n${paths.map((p) => `  - ${JSON.stringify(literalGlob(p))}`).join('\n')}\n---\n${block}`, carried, report);
-      writeSpec(root, BRIEF_SPECS.openhands, briefs, report);
+    rules(ctx) {
+      const { root, block, paths, briefs, report, carried } = ctx;
+      blockRule(ctx, '.agents/skills/complex-md.md', `---\nname: complex-md\npaths:\n${paths.map((p) => `  - ${JSON.stringify(literalGlob(p))}`).join('\n')}\n---\n${block}`);
+      writeSpec(ctx, BRIEF_SPECS.openhands);
     },
   },
 
@@ -363,8 +357,9 @@ export const TARGETS = {
      several agents. */
   antigravity: {
     detect: (root) => existsSync(join(root, '.agents/rules')),
-    rules({ root, briefs, report }) {
-      writeSpec(root, BRIEF_SPECS.antigravity, briefs, report);
+    rules(ctx) {
+      const { root, briefs, report } = ctx;
+      writeSpec(ctx, BRIEF_SPECS.antigravity);
     },
   },
 
@@ -393,8 +388,9 @@ export const TARGETS = {
      files, never from .github/, which nearly every repository has. */
   copilot: {
     detect: (root) => existsSync(join(root, '.github/copilot-instructions.md')) || existsSync(join(root, '.github/instructions')),
-    rules({ root, briefs, report }) {
-      writeSpec(root, BRIEF_SPECS.copilot, briefs, report);
+    rules(ctx) {
+      const { root, briefs, report } = ctx;
+      writeSpec(ctx, BRIEF_SPECS.copilot);
     },
   },
 
@@ -408,7 +404,8 @@ export const TARGETS = {
      stay plain text, so an ending like that gets nothing. */
   review: {
     detect: (root) => existsSync(join(root, 'REVIEW.md')),
-    rules({ root, report, mark }) {
+    rules(ctx) {
+      const { root, report, mark } = ctx;
       const p = join(root, 'REVIEW.md');
       if (!existsSync(p)) return void report.skipped.push('REVIEW.md (absent, not created)');
       const cur = readFileSync(p, 'utf8');
@@ -432,8 +429,9 @@ export const TARGETS = {
      complex-md- prefix, and clears only prefixed files. */
   devin: {
     detect: (root) => existsSync(join(root, '.devin')),
-    rules({ root, briefs, report }) {
-      writeSpec(root, BRIEF_SPECS.devin, briefs, report);
+    rules(ctx) {
+      const { root, briefs, report } = ctx;
+      writeSpec(ctx, BRIEF_SPECS.devin);
     },
   },
 
@@ -444,16 +442,18 @@ export const TARGETS = {
      prefixed files are cleared. */
   kiro: {
     detect: (root) => existsSync(join(root, '.kiro')),
-    rules({ root, briefs, report }) {
-      writeSpec(root, BRIEF_SPECS.kiro, briefs, report);
+    rules(ctx) {
+      const { root, briefs, report } = ctx;
+      writeSpec(ctx, BRIEF_SPECS.kiro);
     },
   },
 
   windsurf: {
     detect: (root) => existsSync(join(root, '.windsurf')),
-    rules({ root, block, paths, briefs, report, carried }) {
-      blockRule(root, '.windsurf/rules/complex-md.md', `---\ntrigger: glob\nglobs: ${paths.map(literalGlob).join(', ')}\n---\n${block}`, carried, report);
-      writeSpec(root, BRIEF_SPECS.windsurf, briefs, report);
+    rules(ctx) {
+      const { root, block, paths, briefs, report, carried } = ctx;
+      blockRule(ctx, '.windsurf/rules/complex-md.md', `---\ntrigger: glob\nglobs: ${paths.map(literalGlob).join(', ')}\n---\n${block}`);
+      writeSpec(ctx, BRIEF_SPECS.windsurf);
     },
   },
 
@@ -465,12 +465,13 @@ export const TARGETS = {
      into, so it is neither detected nor touched. */
   cline: {
     detect: (root) => isDir(join(root, '.clinerules')),
-    rules({ root, block, briefs, report, carried }) {
+    rules(ctx) {
+      const { root, block, briefs, report, carried } = ctx;
       if (existsSync(join(root, '.clinerules')) && !isDir(join(root, '.clinerules'))) {
         return void report.skipped.push('.clinerules (a file, not a folder)');
       }
-      blockRule(root, '.clinerules/complex-md.md', block, carried, report);
-      writeSpec(root, BRIEF_SPECS.cline, briefs, report);
+      blockRule(ctx, '.clinerules/complex-md.md', block);
+      writeSpec(ctx, BRIEF_SPECS.cline);
     },
   },
 
@@ -481,8 +482,9 @@ export const TARGETS = {
   roo: {
     retired: true,
     detect: (root) => existsSync(join(root, '.roo')),
-    rules({ root, report }) {
-      dropBlockCopy(root, '.roo/rules/complex-md.md', report);
+    rules(ctx) {
+      const { root, report } = ctx;
+      dropBlockCopy(ctx, '.roo/rules/complex-md.md');
     },
   },
 
