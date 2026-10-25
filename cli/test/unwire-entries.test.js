@@ -168,6 +168,36 @@ test('rewiring does not replace a legacy-looking MCP entry edited since the mani
   assert.deepEqual(JSON.parse(read(dir, '.mcp.json')).mcpServers['complex-md'], config.mcpServers['complex-md']);
 });
 
+const sha = (v) => createHash('sha256').update(JSON.stringify(v)).digest('hex');
+const coreVersion = () => JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8')).version;
+
+/* Wire once, then make the config and the manifest look as an earlier
+   version left them: the config holds `entry` (or none), and the manifest
+   records the hash of `recorded`. */
+const MINE = { mine: { command: 'echo', args: ['mine'] } };
+
+function earlierWire(entry, recorded) {
+  const dir = repo({ '.mcp.json': pretty({ mcpServers: MINE }) });
+  wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  const config = JSON.parse(read(dir, '.mcp.json'));
+  if (entry) config.mcpServers['complex-md'] = entry;
+  else delete config.mcpServers['complex-md'];
+  writeFileSync(join(dir, '.mcp.json'), pretty(config));
+  const manifest = readManifest(dir);
+  manifest.entries.find((e) => e.kind === 'mcp-json').records[0].sha256 = sha(recorded);
+  writeFileSync(join(dir, '.complex-md/manifest.json'), pretty(manifest));
+  return dir;
+}
+
+test('an entry rewritten after the user deleted it gets a fresh hash, so unwire removes it', () => {
+  const dir = earlierWire(null, { command: 'npx', args: ['-y', '--prefer-offline', 'complex-md@0.10.0', 'mcp'] });
+  wire(dir, { agents: ['claude'], mcp: true, profile: 'full' });
+  const current = JSON.parse(read(dir, '.mcp.json')).mcpServers['complex-md'];
+  assert.equal(readManifest(dir).entries.find((e) => e.kind === 'mcp-json').records[0].sha256, sha(current));
+  unwire(dir);
+  assert.deepEqual(JSON.parse(read(dir, '.mcp.json')).mcpServers, MINE);
+});
+
 test('hooks an earlier version wrote are recorded by wire --hooks and removed by unwire', () => {
   const legacy = { hooks: { PreToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: 'npx -y complex-md hook pre', timeout: 30 }] }] } };
   const dir = repo({ '.claude/settings.json': pretty(legacy) });

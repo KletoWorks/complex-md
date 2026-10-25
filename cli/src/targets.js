@@ -307,7 +307,6 @@ function legacyMcpEntry(entry) {
 
 function addMcpJson(ctx, rel, entry) {
   let installed = false;
-  let replaced = false;
   const previous = ctx.ledger.previous?.entries?.find((e) => e.path === rel && e.kind === 'mcp-json');
   editJson(ctx, rel, 'mcp-json', (m) => {
     const current = m.mcpServers?.['complex-md'];
@@ -316,7 +315,6 @@ function addMcpJson(ctx, rel, entry) {
       if (!legacyMcpEntry(current)) return;
       const previousRecord = previous?.records?.find((r) => r.container === 'mcpServers' && r.key === 'complex-md');
       if (previous && (!previousRecord || previousRecord.sha256 !== entryHash(current))) return;
-      replaced = true;
       m.mcpServers['complex-md'] = entry;
       installed = true;
       ctx.report.mcp.push(rel);
@@ -332,7 +330,9 @@ function addMcpJson(ctx, rel, entry) {
     const previousRecord = prev?.records?.find((r) => r.container === 'mcpServers' && r.key === 'complex-md');
     const unchanged = current && previousRecord && previousRecord.sha256 === entryHash(current);
     return installed || !!prev || (legacyMcpEntry(current) && (!prev || unchanged));
-  }, () => replaced);
+  /* Each entry this run writes gets its own hash. A hash kept from an
+     entry the user deleted would make unwire read the new one as edited. */
+  }, () => installed);
 }
 
 /* The portable skill, in the Agent Skills layout: a folder whose name is the
