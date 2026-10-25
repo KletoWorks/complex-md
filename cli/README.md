@@ -44,29 +44,56 @@ Spec, research and the downloadable skill: https://complex.md
    stdin that is not a terminal never blocks the run. `.complex-md/*` goes
    into `.gitignore` when a run writes there, and `.complex-md/bounds.json`
    stays committable.
-3. Wires the map in, idempotently:
-   - appends the integration block to `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`,
-     `.github/copilot-instructions.md` where they exist, plus an
-     `@COMPLEX.md` import in `CLAUDE.md`;
-   - one brief per hot path, scoped to that path, where each agent or
-     review bot looks: Claude Code (`.claude/rules/complex-md/`), Cursor
-     (`.cursor/rules/complex-md/`), Copilot code review and cloud agent
-     (`.github/instructions/complex-md/`, when `.github/copilot-instructions.md`
-     or `.github/instructions/` exists), OpenHands (`.agents/skills/`),
-     Antigravity (`.agents/rules/`), Devin Desktop (`.devin/rules/`), Windsurf
+3. Wires the map in, idempotently. Each text it writes into a file you own
+   sits between `<!-- BEGIN complex-md (spec 0.3) -->` and
+   `<!-- END complex-md (spec 0.3) -->`, and text outside the markers is
+   never changed. A file it writes whole opens with a notice that says so.
+   The default profile, `minimal`, writes:
+   - one line near the top of `AGENTS.md`, after its title, that sends an
+     agent to COMPLEX.md before it edits a listed file; the same line in
+     `AGENTS.override.md` when it exists, in a `CLAUDE.md` or `GEMINI.md`
+     that does not import `AGENTS.md`, and in
+     `.github/copilot-instructions.md` when there is no `AGENTS.md`. With
+     none of these files, it creates `AGENTS.md`. It never creates
+     `CLAUDE.md`;
+   - a marked block in `.gitattributes` that gives `COMPLEX.md`, the
+     manifest and each generated file `eol=lf linguist-generated`;
+   - `.complex-md/manifest.json`, the record of each file and block it
+     wrote, with a hash of each. It is small, holds no clock, and is meant
+     to be committed.
+
+   `--profile full`, or naming agents with `--for`, also writes:
+   - the integration block in place of the line, and an `@COMPLEX.md`
+     import in `CLAUDE.md`;
+   - at most 10 briefs, one per hot path, scoped to that path, where each
+     agent or review bot looks: Claude Code (`.claude/rules/complex-md/`),
+     Cursor (`.cursor/rules/complex-md/`), Copilot code review and cloud
+     agent (`.github/instructions/complex-md/`, when
+     `.github/copilot-instructions.md` or `.github/instructions/` exists),
+     OpenHands (`.agents/skills/`, when `.openhands/` exists), Antigravity
+     (`.agents/rules/`), Devin Desktop (`.devin/rules/`), Windsurf
      (`.windsurf/rules/`), Kiro (`.kiro/steering/`), Cline (`.clinerules/`);
    - an `@COMPLEX.md` line in an existing `REVIEW.md`, for Claude Code
-     Review; wire never creates `REVIEW.md`;
+     Review; wire never creates `REVIEW.md`.
+
+   In either profile:
    - with `--hooks` only: Claude Code `PreToolUse` and `Stop` in
      `.claude/settings.json`, Cursor `preToolUse` and `stop` in
-     `.cursor/hooks.json`;
+     `.cursor/hooks.json`, merged beside your own entries;
    - OpenClaw and Hermes are wired only when asked (`--for openclaw,hermes`):
      they get the portable skill `.agents/skills/complex-md/SKILL.md`, and
      `--mcp` also registers the server through their own CLIs.
 
 A rule file that would only repeat the block is not written while
-`AGENTS.md` carries it, and a rewire removes the copies earlier versions
-wrote.
+`AGENTS.md` carries it. A rewire removes a file the previous wire wrote and
+this one does not, such as a brief for a path the map dropped, while its
+hash matches the manifest. It never deletes or overwrites a file it did not
+write.
+
+In GitHub Actions and GitLab CI, `generate` and `wire` write only on the
+default branch. A pull request or merge request build, or a build of
+another branch, prints one line and writes nothing. The default branch comes
+from the CI event, or from `COMPLEX_MD_DEFAULT_BRANCH`.
 
 `--no-wire` writes only COMPLEX.md. A default run writes no hooks.
 `--hooks` writes them to the committed settings files. `--hooks --local`
@@ -190,8 +217,7 @@ names a generated brief that differs from what `wire` writes, since review
 bots read those files from the pull request. `impact --strict`
 exits 1 when a bound in `.complex-md/bounds.json` is exceeded. `wire` detects
 which agents a repository already uses from its config directories; `--for`
-overrides that. Wiring for Claude Code creates a `CLAUDE.md` that imports
-COMPLEX.md when there is none.
+overrides that.
 
 Run at an old commit and the window anchors to that commit's date, so a map
 regenerated for a past release describes the history that existed then.
