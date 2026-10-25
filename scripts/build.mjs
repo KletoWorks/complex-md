@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { parseMeta as meta, readArticles, faqItems, llmsFull } from './content.mjs';
+import { readText } from './text.mjs';
 import { renderSkill, renderReference, SKILL_COPIES, stampVersions } from './skill.mjs';
 import { REPORT_CSS, REPORT_JS } from '../cli/src/render.js';
 import { ROOT, ORIGIN, AUTHOR, AUTHOR_URL, REPO, specVersion, promptVersion, cliVersion, siteHeader, siteFooter } from './chrome.mjs';
@@ -19,7 +20,7 @@ const WITH_DRAFTS = argv.includes('--drafts');
 
 // The wiring block has one source. The spec and the skill both carry it
 // through {{INTEGRATION_BLOCK}}, so neither can drift from prompts/.
-const integrationBlock = readFileSync(join(ROOT, 'prompts/integration.md'), 'utf8').trim();
+const integrationBlock = readText(join(ROOT, 'prompts/integration.md')).trim();
 
 // ---------------------------------------------------------- markdown (mini)
 // Supports exactly what the content files use: h1-h3, paragraphs, fenced code,
@@ -132,7 +133,7 @@ const siteJsonLd = JSON.stringify({
 // track is doubled so the loop is seamless.
 function agentMarquee() {
   const list = JSON.parse(readFileSync(join(ROOT, 'site/logos/agents.json'), 'utf8'));
-  const li = (a) => `<li>${readFileSync(join(ROOT, 'site/logos', a.slug + '.svg'), 'utf8').trim()}<span>${a.name}</span></li>`;
+  const li = (a) => `<li>${readText(join(ROOT, 'site/logos', a.slug + '.svg')).trim()}<span>${a.name}</span></li>`;
   const row = (agents, cls) => { const items = agents.map(li).join(''); return `<div class="marquee${cls}"><ul class="track">${items}</ul><ul class="track" aria-hidden="true">${items}</ul></div>`; };
   const half = Math.ceil(list.length / 2);
   return `<div class="marquees" aria-label="Agents that read COMPLEX.md">${row(list.slice(0, half), '')}${row(list.slice(half), ' reverse')}</div>`;
@@ -228,7 +229,7 @@ const fullDocs = [];
 let faq = [];
 for (const file of readdirSync(join(ROOT, 'content'))) {
   if (!/\.(md|html)$/.test(file)) continue;
-  const { meta: m, body } = meta(readFileSync(join(ROOT, 'content', file), 'utf8').replaceAll('{{INTEGRATION_BLOCK}}', integrationBlock));
+  const { meta: m, body } = meta(readText(join(ROOT, 'content', file)).replaceAll('{{INTEGRATION_BLOCK}}', integrationBlock));
   const path = m.path ?? '/' + file.replace(/\.(md|html)$/, '');
   const kicker = m.kicker?.replaceAll('{{SPEC_VERSION}}', specVersion).replaceAll('{{PROMPT_VERSION}}', promptVersion);
   const doc = file.endsWith('.md') ? docify(markdown(body), { kicker }) : { body: body.replace('{{AGENT_MARQUEE}}', agentMarquee()), toc: false };

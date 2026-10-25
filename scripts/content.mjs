@@ -1,8 +1,9 @@
 // Content helpers for the site build: the meta block, draft articles, the
 // FAQ as plain text and llms-full.txt. No file system writes here, so the
 // tests can call each function on a scratch folder.
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { readText } from './text.mjs';
 
 /** Split a content file into its `<!-- meta -->` keys and its body. */
 export function parseMeta(src) {
@@ -25,7 +26,7 @@ export function readArticles(dir, { drafts = false } = {}) {
   const list = [];
   for (const file of readdirSync(dir)) {
     if (!file.endsWith('.md')) continue;
-    const { meta, body } = parseMeta(readFileSync(join(dir, file), 'utf8'));
+    const { meta, body } = parseMeta(readText(join(dir, file)));
     const draft = isDraft(meta);
     if (draft && !drafts) continue;
     list.push({ slug: file.replace(/\.md$/, ''), meta, body, draft });

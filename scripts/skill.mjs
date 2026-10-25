@@ -7,6 +7,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registryInvocation, hookCommand } from '../cli/src/invoke.js';
+import { readText } from './text.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -32,7 +33,7 @@ export function stampVersions(root = ROOT) {
 
 // The generation prompt without its own front matter.
 export function renderReference(root = ROOT) {
-  return readFileSync(join(root, 'prompts/generate.md'), 'utf8').replace(/^---[\s\S]*?---\n\n/, '');
+  return readText(join(root, 'prompts/generate.md')).replace(/^---[\s\S]*?---\n\n/, '');
 }
 
 /* With `split`, the generation prompt stays out of the body and the skill
@@ -41,11 +42,11 @@ export function renderReference(root = ROOT) {
    specification recommends. Without it, the result is the one file that
    the site offers as a download. */
 export function renderSkill(root = ROOT, { split = false } = {}) {
-  const genPrompt = readFileSync(join(root, 'prompts/generate.md'), 'utf8');
+  const genPrompt = readText(join(root, 'prompts/generate.md'));
   const promptVersion = /prompt_version:\s*([\d.]+)/.exec(genPrompt)?.[1] ?? '0.0.0';
   const specVersion = /spec_version:\s*"([\d.]+)"/.exec(genPrompt)?.[1] ?? '0.1';
-  const integrationBlock = readFileSync(join(root, 'prompts/integration.md'), 'utf8').trim();
-  return readFileSync(join(root, 'skill/SKILL.tmpl.md'), 'utf8')
+  const integrationBlock = readText(join(root, 'prompts/integration.md')).trim();
+  return readText(join(root, 'skill/SKILL.tmpl.md'))
     .replaceAll('{{PROMPT_VERSION}}', promptVersion)
     .replaceAll('{{SPEC_VERSION}}', specVersion)
     .replace('{{INTEGRATION_BLOCK}}', integrationBlock)
