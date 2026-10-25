@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { generate } from '../src/generate.js';
 import { VIA_NAMES } from '../src/via.js';
+import { ALL_FAKES, leakyRepo } from './fixtures/fake-secrets.mjs';
 
 const BIN = join(import.meta.dirname, '..', 'bin', 'complex-md.js');
 const PROSE = '## Where the risk lives\n\nRisk sits in src/a.js.\n\n## Why these files are hot\n\nsrc/a.js holds the value. Before editing this file, read src/b.js.\n\n## Change coupling\n\nNone.\n\n## What to read first\n\n1. src/a.js: the value.\n';
@@ -30,15 +31,18 @@ function makeRepo() {
 }
 
 /* A stub `claude` that prints the reply file, or exits 3 when STUB_FAIL is
-   set. PATH holds only the stub, node and git, so no installed agent runs. */
+   set. It saves what it read on stdin to stdin.txt beside it. PATH holds
+   only the stub, node and git, so no installed agent runs. */
 const GIT = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
 function stubPath(reply = PROSE) {
   const bin = mkdtempSync(join(tmpdir(), 'cx-genvia-bin-'));
   writeFileSync(join(bin, 'reply.txt'), reply);
   writeFileSync(join(bin, 'claude'), `#!/usr/bin/env node
 const fs = require('fs');
-process.stdin.resume();
+const input = [];
+process.stdin.on('data', (c) => input.push(c));
 process.stdin.on('end', () => {
+  fs.writeFileSync(${JSON.stringify(join(bin, 'stdin.txt'))}, Buffer.concat(input));
   if (process.env.STUB_FAIL) { process.stderr.write('please log in\\n'); process.exit(3); }
   process.stdout.write(fs.readFileSync(${JSON.stringify(join(bin, 'reply.txt'))}, 'utf8'));
 });
@@ -85,6 +89,19 @@ test('generate --via writes the computed front matter and the CLI prose', { skip
   const out = readFileSync(join(root, 'COMPLEX.md'), 'utf8');
   assert.match(out, /^---\ncomplex_md: "0\.3"\n[\s\S]*\n---\n\n## Where the risk lives/);
   assert.ok(out.endsWith(PROSE));
+});
+
+test('generate --via sends the redacted bundle, not the secret values in a hotspot', { skip: SCRIPT_CLI }, async () => {
+  const root = leakyRepo();
+  const bin = stubPath(PROSE.replaceAll('src/b.js', 'src/a.js'));
+  const logs = [];
+  const r = await withEnv({ PATH: bin }, () => generate(root, { via: 'claude', log: (s) => logs.push(s) }));
+  assert.equal(r.written, true, r.fallback);
+  const sent = readFileSync(join(bin, 'stdin.txt'), 'utf8');
+  assert.match(sent, /# Inputs for this repository/);
+  assert.match(sent, /\[redacted:aws-access-key\]/);
+  for (const v of ALL_FAKES) assert.ok(!sent.includes(v), `the CLI got no ${v.slice(0, 6)}... value`);
+  assert.equal(logs.filter((l) => /^redacted \d+ secret-shaped values in the prompt bundle/.test(l)).length, 1);
 });
 
 test('a failed --via run keeps COMPLEX.md and writes the bundle instead', { skip: SCRIPT_CLI }, async () => {
