@@ -5,10 +5,11 @@
 // checkout with git's own conversion, not a Windows file system.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdtempSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync, mkdirSync, copyFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { wire } from '../src/wire.js';
 import { unwire } from '../src/unwire.js';
 import { runCheck } from '../src/check.js';
@@ -79,4 +80,24 @@ test('a clone with core.autocrlf=true reads the wiring as unedited, rewires to n
   for (const f of ['AGENTS.md', 'CLAUDE.md']) assert.equal(after.get(f), original.get(f), `${f} matches its CRLF checkout before wire`);
   assert.ok(!after.has('.gitattributes') && !after.has(`${briefs[0]}`), 'generated files are gone');
   assert.equal(readManifest(clone), null);
+});
+
+/* A CRLF checkout of complex-md itself has CRLF prompt files, and wire
+   writes the integration block from them into AGENTS.md and the skill.
+   The test copies prompts.js beside CRLF copies of the prompts. */
+test('the prompts the CLI reads from a CRLF checkout come back with LF line ends', async () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const dir = mkdtempSync(join(tmpdir(), 'cx-prompts-'));
+  mkdirSync(join(dir, 'src'));
+  mkdirSync(join(dir, 'prompts'));
+  writeFileSync(join(dir, 'package.json'), '{"type":"module"}\n');
+  copyFileSync(join(here, '..', 'src', 'prompts.js'), join(dir, 'src', 'prompts.js'));
+  const lf = {};
+  for (const name of ['generate.md', 'integration.md']) {
+    lf[name] = readFileSync(join(here, '..', '..', 'prompts', name), 'utf8').replace(/\r\n/g, '\n');
+    writeFileSync(join(dir, 'prompts', name), crlf(lf[name]));
+  }
+  const copy = await import(pathToFileURL(join(dir, 'src', 'prompts.js')).href);
+  assert.equal(copy.generatePrompt(), lf['generate.md']);
+  assert.equal(copy.integrationBlock(), lf['integration.md'].trim() + '\n');
 });

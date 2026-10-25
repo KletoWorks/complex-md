@@ -14,13 +14,18 @@ const here = dirname(fileURLToPath(import.meta.url));
 const pdir = join(here, '..', 'prompts');
 const sourceDir = join(here, '..', '..', 'prompts');
 
+/* A Windows checkout of this repository has CRLF prompt files
+   (core.autocrlf=true). wire writes the block into files that keep their
+   own line ends, so the text is read with LF on every checkout. */
 function readPrompt(name) {
+  let text;
   try {
-    return readFileSync(join(pdir, name), 'utf8');
+    text = readFileSync(join(pdir, name), 'utf8');
   } catch (e) {
     if (e.code !== 'ENOENT') throw e;
-    return readFileSync(join(sourceDir, name), 'utf8');
+    text = readFileSync(join(sourceDir, name), 'utf8');
   }
+  return text.replace(/\r\n/g, '\n');
 }
 
 export function generatePrompt() {
