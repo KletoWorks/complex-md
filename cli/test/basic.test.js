@@ -201,20 +201,21 @@ test('wire is idempotent for hooks and MCP under both invocations', async () => 
   assert.equal((readFileSync(join(dir, 'AGENTS.md'), 'utf8').match(/## COMPLEX\.md: the structural risk map/g) || []).length, 1);
 });
 
-test('wire creates CLAUDE.md as imports of AGENTS.md and the map, and a second run leaves both alone', async () => {
+test('wire creates AGENTS.md and no CLAUDE.md, and a second run leaves it alone', async () => {
   const { wire } = await import('../src/wire.js');
-  const { readFileSync } = await import('node:fs');
+  const { readFileSync, existsSync } = await import('node:fs');
   const dir = makeRepo();
   const s = computeSignals(dir);
   writeFileSync(join(dir, 'COMPLEX.md'), frontMatter(s, 'test') + '\n## Where the risk lives\n\nx\n\n## Why these files are hot\n\nsrc/a.js is hot. Before editing this file, run test/a.test.js.\n\n## Change coupling\n\nx\n\n## What to read first\n\n1. src/a.js\n');
   const first = wire(dir, { agents: ['claude'] });
-  assert.deepEqual(first.created, ['AGENTS.md', 'CLAUDE.md']);
-  assert.equal(readFileSync(join(dir, 'CLAUDE.md'), 'utf8'), '@AGENTS.md\n@COMPLEX.md\n');
+  assert.deepEqual(first.created, ['AGENTS.md']);
+  assert.ok(!existsSync(join(dir, 'CLAUDE.md')), 'Claude Code reads AGENTS.md when there is no CLAUDE.md');
+  const agents = readFileSync(join(dir, 'AGENTS.md'), 'utf8');
   const second = wire(dir, { agents: ['claude'] });
-  assert.deepEqual(second.primary, [], 'nothing appended on the second run');
-  assert.deepEqual(second.skipped.sort(), ['AGENTS.md', 'CLAUDE.md']);
-  assert.equal(readFileSync(join(dir, 'CLAUDE.md'), 'utf8'), '@AGENTS.md\n@COMPLEX.md\n', 'CLAUDE.md is unchanged');
-  assert.equal((readFileSync(join(dir, 'AGENTS.md'), 'utf8').match(/## COMPLEX\.md: the structural risk map/g) || []).length, 1);
+  assert.deepEqual(second.primary, [], 'nothing written on the second run');
+  assert.deepEqual(second.skipped, ['AGENTS.md']);
+  assert.equal(readFileSync(join(dir, 'AGENTS.md'), 'utf8'), agents, 'AGENTS.md is unchanged');
+  assert.equal((agents.match(/## COMPLEX\.md: the structural risk map/g) || []).length, 1);
 });
 
 test('windsurf, cline and roo read the created AGENTS.md; unknown target errors; globals never auto-detect', async () => {
@@ -226,7 +227,7 @@ test('windsurf, cline and roo read the created AGENTS.md; unknown target errors;
   mkdirSync(join(dir, '.windsurf'));
   mkdirSync(join(dir, '.clinerules'));
   mkdirSync(join(dir, '.roo'));
-  const report = wire(dir, {});
+  const report = wire(dir, { profile: 'full' });
   // The created AGENTS.md carries the block, which both agents read.
   assert.ok(!report.rules.includes('.windsurf/rules/complex-md.md'));
   assert.ok(!report.rules.includes('.clinerules/complex-md.md'));

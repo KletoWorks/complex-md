@@ -21,6 +21,7 @@ outside the model calls in `cli/src/generate.js`, and do not edit
 COMPLEX.md, `.claude/rules/` or `.github/instructions/complex-md/` by
 hand, because they are generated.
 
+<!-- BEGIN complex-md (spec 0.3) -->
 ## COMPLEX.md: the structural risk map
 
 `COMPLEX.md` at the repository root is a computed map of where edits are
@@ -43,3 +44,4 @@ lists name specific files and areas. When your work touches one of them:
 
 After refactoring a listed hotspot, regenerate the map: `npx complex-md`, or
 run the complex-md skill.
+<!-- END complex-md (spec 0.3) -->

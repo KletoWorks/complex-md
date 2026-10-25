@@ -6,6 +6,41 @@ format.
 
 ## Unreleased
 
+**Intent:** the home page opened with a hand typed excerpt of a fastify map from release 0.4.0 whose numbers matched no file in the repository. It put the benchmark result in its sixth section and sent a visitor to a separate page to look up a repository.
+
+**Change:** the home page leads with "Tell your coding agent what it could break, before it edits.", a repository box and `npx complex-md`. The box is a plain GET form to `/map/?repo=`, so it opens a hosted page, links a committed COMPLEX.md, or shows the command and a request button, with or without script.
+
+**Change:** the hero card draws the fastify benchmark map (`bench/results/fastify-damage/maps/fastify-fastify-2026-07.md`) as a treemap with a Map and a File view. `scripts/demo-map.mjs` reads the file at build time, so every number, directive and partner on the card comes from it, and the card names its repository, commit, date, tool and spec. The card shows one hot file at a time while it is on screen, pauses on hover and focus, and stops when a visitor selects a tile.
+
+**Change:** the page states the benchmark claim with Claude Opus 5 named, the NUL byte repro with the blind spot line from the 0.10.0 map, open model support, and a FAQ that covers what the CLI sends, who writes the prose, how a maintainer removes a hosted page, and hosts other than GitHub. Motion respects `prefers-reduced-motion`.
+
+**Change:** the home page carries no style attribute and no inline script. The build turns the style attributes in the agent logos into SVG presentation attributes. `cli/test/home.test.js` checks the form, the policy, the claim and the quoted blind spot, and `cli/test/demo-map.test.js` checks the card against its source map.
+
+## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
+
+**Intent:** wire appended a block with a heading but no end, deleted any file in a brief folder whose name had the complex-md- prefix, created CLAUDE.md beside AGENTS.md, and had no way back. A default wire could add 40 or more files to a repository, a rewire never updated an old block, and a Windows checkout could leave mixed line endings.
+
+**Change:** each text wire writes into a file the user owns sits between `<!-- BEGIN complex-md (spec 0.3) -->` and `<!-- END complex-md (spec 0.3) -->` (`#` comments in `.gitattributes` and TOML). Text outside the markers is never changed, and a rewire replaces only the marked text. A file wire writes whole opens with a notice. In a file with front matter, the notice is a YAML comment on line 2.
+
+**Change:** `wire --profile minimal`, the new default, writes one marked line near the top of `AGENTS.md`. It writes the same line in `AGENTS.override.md` when that file exists, and in a `CLAUDE.md` or `GEMINI.md` that does not import `AGENTS.md`. `--profile full`, or naming agents with `--for`, writes the integration block, the CLAUDE.md import, the REVIEW.md include and at most 10 briefs per agent. wire never creates `CLAUDE.md`. OpenHands is detected from `.openhands/` only.
+
+**Change:** wire records each file, marked block, hook entry and MCP entry it writes in `.complex-md/manifest.json`. Each record has a sha256 of the text, line endings read as LF. The manifest holds no clock, and the `.gitignore` entry keeps it committable. wire also keeps a marked block in `.gitattributes` that gives COMPLEX.md, the manifest and each generated file `eol=lf linguist-generated`. JSON settings files keep their own indent and line ending.
+
+**Change:** `complex-md unwire` removes what the manifest records, with the separators wire added, while each hash still matches. A file or section edited since is left in place and named. COMPLEX.md stays. `wire --dry-run` and `unwire --dry-run` print the file plan and write nothing.
+
+**Change:** in a GitHub Actions or GitLab CI build of a pull request, a merge request or a branch other than the default one, `generate` and `wire` print one line and write nothing. `COMPLEX_MD_DEFAULT_BRANCH` overrides the detected default branch.
+
+**Change:** wire and unwire act only on manifest paths that are relative and resolve inside the repository. A cloned repository can carry a hostile manifest; paths that are absolute, contain a `.` or `..` segment or a backslash, or start in `.git` are dropped and logged. The CI rule also recognizes a checkout in `GITHUB_WORKSPACE` or `CI_PROJECT_DIR`.
+
+**Note:** a default rewire of a repository wired by 0.10.0 swaps the old block for one line and removes the old briefs. Run `wire --profile full` to keep them.
+**Intent:** a visitor could see a repository's map only after running the tool on a clone. complex.md had no page per repository, no way to find one by pasting an address, and no way for a maintainer to take a page down.
+
+**Change:** `scripts/hosted-pages.mjs --in maps.json --out <dir>` builds one static page per mapped repository at `/OWNER/REPO/`, the raw map at `/OWNER/REPO/COMPLEX.md`, `maps/index.json` and `sitemap-maps.xml`. The same input gives the same bytes. A page leads with the directives. A panel follows that asks the maintainer to commit the file, with the `npx complex-md` command and the one AGENTS.md line agents act on. Then come the treemap, the co-change pairs and the blind spots. A provenance line names the version, the commit and the date, and says that a template wrote the prose. A removal link ends the page. Prose shows only when a template wrote it. Indexable pages are canonical to themselves; the rest carry noindex and a canonical link to the GitHub repository. Owner and repository names must follow GitHub's naming rules. Paths outside a small character set, over 200 characters or with a `..` segment are dropped. Bidi and control characters are stripped, lists are capped, and each page loads only its own origin's files under a policy with no 'unsafe-inline'.
+
+**Change:** `/map` takes owner/name, a github.com URL, a git URL or an SSH remote. It opens the hosted page, links a committed COMPLEX.md, or shows the npx command and a request button. `/map/remove` lists the three ways a page goes away: commit COMPLEX.md, set `hosted: false`, or send the form. Each takes effect within 24 hours. The header and the home page hero link `/map`.
+
+**Change:** the report treemap is SVG, so the local report and a hosted page share one renderer. `site/reserved.json` lists the first path segments that never name an owner, and a test fails the build when a top level name is missing from it.
+
 **Change:** a brief's partner line now reads "4 commits together, 100% of
 the less active file's commits". It said "100% of this file's commits",
 which overstated coupling whenever the brief's file was the busier one of
