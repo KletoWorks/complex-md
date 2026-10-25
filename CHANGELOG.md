@@ -29,6 +29,18 @@ It pins 0.12.0, the first release with `--note`.
 sha. `commit: 0179008` came back as `179008`, which names no commit, so a
 check of the map's age found the commit missing from the history.
 
+**Intent:** a shared link to a hosted map page showed the site's generic card, so the preview named neither the repository nor what its map found (#28).
+
+**Change:** `scripts/hosted-pages.mjs` writes `<repo_key>/og.png` beside each page: a 1200 by 630 PNG with the repository name, the number of hotspots, the map's first co-change pair and its coupling, the map's commit and date, and the complex.md mark. Each page names it in `og:image` and `twitter:image`, with width, height and alt text. `scripts/og-image.mjs` draws it with no dependency: a scanline rasterizer, `node:zlib` for the PNG, and Inter outlines in `scripts/og-glyphs.json`, which `scripts/og-font.py` writes once from the site's font. A character outside that table is drawn as "?". Each image is about 75 kB.
+
+**Intent:** /map/remove said each of the 3 ways to remove a hosted page takes effect within 24 hours. A removal request sent with the form waits for a person's review of up to 72 hours, so the form promised a time it does not keep.
+
+**Change:** /map/remove, the "Removing a page" section of /map and the form's confirmation say that a person reviews each removal request within 72 hours. A commit of COMPLEX.md or of `hosted: false` still takes effect within 24 hours.
+
+**Intent:** /map refused every repository outside GitHub with "complex.md maps repositories on GitHub", though `npx complex-md` works in a clone from any host and the request route counts requests for GitLab, Codeberg and Bitbucket.
+
+**Change:** /map reads gitlab.com (1 to 3 groups and a project), codeberg.org and bitbucket.org URLs and SSH remotes. For those it skips the hosted map index, says that hosted pages cover GitHub first, shows the command and sends the request with its `host`. A GitHub request now names `host: github` too. The removal form still takes GitHub repositories only.
+
 **Intent:** an outside contributor had no clear first step, and the issue
 forms did not say what a pull request must bring
 ([issue #29](https://github.com/KletoWorks/complex-md/issues/29)).

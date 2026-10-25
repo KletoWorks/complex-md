@@ -113,6 +113,7 @@ const BANNED = [
   { re: /"mcp"/, files: ['cli/package.json'], why: 'the npm keywords do not lead with MCP' },
   { re: /names a directory is not counted/i, why: 'the scorer counts a test directory the map names, as in the fastify-damage edits to lib/reply.js' },
   { re: /about (a|one|two) seconds?|in a second\b|in seconds\b/i, why: 'no speed figure is measured across repositories; the pages do not pitch speed' },
+  { re: /each (way )?takes effect within 24|each way takes effect|goes away within 24 hours/i, files: ['content/map.html', 'content/map-remove.html', 'site/remove.js'], why: 'a person reviews a form removal request within 72 hours; only a commit takes effect within 24 hours' },
 ];
 
 for (const rule of BANNED) {
