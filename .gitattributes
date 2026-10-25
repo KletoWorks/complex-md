@@ -1,0 +1,25 @@
+# BEGIN complex-md (spec 0.3)
+# Files complex-md generates. Edit COMPLEX.md, not them.
+/.claude/rules/complex-md/bench-run.mjs-wagotw.md eol=lf linguist-generated
+/.claude/rules/complex-md/cli-README.md-1kfeoq.md eol=lf linguist-generated
+/.claude/rules/complex-md/cli-bin-complex-md.js-rgy24.md eol=lf linguist-generated
+/.claude/rules/complex-md/cli-src-complexmd.js-dfftey.md eol=lf linguist-generated
+/.claude/rules/complex-md/cli-src-generate.js-1i7bd1.md eol=lf linguist-generated
+/.claude/rules/complex-md/cli-src-graph.js-37xq9v.md eol=lf linguist-generated
+/.claude/rules/complex-md/cli-src-signals.js-1kmuwb.md eol=lf linguist-generated
+/.claude/rules/complex-md/cli-src-targets.js-bmmsgf.md eol=lf linguist-generated
+/.claude/rules/complex-md/cli-src-wire.js-1bmsw5.md eol=lf linguist-generated
+/.claude/rules/complex-md/content-spec.md-avvgno.md eol=lf linguist-generated
+/.complex-md/manifest.json eol=lf linguist-generated
+/.github/instructions/complex-md/bench-run.mjs-wagotw.instructions.md eol=lf linguist-generated
+/.github/instructions/complex-md/cli-README.md-1kfeoq.instructions.md eol=lf linguist-generated
+/.github/instructions/complex-md/cli-bin-complex-md.js-rgy24.instructions.md eol=lf linguist-generated
+/.github/instructions/complex-md/cli-src-complexmd.js-dfftey.instructions.md eol=lf linguist-generated
+/.github/instructions/complex-md/cli-src-generate.js-1i7bd1.instructions.md eol=lf linguist-generated
+/.github/instructions/complex-md/cli-src-graph.js-37xq9v.instructions.md eol=lf linguist-generated
+/.github/instructions/complex-md/cli-src-signals.js-1kmuwb.instructions.md eol=lf linguist-generated
+/.github/instructions/complex-md/cli-src-targets.js-bmmsgf.instructions.md eol=lf linguist-generated
+/.github/instructions/complex-md/cli-src-wire.js-1bmsw5.instructions.md eol=lf linguist-generated
+/.github/instructions/complex-md/content-spec.md-avvgno.instructions.md eol=lf linguist-generated
+/COMPLEX.md eol=lf linguist-generated
+# END complex-md (spec 0.3)

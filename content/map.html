@@ -1,0 +1,51 @@
+<!-- meta
+title: Look up a repository's map | complex.md
+description: Paste a public GitHub repository to open its COMPLEX.md map: the files where edits break things, the tests to run before editing them and the files that change together.
+path: /map
+script: /lookup.js
+-->
+
+<header class="doc-head">
+<h1>Look up a repository's map</h1>
+<p>Paste a public GitHub repository. A mapped repository opens its page: the
+files where edits break things, the tests to run before editing them and the
+files that change together.</p>
+</header>
+
+<form class="lookup" id="map-form" action="/map/" method="get" role="search" aria-label="Look up a repository">
+<label for="repo">Repository</label>
+<div class="lookup-row">
+<input id="repo" name="repo" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="owner/name or a GitHub URL" aria-describedby="repo-hint" required>
+<button class="btn solid" type="submit">Show the map</button>
+</div>
+<p class="hint" id="repo-hint">Takes owner/name, a github.com URL, a git URL or an SSH remote, such as fastify/fastify or git@github.com:nodejs/undici.git.</p>
+</form>
+
+<div class="lookup-result" id="map-result" role="status" aria-live="polite"></div>
+
+<div class="lookup-unmapped" id="map-unmapped" hidden>
+<p id="unmapped-text"></p>
+<div class="install"><span class="p">$</span><code>npx complex-md</code></div>
+<p>It computes the map from the repository's own history and writes COMPLEX.md at its root.</p>
+<p><button class="btn line" type="button" id="request-btn">Request a map</button></p>
+<p class="request-status" id="request-status" role="status" aria-live="polite"></p>
+</div>
+
+<noscript><p class="lookup-result">This lookup needs JavaScript. Without it,
+open complex.md/OWNER/REPO for a mapped repository, or run
+<code>npx complex-md</code> in a clone of the repository.</p></noscript>
+
+<h2 id="how-a-repository-gets-a-page">How a repository gets a page</h2>
+<p>complex.md computes maps of a set of public repositories ahead of time,
+from their git history. Each request for a repository counts toward the next
+set. Every hosted page asks the repository's maintainers to commit the file,
+and a committed file replaces the page.</p>
+
+<h2 id="who-writes-the-prose">Who writes the prose?</h2>
+<p>A template. It builds every sentence on a hosted page from the computed
+numbers. No model and no person writes a hosted page.</p>
+
+<h2 id="removing-a-page">Removing a page</h2>
+<p>A maintainer can remove the page of a repository in three ways, and each
+takes effect within 24 hours. The <a href="/map/remove/">removal page</a> lists
+them.</p>

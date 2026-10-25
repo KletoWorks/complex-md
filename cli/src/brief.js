@@ -87,8 +87,10 @@ export function briefFor(map, path) {
 }
 
 /* Every path the map can brief, hot files and load bearing files alike,
-   deduplicated and in a stable order so wiring output is reproducible. */
-export function pathBriefs(map) {
+   deduplicated and in a stable order so wiring output is reproducible.
+   `limit` keeps the first paths in priority order (hotspots in map order,
+   then load bearing files, then co-change partners) before the sort. */
+export function pathBriefs(map, { limit = Infinity } = {}) {
   const seen = new Set();
   const paths = [];
   const list = (v) => (Array.isArray(v) ? v : []);
@@ -108,11 +110,21 @@ export function pathBriefs(map) {
       }
     }
   }
-  paths.sort();
   const out = [];
   for (const path of paths) {
+    if (out.length >= limit) break;
     const text = briefFor(map, path);
     if (text) out.push({ path, slug: slugFor(path), text });
   }
-  return out;
+  return out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+
+/* The most briefs wire writes per agent. Each one is a file in the agent's
+   folder and in every pull request that regenerates it; past ten, the
+   lower ranked paths add files faster than they add use. */
+export const MAX_BRIEFS = 10;
+
+/** The briefs wire writes and check measures against. */
+export function wiredBriefs(map) {
+  return pathBriefs(map, { limit: MAX_BRIEFS });
 }

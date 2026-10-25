@@ -494,8 +494,8 @@ The research on what makes a secondary file get followed drives the shape:
 
 - **Reference from the primary file, and import where the tool supports
   it.** An import in CLAUDE.md transmits a secondary file's instructions
-  with no measurable loss, so CLAUDE.md gets the block and an `@COMPLEX.md`
-  line that loads the whole map at launch.
+  with no measurable loss, so in the `full` profile CLAUDE.md gets the block
+  and an `@COMPLEX.md` line that loads the whole map at launch.
 - **Do not claim priority; trigger it.** Declared precedence has no measured
   effect on compliance. Concrete triggers tied to named files and named
   situations do. Each rule in the block opens with its trigger: a listed
@@ -512,51 +512,94 @@ The research on what makes a secondary file get followed drives the shape:
 - **Path scope it.** Compliance is lowest when editing existing code late in
   a session, which is exactly when a hotspot gets edited. Most coding agents
   and review bots load a rule only when a matching file is touched, so the
-  generator writes one brief per listed file, scoped to that file alone. The
-  file's numbers, paragraph and directive reappear at the moment they apply.
+  `full` profile writes one brief per listed file, for at most 10 files,
+  scoped to that file alone. The file's numbers, paragraph and directive
+  reappear at the moment they apply.
+- **Start small, and stay removable.** Every file the generator adds is one
+  more thing a team reviews. The default profile adds one line to
+  `AGENTS.md`, marks every text it writes, and records it, so a later run
+  can replace or remove exactly that text.
 
-Stage 3 of generation, in full:
+Stage 3 of generation writes one of two profiles. `minimal` is the default
+and adds one line. `full` adds the block below and the briefs.
 
-1. Append the block below, verbatim, to each of `AGENTS.md`, `CLAUDE.md`,
-   `GEMINI.md`, and `.github/copilot-instructions.md` that exists, separated
-   by one blank line. Skip any file that already contains the block's
-   heading. Skip a `CLAUDE.md` or `GEMINI.md` that holds an `@AGENTS.md`
-   line while `AGENTS.md` exists, because that import already loads the
-   block. If none exist, create `AGENTS.md` containing only the block.
-2. In `CLAUDE.md` only, add the line `@COMPLEX.md` on its own line directly
-   after the block, unless the file already imports it. When `.claude/`
-   exists and `CLAUDE.md` does not, create `CLAUDE.md` with the lines
-   `@AGENTS.md` and `@COMPLEX.md`.
-3. Write one brief per path listed under `hotspots`, `load_bearing` and
-   `co_change`. A brief holds the path as its heading, the row's numbers,
-   the file's paragraph from "Why these files are hot", its co-change
-   partners and the directive. Write the briefs for each agent whose folder
-   exists, scoped to the one path by that agent's front matter key. The
-   table after this list names the folders and keys.
-4. Cursor, OpenHands, Windsurf and Cline read `AGENTS.md`. While
+Each text a generator writes into a file the user owns sits between two
+marker lines. The markers name the tool and the spec version:
+
+```markdown
+<!-- BEGIN complex-md (spec 0.3) -->
+the text
+<!-- END complex-md (spec 0.3) -->
+```
+
+In `.gitattributes` and in a TOML file the markers are `#` comments. Never
+change text outside the markers. A rewrite replaces only the text between
+them. A file the generator writes whole opens with a notice that says so:
+on its first line, or on the first line inside its front matter, because
+an agent reads front matter only when `---` opens the file.
+
+The `minimal` profile:
+
+1. Add this line between markers near the top of `AGENTS.md`, after its
+   title line:
+
+```markdown
+COMPLEX.md at the repository root maps where edits are risky. Before you edit a file it lists, read that file's paragraph there and do what its last sentence says.
+```
+
+   Add the same line to `AGENTS.override.md` when it exists: Codex reads
+   that file in place of `AGENTS.md` in the same folder, and other agents
+   read only `AGENTS.md`. Add it to a `CLAUDE.md` or `GEMINI.md` that holds
+   no `@AGENTS.md` line, and to `.github/copilot-instructions.md` when there
+   is no `AGENTS.md`. When none of these files exists, create `AGENTS.md`.
+   Never create `CLAUDE.md`: Claude Code reads `AGENTS.md` when a repository
+   has no `CLAUDE.md`, and a new root `CLAUDE.md` stops it from loading
+   nested `AGENTS.md` files.
+2. Keep one marked block in `.gitattributes`. It names `/COMPLEX.md`,
+   `/.complex-md/manifest.json` and each file the generator wrote whole,
+   each with `eol=lf linguist-generated`, so every checkout has the same
+   bytes and review diffs fold them.
+3. Record each file and block written in `.complex-md/manifest.json`,
+   described below.
+
+The `full` profile does steps 1 to 3 with the block below in place of the
+line, at the end of each file, and adds:
+
+4. In `CLAUDE.md`, the line `@COMPLEX.md` inside the markers, unless the
+   file already imports it.
+5. Briefs for at most 10 paths: the `hotspots` in map order, then
+   `load_bearing`, then `co_change`. A brief holds the path as its heading,
+   the row's numbers, the file's paragraph from "Why these files are hot",
+   its co-change partners and the directive. Write the briefs for each agent
+   whose folder exists, scoped to the one path by that agent's front matter
+   key. The table after this list names the folders and keys.
+6. Cursor, OpenHands, Windsurf and Cline read `AGENTS.md`. While
    `AGENTS.md` carries the block, write no rule file that holds only the
    block, because a copy would load it twice. When `AGENTS.md` does not
    carry it, write the block once for each of them, scoped to every listed
    path: `.cursor/rules/complex-md.mdc`, `.agents/skills/complex-md.md`,
-   `.windsurf/rules/complex-md.md` and `.clinerules/complex-md.md`. Claude
-   Code never gets one, because `CLAUDE.md` carries the block.
-5. If `REVIEW.md` exists, add the line `@COMPLEX.md` to it, so Claude Code
-   Review includes the map. Never create `REVIEW.md`.
-6. Install the hooks (next section) only when asked. A default wiring
+   `.windsurf/rules/complex-md.md` and `.clinerules/complex-md.md`.
+7. If `REVIEW.md` exists, add the line `@COMPLEX.md` to it between markers,
+   so Claude Code Review includes the map. Never create `REVIEW.md`.
+
+In both profiles:
+
+8. Install the hooks (next section) only when asked. A default wiring
    writes no hook into any file.
-7. OpenClaw and Hermes are wired only on request: they get the portable
+9. OpenClaw and Hermes are wired only on request: they get the portable
    skill `.agents/skills/complex-md/SKILL.md`, which both load from the
    project.
-8. Regeneration rewrites the briefs (the paths change) and leaves the
-   primary files alone.
+10. In CI, regenerate on the default branch only. A pull request build that
+    rewrote the generated files would conflict at merge and change what
+    review bots read about the files it changes.
 
-Where step 3 writes the briefs:
+Where step 5 writes the briefs:
 
 | Agent | Detected from | Brief files | Scope key |
 | --- | --- | --- | --- |
 | Claude Code | `.claude/` or `CLAUDE.md` | `.claude/rules/complex-md/*.md` | `paths` |
 | Cursor | `.cursor/` | `.cursor/rules/complex-md/*.mdc` | `globs` |
-| OpenHands | `.openhands/` or `.agents/` | `.agents/skills/complex-md-*.md` | `paths` list |
+| OpenHands | `.openhands/` | `.agents/skills/complex-md-*.md` | `paths` list |
 | Antigravity | `.agents/rules/` | `.agents/rules/complex-md-*.md` | `trigger: glob`, `globs` |
 | Copilot code review and cloud agent | `.github/copilot-instructions.md` or `.github/instructions/` | `.github/instructions/complex-md/*.instructions.md` | `applyTo` |
 | Devin Desktop | `.devin/` | `.devin/rules/complex-md-*.md` | `trigger: glob`, `globs` |
@@ -570,12 +613,29 @@ each `[`, `]`, `{`, `}`, `*` and `?` in the path as a one character class
 a comma splits the glob list in several of these keys. `app/[id]/page.tsx`
 becomes `app/[[]id[]]/page.tsx`.
 
-A `.agents/` folder that holds only `.agents/skills/complex-md/` does not
-count as OpenHands.
+OpenHands is detected from `.openhands/` only. Codex, Antigravity, Copilot,
+OpenClaw and Hermes use `.agents/` as well, so that folder is no sign of
+OpenHands.
 
-`npx complex-md wire` does steps 1 to 8 idempotently, step 6 only with
-`--hooks`, and step 7 only with `--for openclaw,hermes`. When `npx` is unavailable, the skill writes the
-same files by hand for Claude Code and Cursor.
+The manifest, `.complex-md/manifest.json`, lists each file the generator
+wrote whole and each marked block, with the sha256 of the text written
+(line endings read as LF), the separators added around a block, and the
+folders the generator created. It holds no clock, so a rewire with the same
+map writes the same bytes, and it is small enough to commit. A rewire
+removes a file the previous run wrote and this run does not, while its hash
+still matches. A file whose hash no longer matches was edited by a person,
+and stays. A manifest arrives with a clone, so the generator acts only on a
+listed path that is relative, has no `.` or `..` segment, does not start in
+`.git`, and resolves inside the repository once symbolic links are followed.
+It ignores any other listed path.
+
+`npx complex-md wire` does these steps idempotently: the `minimal` profile
+by default, `full` with `--profile full` or `--for`, step 8 only with
+`--hooks`, and step 9 only with `--for openclaw,hermes`. `--dry-run` prints
+the file plan and writes nothing. `npx complex-md unwire` reverses a wire
+from the manifest: it deletes each file and cuts each marked block whose
+hash still matches, leaves and names the rest, and keeps COMPLEX.md. When
+`npx` is unavailable, the skill writes the same text by hand.
 
 ## Enforcement and runtime
 
@@ -705,9 +765,10 @@ gain concentrates in file-level localization.
 ### Does the wiring block override my AGENTS.md?
 
 No, and it does not try
-to. Models do not resolve conflicts by declared precedence. The block adds
-four triggers tied to named files and situations; your existing
-instructions stand.
+to. Models do not resolve conflicts by declared precedence. The line, or the
+block in the `full` profile, adds triggers tied to named files and
+situations; your existing instructions stand. The text sits between marked
+lines, and `npx complex-md unwire` removes it.
 
 ### How often should it be regenerated?
 

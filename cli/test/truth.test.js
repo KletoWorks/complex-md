@@ -23,6 +23,12 @@ const PUBLIC = [
   // The report page's headings, legend and notes are written here.
   'cli/src/render.js',
   'content/index.html',
+  // The /map lookup page and the messages its script writes.
+  'content/map.html',
+  'site/lookup.js',
+  // The removal page and the messages its script writes.
+  'content/map-remove.html',
+  'site/remove.js',
   'content/spec.md',
   'content/skill.md',
   ...dir('content/articles', '.md'),
@@ -51,8 +57,12 @@ const PUBLIC = [
   ...dir('.github/ISSUE_TEMPLATE', '.yml'),
   ...dir('.github/unlisted', '.yml'),
   'docs/RESEARCH-signals-and-wiring.md',
-  // The build writes llms.txt, the JSON-LD and the footer from this file.
+  // The build writes llms.txt and the JSON-LD from this file.
   'scripts/build.mjs',
+  // The header and the footer of every page, hosted map pages included.
+  'scripts/chrome.mjs',
+  // The text of every hosted map page.
+  'scripts/hosted.mjs',
 ];
 
 /** The texts an agent follows to wire a repository. */
@@ -69,7 +79,10 @@ const BANNED = [
   { re: /nothing is uploaded/i, why: 'with a key, one model call sends the signals and hotspot excerpts; the skill runs inside an agent that calls its model' },
   { re: /by git and grep/i, why: 'the CLI computes the signals with git and Node.js; it runs no grep' },
   { re: /capped (around|near) 15k/i, why: 'the cap is on the excerpts (about 60,000 characters); the whole request is larger' },
-  { re: /safe to remove/i, why: 'there is no unwire command; name the files wire writes instead' },
+  { re: /safe to remove/i, why: 'unwire leaves a file the user edited; say what it removes and what it leaves' },
+  { re: /creates? (a )?(`|<code>)?CLAUDE\.md(`|<\/code>)? that imports|create `CLAUDE\.md` with|(`|<code>)CLAUDE\.md(`|<\/code>) when (`|<code>)\.claude\/(`|<\/code>) exists/i, why: 'wire never creates CLAUDE.md; Claude Code reads AGENTS.md when there is none' },
+  { re: /`\.openhands\/` or `\.agents\/`/, why: 'OpenHands is detected from .openhands/ only' },
+  { re: /To remove it, delete those/, why: 'unwire removes what wire wrote' },
   { re: /(?<![a-z])grep (skips?|classif(y|ies)|treats?)/i, why: 'GNU grep prints "binary file matches"; ripgrep is the one that stays silent (bench/repro/nul-byte.sh)' },
   { re: /unreadable by grep/i, why: 'name ripgrep, the tool that skips the file in silence' },
   { re: /no warning, exit 0/i, why: 'the exit code differs by ripgrep build; the repro shows no match and no warning' },
@@ -198,6 +211,17 @@ test('a link to the examples folder leads to more than one example', (t) => {
   const home = readFileSync(join(ROOT, 'content/index.html'), 'utf8');
   const examples = readdirSync(join(ROOT, 'examples')).filter((f) => f.endsWith('.md'));
   if (/tree\/main\/examples/.test(home)) assert.ok(examples.length > 1, `examples/ holds ${examples.length} file`);
+});
+
+/* The minimal profile's line is the text an agent reads in every wired
+   repository. The spec and the skill quote it verbatim, so a hand wire
+   writes the same line as the CLI. */
+test('the spec and the skill quote the one line of the minimal profile verbatim', async (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const { INTEGRATION_LINE } = await import('../src/prompts.js');
+  for (const f of ['content/spec.md', 'skill/SKILL.tmpl.md']) {
+    assert.ok(readFileSync(join(ROOT, f), 'utf8').split('\n').includes(INTEGRATION_LINE), `${f} quotes the line on a line of its own`);
+  }
 });
 
 test('every listed public text exists', (t) => {

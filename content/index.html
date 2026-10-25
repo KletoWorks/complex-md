@@ -15,6 +15,7 @@ history. Read by every coding agent you use.</p>
 <div class="install"><span class="p">$</span><code>npx complex-md</code></div>
 <div class="ctas">
 <a class="btn solid" href="#how-to-use">How to use it</a>
+<a class="btn line" href="/map/">Look up a repository</a>
 <a class="btn line" href="https://github.com/KletoWorks/complex-md"><svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>View on GitHub</a>
 </div>
 </div>
@@ -160,8 +161,10 @@ writes COMPLEX.md at the root, and connects it to your agents.</p>
 <p>No Node.js? Download the <a href="/complex-md.skill.md">skill</a> and
 hand it to any coding agent. It does the same analysis with git alone.</p>
 <h3>3. It wires itself in</h3>
-<p>A note in your agent files. Rules that wake up when a risky file is
-opened. Where your agent supports it, a pause before the first risky edit.</p>
+<p>One marked line near the top of AGENTS.md. With <code>--profile full</code>,
+rules that wake up when a risky file is opened. Where your agent supports
+it, and you ask, a pause before the first risky edit. <code>npx complex-md
+unwire</code> takes it all out again.</p>
 <h3>4. Run it again after big changes</h3>
 <p>Run <code>npx complex-md</code> again and commit the new map with your change.</p>
 </div>
@@ -193,7 +196,7 @@ name the model and every run.</p>
 <details class="faq-item"><summary>What if a search cannot read a file?</summary><p>A single NUL byte makes ripgrep, which Claude Code's Grep tool runs, treat a source file as binary and skip it with no match and no warning. GNU grep prints "binary file matches" and not the line. Those files are named under <code>blind_spots</code>, with <code>git grep -I --text</code> as the way to read them.</p></details>
 <details class="faq-item"><summary>Can I write one by hand?</summary><p>Yes. Plain markdown with a YAML header. The <a href="/articles/write-complex-md-by-hand/">walkthrough</a> takes seven git commands.</p></details>
 <details class="faq-item"><summary>npx says "No versions available". Why?</summary><p>Your npm config sets <code>min-release-age</code>, which refuses packages published this week. Run <code>npm_config_min_release_age=0 npx -y complex-md</code> once.</p></details>
-<details class="faq-item"><summary>How do I keep it out of my agent's way?</summary><p>A default run adds no edit pause: hooks come only with <code>--hooks</code>. <code>--no-wire</code> only writes the file. A full run appends one section, headed "COMPLEX.md: the structural risk map", to <code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>GEMINI.md</code> and <code>.github/copilot-instructions.md</code> where they exist, and an <code>@COMPLEX.md</code> line to <code>CLAUDE.md</code>. It creates <code>AGENTS.md</code> when none of them exists, and <code>CLAUDE.md</code> when <code>.claude/</code> exists without one. For each agent it finds, it writes one brief per hot file: in <code>.claude/rules/complex-md/</code>, <code>.cursor/rules/complex-md/</code> and <code>.github/instructions/complex-md/</code>, and as <code>complex-md-*</code> files in <code>.agents/skills/</code>, <code>.agents/rules/</code>, <code>.devin/rules/</code>, <code>.windsurf/rules/</code>, <code>.kiro/steering/</code> and <code>.clinerules/</code>. When <code>AGENTS.md</code> does not carry the section, it also writes the section as a <code>complex-md</code> rule for Cursor, OpenHands, Windsurf and Cline. It adds an <code>@COMPLEX.md</code> line to a <code>REVIEW.md</code> that exists. <code>--hooks</code> adds <code>complex-md hook</code> entries to <code>.claude/settings.json</code> and <code>.cursor/hooks.json</code>, and <code>--hooks --local</code> adds them to <code>.claude/settings.local.json</code> instead. <code>--for openclaw,hermes</code> adds <code>.agents/skills/complex-md/SKILL.md</code>. To remove it, delete those.</p></details>
+<details class="faq-item"><summary>How do I keep it out of my agent's way?</summary><p>A default run adds no edit pause: hooks come only with <code>--hooks</code>. <code>--no-wire</code> only writes the file. A default wire adds one line near the top of <code>AGENTS.md</code>, between marker comments that name complex-md, a marked block in <code>.gitattributes</code>, and <code>.complex-md/manifest.json</code>, its record of what it wrote. It creates <code>AGENTS.md</code> when no agent file exists, and it never creates <code>CLAUDE.md</code>. <code>--profile full</code> writes the section headed "COMPLEX.md: the structural risk map" in place of the line, and at most 10 briefs per agent it finds: in <code>.claude/rules/complex-md/</code>, <code>.cursor/rules/complex-md/</code> and <code>.github/instructions/complex-md/</code>, and as <code>complex-md-*</code> files in <code>.agents/skills/</code>, <code>.agents/rules/</code>, <code>.devin/rules/</code>, <code>.windsurf/rules/</code>, <code>.kiro/steering/</code> and <code>.clinerules/</code>. <code>--hooks</code> adds <code>complex-md hook</code> entries to <code>.claude/settings.json</code> and <code>.cursor/hooks.json</code>. To remove it, run <code>npx complex-md unwire</code>. It deletes the files wire wrote and cuts out the marked text, and it leaves and names any of them you edited since. Add <code>--dry-run</code> to see the files first.</p></details>
 </div>
 </div>
 </section>

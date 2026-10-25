@@ -1,6 +1,6 @@
 {
   "name": "complex-md",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "COMPLEX.md: a computed map of where edits are risky and where bugs get fixed, for coding agents. Signals from git history, rules and hooks for Claude Code and Cursor, and a block in AGENTS.md and the other agent instruction files.",
   "license": "MIT",
   "author": "James L. Cowan Jr.",

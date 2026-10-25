@@ -76,7 +76,7 @@ test('no block only rule files when AGENTS.md carries the block, and old copies 
    there could only repeat the block. Wire removes the one it used to write. */
 test('roo gets no rule file, and the one an earlier version wrote is removed', () => {
   const dir = repo({ '.roo/rules/complex-md.md': `${HEADING}\n\nold copy\n`, '.roo/rules/mine.md': 'mine\n' });
-  const r = wire(dir, {});
+  const r = wire(dir, { profile: 'full' });
   assert.ok(!existsSync(join(dir, '.roo/rules/complex-md.md')));
   assert.ok(r.removed.includes('.roo/rules/complex-md.md'));
   assert.ok(!r.rules.some((x) => x.startsWith('.roo')));
@@ -135,7 +135,7 @@ const BRIEFED = ['src/core.js', 'src/legacy.js', 'src/render.css', 'src/render.j
    of the review bot on every pull request that touches it. */
 test('copilot: one .instructions.md per brief, applyTo scoped to its path', () => {
   const dir = repo({ '.github/copilot-instructions.md': '# Copilot\n' });
-  const r = wire(dir, {});
+  const r = wire(dir, { profile: 'full' });
   const got = briefsIn(dir, '.github/instructions/complex-md', '.instructions.md');
   assert.equal(Object.keys(got).length, BRIEFED.length);
   assert.deepEqual(Object.values(got).map((b) => b.front.applyTo).sort(), BRIEFED.map((p) => `"${p}"`));
@@ -147,10 +147,10 @@ test('copilot: one .instructions.md per brief, applyTo scoped to its path', () =
 
 test('copilot is detected from its own files only, never from .github alone', () => {
   const dir = repo({ '.github/workflows/ci.yml': 'on: push\n' });
-  wire(dir, {});
+  wire(dir, { profile: 'full' });
   assert.ok(!existsSync(join(dir, '.github/instructions')), 'a workflow is not a Copilot setup');
   const dir2 = repo({ '.github/instructions/house.instructions.md': '---\napplyTo: "**"\n---\nmine\n' });
-  wire(dir2, {});
+  wire(dir2, { profile: 'full' });
   assert.ok(existsSync(join(dir2, '.github/instructions/complex-md')), 'an instructions folder opts in');
   assert.equal(read(dir2, '.github/instructions/house.instructions.md'), '---\napplyTo: "**"\n---\nmine\n');
   const dir3 = repo();
@@ -163,10 +163,10 @@ test('copilot is detected from its own files only, never from .github alone', ()
    one line to an existing one and never creates it. */
 test('review: an existing REVIEW.md gets one @COMPLEX.md line; none is ever created', () => {
   const dir = repo({ 'REVIEW.md': '# Review instructions\n\nReport at most five Nits per review.' });
-  const r = wire(dir, {});
-  assert.equal(read(dir, 'REVIEW.md'), '# Review instructions\n\nReport at most five Nits per review.\n\n@COMPLEX.md\n');
+  const r = wire(dir, { profile: 'full' });
+  assert.equal(read(dir, 'REVIEW.md'), '# Review instructions\n\nReport at most five Nits per review.\n\n<!-- BEGIN complex-md (spec 0.3) -->\n@COMPLEX.md\n<!-- END complex-md (spec 0.3) -->\n');
   assert.ok(r.primary.includes('REVIEW.md (@COMPLEX.md include)'));
-  wire(dir, {});
+  wire(dir, { profile: 'full' });
   assert.equal(count(read(dir, 'REVIEW.md'), '@COMPLEX.md'), 1, 'a rewire adds nothing');
 
   const none = repo();
@@ -178,7 +178,7 @@ test('review: an existing REVIEW.md gets one @COMPLEX.md line; none is ever crea
 test('review: a line inside an open code fence or comment would not include, so none is added', () => {
   for (const tail of ['```md\nexample\n', '<!-- draft\n']) {
     const dir = repo({ 'REVIEW.md': `# Review\n\n${tail}` });
-    const r = wire(dir, {});
+    const r = wire(dir, { profile: 'full' });
     assert.equal(read(dir, 'REVIEW.md'), `# Review\n\n${tail}`);
     assert.ok(r.skipped.some((s) => s.startsWith('REVIEW.md (ends inside')));
   }
@@ -189,9 +189,9 @@ test('review: a line inside an open code fence or comment would not include, so 
 test('antigravity: flat .agents/rules briefs with a glob trigger; the user\'s rules stay', () => {
   const dir = repo({
     '.agents/rules/house.md': '---\ntrigger: always_on\n---\nmine\n',
-    '.agents/rules/complex-md-stale-x.md': '---\ntrigger: glob\n---\nours, stale\n',
+    '.agents/rules/complex-md-stale-x.md': '---\ntrigger: glob\n---\n# src/gone.js\n\nListed in COMPLEX.md as a file where edits are risky.\n',
   });
-  const r = wire(dir, {});
+  const r = wire(dir, { profile: 'full' });
   const got = briefsIn(dir, '.agents/rules');
   assert.equal(read(dir, '.agents/rules/house.md'), '---\ntrigger: always_on\n---\nmine\n');
   assert.ok(!got['complex-md-stale-x.md'], 'a brief for a dropped path is removed');
@@ -204,7 +204,7 @@ test('antigravity: flat .agents/rules briefs with a glob trigger; the user\'s ru
   assert.deepEqual(ours.map(([, b]) => b.front.globs).sort(), BRIEFED.map((p) => `"${p}"`));
   assert.ok(r.rules.includes('.agents/rules/complex-md-* (4 paths)'));
   const plain = repo();
-  wire(plain, {});
+  wire(plain, { profile: 'full' });
   assert.ok(!existsSync(join(plain, '.agents/rules')), 'not detected without the folder');
 });
 
@@ -214,7 +214,7 @@ test('antigravity: flat .agents/rules briefs with a glob trigger; the user\'s ru
 test('devin and windsurf: one glob triggered brief per path in each rules folder', () => {
   for (const folder of ['.devin', '.windsurf']) {
     const dir = repo({ [`${folder}/rules/house.md`]: '---\ntrigger: always_on\n---\nmine\n' });
-    const r = wire(dir, {});
+    const r = wire(dir, { profile: 'full' });
     const ours = Object.entries(briefsIn(dir, `${folder}/rules`)).filter(([f]) => f.startsWith('complex-md-'));
     assert.equal(ours.length, BRIEFED.length, folder);
     for (const [, b] of ours) assert.equal(b.front.trigger, 'glob');
@@ -229,7 +229,7 @@ test('devin and windsurf: one glob triggered brief per path in each rules folder
    when a file matching `fileMatchPattern` is in the conversation. */
 test('kiro: one fileMatch steering file per brief', () => {
   const dir = repo({ '.kiro/steering/product.md': '# Product\n' });
-  const r = wire(dir, {});
+  const r = wire(dir, { profile: 'full' });
   const ours = Object.entries(briefsIn(dir, '.kiro/steering', '.md', 'complex-md-'));
   assert.equal(ours.length, BRIEFED.length);
   for (const [, b] of ours) assert.equal(b.front.inclusion, 'fileMatch');
@@ -242,7 +242,7 @@ test('kiro: one fileMatch steering file per brief', () => {
    `paths:` list of globs applies when the agent works on a matching file. */
 test('cline: one conditional rule per brief, scoped with a paths list', () => {
   const dir = repo({ '.clinerules/house.md': 'mine\n' });
-  const r = wire(dir, {});
+  const r = wire(dir, { profile: 'full' });
   const ours = Object.entries(briefsIn(dir, '.clinerules', '.md', 'complex-md-'));
   assert.equal(ours.length, BRIEFED.length);
   assert.deepEqual(ours.map(([, b]) => b.front.paths).sort(), BRIEFED.map((p) => `\n  - "${p}"`));
@@ -254,7 +254,7 @@ test('cline: one conditional rule per brief, scoped with a paths list', () => {
    .clinerules/<name> into it would fail the whole wire. */
 test('cline: a .clinerules file is left alone, not treated as a folder', () => {
   const dir = repo({ '.clinerules': 'one file of rules\n' });
-  const r = wire(dir, {});
+  const r = wire(dir, { profile: 'full' });
   assert.equal(read(dir, '.clinerules'), 'one file of rules\n');
   const forced = wire(dir, { agents: ['cline'] });
   assert.equal(read(dir, '.clinerules'), 'one file of rules\n');
@@ -320,12 +320,12 @@ test('a block only rule file is still written when no AGENTS.md carries the bloc
 test('the portable skill alone does not opt a later default wire into OpenHands', () => {
   const dir = repo();
   wire(dir, { agents: ['openclaw'] });
-  const r = wire(dir, {});
+  const r = wire(dir, { profile: 'full' });
   assert.ok(!r.rules.some((x) => x.startsWith('.agents/skills/complex-md-')), 'no OpenHands briefs');
   assert.deepEqual(readdirSync(join(dir, '.agents/skills')), ['complex-md']);
   const user = repo({ '.agents/skills/mine/SKILL.md': '---\nname: mine\n---\nmine\n' });
   wire(user, { agents: ['openclaw'] });
-  assert.ok(wire(user, {}).rules.includes('.agents/skills/complex-md-* (4 paths)'), 'a skill of the user\'s still opts in');
+  assert.ok(!wire(user, { profile: 'full' }).rules.some((x) => x.startsWith('.agents/skills/complex-md-')), 'a skill of the user\'s is no sign of OpenHands either');
 });
 
 /* Every scope field is a glob. A route such as app/[id]/page.tsx is a
