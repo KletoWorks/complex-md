@@ -215,7 +215,7 @@ paths: <the one path>
 <the file's paragraph from "Why these files are hot", when it has one>
 
 Moves with:
-- <partner> (<coupling>% of this file's commits, <count> together)
+- <partner> (<count> commits together, <coupling>% of the less active file's commits)
 
 Open the partner and say in the change description whether it needed a change too.
 
