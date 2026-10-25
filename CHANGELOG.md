@@ -14,6 +14,31 @@ format.
 
 **Change:** after a model or `--via` reply passes `normalizeOutput`, each sentence that uses an em dash or an en dash as punctuation goes back to the same model in 1 repair request, and the rewrites replace only those sentences. A dash that is left becomes a comma, a space, or "to" in a range of digits, and the run prints how many it replaced. Dashes in code spans, paths and code blocks stay. `cli/src/dashes.js` holds the rules; `cli/test/dashes.test.js` covers the repair, the fallback and the template prose.
 
+**Intent:** a shared link to a hosted map page showed the site's generic card, so the preview named neither the repository nor what its map found (#28).
+
+**Change:** `scripts/hosted-pages.mjs` writes `<repo_key>/og.png` beside each page: a 1200 by 630 PNG with the repository name, the number of hotspots, the map's first co-change pair and its coupling, the map's commit and date, and the complex.md mark. Each page names it in `og:image` and `twitter:image`, with width, height and alt text. `scripts/og-image.mjs` draws it with no dependency: a scanline rasterizer, `node:zlib` for the PNG, and Inter outlines in `scripts/og-glyphs.json`, which `scripts/og-font.py` writes once from the site's font. A character outside that table is drawn as "?". Each image is about 75 kB.
+
+**Intent:** /map/remove said each of the 3 ways to remove a hosted page takes effect within 24 hours. A removal request sent with the form waits for a person's review of up to 72 hours, so the form promised a time it does not keep.
+
+**Change:** /map/remove, the "Removing a page" section of /map and the form's confirmation say that a person reviews each removal request within 72 hours. A commit of COMPLEX.md or of `hosted: false` still takes effect within 24 hours.
+
+**Intent:** /map refused every repository outside GitHub with "complex.md maps repositories on GitHub", though `npx complex-md` works in a clone from any host and the request route counts requests for GitLab, Codeberg and Bitbucket.
+
+**Change:** /map reads gitlab.com (1 to 3 groups and a project), codeberg.org and bitbucket.org URLs and SSH remotes. For those it skips the hosted map index, says that hosted pages cover GitHub first, shows the command and sends the request with its `host`. A GitHub request now names `host: github` too. The removal form still takes GitHub repositories only.
+
+**Intent:** an outside contributor had no clear first step, and the issue
+forms did not say what a pull request must bring
+([issue #29](https://github.com/KletoWorks/complex-md/issues/29)).
+
+**Change:** CONTRIBUTING.md has a "Ways to contribute" section that links
+4 issue forms in order, each with a test as its bar: a wrong map (a
+fixture or a test that shows the wrong output), a language module (an
+edge fixture like those in `cli/test/resolve.test.js`, tested on 3 public
+repositories), a conformance case (a `spec/0.4/fixtures/` folder and its
+entry in the fixture test) and a spec proposal (a benchmark run or a
+source). The conformance case and spec proposal forms are new. The issue
+chooser links the section.
+
 **Intent:** CI ran the tests on Ubuntu with Node 22 only. The CLI writes
 files with line ending rules, runs git and builds paths, and none of that
 ran on Windows or macOS. The first run there failed 4 tests on each macOS
