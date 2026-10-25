@@ -51,8 +51,10 @@ const PUBLIC = [
   ...dir('.github/ISSUE_TEMPLATE', '.yml'),
   ...dir('.github/unlisted', '.yml'),
   'docs/RESEARCH-signals-and-wiring.md',
-  // The build writes llms.txt, the JSON-LD and the footer from this file.
+  // The build writes llms.txt and the JSON-LD from this file.
   'scripts/build.mjs',
+  // The header and the footer of every page, hosted map pages included.
+  'scripts/chrome.mjs',
 ];
 
 /** The texts an agent follows to wire a repository. */
