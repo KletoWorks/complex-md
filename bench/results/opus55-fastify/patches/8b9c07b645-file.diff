@@ -1,0 +1,94 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 93b0b285..d2da3f7c 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -961,6 +961,14 @@ function setupResponseListeners (reply) {
+       }
+     }
+ 
++    // Release references held by a keep-alive socket, unless a newer
++    // request on the same socket has already taken over _meta.
++    // Set to null (not deleted) so the timeout listener is not re-added.
++    const socket = reply.request.raw.socket
++    if (socket && socket._meta && socket._meta.request === reply.request) {
++      socket._meta = null
++    }
++
+     if (ctx && ctx.onResponse !== null) {
+       onResponseHookRunner(
+         ctx.onResponse,
+diff --git a/lib/route.js b/lib/route.js
+index 4c8ee129..352329e0 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -583,7 +583,7 @@ function buildRouting (options) {
+     }
+ 
+     if (context.onTimeout !== null) {
+-      if (!request.raw.socket._meta) {
++      if (request.raw.socket._meta === undefined) {
+         request.raw.socket.on('timeout', handleTimeout)
+       }
+       request.raw.socket._meta = { context, request, reply }
+@@ -598,6 +598,8 @@ function handleOnRequestAbortHooksErrors (reply, err) {
+ }
+ 
+ function handleTimeout () {
++  // _meta is null between requests on a keep-alive socket
++  if (this._meta === null) return
+   const { context, request, reply } = this._meta
+   onTimeoutHookRunner(
+     context.onTimeout,
+diff --git a/test/hooks.test.js b/test/hooks.test.js
+index 56d483dc..577ce9dd 100644
+--- a/test/hooks.test.js
++++ b/test/hooks.test.js
+@@ -3278,6 +3278,48 @@ test('onTimeout should be triggered and socket _meta is set', async t => {
+   }
+ })
+ 
++test('socket _meta is cleared after response on keep-alive sockets', async t => {
++  t.plan(4)
++  const fastify = Fastify({ connectionTimeout: 5000 })
++  t.after(() => fastify.close())
++
++  fastify.addHook('onTimeout', function (req, res, done) {
++    done()
++  })
++
++  const seen = []
++  let resolve
++  const responded = new Promise(r => { resolve = r })
++  fastify.addHook('onResponse', function (req, reply, done) {
++    const socket = req.raw.socket
++    seen.push({ socket, meta: socket._meta, listeners: socket.listenerCount('timeout') })
++    if (seen.length === 2) resolve()
++    done()
++  })
++
++  fastify.get('/', async () => ({ hello: 'world' }))
++
++  const fastifyServer = await fastify.listen({ port: 0 })
++
++  const http = require('node:http')
++  const agent = new http.Agent({ keepAlive: true, maxSockets: 1 })
++  t.after(() => agent.destroy())
++  const get = () => new Promise((resolve, reject) => {
++    http.get(fastifyServer, { agent }, res => {
++      res.resume()
++      res.on('end', resolve)
++    }).on('error', reject)
++  })
++
++  await Promise.all([get(), get()])
++  await responded
++
++  t.assert.strictEqual(seen[0].socket, seen[1].socket, 'socket is reused')
++  t.assert.strictEqual(seen[0].meta, null)
++  t.assert.strictEqual(seen[1].meta, null)
++  t.assert.strictEqual(seen[1].listeners, seen[0].listeners, 'timeout listener is not re-added')
++})
++
+ test('registering invalid hooks should throw an error', async t => {
+   t.plan(3)
+ 

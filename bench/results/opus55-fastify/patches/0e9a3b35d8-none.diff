@@ -1,0 +1,79 @@
+diff --git a/docs/Reference/Server.md b/docs/Reference/Server.md
+index 4d04d5d6..0960d17d 100644
+--- a/docs/Reference/Server.md
++++ b/docs/Reference/Server.md
+@@ -1725,8 +1725,10 @@ fastify.mkcol('/', (req, reply) => {
+ })
+ ```
+ 
+-> ⚠ Warning:
+-> `addHttpMethod` overrides existing methods.
++> ℹ️ Note:
++> `addHttpMethod` does not override already supported methods. Calling it
++> with a method that is already supported (e.g. `GET` or `POST`, or a method
++> previously added) has no effect on whether that method accepts a body.
+ 
+ #### addSchema
+ <a id="add-schema"></a>
+diff --git a/fastify.js b/fastify.js
+index 2005da39..2c0bd810 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -828,12 +828,15 @@ function fastify (serverOptions) {
+       throw new FST_ERR_ROUTE_METHOD_INVALID()
+     }
+ 
+-    if (hasBody === true) {
+-      this[kSupportedHTTPMethods].bodywith.add(method)
+-      this[kSupportedHTTPMethods].bodyless.delete(method)
+-    } else {
+-      this[kSupportedHTTPMethods].bodywith.delete(method)
+-      this[kSupportedHTTPMethods].bodyless.add(method)
++    const { bodywith, bodyless } = this[kSupportedHTTPMethods]
++
++    // Already supported methods (including the standard ones) are not overridden
++    if (!bodywith.has(method) && !bodyless.has(method)) {
++      if (hasBody === true) {
++        bodywith.add(method)
++      } else {
++        bodyless.add(method)
++      }
+     }
+ 
+     const _method = method.toLowerCase()
+diff --git a/test/http-methods/custom-http-methods.test.js b/test/http-methods/custom-http-methods.test.js
+index 61feed4e..cb90ef12 100644
+--- a/test/http-methods/custom-http-methods.test.js
++++ b/test/http-methods/custom-http-methods.test.js
+@@ -112,3 +112,31 @@ test('addHttpMethod rejects fake http method', t => {
+   const fastify = Fastify()
+   t.assert.throws(() => { fastify.addHttpMethod('FOOO') }, /Provided method is invalid!/)
+ })
++
++test('addHttpMethod does not override standard http methods', async t => {
++  t.plan(2)
++  const fastify = Fastify()
++
++  fastify.addHttpMethod('GET', { hasBody: true })
++  fastify.addHttpMethod('POST')
++
++  t.assert.throws(() => {
++    fastify.get('/', { schema: { body: { type: 'object' } } }, () => {})
++  }, { code: 'FST_ERR_ROUTE_BODY_VALIDATION_SCHEMA_NOT_SUPPORTED' })
++
++  fastify.post('/', (req, reply) => { reply.send(req.body) })
++  const response = await fastify.inject({ method: 'POST', url: '/', payload: { hello: 'world' } })
++  t.assert.deepStrictEqual(response.json(), { hello: 'world' })
++})
++
++test('addHttpMethod does not override previously added methods', t => {
++  t.plan(1)
++  const fastify = Fastify()
++
++  fastify.addHttpMethod('REBIND', { hasBody: true })
++  fastify.addHttpMethod('REBIND')
++
++  t.assert.doesNotThrow(() => {
++    fastify.rebind('/', { schema: { body: { type: 'object' } } }, () => {})
++  })
++})

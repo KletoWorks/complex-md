@@ -1,0 +1,46 @@
+diff --git a/lib/route.js b/lib/route.js
+index 9eb46f0b..e5a27852 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -614,7 +614,8 @@ function runPreParsing (err, request, reply) {
+ }
+ 
+ function buildRouterOptions (options, defaultOptions) {
+-  const routerOptions = options.routerOptions || Object.create(null)
++  // Shallow copy to avoid mutating a user-provided object shared across instances
++  const routerOptions = Object.assign(Object.create(null), options.routerOptions)
+ 
+   const usedDeprecatedOptions = routerKeys.filter(key => Object.hasOwn(options, key))
+ 
+diff --git a/test/router-options.test.js b/test/router-options.test.js
+index cdb9d389..086e0548 100644
+--- a/test/router-options.test.js
++++ b/test/router-options.test.js
+@@ -1064,3 +1064,27 @@ test('Should support extra find-my-way options', async t => {
+   // Ensure the option is preserved after validation
+   t.assert.strictEqual(typeof fastify.initialConfig.routerOptions.buildPrettyMeta, 'function')
+ })
++
++test('Should allow reusing the same routerOptions object across instances', async t => {
++  t.plan(6)
++  const options = { routerOptions: { maxParamLength: 2048 } }
++
++  const app1 = Fastify(options)
++  app1.get('/a', async () => 'a')
++  const app2 = Fastify(options)
++  app2.get('/b', async () => 'b')
++
++  t.assert.deepStrictEqual(options, { routerOptions: { maxParamLength: 2048 } })
++
++  let res = await app2.inject('/b')
++  t.assert.strictEqual(res.body, 'b')
++  res = await app2.inject('/not-found')
++  t.assert.strictEqual(res.statusCode, 404)
++
++  res = await app1.inject('/a')
++  t.assert.strictEqual(res.body, 'a')
++  res = await app1.inject('/not-found')
++  t.assert.strictEqual(res.statusCode, 404)
++
++  t.assert.strictEqual(app2.initialConfig.routerOptions.maxParamLength, 2048)
++})

@@ -1,0 +1,159 @@
+diff --git a/docs/Reference/Reply.md b/docs/Reference/Reply.md
+index 5c60a134..f08ce83a 100644
+--- a/docs/Reference/Reply.md
++++ b/docs/Reference/Reply.md
+@@ -708,6 +708,12 @@ sent unmodified without response validation.
+ See special note about error handling for streams in
+ [`setErrorHandler`](./Server.md#seterrorhandler).
+ 
++When using HTTP/2, Fastify writes large string and buffer payloads in smaller
++chunks so that a cancelled request does not affect the rest of the session.
++Stream payloads are written as emitted, so applications serving HTTP/2 should
++make sure their streams emit reasonably sized chunks (e.g. 64 KiB or less)
++instead of a single large chunk.
++
+ ```js
+ const fs = require('node:fs')
+ 
+diff --git a/lib/reply.js b/lib/reply.js
+index 38d2ca97..a7ed21f2 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -44,6 +44,7 @@ const CONTENT_TYPE = {
+   PLAIN: 'text/plain; charset=utf-8',
+   OCTET: 'application/octet-stream'
+ }
++const HTTP2_CHUNK_SIZE = 64 * 1024
+ const {
+   FST_ERR_REP_INVALID_PAYLOAD_TYPE,
+   FST_ERR_REP_RESPONSE_BODY_CONSUMED,
+@@ -676,12 +677,51 @@ function onSendEnd (reply, payload) {
+   }
+ 
+   safeWriteHead(reply, statusCode)
++
++  if (req.raw?.httpVersionMajor === 2 && Buffer.byteLength(payload) > HTTP2_CHUNK_SIZE) {
++    sendHttp2Chunked(payload, res, reply)
++    return
++  }
++
+   // write payload first
+   res.write(payload)
+   // then send trailers
+   sendTrailer(payload, res, reply)
+ }
+ 
++// A single large write on an HTTP/2 stream that gets cancelled can leave
++// the whole session unusable, so large payloads are written in chunks
++// honoring backpressure and stop as soon as the stream is gone.
++function sendHttp2Chunked (payload, res, reply) {
++  const buffer = Buffer.isBuffer(payload) ? payload : Buffer.from(payload)
++  let offset = 0
++
++  function onClose () {
++    res.removeListener('drain', writeChunks)
++  }
++  res.once('close', onClose)
++
++  function writeChunks () {
++    while (offset < buffer.length) {
++      if (res.destroyed || res.writableEnded) {
++        res.removeListener('close', onClose)
++        return
++      }
++      const end = Math.min(offset + HTTP2_CHUNK_SIZE, buffer.length)
++      const chunk = buffer.subarray(offset, end)
++      offset = end
++      if (res.write(chunk) === false && offset < buffer.length) {
++        res.once('drain', writeChunks)
++        return
++      }
++    }
++    res.removeListener('close', onClose)
++    sendTrailer(payload, res, reply)
++  }
++
++  writeChunks()
++}
++
+ function logStreamError (logger, err, res) {
+   if (err.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+     if (!logger[kDisableRequestLogging]) {
+diff --git a/test/http2/plain.test.js b/test/http2/plain.test.js
+index 3e1d5b4c..20e9d1f7 100644
+--- a/test/http2/plain.test.js
++++ b/test/http2/plain.test.js
+@@ -28,6 +28,15 @@ test('http2 plain test', async t => {
+     reply.code(200).send({ hostname: req.hostname, port: req.port })
+   })
+ 
++  const large = Buffer.alloc(1024 * 1024, 'a')
++  fastify.get('/large', function (req, reply) {
++    reply.code(200).send(large)
++  })
++
++  fastify.get('/large-string', function (req, reply) {
++    reply.code(200).type('text/plain').send(large.toString())
++  })
++
+   t.after(() => { fastify.close() })
+ 
+   await fastify.listen({ port: 0 })
+@@ -44,6 +53,57 @@ test('http2 plain test', async t => {
+     t.assert.deepStrictEqual(JSON.parse(res.body), msg)
+   })
+ 
++  await t.test('http get large buffer request', async (t) => {
++    t.plan(3)
++
++    const url = `http://localhost:${fastify.server.address().port}/large`
++    const res = await h2url.concat({ url })
++
++    t.assert.strictEqual(res.headers[':status'], 200)
++    t.assert.strictEqual(res.headers['content-length'], '' + large.length)
++    t.assert.strictEqual(res.body, large.toString())
++  })
++
++  await t.test('http get large string request', async (t) => {
++    t.plan(3)
++
++    const url = `http://localhost:${fastify.server.address().port}/large-string`
++    const res = await h2url.concat({ url })
++
++    t.assert.strictEqual(res.headers[':status'], 200)
++    t.assert.strictEqual(res.headers['content-length'], '' + large.length)
++    t.assert.strictEqual(res.body, large.toString())
++  })
++
++  await t.test('cancelled large response does not break the session', async (t) => {
++    t.plan(2)
++
++    const http2 = require('node:http2')
++    const session = http2.connect(`http://localhost:${fastify.server.address().port}`)
++    t.after(() => session.close())
++
++    await new Promise((resolve) => {
++      const req = session.request({ ':path': '/large' })
++      req.once('response', () => {
++        req.close(http2.constants.NGHTTP2_CANCEL)
++        resolve()
++      })
++      req.on('error', () => {})
++    })
++
++    const body = await new Promise((resolve, reject) => {
++      const req = session.request({ ':path': '/' })
++      let data = ''
++      req.setEncoding('utf8')
++      req.on('data', (chunk) => { data += chunk })
++      req.on('end', () => resolve(data))
++      req.on('error', reject)
++    })
++
++    t.assert.ok(!session.destroyed)
++    t.assert.deepStrictEqual(JSON.parse(body), msg)
++  })
++
+   await t.test('http host', async (t) => {
+     t.plan(1)
+ 

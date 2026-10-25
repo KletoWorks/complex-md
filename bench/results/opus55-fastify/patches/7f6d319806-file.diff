@@ -1,0 +1,94 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 6b15b67f..e4fc781b 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -135,6 +135,11 @@ Reply.prototype.hijack = function () {
+       this.request[kOnAbort] = null
+     }
+   }
++  // Hijacked replies skip onResFinished, so release socket._meta here too
++  const socket = this.request.raw.socket
++  if (socket && socket._meta && socket._meta.request === this.request) {
++    socket._meta = null
++  }
+   return this
+ }
+ 
+diff --git a/lib/route.js b/lib/route.js
+index 4c8ee129..1609504a 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -558,6 +558,18 @@ function buildRouting (options) {
+       setupResponseListeners(reply)
+     }
+ 
++    // Set before any hook or handler runs, so a synchronous reply.hijack()
++    // finds and clears it
++    if (context.onTimeout !== null) {
++      // _meta is undefined until the first request on this socket, and is reset
++      // to null (not undefined) once a response finishes or is hijacked, so the
++      // listener is attached only once per socket
++      if (req.socket._meta === undefined) {
++        req.socket.on('timeout', handleTimeout)
++      }
++      req.socket._meta = { context, request, reply }
++    }
++
+     if (context.onRequest !== null) {
+       onRequestHookRunner(
+         context.onRequest,
+@@ -581,13 +593,6 @@ function buildRouting (options) {
+         }
+       })
+     }
+-
+-    if (context.onTimeout !== null) {
+-      if (!request.raw.socket._meta) {
+-        request.raw.socket.on('timeout', handleTimeout)
+-      }
+-      request.raw.socket._meta = { context, request, reply }
+-    }
+   }
+ }
+ 
+@@ -598,6 +603,8 @@ function handleOnRequestAbortHooksErrors (reply, err) {
+ }
+ 
+ function handleTimeout () {
++  // The response already finished or was hijacked; there is no request to time out
++  if (!this._meta) return
+   const { context, request, reply } = this._meta
+   onTimeoutHookRunner(
+     context.onTimeout,
+diff --git a/test/hooks.test.js b/test/hooks.test.js
+index 5be37637..2b1d4225 100644
+--- a/test/hooks.test.js
++++ b/test/hooks.test.js
+@@ -3300,6 +3300,27 @@ test('socket._meta is cleared after response to prevent keep-alive leaks', async
+   t.assert.strictEqual(result.status, 200)
+ })
+ 
++test('socket._meta is cleared on reply.hijack() when onTimeout is registered', async t => {
++  t.plan(4)
++  const fastify = Fastify({ connectionTimeout: 500 })
++  t.after(() => { fastify.close() })
++
++  fastify.addHook('onTimeout', function (req, res, done) { done() })
++
++  fastify.get('/', async (req, reply) => {
++    const socket = req.raw.socket
++    t.assert.strictEqual(socket._meta.request, req, 'socket._meta is set before hijack')
++    reply.hijack()
++    t.assert.strictEqual(socket._meta, null, 'socket._meta must be null after hijack')
++    reply.raw.end('hijacked')
++  })
++
++  const address = await fastify.listen({ port: 0 })
++  const result = await fetch(address)
++  t.assert.ok(result.ok)
++  t.assert.strictEqual(await result.text(), 'hijacked')
++})
++
+ test('registering invalid hooks should throw an error', async t => {
+   t.plan(3)
+ 

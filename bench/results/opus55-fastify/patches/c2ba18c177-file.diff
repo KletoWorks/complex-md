@@ -1,0 +1,92 @@
+diff --git a/fastify.js b/fastify.js
+index ef46ee03..acb07977 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -382,8 +382,11 @@ function fastify (serverOptions) {
+         if (fastify[kState].listening) {
+           /* istanbul ignore next: Cannot test this without Node.js core support */
+           if (forceCloseConnections === 'idle') {
+-            // Not needed in Node 19
+-            instance.server.closeIdleConnections()
++            // Native Node.js servers already close idle connections in server.close(),
++            // custom servers from serverFactory may not
++            if (options.serverFactory) {
++              instance.server.closeIdleConnections()
++            }
+             /* istanbul ignore next: Cannot test this without Node.js core support */
+           } else if (serverHasCloseAllConnections && forceCloseConnections) {
+             instance.server.closeAllConnections()
+diff --git a/test/close-pipelining.test.js b/test/close-pipelining.test.js
+index 81e6325d..24ef6194 100644
+--- a/test/close-pipelining.test.js
++++ b/test/close-pipelining.test.js
+@@ -41,7 +41,7 @@ test('Should return 503 while closing - pipelining', async t => {
+ })
+ 
+ test('Should close the socket abruptly - pipelining - return503OnClosing: false', async t => {
+-  // Since Node v20, we will always invoke server.closeIdleConnections()
++  // Native Node.js servers call closeIdleConnections() as part of server.close(),
+   // therefore our socket will be closed
+   const fastify = Fastify({
+     return503OnClosing: false,
+diff --git a/test/close.test.js b/test/close.test.js
+index 810ffe4f..a61cb443 100644
+--- a/test/close.test.js
++++ b/test/close.test.js
+@@ -425,6 +425,56 @@ test('shutsdown while keep-alive connections are active (non-async, idle, native
+   })
+ })
+ 
++function spyCloseIdleConnectionsBeforeClose (server) {
++  const spy = { calls: 0 }
++  let closing = false
++
++  const originalCloseIdleConnections = server.closeIdleConnections
++  server.closeIdleConnections = function () {
++    if (!closing) spy.calls++
++    return originalCloseIdleConnections.apply(this, arguments)
++  }
++
++  const originalClose = server.close
++  server.close = function () {
++    closing = true
++    return originalClose.apply(this, arguments)
++  }
++
++  return spy
++}
++
++test('does not call closeIdleConnections before server.close on native servers (forceCloseConnections - idle)', { skip: noSupport }, async t => {
++  t.plan(1)
++
++  const fastify = Fastify({ forceCloseConnections: 'idle' })
++  const spy = spyCloseIdleConnectionsBeforeClose(fastify.server)
++
++  await fastify.listen({ port: 0 })
++  await fastify.close()
++
++  t.assert.strictEqual(spy.calls, 0)
++})
++
++test('calls closeIdleConnections before server.close on serverFactory servers (forceCloseConnections - idle)', { skip: noSupport }, async t => {
++  t.plan(1)
++
++  let spy
++  const fastify = Fastify({
++    forceCloseConnections: 'idle',
++    serverFactory (handler) {
++      const server = http.createServer(handler)
++      spy = spyCloseIdleConnectionsBeforeClose(server)
++      return server
++    }
++  })
++
++  await fastify.listen({ port: 0 })
++  await fastify.close()
++
++  t.assert.strictEqual(spy.calls, 1)
++})
++
+ test('triggers on-close hook in the right order with multiple bindings', async t => {
+   const expectedOrder = [1, 2, 3]
+   const order = []

@@ -1,0 +1,130 @@
+diff --git a/lib/decorate.js b/lib/decorate.js
+index 1ffbd8ff..2cd26883 100644
+--- a/lib/decorate.js
++++ b/lib/decorate.js
+@@ -47,7 +47,7 @@ function getInstanceDecorator (name) {
+ 
+ function decorateConstructor (konstructor, name, fn, dependencies) {
+   const instance = konstructor.prototype
+-  if (Object.hasOwn(instance, name) || hasKey(konstructor, name)) {
++  if (Object.hasOwn(instance, name) || hasKey(konstructor, name) || hasInstanceProperty(konstructor, name)) {
+     throw new FST_ERR_DEC_ALREADY_PRESENT(name)
+   }
+ 
+@@ -90,13 +90,22 @@ function hasKey (fn, name) {
+   return fn.props ? fn.props.some(p => p.key === name) : false
+ }
+ 
++// Walks the parent chain of derived Request/Reply constructors looking for
++// properties assigned in the base constructor body.
++function hasInstanceProperty (konstructor, name) {
++  for (let k = konstructor; k; k = k.parent) {
++    if (Object.hasOwn(k, 'instanceProperties') && k.instanceProperties.has(name)) return true
++  }
++  return false
++}
++
+ function checkRequestExistence (name) {
+-  if (name && hasKey(this[kRequest], name)) return true
++  if (name && (hasKey(this[kRequest], name) || hasInstanceProperty(this[kRequest], name))) return true
+   return checkExistence(this[kRequest].prototype, name)
+ }
+ 
+ function checkReplyExistence (name) {
+-  if (name && hasKey(this[kReply], name)) return true
++  if (name && (hasKey(this[kReply], name) || hasInstanceProperty(this[kReply], name))) return true
+   return checkExistence(this[kReply].prototype, name)
+ }
+ 
+diff --git a/lib/reply.js b/lib/reply.js
+index 8727c499..dddf530b 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -76,6 +76,8 @@ function Reply (res, request, log) {
+   this.log = log
+ }
+ Reply.props = []
++// string-keyed properties assigned in the constructor, not on the prototype
++Reply.instanceProperties = new Set(['raw', 'request', 'log'])
+ 
+ Object.defineProperties(Reply.prototype, {
+   [kRouteContext]: {
+diff --git a/lib/request.js b/lib/request.js
+index fb564a5a..c7ac335f 100644
+--- a/lib/request.js
++++ b/lib/request.js
+@@ -37,6 +37,8 @@ function Request (id, params, req, query, log, context) {
+   this.body = undefined
+ }
+ Request.props = []
++// string-keyed properties assigned in the constructor, not on the prototype
++Request.instanceProperties = new Set(['id', 'params', 'raw', 'query', 'log', 'body'])
+ 
+ function getTrustProxyFn (tp) {
+   if (typeof tp === 'function') {
+diff --git a/test/decorator.test.js b/test/decorator.test.js
+index 972658f9..94985cfb 100644
+--- a/test/decorator.test.js
++++ b/test/decorator.test.js
+@@ -1328,3 +1328,61 @@ test('Request.setDecorator should update an existing decorator', (t, done) => {
+     })
+   })
+ })
++
++describe('constructor-assigned built-in properties', () => {
++  const requestProps = ['id', 'params', 'raw', 'query', 'log', 'body']
++  const replyProps = ['raw', 'request', 'log']
++
++  test('hasRequestDecorator returns true for built-in request properties', t => {
++    const fastify = Fastify()
++    for (const name of requestProps) {
++      t.assert.strictEqual(fastify.hasRequestDecorator(name), true, name)
++    }
++  })
++
++  test('hasReplyDecorator returns true for built-in reply properties', t => {
++    const fastify = Fastify()
++    for (const name of replyProps) {
++      t.assert.strictEqual(fastify.hasReplyDecorator(name), true, name)
++    }
++  })
++
++  test('decorateRequest throws for built-in request properties', t => {
++    const fastify = Fastify()
++    for (const name of requestProps) {
++      t.assert.throws(() => fastify.decorateRequest(name, null), { code: 'FST_ERR_DEC_ALREADY_PRESENT' }, name)
++    }
++  })
++
++  test('decorateReply throws for built-in reply properties', t => {
++    const fastify = Fastify()
++    for (const name of replyProps) {
++      t.assert.throws(() => fastify.decorateReply(name, null), { code: 'FST_ERR_DEC_ALREADY_PRESENT' }, name)
++    }
++  })
++
++  test('built-in properties are detected inside encapsulated plugins', async t => {
++    const fastify = Fastify()
++    await fastify.register(async (instance) => {
++      t.assert.strictEqual(instance.hasRequestDecorator('id'), true)
++      t.assert.strictEqual(instance.hasReplyDecorator('raw'), true)
++      t.assert.throws(() => instance.decorateRequest('id', null), { code: 'FST_ERR_DEC_ALREADY_PRESENT' })
++      t.assert.throws(() => instance.decorateReply('raw', null), { code: 'FST_ERR_DEC_ALREADY_PRESENT' })
++    })
++  })
++
++  test('unrelated request and reply decorators still work', async t => {
++    const fastify = Fastify()
++    t.assert.strictEqual(fastify.hasRequestDecorator('myExtra'), false)
++    fastify.decorateRequest('myExtra', null)
++    fastify.decorateReply('myExtra', null)
++    t.assert.strictEqual(fastify.hasRequestDecorator('myExtra'), true)
++    t.assert.strictEqual(fastify.hasReplyDecorator('myExtra'), true)
++
++    fastify.get('/', (req, reply) => {
++      reply.send({ id: typeof req.id, extra: req.myExtra })
++    })
++    const res = await fastify.inject('/')
++    t.assert.deepStrictEqual(res.json(), { id: 'string', extra: null })
++  })
++})

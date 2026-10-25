@@ -1,0 +1,51 @@
+diff --git a/lib/server.js b/lib/server.js
+index a632e52d..b2ba2875 100644
+--- a/lib/server.js
++++ b/lib/server.js
+@@ -239,6 +239,11 @@ function listenPromise (server, listenOptions) {
+   }
+ 
+   return this.ready().then(() => {
++    // the server was closed by the abort signal before it could start listening
++    if (listenOptions.signal?.aborted) {
++      throw listenOptions.signal.reason
++    }
++
+     let errEventHandler
+     let listeningEventHandler
+     function cleanup () {
+diff --git a/test/server.test.js b/test/server.test.js
+index 1247c77a..10ebd0f1 100644
+--- a/test/server.test.js
++++ b/test/server.test.js
+@@ -118,6 +118,30 @@ test('abort signal', async t => {
+     t.assert.strictEqual(fastify.server.listening, false)
+   })
+ 
++  await t.test('listen should reject if already aborted (promise)', async (t) => {
++    t.plan(2)
++
++    const controller = new AbortController()
++    controller.abort(new Error('aborting before actual start'))
++    const fastify = Fastify()
++    await t.assert.rejects(
++      fastify.listen({ port: 1234, signal: controller.signal }),
++      { message: 'aborting before actual start' }
++    )
++    t.assert.strictEqual(fastify.server.listening, false)
++  })
++
++  await t.test('listen should reject if aborted before ready (promise)', async (t) => {
++    t.plan(2)
++
++    const controller = new AbortController()
++    const fastify = Fastify()
++    const listening = fastify.listen({ port: 1234, signal: controller.signal })
++    controller.abort(new Error('aborting before ready'))
++    await t.assert.rejects(listening, { message: 'aborting before ready' })
++    t.assert.strictEqual(fastify.server.listening, false)
++  })
++
+   await t.test('listen should throw if received invalid signal', t => {
+     t.plan(2)
+     const fastify = Fastify()

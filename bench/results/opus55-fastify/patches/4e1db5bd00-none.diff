@@ -1,0 +1,64 @@
+diff --git a/lib/request.js b/lib/request.js
+index f1f4a5e1..68ea0ea8 100644
+--- a/lib/request.js
++++ b/lib/request.js
+@@ -103,6 +103,14 @@ function buildRequestWithTrustProxy (R, trustProxy) {
+   // This is a more optimized version of decoration
+   _Request[kHasBeenDecorated] = true
+ 
++  // Only honor X-Forwarded-* headers when the direct peer is a trusted proxy
++  function isConnectionTrusted (request) {
++    if (proxyFn === null) return true
++    const remoteAddress = request.raw.socket?.remoteAddress
++    if (remoteAddress === undefined) return false
++    return proxyFn(remoteAddress, 0)
++  }
++
+   Object.defineProperties(_Request.prototype, {
+     ip: {
+       get () {
+@@ -117,7 +125,7 @@ function buildRequestWithTrustProxy (R, trustProxy) {
+     },
+     host: {
+       get () {
+-        if (this.ip !== undefined && this.headers['x-forwarded-host']) {
++        if (this.headers['x-forwarded-host'] && isConnectionTrusted(this)) {
+           return getLastEntryInMultiHeaderValue(this.headers['x-forwarded-host'])
+         }
+         /**
+@@ -131,7 +139,7 @@ function buildRequestWithTrustProxy (R, trustProxy) {
+     },
+     protocol: {
+       get () {
+-        if (this.headers['x-forwarded-proto']) {
++        if (this.headers['x-forwarded-proto'] && isConnectionTrusted(this)) {
+           return getLastEntryInMultiHeaderValue(this.headers['x-forwarded-proto'])
+         }
+         if (this.socket) {
+diff --git a/test/trust-proxy.test.js b/test/trust-proxy.test.js
+index ae7b7568..5211a446 100644
+--- a/test/trust-proxy.test.js
++++ b/test/trust-proxy.test.js
+@@ -160,3 +160,22 @@ test('trust proxy protocol', async t => {
+   await fetchForwardedRequest(fastifyServer, '1.1.1.1', '/trustproxynoprotocol', undefined)
+   await fetchForwardedRequest(fastifyServer, '1.1.1.1', '/trustproxyprotocols', 'ipsum, dolor')
+ })
++
++test('trust proxy ignores x-forwarded-host and x-forwarded-proto from untrusted peers', async t => {
++  t.plan(4)
++  const app = fastify({
++    trustProxy: '10.0.0.1'
++  })
++  t.after(() => app.close())
++
++  app.get('/untrusted', function (req, reply) {
++    t.assert.notStrictEqual(req.host, 'fastify.test')
++    t.assert.strictEqual(req.host, req.headers.host)
++    t.assert.strictEqual(req.protocol, 'http')
++    t.assert.strictEqual(req.ip, localhost)
++    reply.code(200).send()
++  })
++
++  const fastifyServer = await app.listen({ port: 0, host: localhost })
++  await fetchForwardedRequest(fastifyServer, '1.1.1.1', '/untrusted', 'https')
++})

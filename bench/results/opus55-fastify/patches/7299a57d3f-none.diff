@@ -1,0 +1,169 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 66f5c8d2..b8df31e7 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -328,6 +328,12 @@ Reply.prototype.hasTrailer = function (key) {
+ Reply.prototype.removeTrailer = function (key) {
+   if (this[kReplyTrailers] === null) return this
+   this[kReplyTrailers][key.toLowerCase()] = undefined
++  // when no active trailer remains, reset the state so the reply
++  // behaves as if no trailer was ever registered
++  for (const name in this[kReplyTrailers]) {
++    if (typeof this[kReplyTrailers][name] === 'function') return this
++  }
++  this[kReplyTrailers] = null
+   return this
+ }
+ 
+@@ -879,7 +885,10 @@ function sendTrailer (payload, res, reply) {
+     res.end(null, null, null) // avoid ArgumentsAdaptorTrampoline from V8
+     return
+   }
+-  const trailerHeaders = Object.keys(reply[kReplyTrailers])
++  // keep a stable reference, since a trailer callback may remove
++  // other trailers (and reset the reply state) while we iterate
++  const replyTrailers = reply[kReplyTrailers]
++  const trailerHeaders = Object.keys(replyTrailers)
+   const trailers = {}
+   let handled = 0
+   let skipped = true
+@@ -897,7 +906,7 @@ function sendTrailer (payload, res, reply) {
+   }
+ 
+   for (const trailerName of trailerHeaders) {
+-    if (typeof reply[kReplyTrailers][trailerName] !== 'function') continue
++    if (typeof replyTrailers[trailerName] !== 'function') continue
+     skipped = false
+     handled--
+ 
+@@ -919,7 +928,7 @@ function sendTrailer (payload, res, reply) {
+       process.nextTick(send)
+     }
+ 
+-    const result = reply[kReplyTrailers][trailerName](reply, payload, cb)
++    const result = replyTrailers[trailerName](reply, payload, cb)
+     if (typeof result === 'object' && typeof result.then === 'function') {
+       result.then((v) => cb(null, v), cb)
+     }
+diff --git a/test/reply-trailers.test.js b/test/reply-trailers.test.js
+index efeb062c..a63a343e 100644
+--- a/test/reply-trailers.test.js
++++ b/test/reply-trailers.test.js
+@@ -371,7 +371,7 @@ test('removeTrailer', (t, testDone) => {
+ })
+ 
+ test('remove all trailers', (t, testDone) => {
+-  t.plan(6)
++  t.plan(7)
+ 
+   const fastify = Fastify()
+ 
+@@ -395,10 +395,106 @@ test('remove all trailers', (t, testDone) => {
+   }, (error, res) => {
+     t.assert.ifError(error)
+     t.assert.strictEqual(res.statusCode, 200)
+-    t.assert.ok(!res.headers.trailer)
++    t.assert.ok(!('trailer' in res.headers))
++    t.assert.ok(!res.headers['transfer-encoding'])
+     t.assert.ok(!res.trailers.etag)
+     t.assert.ok(!res.trailers['should-not-call'])
+-    t.assert.ok(!res.headers['content-length'])
++    t.assert.strictEqual(res.headers['content-length'], '0')
++    testDone()
++  })
++})
++
++test('remove all trailers behaves like no trailers registered', (t, testDone) => {
++  t.plan(6)
++
++  const fastify = Fastify()
++
++  fastify.get('/', function (request, reply) {
++    reply.trailer('ETag', function (reply, payload, done) {
++      t.assert.fail('it should not called as this trailer is removed')
++      done(null, 'custom-etag')
++    })
++    reply.trailer('Content-MD5', function (reply, payload, done) {
++      t.assert.fail('it should not called as this trailer is removed')
++      done(null, 'custom-md5')
++    })
++    reply.removeTrailer('ETag')
++    t.assert.strictEqual(reply.hasTrailer('Content-MD5'), true)
++    reply.removeTrailer('Content-MD5')
++    reply.send('hello')
++  })
++
++  fastify.inject({
++    method: 'GET',
++    url: '/'
++  }, (error, res) => {
++    t.assert.ifError(error)
++    t.assert.strictEqual(res.statusCode, 200)
++    t.assert.ok(!('trailer' in res.headers))
++    t.assert.strictEqual(res.headers['content-length'], '5')
++    t.assert.strictEqual(res.payload, 'hello')
++    testDone()
++  })
++})
++
++test('removing trailers inside a trailer callback', (t, testDone) => {
++  t.plan(6)
++
++  const fastify = Fastify()
++
++  fastify.get('/', function (request, reply) {
++    reply.trailer('ETag', function (reply, payload, done) {
++      reply.removeTrailer('Content-MD5')
++      t.assert.strictEqual(reply.hasTrailer('Content-MD5'), false)
++      done(null, 'custom-etag')
++    })
++    reply.trailer('Content-MD5', function (reply, payload, done) {
++      t.assert.fail('it should not called as this trailer is removed')
++      done(null, 'custom-md5')
++    })
++    reply.send('hello')
++  })
++
++  fastify.inject({
++    method: 'GET',
++    url: '/'
++  }, (error, res) => {
++    t.assert.ifError(error)
++    t.assert.strictEqual(res.statusCode, 200)
++    t.assert.strictEqual(res.headers.trailer, 'etag content-md5')
++    t.assert.strictEqual(res.trailers.etag, 'custom-etag')
++    t.assert.ok(!res.trailers['content-md5'])
++    testDone()
++  })
++})
++
++test('removing all trailers inside a trailer callback', (t, testDone) => {
++  t.plan(5)
++
++  const fastify = Fastify()
++
++  fastify.get('/', function (request, reply) {
++    reply.trailer('ETag', function (reply, payload, done) {
++      reply.removeTrailer('ETag')
++      reply.removeTrailer('Content-MD5')
++      done(null, 'custom-etag')
++    })
++    reply.trailer('Content-MD5', function (reply, payload, done) {
++      t.assert.fail('it should not called as this trailer is removed')
++      done(null, 'custom-md5')
++    })
++    reply.send('hello')
++  })
++
++  fastify.inject({
++    method: 'GET',
++    url: '/'
++  }, (error, res) => {
++    t.assert.ifError(error)
++    t.assert.strictEqual(res.statusCode, 200)
++    t.assert.strictEqual(res.trailers.etag, 'custom-etag')
++    t.assert.ok(!res.trailers['content-md5'])
++    t.assert.strictEqual(res.payload, 'hello')
+     testDone()
+   })
+ })

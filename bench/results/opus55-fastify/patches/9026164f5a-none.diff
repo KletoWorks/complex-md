@@ -1,0 +1,56 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 024b297a..d9bd0cd4 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -848,9 +848,12 @@ function sendTrailer (payload, res, reply) {
+     skipped = false
+     handled--
+ 
++    let called = false
+     function cb (err, value) {
+-      // TODO: we may protect multiple callback calls
+-      //       or mixing async-await with callback
++      // protect against multiple callback calls
++      // or mixing async-await with callback
++      if (called) return
++      called = true
+       handled++
+ 
+       // we can safely ignore error for trailer
+diff --git a/test/reply-trailers.test.js b/test/reply-trailers.test.js
+index f7d948fe..c4c7999f 100644
+--- a/test/reply-trailers.test.js
++++ b/test/reply-trailers.test.js
+@@ -483,3 +483,32 @@ test('throw error when trailer header value is not function', (t, testDone) => {
+     testDone()
+   })
+ })
++
++test('ignore duplicate completion when trailer mixes callback and promise', (t, testDone) => {
++  t.plan(4)
++
++  const fastify = Fastify()
++
++  fastify.get('/', function (request, reply) {
++    reply.trailer('ETag', async function (reply, payload, done) {
++      done(null, 'first')
++      return 'second'
++    })
++    reply.trailer('Content-MD5', async function (reply, payload) {
++      await sleep(50)
++      return 'slow'
++    })
++    reply.send('')
++  })
++
++  fastify.inject({
++    method: 'GET',
++    url: '/'
++  }, (error, res) => {
++    t.assert.ifError(error)
++    t.assert.strictEqual(res.statusCode, 200)
++    t.assert.strictEqual(res.trailers.etag, 'first')
++    t.assert.strictEqual(res.trailers['content-md5'], 'slow')
++    testDone()
++  })
++})

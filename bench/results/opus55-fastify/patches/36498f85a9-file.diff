@@ -1,0 +1,66 @@
+diff --git a/lib/server.js b/lib/server.js
+index 205ea1e2..cffccc2e 100644
+--- a/lib/server.js
++++ b/lib/server.js
+@@ -283,9 +283,27 @@ function getServerInstance (options, httpHandler) {
+ 
+   if (options.http2) {
+     const server = typeof httpsOptions === 'object' ? http2.createSecureServer(httpsOptions, httpHandler) : http2.createServer(options.http, httpHandler)
+-    server.on('session', (session) => session.setTimeout(options.http2SessionTimeout, () => {
+-      session.close()
+-    }))
++    const http2Sessions = new Map()
++    let sessionId = 0
++    server.on('session', (session) => {
++      const id = sessionId++
++      http2Sessions.set(id, session)
++      session.once('close', () => http2Sessions.delete(id))
++      session.setTimeout(options.http2SessionTimeout, () => {
++        session.close()
++      })
++    })
++
++    // http2 server.close() waits for all the sessions to end,
++    // so we close them gracefully to let fastify.close() complete
++    const serverClose = server.close
++    server.close = function (cb) {
++      const result = serverClose.call(this, cb)
++      for (const session of http2Sessions.values()) {
++        session.close()
++      }
++      return result
++    }
+ 
+     server.setTimeout(options.connectionTimeout)
+ 
+diff --git a/test/http2/closing.test.js b/test/http2/closing.test.js
+index 2d14090d..459c8e06 100644
+--- a/test/http2/closing.test.js
++++ b/test/http2/closing.test.js
+@@ -180,3 +180,26 @@ test('http/2 server side session emits a timeout event', async t => {
+   await p
+   await fastify.close()
+ })
++
++test('http/2 server close closes open sessions', async t => {
++  const fastify = Fastify({
++    http2: true,
++    http2SessionTimeout: 60000
++  })
++
++  fastify.get('/', () => ({}))
++
++  await fastify.listen({ port: 0 })
++
++  const url = getServerUrl(fastify)
++  const session = await connect(url)
++  const req = session.request({ ':method': 'GET', ':path': '/' })
++  req.resume()
++  req.end()
++  await once(req, 'end')
++
++  const sessionClosed = once(session, 'close')
++  await fastify.close()
++  await sessionClosed
++  t.assert.ok(session.closed || session.destroyed)
++})

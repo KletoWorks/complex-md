@@ -1,0 +1,62 @@
+diff --git a/lib/server.js b/lib/server.js
+index 205ea1e2..4173ab18 100644
+--- a/lib/server.js
++++ b/lib/server.js
+@@ -283,9 +283,24 @@ function getServerInstance (options, httpHandler) {
+ 
+   if (options.http2) {
+     const server = typeof httpsOptions === 'object' ? http2.createSecureServer(httpsOptions, httpHandler) : http2.createServer(options.http, httpHandler)
+-    server.on('session', (session) => session.setTimeout(options.http2SessionTimeout, () => {
+-      session.close()
+-    }))
++    const http2Sessions = new Set()
++    server.on('session', (session) => {
++      http2Sessions.add(session)
++      session.once('close', () => http2Sessions.delete(session))
++      session.setTimeout(options.http2SessionTimeout, () => {
++        session.close()
++      })
++    })
++
++    // http2Server.close() stops accepting new sessions but waits for the
++    // existing ones to end, so we gracefully close them as well
++    const serverClose = server.close
++    server.close = function (cb) {
++      for (const session of http2Sessions) {
++        session.close()
++      }
++      return serverClose.call(this, cb)
++    }
+ 
+     server.setTimeout(options.connectionTimeout)
+ 
+diff --git a/test/http2/closing.test.js b/test/http2/closing.test.js
+index 2d14090d..21501a3b 100644
+--- a/test/http2/closing.test.js
++++ b/test/http2/closing.test.js
+@@ -180,3 +180,25 @@ test('http/2 server side session emits a timeout event', async t => {
+   await p
+   await fastify.close()
+ })
++
++test('http/2 sessions are closed when fastify closes', async t => {
++  const fastify = Fastify({
++    http2: true,
++    http2SessionTimeout: 60000
++  })
++
++  fastify.get('/', () => 'ok')
++
++  await fastify.listen({ port: 0 })
++
++  const session = http2.connect(getServerUrl(fastify))
++  await once(session, 'connect')
++  const req = session.request({ ':path': '/' }).end()
++  req.resume()
++  await once(req, 'end')
++
++  const sessionClosed = once(session, 'close')
++  await fastify.close()
++  await sessionClosed
++  t.assert.ok(session.closed)
++})

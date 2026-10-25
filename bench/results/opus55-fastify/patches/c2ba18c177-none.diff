@@ -1,0 +1,82 @@
+diff --git a/fastify.js b/fastify.js
+index ef46ee03..056f54b7 100644
+--- a/fastify.js
++++ b/fastify.js
+@@ -382,8 +382,11 @@ function fastify (serverOptions) {
+         if (fastify[kState].listening) {
+           /* istanbul ignore next: Cannot test this without Node.js core support */
+           if (forceCloseConnections === 'idle') {
+-            // Not needed in Node 19
+-            instance.server.closeIdleConnections()
++            // Native Node.js servers already close idle connections in server.close(),
++            // custom servers created through serverFactory may not.
++            if (options.serverFactory) {
++              instance.server.closeIdleConnections()
++            }
+             /* istanbul ignore next: Cannot test this without Node.js core support */
+           } else if (serverHasCloseAllConnections && forceCloseConnections) {
+             instance.server.closeAllConnections()
+diff --git a/test/close-pipelining.test.js b/test/close-pipelining.test.js
+index 81e6325d..f0490d0a 100644
+--- a/test/close-pipelining.test.js
++++ b/test/close-pipelining.test.js
+@@ -41,7 +41,7 @@ test('Should return 503 while closing - pipelining', async t => {
+ })
+ 
+ test('Should close the socket abruptly - pipelining - return503OnClosing: false', async t => {
+-  // Since Node v20, we will always invoke server.closeIdleConnections()
++  // Native Node.js servers close idle connections as part of server.close(),
+   // therefore our socket will be closed
+   const fastify = Fastify({
+     return503OnClosing: false,
+diff --git a/test/close.test.js b/test/close.test.js
+index 810ffe4f..8c06aa53 100644
+--- a/test/close.test.js
++++ b/test/close.test.js
+@@ -617,6 +617,46 @@ test('shutsdown while keep-alive connections are active (non-async, custom)', (t
+   })
+ })
+ 
++test('should not call closeIdleConnections an extra time on native servers (forceCloseConnections - idle)', { skip: noSupport }, async t => {
++  const fastify = Fastify({ forceCloseConnections: 'idle' })
++
++  await fastify.listen({ port: 0 })
++
++  let calls = 0
++  const closeIdleConnections = fastify.server.closeIdleConnections
++  fastify.server.closeIdleConnections = function () {
++    calls++
++    return closeIdleConnections.call(this)
++  }
++
++  await fastify.close()
++
++  // Only the call made by Node.js itself within server.close()
++  t.assert.strictEqual(calls, 1)
++})
++
++test('should call closeIdleConnections on custom servers (forceCloseConnections - idle)', { skip: noSupport }, async t => {
++  let calls = 0
++  const fastify = Fastify({
++    forceCloseConnections: 'idle',
++    serverFactory: (handler) => {
++      const server = http.createServer(handler)
++      const closeIdleConnections = server.closeIdleConnections
++      server.closeIdleConnections = function () {
++        calls++
++        return closeIdleConnections.call(this)
++      }
++      return server
++    }
++  })
++
++  await fastify.listen({ port: 0 })
++  await fastify.close()
++
++  // One call from Fastify and one from Node.js within server.close()
++  t.assert.strictEqual(calls, 2)
++})
++
+ test('preClose callback', (t, done) => {
+   t.plan(5)
+   const fastify = Fastify()

@@ -1,0 +1,65 @@
+diff --git a/lib/request.js b/lib/request.js
+index 3b099054..48f7315c 100644
+--- a/lib/request.js
++++ b/lib/request.js
+@@ -47,7 +47,10 @@ function getTrustProxyFn (tp) {
+   }
+   if (typeof tp === 'number') {
+     // Support trusting hop count
+-    return function (a, i) { return a != null && i < tp }
++    // The address is not checked: a hop count trusts the immediate peer by
++    // position only, which also covers pipe/unix socket connections (e.g.
++    // iisnode) where the socket has no remoteAddress.
++    return function (a, i) { return i < tp }
+   }
+   if (typeof tp === 'string') {
+     // Support comma-separated tps
+diff --git a/test/trust-proxy.test.js b/test/trust-proxy.test.js
+index 75b012a9..1b05588d 100644
+--- a/test/trust-proxy.test.js
++++ b/test/trust-proxy.test.js
+@@ -1,6 +1,9 @@
+ 'use strict'
+ 
+ const { test, before } = require('node:test')
++const http = require('node:http')
++const os = require('node:os')
++const path = require('node:path')
+ const fastify = require('..')
+ const helper = require('./helper')
+ 
+@@ -219,3 +222,34 @@ test('trust proxy reads forwarded headers from trusted connections', async t =>
+     }
+   })
+ })
++
++test('trust proxy hop count works over a pipe/unix socket without remoteAddress', { skip: process.platform === 'win32' }, async t => {
++  t.plan(3)
++
++  // iisnode forwards requests over a named pipe, so the socket has no remoteAddress
++  const app = fastify({
++    trustProxy: 1
++  })
++  t.after(() => app.close())
++
++  app.get('/pipe', function (req, reply) {
++    t.assert.strictEqual(req.raw.socket.remoteAddress, undefined)
++    t.assert.strictEqual(req.ip, '2.2.2.2', 'gets ip from x-forwarded-for')
++    t.assert.deepStrictEqual(req.ips, [undefined, '2.2.2.2'], 'gets ips from x-forwarded-for')
++    reply.send()
++  })
++
++  const socketPath = path.join(os.tmpdir(), `fastify-trust-proxy-${process.pid}.sock`)
++  await app.listen({ path: socketPath })
++
++  await new Promise((resolve, reject) => {
++    http.get({
++      socketPath,
++      path: '/pipe',
++      headers: { 'X-Forwarded-For': '1.1.1.1, 2.2.2.2' }
++    }, (res) => {
++      res.resume()
++      res.on('end', resolve)
++    }).on('error', reject)
++  })
++})

@@ -1,0 +1,141 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 6b15b67f..410b8dcb 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -135,6 +135,11 @@ Reply.prototype.hijack = function () {
+       this.request[kOnAbort] = null
+     }
+   }
++  // Hijacked replies skip onResFinished, so release socket._meta here
++  const socket = this.request.raw.socket
++  if (socket && socket._meta && socket._meta.request === this.request) {
++    socket._meta = null
++  }
+   return this
+ }
+ 
+diff --git a/lib/route.js b/lib/route.js
+index 4c8ee129..e713d4d2 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -52,7 +52,8 @@ const {
+   kRouteContext,
+   kRequestSignal,
+   kTimeoutTimer,
+-  kOnAbort
++  kOnAbort,
++  kSocketTimeoutListener
+ } = require('./symbols.js')
+ const { buildErrorHandler } = require('./error-handler')
+ const { createChildLogger } = require('./logger-factory.js')
+@@ -558,6 +559,18 @@ function buildRouting (options) {
+       setupResponseListeners(reply)
+     }
+ 
++    // Must be set before the lifecycle starts so a synchronous reply.hijack()
++    // or response can clear it
++    if (context.onTimeout !== null) {
++      // socket._meta is cleared once a response finishes or is hijacked, so
++      // track the listener separately to avoid duplicates on keep-alive sockets
++      if (!request.raw.socket[kSocketTimeoutListener]) {
++        request.raw.socket[kSocketTimeoutListener] = true
++        request.raw.socket.on('timeout', handleTimeout)
++      }
++      request.raw.socket._meta = { context, request, reply }
++    }
++
+     if (context.onRequest !== null) {
+       onRequestHookRunner(
+         context.onRequest,
+@@ -582,12 +595,6 @@ function buildRouting (options) {
+       })
+     }
+ 
+-    if (context.onTimeout !== null) {
+-      if (!request.raw.socket._meta) {
+-        request.raw.socket.on('timeout', handleTimeout)
+-      }
+-      request.raw.socket._meta = { context, request, reply }
+-    }
+   }
+ }
+ 
+@@ -598,6 +605,8 @@ function handleOnRequestAbortHooksErrors (reply, err) {
+ }
+ 
+ function handleTimeout () {
++  // No in-flight request owns the socket (response finished or reply hijacked)
++  if (!this._meta) return
+   const { context, request, reply } = this._meta
+   onTimeoutHookRunner(
+     context.onTimeout,
+diff --git a/lib/symbols.js b/lib/symbols.js
+index 7d2d13bd..d155979e 100644
+--- a/lib/symbols.js
++++ b/lib/symbols.js
+@@ -38,6 +38,7 @@ const keys = {
+   kHandlerTimeout: Symbol('fastify.handlerTimeout'),
+   kTimeoutTimer: Symbol('fastify.request.timeoutTimer'),
+   kOnAbort: Symbol('fastify.request.onAbort'),
++  kSocketTimeoutListener: Symbol('fastify.socket.timeoutListener'),
+   // 404
+   kFourOhFour: Symbol('fastify.404'),
+   kCanSetNotFoundHandler: Symbol('fastify.canSetNotFoundHandler'),
+diff --git a/test/hooks.test.js b/test/hooks.test.js
+index 5be37637..1d6b4b7e 100644
+--- a/test/hooks.test.js
++++ b/test/hooks.test.js
+@@ -3300,6 +3300,53 @@ test('socket._meta is cleared after response to prevent keep-alive leaks', async
+   t.assert.strictEqual(result.status, 200)
+ })
+ 
++test('socket._meta is cleared on reply.hijack() when onTimeout is registered', async t => {
++  t.plan(4)
++  const fastify = Fastify({ connectionTimeout: 500 })
++  t.after(() => { fastify.close() })
++
++  fastify.addHook('onTimeout', function (req, res, done) { done() })
++
++  fastify.get('/', (req, reply) => {
++    t.assert.ok(req.raw.socket._meta, 'socket._meta must be set before hijack')
++    reply.hijack()
++    t.assert.strictEqual(req.raw.socket._meta, null, 'socket._meta must be null after hijack')
++    reply.raw.end('hello world')
++  })
++
++  const address = await fastify.listen({ port: 0 })
++  const result = await fetch(address)
++  t.assert.ok(result.ok)
++  t.assert.strictEqual(await result.text(), 'hello world')
++})
++
++test('socket timeout after a finished response does not throw when onTimeout is registered', (t, done) => {
++  t.plan(2)
++  const fastify = Fastify({ connectionTimeout: 200 })
++  t.after(() => { fastify.close() })
++
++  fastify.addHook('onTimeout', function (req, res, done) {
++    t.assert.fail('onTimeout must not be called after the response finished')
++    done()
++  })
++
++  fastify.get('/', async () => ({ hello: 'world' }))
++
++  fastify.listen({ port: 0 }, (err, address) => {
++    t.assert.ifError(err)
++    const { port } = new URL(address)
++    const client = connect(port, '127.0.0.1', () => {
++      client.write('GET / HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n')
++    })
++    client.resume()
++    // Server closes the idle keep-alive socket on connectionTimeout
++    client.on('close', () => {
++      t.assert.ok('socket closed without error')
++      done()
++    })
++  })
++})
++
+ test('registering invalid hooks should throw an error', async t => {
+   t.plan(3)
+ 

@@ -1,0 +1,44 @@
+diff --git a/lib/reply.js b/lib/reply.js
+index 93b0b285..1906f25d 100644
+--- a/lib/reply.js
++++ b/lib/reply.js
+@@ -961,6 +961,15 @@ function setupResponseListeners (reply) {
+       }
+     }
+ 
++    // Release the references held by the socket timeout handler so that
++    // keep-alive sockets do not retain the context/request/reply objects.
++    // Only clear when this request still owns _meta, as a subsequent
++    // request on the same socket may already have replaced it.
++    const socket = reply.request.raw.socket
++    if (socket && socket._meta && socket._meta.request === reply.request) {
++      socket._meta = null
++    }
++
+     if (ctx && ctx.onResponse !== null) {
+       onResponseHookRunner(
+         ctx.onResponse,
+diff --git a/lib/route.js b/lib/route.js
+index 4c8ee129..4385c25d 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -583,7 +583,9 @@ function buildRouting (options) {
+     }
+ 
+     if (context.onTimeout !== null) {
+-      if (!request.raw.socket._meta) {
++      // _meta is set to null once a response finishes, so only an undefined
++      // value means the timeout listener has not been attached yet
++      if (request.raw.socket._meta === undefined) {
+         request.raw.socket.on('timeout', handleTimeout)
+       }
+       request.raw.socket._meta = { context, request, reply }
+@@ -598,6 +600,8 @@ function handleOnRequestAbortHooksErrors (reply, err) {
+ }
+ 
+ function handleTimeout () {
++  // the last request on this socket has already completed
++  if (!this._meta) return
+   const { context, request, reply } = this._meta
+   onTimeoutHookRunner(
+     context.onTimeout,

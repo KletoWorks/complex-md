@@ -1,0 +1,45 @@
+diff --git a/lib/server.js b/lib/server.js
+index a632e52d..4216daf3 100644
+--- a/lib/server.js
++++ b/lib/server.js
+@@ -237,8 +237,16 @@ function listenPromise (server, listenOptions) {
+   if (this[kState].listening) {
+     return Promise.reject(new FST_ERR_REOPENED_SERVER())
+   }
++  if (listenOptions.signal?.aborted) {
++    return Promise.reject(listenOptions.signal.reason)
++  }
+ 
+   return this.ready().then(() => {
++    // the signal may have been aborted while the plugins were loading
++    if (listenOptions.signal?.aborted) {
++      throw listenOptions.signal.reason
++    }
++
+     let errEventHandler
+     let listeningEventHandler
+     function cleanup () {
+diff --git a/test/server.test.js b/test/server.test.js
+index 1247c77a..210eaa55 100644
+--- a/test/server.test.js
++++ b/test/server.test.js
+@@ -118,6 +118,19 @@ test('abort signal', async t => {
+     t.assert.strictEqual(fastify.server.listening, false)
+   })
+ 
++  await t.test('listen should reject with the abort reason if already aborted (promise)', async (t) => {
++    t.plan(2)
++
++    const controller = new AbortController()
++    controller.abort(new Error('aborting before actual start'))
++    const fastify = Fastify()
++    await t.assert.rejects(
++      fastify.listen({ port: 1234, signal: controller.signal }),
++      { message: 'aborting before actual start' }
++    )
++    t.assert.strictEqual(fastify.server.listening, false)
++  })
++
+   await t.test('listen should throw if received invalid signal', t => {
+     t.plan(2)
+     const fastify = Fastify()
