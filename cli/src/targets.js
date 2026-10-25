@@ -68,15 +68,6 @@ export function dropBlockCopy(ctx, rel) {
 
 const isDir = (p) => existsSync(p) && statSync(p).isDirectory();
 
-/* Whether .agents/ holds anything but the portable skill. The openclaw and
-   hermes targets create .agents/skills/complex-md/ themselves, and that
-   folder alone is no sign of another agent's setup. */
-function agentsInUse(root) {
-  const d = join(root, '.agents');
-  if (!isDir(d)) return existsSync(d);
-  return readdirSync(d).some((e) => e !== 'skills' || !isDir(join(d, e)) || readdirSync(join(d, e)).some((s) => s !== 'complex-md'));
-}
-
 /* A brief path is a literal file path, and every scope field below reads a
    glob. There a route such as app/[id]/page.tsx is a character class: it
    matches app/i/page.tsx and never itself. Each glob character becomes a
@@ -400,7 +391,9 @@ export const TARGETS = {
      The files are prefixed complex-md- because .agents/skills/ is the user's
      directory too and only ours may be cleared. */
   openhands: {
-    detect: (root) => existsSync(join(root, '.openhands')) || agentsInUse(root),
+    /* Only .openhands/: .agents/ is shared by Codex, Antigravity, Copilot,
+       OpenClaw and Hermes, and is no sign of OpenHands. */
+    detect: (root) => isDir(join(root, '.openhands')),
     rules(ctx) {
       const { root, block, paths, briefs, report, carried } = ctx;
       blockRule(ctx, '.agents/skills/complex-md.md', `---\nname: complex-md\npaths:\n${paths.map((p) => `  - ${JSON.stringify(literalGlob(p))}`).join('\n')}\n---\n${block}`);

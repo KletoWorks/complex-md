@@ -325,7 +325,7 @@ test('the portable skill alone does not opt a later default wire into OpenHands'
   assert.deepEqual(readdirSync(join(dir, '.agents/skills')), ['complex-md']);
   const user = repo({ '.agents/skills/mine/SKILL.md': '---\nname: mine\n---\nmine\n' });
   wire(user, { agents: ['openclaw'] });
-  assert.ok(wire(user, {}).rules.includes('.agents/skills/complex-md-* (4 paths)'), 'a skill of the user\'s still opts in');
+  assert.ok(!wire(user, {}).rules.some((x) => x.startsWith('.agents/skills/complex-md-')), 'a skill of the user\'s is no sign of OpenHands either');
 });
 
 /* Every scope field is a glob. A route such as app/[id]/page.tsx is a

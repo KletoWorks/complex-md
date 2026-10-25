@@ -45,3 +45,13 @@ test('Claude Code with only a GEMINI.md gets an AGENTS.md, not a CLAUDE.md', () 
   assert.ok(r.created.includes('AGENTS.md'));
   assert.match(read(dir, 'AGENTS.md'), /## COMPLEX\.md: the structural risk map/);
 });
+
+/* .agents/ is shared by Codex, Antigravity, Copilot, OpenClaw and Hermes,
+   so only .openhands/ says the repository uses OpenHands. */
+test('OpenHands is detected from .openhands/ only, never from .agents/', () => {
+  const shared = repo({ '.agents/skills/mine/SKILL.md': '---\nname: mine\n---\nmine\n', '.agents/plugins/marketplace.json': '{}\n' });
+  const r = wire(shared, { profile: 'full' });
+  assert.ok(!r.rules.some((x) => x.startsWith('.agents/skills/complex-md-')), r.rules.join(', '));
+  const oh = repo({ '.openhands': null });
+  assert.ok(wire(oh, { profile: 'full' }).rules.includes('.agents/skills/complex-md-* (4 paths)'));
+});
