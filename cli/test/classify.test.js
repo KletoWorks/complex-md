@@ -23,7 +23,7 @@ test('flask layout: testing.py is library source, not the covering test of app.p
     'src/flask/__init__.py': 'from .app import Flask\n',
     'src/flask/app.py': 'class Flask: pass\n',
     'src/flask/testing.py': 'from .app import Flask\nclass FlaskClient: pass\n',
-    'tests/test_basic.py': 'from flask.app import Flask\n',
+    'tests/test_basic.py': 'from flask.app import Flask\n\ndef test_it():\n    assert Flask\n',
   });
   assert.equal(g.kinds.get('src/flask/testing.py'), 'source');
   assert.deepEqual(testsOf(g, 'src/flask/app.py'), ['tests/test_basic.py']);
@@ -49,7 +49,7 @@ test('test helpers inside test directories are never named as covering tests', (
     'tests/conftest.py': 'from pkg.core import X\n',
     'tests/test_utils.py': 'from pkg.core import X\n',
     'tests/helpers.py': 'from pkg.core import X\n',
-    'tests/test_core.py': 'from pkg.core import X\n',
+    'tests/test_core.py': 'from pkg.core import X\n\ndef test_it():\n    assert X\n',
     'spec/spec_helper.rb': "require_relative '../lib/thing'\n",
     'lib/thing.rb': 'class Thing; end\n',
   });
@@ -63,7 +63,7 @@ test('test helpers inside test directories are never named as covering tests', (
 test('a test file name with underscores outside a test directory is still a test', () => {
   const g = graphOf({
     'pkg/core.py': 'X = 1\n',
-    'pkg/test_core_edge.py': 'from pkg.core import X\n',
+    'pkg/test_core_edge.py': 'from pkg.core import X\n\ndef test_it():\n    assert X\n',
   });
   assert.equal(g.kinds.get('pkg/test_core_edge.py'), 'test');
   assert.deepEqual(testsOf(g, 'pkg/core.py'), ['pkg/test_core_edge.py']);
@@ -74,8 +74,8 @@ test('pytest python_files decides: a configured pattern makes a helper name a te
     'pyproject.toml': '[project]\nname = "x"\n\n[tool.pytest.ini_options]\npython_files = ["check_*.py", "testing.py"]\n',
     'src/x/__init__.py': '',
     'src/x/core.py': 'X = 1\n',
-    'src/x/testing.py': 'from x.core import X\n',
-    'src/x/check_core.py': 'from x.core import X\n',
+    'src/x/testing.py': 'from x.core import X\n\ndef test_it():\n    assert X\n',
+    'src/x/check_core.py': 'from x.core import X\n\ndef test_it():\n    assert X\n',
   });
   assert.equal(g.kinds.get('src/x/testing.py'), 'test');
   assert.equal(g.kinds.get('src/x/check_core.py'), 'test');
@@ -164,8 +164,8 @@ test('pytest python_files = *.py with testpaths names only the files under testp
     'pytest.ini': '[pytest]\ntestpaths = tests integration\npython_files = *.py\n',
     'src/pkg/__init__.py': '',
     'src/pkg/core.py': 'X = 1\n',
-    'tests/check_core.py': 'from pkg.core import X\n',
-    'integration/flow.py': 'from pkg.core import X\n',
+    'tests/check_core.py': 'from pkg.core import X\n\ndef test_it():\n    assert X\n',
+    'integration/flow.py': 'from pkg.core import X\n\ndef test_it():\n    assert X\n',
   });
   assert.equal(g.kinds.get('src/pkg/core.py'), 'source');
   assert.equal(g.kinds.get('src/pkg/__init__.py'), 'source');
@@ -179,7 +179,7 @@ test('a catch-all python_files without testpaths does not turn the source tree i
     'src/pkg/__init__.py': '',
     'src/pkg/core.py': 'X = 1\n',
     'src/pkg/testing.py': 'from pkg.core import X\n',
-    'tests/check_core.py': 'from pkg.core import X\n',
+    'tests/check_core.py': 'from pkg.core import X\n\ndef test_it():\n    assert X\n',
   });
   assert.equal(g.kinds.get('src/pkg/core.py'), 'source');
   assert.equal(g.kinds.get('src/pkg/testing.py'), 'source');

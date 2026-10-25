@@ -191,9 +191,14 @@ with the chance of a mistake.
 ### Covering tests (`tests`)
 
 The number of test files that reach the file through an import, a path
-reference, or an exact stem match in the same area (`a.test.js` beside
-`a.js`, or `test/a.test.js` for `src/a.js`). Never a substring match; before exact matching,
-that is how `app.js` was reported covered by `admin.test.mjs`. Zero means no
+reference, or an exact stem match in the same package and language
+(`a.test.js` beside `a.js`, or `test/a.test.js` for `src/a.js`). The
+package is the folder of the nearest manifest. A stem that 2 files of 1
+package share matches only the file beside the test or beside its test
+folder: an `index.spec.ts` names no other `index.ts`. Never a substring match; before exact matching,
+that is how `app.js` was reported covered by `admin.test.mjs`. A covering
+test runs a test case: `__init__.py` never counts, and a Python or Go file
+counts only when it defines a test function. Zero means no
 test references the file, which is a finding the paragraph states; it does
 not mean untested, because a suite that imports the package root (express's
 `test/res.*.js` for `lib/response.js`) is not attributed to the files behind
