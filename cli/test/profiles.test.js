@@ -8,6 +8,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { wire } from '../src/wire.js';
 import { unwire } from '../src/unwire.js';
+import { runCheck } from '../src/check.js';
+import { readManifest } from '../src/manifest.js';
 import { INTEGRATION_LINE } from '../src/prompts.js';
 import { findRegion, outsideRegion } from '../src/markers.js';
 import { repo, snapshot } from './fixtures/wire-repo.mjs';
@@ -93,6 +95,16 @@ test('a minimal rewire after a full wire removes the briefs and puts the line in
   assert.equal(read(dir, 'REVIEW.md'), '# Review\n', 'the REVIEW.md include is gone');
   unwire(dir);
   assert.deepEqual(snapshot(dir), before);
+});
+
+test('check does not report briefs removed by a full-to-minimal rewire as drift', () => {
+  const dir = repo(BUSY);
+  wire(dir, { profile: 'full' });
+  const brief = readManifest(dir).files.find((file) => file.target === 'claude').path;
+  wire(dir, { profile: 'minimal' });
+  const result = runCheck(dir, { files: [brief] });
+  assert.deepEqual(result.generated, []);
+  assert.equal(result.clean, true);
 });
 
 test('an unknown profile is refused before any write', () => {
