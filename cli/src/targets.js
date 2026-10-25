@@ -96,11 +96,6 @@ const yamlValue = (v) => (/^[[\]{}*?&!|>'"%@`#,-]|: | #/.test(v) ? JSON.stringif
 
 const globRule = (b) => `---\ntrigger: glob\nglobs: ${literalGlob(b.path)}\n---\n`;
 
-export function write(p, content) {
-  mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, content);
-}
-
 export function readJson(p, fallback) {
   if (!existsSync(p)) return fallback;
   try {
@@ -135,8 +130,72 @@ function keepOutOfGit(root, rel) {
   appendFileSync(p, `${cur && !cur.endsWith('\n') ? '\n' : ''}/${rel}\n`);
 }
 
-export function writeJson(p, obj) {
-  write(p, JSON.stringify(obj, null, 2) + '\n');
+/* JSON text for `obj` in the format of the file it replaces: the same
+   indent, line ending and final newline. A file wire creates gets two
+   spaces and LF. A file that was printed this way comes back byte for byte
+   once unwire takes our entries out again. */
+export function jsonText(obj, like = '') {
+  const indent = /^([ \t]+)\S/m.exec(like)?.[1] || 2;
+  const eol = like.includes('\r\n') ? '\r\n' : '\n';
+  const final = like ? /\n$/.test(like) : true;
+  return JSON.stringify(obj, null, indent).replace(/\n/g, eol) + (final ? eol : '');
+}
+
+const OUR_HOOK = /complex-md(@\S+)?(\.js)?\s+hook\s/;
+const oursCmd = (h) => OUR_HOOK.test(String(h?.command || ''));
+export const getPath = (o, k) => k.split('.').reduce((v, x) => (v && typeof v === 'object' ? v[x] : undefined), o);
+
+/* The JSON entries wire adds to files the user also edits: the keys it may
+   create on the way, how to tell that the file holds ours, and how to take
+   ours out without touching anything else. */
+export const ENTRY_KINDS = {
+  'claude-hooks': {
+    containers: ['hooks', 'hooks.PreToolUse', 'hooks.Stop'],
+    holds: (o) => ['PreToolUse', 'Stop'].some((e) => (Array.isArray(o.hooks?.[e]) ? o.hooks[e] : []).some((g) => (g?.hooks || []).some(oursCmd))),
+    strip(o) {
+      for (const e of ['PreToolUse', 'Stop']) {
+        const list = o.hooks?.[e];
+        if (!Array.isArray(list)) continue;
+        o.hooks[e] = list.filter((g) => !(Array.isArray(g?.hooks) && g.hooks.length && g.hooks.every(oursCmd)));
+        for (const g of o.hooks[e]) if (Array.isArray(g?.hooks) && g.hooks.some(oursCmd)) g.hooks = g.hooks.filter((h) => !oursCmd(h));
+      }
+    },
+  },
+  'cursor-hooks': {
+    containers: ['version', 'hooks', 'hooks.preToolUse', 'hooks.stop'],
+    holds: (o) => ['preToolUse', 'stop'].some((e) => (Array.isArray(o.hooks?.[e]) ? o.hooks[e] : []).some(oursCmd)),
+    strip(o) {
+      for (const e of ['preToolUse', 'stop']) if (Array.isArray(o.hooks?.[e])) o.hooks[e] = o.hooks[e].filter((x) => !oursCmd(x));
+    },
+  },
+  'mcp-json': {
+    containers: ['mcpServers'],
+    holds: (o) => !!o.mcpServers?.['complex-md'],
+    strip(o) {
+      if (o.mcpServers) delete o.mcpServers['complex-md'];
+    },
+  },
+};
+
+/* Edit a JSON file of the user's in place, and record in the manifest that
+   it holds our entries and which keys wire created for them. */
+function editJson(ctx, rel, kind, mutate) {
+  const p = join(ctx.root, rel);
+  const existed = existsSync(p);
+  const text = existed ? readFileSync(p, 'utf8') : '';
+  const obj = readJson(p, {});
+  const k = ENTRY_KINDS[kind];
+  const had = k.containers.filter((c) => getPath(obj, c) !== undefined);
+  const before = JSON.stringify(obj);
+  mutate(obj);
+  if (JSON.stringify(obj) !== before) {
+    ctx.own.ensureDir(dirname(rel));
+    writeFileSync(p, jsonText(obj, text));
+  }
+  if (!k.holds(obj)) return;
+  const prev = ctx.ledger.previous?.entries?.find((e) => e.path === rel && e.kind === kind);
+  const added = [...new Set([...(prev?.added || []), ...k.containers.filter((c) => !had.includes(c) && getPath(obj, c) !== undefined)])];
+  ctx.ledger.entries.push({ path: rel, kind, ...(!existed || prev?.created ? { created: true } : {}), ...(added.length ? { added } : {}) });
 }
 
 // Ours whether installed as `npx -y complex-md hook pre`, pinned as
@@ -168,14 +227,13 @@ function pinLegacy(entries, sub, inv) {
   return n;
 }
 
-function addMcpJson(p, entry, report, label) {
-  const m = readJson(p, {});
-  m.mcpServers ||= {};
-  if (!m.mcpServers['complex-md']) {
+function addMcpJson(ctx, rel, entry) {
+  editJson(ctx, rel, 'mcp-json', (m) => {
+    if (m.mcpServers?.['complex-md']) return;
+    m.mcpServers ||= {};
     m.mcpServers['complex-md'] = entry;
-    writeJson(p, m);
-    report.mcp.push(label);
-  }
+    ctx.report.mcp.push(rel);
+  });
 }
 
 /* The portable skill, in the Agent Skills layout: a folder whose name is the
@@ -275,27 +333,28 @@ export const TARGETS = {
     hookFile: '.claude/settings.json',
     /* `local`: the per user .claude/settings.local.json, which Claude Code
        merges over the committed settings. */
-    hooks({ root, inv, report, local }) {
+    hooks(ctx) {
+      const { root, inv, report, local } = ctx;
       const rel = local ? '.claude/settings.local.json' : '.claude/settings.json';
-      const p = join(root, rel);
-      const s = readJson(p, {});
-      s.hooks ||= {};
-      const inner = (list) => (list || []).flatMap((g) => g.hooks || []);
-      if (pinLegacy(inner(s.hooks.PreToolUse), 'hook pre', inv)) report.hooks.push(`${rel} PreToolUse (pinned)`);
-      if (pinLegacy(inner(s.hooks.Stop), 'hook stop', inv)) report.hooks.push(`${rel} Stop (pinned)`);
-      if (!hasHook(s.hooks.PreToolUse, 'hook pre')) {
-        (s.hooks.PreToolUse ||= []).push({ matcher: 'Edit|Write|MultiEdit|NotebookEdit', hooks: [{ type: 'command', command: hookCommand(inv, 'hook pre'), timeout: 30 }] });
-        report.hooks.push(`${rel} PreToolUse`);
-      }
-      if (!hasHook(s.hooks.Stop, 'hook stop')) {
-        (s.hooks.Stop ||= []).push({ hooks: [{ type: 'command', command: hookCommand(inv, 'hook stop'), timeout: 60 }] });
-        report.hooks.push(`${rel} Stop`);
-      }
-      writeJson(p, s);
+      editJson(ctx, rel, 'claude-hooks', (s) => {
+        s.hooks ||= {};
+        const inner = (list) => (list || []).flatMap((g) => g.hooks || []);
+        if (pinLegacy(inner(s.hooks.PreToolUse), 'hook pre', inv)) report.hooks.push(`${rel} PreToolUse (pinned)`);
+        if (pinLegacy(inner(s.hooks.Stop), 'hook stop', inv)) report.hooks.push(`${rel} Stop (pinned)`);
+        if (!hasHook(s.hooks.PreToolUse, 'hook pre')) {
+          (s.hooks.PreToolUse ||= []).push({ matcher: 'Edit|Write|MultiEdit|NotebookEdit', hooks: [{ type: 'command', command: hookCommand(inv, 'hook pre'), timeout: 30 }] });
+          report.hooks.push(`${rel} PreToolUse`);
+        }
+        if (!hasHook(s.hooks.Stop, 'hook stop')) {
+          (s.hooks.Stop ||= []).push({ hooks: [{ type: 'command', command: hookCommand(inv, 'hook stop'), timeout: 60 }] });
+          report.hooks.push(`${rel} Stop`);
+        }
+      });
       if (local) keepOutOfGit(root, rel);
     },
-    mcp({ root, inv, report }) {
-      addMcpJson(join(root, '.mcp.json'), { command: inv.command, args: [...inv.args, 'mcp'] }, report, '.mcp.json');
+    mcp(ctx) {
+      const { inv } = ctx;
+      addMcpJson(ctx, '.mcp.json', { command: inv.command, args: [...inv.args, 'mcp'] });
     },
   },
 
@@ -307,28 +366,29 @@ export const TARGETS = {
       writeSpec(ctx, BRIEF_SPECS.cursor);
     },
     hookFile: '.cursor/hooks.json',
-    hooks({ root, inv, report, local }) {
+    hooks(ctx) {
+      const { inv, report, local } = ctx;
       // Cursor reads hooks from the project file or the user's home, and
       // has no per user file inside the project.
       if (local) return void report.skipped.push('.cursor/hooks.json (Cursor has no per user project hooks file; --hooks without --local writes it)');
-      const p = join(root, '.cursor/hooks.json');
-      const h = readJson(p, { version: 1, hooks: {} });
-      h.version ||= 1;
-      h.hooks ||= {};
-      if (pinLegacy(h.hooks.preToolUse || [], 'hook cursor-pre', inv)) report.hooks.push('.cursor/hooks.json preToolUse (pinned)');
-      if (pinLegacy(h.hooks.stop || [], 'hook cursor-stop', inv)) report.hooks.push('.cursor/hooks.json stop (pinned)');
-      if (!(h.hooks.preToolUse || []).some((x) => isOurs(x.command, 'hook cursor-pre'))) {
-        (h.hooks.preToolUse ||= []).push({ command: hookCommand(inv, 'hook cursor-pre'), matcher: 'Write|StrReplace|Edit|MultiEdit|SearchReplace|Delete', timeout: 30 });
-        report.hooks.push('.cursor/hooks.json preToolUse');
-      }
-      if (!(h.hooks.stop || []).some((x) => isOurs(x.command, 'hook cursor-stop'))) {
-        (h.hooks.stop ||= []).push({ command: hookCommand(inv, 'hook cursor-stop'), timeout: 60, loop_limit: 1 });
-        report.hooks.push('.cursor/hooks.json stop');
-      }
-      writeJson(p, h);
+      editJson(ctx, '.cursor/hooks.json', 'cursor-hooks', (h) => {
+        h.version ||= 1;
+        h.hooks ||= {};
+        if (pinLegacy(h.hooks.preToolUse || [], 'hook cursor-pre', inv)) report.hooks.push('.cursor/hooks.json preToolUse (pinned)');
+        if (pinLegacy(h.hooks.stop || [], 'hook cursor-stop', inv)) report.hooks.push('.cursor/hooks.json stop (pinned)');
+        if (!(h.hooks.preToolUse || []).some((x) => isOurs(x.command, 'hook cursor-pre'))) {
+          (h.hooks.preToolUse ||= []).push({ command: hookCommand(inv, 'hook cursor-pre'), matcher: 'Write|StrReplace|Edit|MultiEdit|SearchReplace|Delete', timeout: 30 });
+          report.hooks.push('.cursor/hooks.json preToolUse');
+        }
+        if (!(h.hooks.stop || []).some((x) => isOurs(x.command, 'hook cursor-stop'))) {
+          (h.hooks.stop ||= []).push({ command: hookCommand(inv, 'hook cursor-stop'), timeout: 60, loop_limit: 1 });
+          report.hooks.push('.cursor/hooks.json stop');
+        }
+      });
     },
-    mcp({ root, inv, report }) {
-      addMcpJson(join(root, '.cursor/mcp.json'), { command: inv.command, args: [...inv.args, 'mcp'] }, report, '.cursor/mcp.json');
+    mcp(ctx) {
+      const { inv } = ctx;
+      addMcpJson(ctx, '.cursor/mcp.json', { command: inv.command, args: [...inv.args, 'mcp'] });
     },
   },
 

@@ -10,7 +10,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, rmdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { BLOCK_HEADING } from './prompts.js';
-import { GENERATED_NOTICE } from './targets.js';
+import { GENERATED_NOTICE, ENTRY_KINDS, jsonText, getPath } from './targets.js';
 import { findRegion, removeRegion, outsideRegion, normalizedHash } from './markers.js';
 
 /* The opening of a brief written before briefs carried the notice:
@@ -69,6 +69,47 @@ export function removeListedBlock(root, entry) {
   return 'removed';
 }
 
+/**
+ * Take the entries wire added out of a JSON file the manifest lists, then
+ * the keys wire created for them once they are empty. A file wire created
+ * that holds nothing else is removed. Returns 'removed', 'deleted',
+ * 'edited' (not valid JSON any more; left in place) or 'missing'.
+ */
+export function removeListedEntry(root, entry) {
+  const p = join(root, entry.path);
+  const kind = ENTRY_KINDS[entry.kind];
+  if (!kind || !existsSync(p)) return 'missing';
+  const text = read(p);
+  let obj;
+  try {
+    obj = JSON.parse(text);
+  } catch {
+    return 'edited';
+  }
+  if (!obj || typeof obj !== 'object') return 'edited';
+  const before = JSON.stringify(obj);
+  kind.strip(obj);
+  const added = entry.added || [];
+  for (const k of [...added].sort((a, b) => b.split('.').length - a.split('.').length)) {
+    const v = getPath(obj, k);
+    const empty = Array.isArray(v) ? !v.length : v && typeof v === 'object' ? !Object.keys(v).length : false;
+    if (!empty) continue;
+    const parts = k.split('.');
+    const parent = parts.length > 1 ? getPath(obj, parts.slice(0, -1).join('.')) : obj;
+    delete parent[parts.at(-1)];
+  }
+  /* A file wire created goes when only keys wire added, with no content
+     of their own, are left in it: an empty object, or Cursor's version. */
+  const isContainer = (v) => v !== null && typeof v === 'object';
+  if (entry.created && Object.keys(obj).every((k) => added.includes(k) && !isContainer(obj[k]))) {
+    rmSync(p);
+    return 'deleted';
+  }
+  if (JSON.stringify(obj) === before) return 'missing';
+  writeFileSync(p, jsonText(obj, text));
+  return 'removed';
+}
+
 /** Remove the listed folders that are empty, deepest first. Returns the ones that remain. */
 export function pruneDirs(root, dirs) {
   const kept = [];
@@ -92,6 +133,11 @@ export function createOwner({ root, ledger, report, log = () => {} }) {
 
   return {
     isOurs,
+
+    /** Create the folder for a file, recording the folders wire created. */
+    ensureDir(relDir) {
+      ensureDir(root, relDir, ledger);
+    },
 
     /** Write a generated file. Returns false, and writes nothing, when a file of the user's is at that path. */
     write(rel, content) {
@@ -161,6 +207,12 @@ export function createOwner({ root, ledger, report, log = () => {} }) {
           continue;
         }
         if (removeListedBlock(root, entry) === 'edited') log(`The complex-md section in ${entry.path} was edited after wire wrote it; left in place.`);
+      }
+      /* Hook and MCP entries are written only on request, so a wire
+         without --hooks keeps the record of the ones an earlier wire made. */
+      const entries = new Set(ledger.entries.map((e) => `${e.kind} ${e.path}`));
+      for (const entry of prev.entries || []) {
+        if (!entries.has(`${entry.kind} ${entry.path}`) && existsSync(join(root, entry.path))) ledger.entries.push(entry);
       }
       ledger.dirs = pruneDirs(root, [...(prev.dirs || []), ...ledger.dirs]);
     },

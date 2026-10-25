@@ -3,48 +3,17 @@
 // place and reported.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { writeFileSync, readFileSync, readdirSync, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { wire } from '../src/wire.js';
 import { unwire } from '../src/unwire.js';
 import { readManifest, MANIFEST_PATH } from '../src/manifest.js';
+import { repo, snapshot } from './fixtures/wire-repo.mjs';
 
-const MAP = readFileSync(join(import.meta.dirname, 'fixtures', 'brief-map.md'), 'utf8');
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'complex-md.js');
 const read = (dir, p) => readFileSync(join(dir, p), 'utf8');
-
-export function repo(files = {}) {
-  const dir = mkdtempSync(join(tmpdir(), 'cx-unwire-'));
-  execFileSync('git', ['init', '-q'], { cwd: dir });
-  writeFileSync(join(dir, 'COMPLEX.md'), MAP);
-  for (const [p, content] of Object.entries(files)) {
-    mkdirSync(join(dir, p, '..'), { recursive: true });
-    if (content === null) mkdirSync(join(dir, p), { recursive: true });
-    else writeFileSync(join(dir, p), content);
-  }
-  return dir;
-}
-
-/** Every file and folder under dir except .git, as path to bytes (folders as null). */
-export function snapshot(dir) {
-  const out = new Map();
-  const walk = (d) => {
-    for (const name of readdirSync(d)) {
-      if (d === dir && name === '.git') continue;
-      const p = join(d, name);
-      const rel = relative(dir, p).split('\\').join('/');
-      if (statSync(p).isDirectory()) {
-        out.set(`${rel}/`, null);
-        walk(p);
-      } else out.set(rel, readFileSync(p).toString('base64'));
-    }
-  };
-  walk(dir);
-  return out;
-}
 
 const USER_FILES = {
   'AGENTS.md': '# House rules\n\nNever rebase a shared branch.\n',

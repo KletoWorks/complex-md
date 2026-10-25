@@ -7,7 +7,7 @@
 import { existsSync, readdirSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { readManifest, writeManifest, MANIFEST_PATH } from './manifest.js';
-import { removeListedFile, removeListedBlock, pruneDirs } from './own.js';
+import { removeListedFile, removeListedBlock, removeListedEntry, pruneDirs } from './own.js';
 import { WORK_DIR } from './gitignore.js';
 
 export function unwire(root, { log = () => {} } = {}) {
@@ -40,6 +40,20 @@ export function unwire(root, { log = () => {} } = {}) {
       left.blocks.push(entry);
       log(`left the complex-md section in ${entry.path}: it was edited after wire wrote it. Delete it between its markers by hand.`);
     }
+  }
+  for (const entry of m.entries || []) {
+    const r = removeListedEntry(root, entry);
+    if (r === 'removed') report.removed.push(entry.path);
+    else if (r === 'deleted') report.deleted.push(entry.path);
+    else if (r === 'missing') report.missing.push(entry.path);
+    else {
+      report.left.push(entry);
+      left.entries.push(entry);
+      log(`left ${entry.path}: it is not valid JSON, so unwire cannot take the complex-md entries out. Fix it and run unwire again.`);
+    }
+  }
+  if ((m.entries || []).some((e) => e.path === '.claude/settings.local.json')) {
+    log('The line /.claude/settings.local.json that wire --hooks --local added to .git/info/exclude stays; it affects this clone only.');
   }
   left.dirs = pruneDirs(root, m.dirs || []);
   /* What is left stays on record, so a later unwire, after the user
