@@ -6,6 +6,6 @@ applyTo: "README.md"
 Not ranked in COMPLEX.md. It is here because it moves with a file that is.
 
 Moves with:
-- bench/RESULTS.md (80% of this file's commits, 4 together)
+- bench/RESULTS.md (4 commits together, 80% of the less active file's commits)
 
 Open the partner and say in the change description whether it needed a change too.

@@ -6,8 +6,8 @@ applyTo: "content/spec.md"
 Not ranked in COMPLEX.md. It is here because it moves with a file that is.
 
 Moves with:
-- cli/README.md (50% of this file's commits, 4 together)
-- content/index.html (50% of this file's commits, 4 together)
-- skill/SKILL.tmpl.md (50% of this file's commits, 3 together)
+- cli/README.md (4 commits together, 50% of the less active file's commits)
+- content/index.html (4 commits together, 50% of the less active file's commits)
+- skill/SKILL.tmpl.md (3 commits together, 50% of the less active file's commits)
 
 Open the partner and say in the change description whether it needed a change too.
