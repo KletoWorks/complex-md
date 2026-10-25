@@ -11,6 +11,7 @@ import { createInterface } from 'node:readline';
 import { wire } from './wire.js';
 import { unwire } from './unwire.js';
 import { TARGETS } from './targets.js';
+import { assertManifestPath } from './manifest.js';
 
 /* Never mirrored: git itself, dependencies, nested worktrees, the CLI's own
    working directory except its manifest, the map (the plan supplies it), and dot directories
@@ -73,6 +74,7 @@ function snapshot(dir) {
 /* Run `fn` on a scratch mirror of the repository and list the files it
    created, changed or removed there. The repository is never written. */
 function planIn(root, fn, mapText = null) {
+  assertManifestPath(root);
   const scratch = mkdtempSync(join(tmpdir(), 'complex-md-plan-'));
   try {
     mirror(root, scratch);

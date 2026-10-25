@@ -127,6 +127,16 @@ test('wire refuses a manifest-file symlink that leaves the repository', () => {
   assert.equal(readFileSync(join(outside, 'manifest.json'), 'utf8'), manifest);
 });
 
+test('wire and unwire dry runs refuse manifest paths that leave the repository', () => {
+  const dir = repo({ 'AGENTS.md': '# Rules\n' });
+  const outside = mkdtempSync(join(tmpdir(), 'cx-manifest-outside-'));
+  writeFileSync(join(outside, 'manifest.json'), '{"files":[],"blocks":[]}\n');
+  symlinkSync(outside, join(dir, '.complex-md'));
+  assert.throws(() => planWire(dir, MAP, {}), /manifest\.json.*outside the repository/i);
+  assert.throws(() => planUnwire(dir), /manifest\.json.*outside the repository/i);
+  assert.equal(readFileSync(join(outside, 'manifest.json'), 'utf8'), '{"files":[],"blocks":[]}\n');
+});
+
 test('wire writes nothing through a config folder linked outside the repository', () => {
   const dir = repo({ 'AGENTS.md': '# Rules\n' });
   const outside = mkdtempSync(join(tmpdir(), 'cx-outside-'));
