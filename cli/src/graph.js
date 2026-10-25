@@ -283,8 +283,11 @@ const GO_IMPORT_BLOCK_RE = /^import\s*\(([\s\S]*?)\)|^import\s+(?:\w+\s+)?"([^"]
 const GO_IMPORT_LINE_RE = /(?:^|\n)\s*(?:\w+\s+)?"([^"]+)"/g;
 const RS_MOD_RE = /^\s*(?:#\[path\s*=\s*(__RUST_STRING_\d+__)\]\s*)?(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_]\w*)\s*;/gm;
 const RS_USE_RE = /^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([\s\S]*?);/gm;
-const RS_STRING_RE = /(?:br|r)(#{0,})"[\s\S]*?"\1|b?"(?:\\(?:\r?\n|[^\r\n])|[^"\\])*"|'(?:\\.|[^'\\\n])*'/g;
-const RS_BLOCK_COMMENT_RE = /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//g;
+// A char literal holds 1 character or 1 escape; anything longer after a
+// quote is a lifetime such as 'a.
+const RS_CHAR_RE = /'(?:\\(?:x[0-9A-Fa-f]{2}|u\{[0-9A-Fa-f]{1,6}\}|.)|[^'\\\n])'/y;
+const RS_RAW_OPEN_RE = /(?:b|c)?r(#*)"/y;
+const RS_PLAIN_RE = /[\/"'bcr]/g;
 // Anything that looks like a repo path with an extension, for scripts, cron,
 // compose files and configs that name files without an import keyword.
 const PATH_LITERAL_RE = /(?<![\w@])((?:\.\.?\/|\/)?(?:[\w@][\w@.-]*\/)+[\w@][\w@.-]*\.[A-Za-z0-9]{1,8})(?![\w/])/g;
@@ -311,24 +314,65 @@ function pyModuleToPath(mod, fromDir, files, roots) {
   return null;
 }
 
+// Comments and literals are read in 1 pass, in source order, so a quote
+// inside a comment opens no string and a // inside a string starts no
+// comment. Comments become spaces with their newlines kept; each string
+// becomes a placeholder that RS_MOD_RE can match in a #[path] attribute.
 function maskRustText(text) {
   const strings = [];
-  let masked = text.replace(RS_STRING_RE, (token) => `__RUST_STRING_${strings.push(token) - 1}__`);
-  let previous;
-  do {
-    previous = masked;
-    masked = masked.replace(RS_BLOCK_COMMENT_RE, (comment) => comment.replace(/[^\n]/g, ' '));
-  } while (masked !== previous);
-  masked = masked.replace(/\/\/[^\n]*/g, (comment) => comment.replace(/[^\n]/g, ' '));
+  let out = '';
+  let i = 0;
+  const blank = (s) => s.replace(/[^\n]/g, ' ');
+  const word = (at) => at > 0 && /\w/.test(text[at - 1]);
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '/' && text[i + 1] === '/') {
+      const stop = text.indexOf('\n', i);
+      const end = stop < 0 ? text.length : stop;
+      out += blank(text.slice(i, end));
+      i = end;
+    } else if (c === '/' && text[i + 1] === '*') {
+      let depth = 1;
+      let j = i + 2;
+      while (j < text.length && depth) {
+        if (text[j] === '/' && text[j + 1] === '*') { depth++; j += 2; }
+        else if (text[j] === '*' && text[j + 1] === '/') { depth--; j += 2; }
+        else j++;
+      }
+      out += blank(text.slice(i, j));
+      i = j;
+    } else if (/[bcr]/.test(c) && !word(i) && (RS_RAW_OPEN_RE.lastIndex = i, RS_RAW_OPEN_RE.test(text))) {
+      const open = RS_RAW_OPEN_RE.lastIndex;
+      const hashes = text.slice(i, open).replace(/^[bc]?r/, '').slice(0, -1);
+      const close = text.indexOf('"' + hashes, open);
+      const end = close < 0 ? text.length : close + 1 + hashes.length;
+      strings.push(text.slice(open, close < 0 ? text.length : close));
+      out += `__RUST_STRING_${strings.length - 1}__`;
+      i = end;
+    } else if (c === '"' || (/[bc]/.test(c) && text[i + 1] === '"' && !word(i))) {
+      let j = c === '"' ? i + 1 : i + 2;
+      let body = '';
+      while (j < text.length && text[j] !== '"') {
+        if (text[j] === '\\') { body += text[j + 1] ?? ''; j += 2; } else body += text[j++];
+      }
+      strings.push(body);
+      out += `__RUST_STRING_${strings.length - 1}__`;
+      i = j + 1;
+    } else if (c === "'" && (RS_CHAR_RE.lastIndex = i, RS_CHAR_RE.test(text))) {
+      out += ' '.repeat(RS_CHAR_RE.lastIndex - i);
+      i = RS_CHAR_RE.lastIndex;
+    } else {
+      RS_PLAIN_RE.lastIndex = i + 1;
+      const next = RS_PLAIN_RE.exec(text);
+      const end = next ? next.index : text.length;
+      out += text.slice(i, end);
+      i = end;
+    }
+  }
   return {
-    text: masked,
+    text: out,
     string(index) {
-      const token = strings[Number(index)];
-      if (!token) return null;
-      const raw = /^(?:br|r)(#{0,})"/.exec(token);
-      if (raw) return token.slice(raw[0].length, -(raw[1].length + 1));
-      const body = token.replace(/^(?:b)?"/, '').replace(/"$/, '');
-      return body.replace(/\\(["'\\])/g, '$1');
+      return strings[Number(index)] ?? null;
     },
   };
 }

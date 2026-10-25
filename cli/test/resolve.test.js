@@ -327,6 +327,35 @@ const CASES = [
     ],
   },
   {
+    name: 'rust quotes inside comments do not open a string that hides later declarations',
+    files: {
+      'Cargo.toml': '[package]\nname = "quotes"\n',
+      'src/lib.rs': [
+        '// Strip the opening ".',
+        'mod hidden;',
+        'const QUOTE: &str = "x";',
+        '/* a block comment with a " quote */',
+        'mod after_block;',
+        'const URL: &str = "http://example.com";',
+        'mod after_url;',
+        "const CH: char = '\"';",
+        'mod after_char;',
+        'const LAST: &str = "y";',
+        '',
+      ].join('\n'),
+      'src/hidden.rs': '',
+      'src/after_block.rs': '',
+      'src/after_url.rs': '',
+      'src/after_char.rs': '',
+    },
+    edges: [
+      ['src/lib.rs', 'src/hidden.rs'],
+      ['src/lib.rs', 'src/after_block.rs'],
+      ['src/lib.rs', 'src/after_url.rs'],
+      ['src/lib.rs', 'src/after_char.rs'],
+    ],
+  },
+  {
     name: 'go: an import of a package depends on every non-test file in its directory',
     files: {
       'go.mod': 'module example.com/m\n',
