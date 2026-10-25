@@ -199,11 +199,30 @@ export function parseFrontMatter(src) {
        the two character string "[]" is a real defect and not a theoretical
        one. It crashed `wire` on the first end to end run of 0.7.0. */
     if (/^\[.*\]$/.test(v)) {
-      const inner = v.slice(1, -1).trim();
-      if (!inner) return [];
-      return inner.split(',').map((x) => scalar(x));
+      return flowList(v.slice(1, -1));
     }
     return v;
+  };
+  const flowList = (inner) => {
+    if (!inner.trim()) return [];
+    const items = [];
+    let quoted = false;
+    let escaped = false;
+    let start = 0;
+    for (let j = 0; j < inner.length; j++) {
+      const c = inner[j];
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (c === '\\') escaped = true;
+        else if (c === '"') quoted = false;
+      } else if (c === '"') quoted = true;
+      else if (c === ',') {
+        items.push(scalar(inner.slice(start, j)));
+        start = j + 1;
+      }
+    }
+    items.push(scalar(inner.slice(start)));
+    return items;
   };
   while (i < lines.length) {
     const line = lines[i];
@@ -251,7 +270,7 @@ export function parseFrontMatter(src) {
   function value(v) {
     v = v.trim();
     const arr = /^\[(.*)\]$/.exec(v);
-    if (arr) return arr[1].split(',').map((s) => scalar(s));
+    if (arr) return flowList(arr[1]);
     return scalar(v);
   }
 }
