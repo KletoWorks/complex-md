@@ -424,6 +424,28 @@ const CASES = [
     ],
   },
   {
+    name: 'rust uses through a #[path] module reach the file the attribute names',
+    files: {
+      'Cargo.toml': '[package]\nname = "paths"\n',
+      'src/lib.rs': '#[path = "implementation.rs"] pub mod api;\nmod consumer;\n',
+      'src/implementation.rs': 'pub struct Thing;\npub mod inner;\n',
+      'src/implementation/inner.rs': '',
+      'src/inner.rs': 'use super::Thing;\npub struct Deep;\n',
+      'src/consumer.rs': 'use crate::api::Thing;\nuse crate::api::inner::Deep;\n',
+    },
+    edges: [
+      ['src/lib.rs', 'src/implementation.rs'],
+      ['src/implementation.rs', 'src/inner.rs'],
+      ['src/consumer.rs', 'src/implementation.rs'],
+      ['src/consumer.rs', 'src/inner.rs'],
+      ['src/inner.rs', 'src/implementation.rs'],
+    ],
+    notEdges: [
+      ['src/consumer.rs', 'src/lib.rs'],
+      ['src/implementation.rs', 'src/implementation/inner.rs'],
+    ],
+  },
+  {
     name: 'go: an import of a package depends on every non-test file in its directory',
     files: {
       'go.mod': 'module example.com/m\n',
