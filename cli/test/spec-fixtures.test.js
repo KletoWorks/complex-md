@@ -30,7 +30,6 @@ const REQUIRED_SECTIONS = ['Where the risk lives', 'Why these files are hot', 'C
 const DIRECTIVE = 'Before editing this file,';
 
 const READER_GAPS = {
-  'older-0.3': 'the reader does not read the 0.3 key tool as generator',
   'comma-path': 'the reader splits a flow list at every comma, also inside a double quoted path',
   'empty-test-files': 'the reader reads an empty flow list inside a list item as [""]',
 };
@@ -223,6 +222,13 @@ function asRead(data) {
     : typeOf(v) === 'object' ? Object.fromEntries(Object.entries(v).filter(([k]) => !k.startsWith('x-')).map(([k, x]) => [k, strip(x)]))
     : v);
   const out = strip(data);
+  if (out.complex_md === '0.3' && !('generator' in out) && typeof out.tool === 'string') {
+    const slash = out.tool.indexOf('/');
+    out.generator = slash < 0
+      ? { name: out.tool }
+      : { name: out.tool.slice(0, slash), version: out.tool.slice(slash + 1) };
+    delete out.tool;
+  }
   for (const k of ['hotspots', 'load_bearing', 'co_change', 'seams', 'blind_spots', 'workspaces']) if (k in out && out[k] === null) out[k] = [];
   return out;
 }
