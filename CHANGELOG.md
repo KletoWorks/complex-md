@@ -34,6 +34,16 @@ CRLF map. Shell scripts and the 4 skill copies check out with LF.
 **Change:** the bench names test files with `/` on Windows, and its mask
 plan compares paths with the OS separator.
 
+**Intent:** the home page opened with a hand typed excerpt of a fastify map from release 0.4.0 whose numbers matched no file in the repository. It put the benchmark result in its sixth section and sent a visitor to a separate page to look up a repository.
+
+**Change:** the home page leads with "Tell your coding agent what it could break, before it edits.", a repository box and `npx complex-md`. The box is a plain GET form to `/map/?repo=`, so it opens a hosted page, links a committed COMPLEX.md, or shows the command and a request button, with or without script.
+
+**Change:** the hero card draws the fastify benchmark map (`bench/results/fastify-damage/maps/fastify-fastify-2026-07.md`) as a treemap with a Map and a File view. `scripts/demo-map.mjs` reads the file at build time, so every number, directive and partner on the card comes from it, and the card names its repository, commit, date, tool and spec. The card shows one hot file at a time while it is on screen, pauses on hover and focus, and stops when a visitor selects a tile.
+
+**Change:** the page states the benchmark claim with Claude Opus 5 named, the NUL byte repro with the blind spot line from the 0.10.0 map, open model support, and a FAQ that covers what the CLI sends, who writes the prose, how a maintainer removes a hosted page, and hosts other than GitHub. Motion respects `prefers-reduced-motion`.
+
+**Change:** the home page carries no style attribute and no inline script. The build turns the style attributes in the agent logos into SVG presentation attributes. `cli/test/home.test.js` checks the form, the policy, the claim and the quoted blind spot, and `cli/test/demo-map.test.js` checks the card against its source map.
+
 ## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
 
 **Intent:** wire appended a block with a heading but no end, deleted any file in a brief folder whose name had the complex-md- prefix, created CLAUDE.md beside AGENTS.md, and had no way back. A default wire could add 40 or more files to a repository, a rewire never updated an old block, and a Windows checkout could leave mixed line endings.

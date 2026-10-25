@@ -63,6 +63,8 @@ const PUBLIC = [
   'scripts/chrome.mjs',
   // The text of every hosted map page.
   'scripts/hosted.mjs',
+  // The map card on the home page.
+  'scripts/demo-map.mjs',
 ];
 
 /** The texts an agent follows to wire a repository. */
