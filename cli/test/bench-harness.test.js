@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildBenchRepo, runHarness } from './fixtures/bench-repo.mjs';
+import { buildBenchRepo, runHarness, spawnHarnessInto } from './fixtures/bench-repo.mjs';
 
 test('a mock run records one row per arm with the edit the agent made', () => {
   const fx = buildBenchRepo();
@@ -182,5 +182,25 @@ test('a dataset suite decides the runner and the files of the damage suite', () 
     assert.equal(rows[0].tests_run, 1, 'the gold test runs with the dataset runner');
     const [b] = readdirSync(join(out, 'baseline'));
     assert.equal(JSON.parse(readFileSync(join(out, 'baseline', b), 'utf8')).runner, 'dataset-node');
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
+
+test('--seeds runs each arm once a seed, keeps each seed\'s patch, and a rerun resumes', () => {
+  const fx = buildBenchRepo();
+  try {
+    const first = runHarness(fx, ['--agent', 'mock', '--arms', 'none,file', '--stop-at', 'none', '--seeds', '1,2', '--max-runs', '3']);
+    assert.equal(first.status, 0, first.stderr);
+    assert.deepEqual(first.rows.map((r) => `${r.arm}/${r.seed}`), ['none/1', 'file/1', 'none/2']);
+    const id = fx.task.id;
+    for (const f of [`${id}-none.diff`, `${id}-file.diff`, `${id}-none-s2.diff`]) assert.ok(existsSync(join(first.out, 'patches', f)), f);
+    assert.ok(existsSync(join(first.out, 'transcripts', `${id}-none-s2.jsonl`)));
+    // A row written before seeds existed has no seed field and counts as seed 1.
+    const runs = join(first.out, 'runs.jsonl');
+    const rows = readFileSync(runs, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    delete rows[0].seed;
+    writeFileSync(runs, rows.map((r) => JSON.stringify(r) + '\n').join(''));
+    const again = spawnHarnessInto(fx, first.out, ['--agent', 'mock', '--arms', 'none,file', '--stop-at', 'none', '--seeds', '1,2']);
+    assert.equal(again.status, 0, again.stderr);
+    assert.deepEqual(again.rows.slice(3).map((r) => `${r.arm}/${r.seed}`), ['file/2']);
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });

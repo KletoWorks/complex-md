@@ -91,6 +91,14 @@ const cacheDir = opt('--cache', outDir);
 const mapCap = Number(opt('--map-cap', MAP_CAP));
 const maxRuns = opt('--max-runs', null) === null ? Infinity : Number(opt('--max-runs'));
 const mapsOnly = flag('--maps-only');
+/* --seeds 1,2: run every arm of every task once per seed. Claude Code takes
+   no seed, so a seed is an independent repeat of the same run. Seed 1 keeps
+   the names a row had before seeds existed, and a row with no seed field
+   is seed 1; a later seed's files end in -s<seed>. */
+const seeds = opt('--seeds', '1').split(',').map(Number);
+if (seeds.some((n) => !Number.isInteger(n) || n < 1)) { console.error(`--seeds takes positive integers: ${opt('--seeds')}`); process.exit(2); }
+const runKey = (task, arm, seed = 1) => `${task}/${arm}${seed > 1 ? `/s${seed}` : ''}`;
+const runName = (task, arm, seed = 1) => `${task}-${arm}${seed > 1 ? `-s${seed}` : ''}`;
 /* Every agent runs in bench/sandbox.mjs: no network but the model API
    hosts, and no files but its checkout and its own install. --no-sandbox
    runs without it, and each row records which. --allow-host adds proxy
@@ -108,7 +116,7 @@ const suiteOn = stopAt === 'none' && !flag('--no-suite') && (agent === 'claude' 
 for (const d of ['transcripts', 'patches']) mkdirSync(join(outDir, d), { recursive: true });
 for (const d of ['maps', 'baseline']) mkdirSync(join(cacheDir, d), { recursive: true });
 const runsPath = join(outDir, 'runs.jsonl');
-const done = new Set(existsSync(runsPath) ? readFileSync(runsPath, 'utf8').split('\n').filter(Boolean).map((l) => { const r = JSON.parse(l); return `${r.task}/${r.arm}`; }) : []);
+const done = new Set(existsSync(runsPath) ? readFileSync(runsPath, 'utf8').split('\n').filter(Boolean).map((l) => { const r = JSON.parse(l); return runKey(r.task, r.arm, r.seed ?? 1); }) : []);
 
 const sh = (cmd, a, cwd) => {
   const r = spawnSync(cmd, a, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
@@ -189,8 +197,8 @@ function depsFor() {
   return (deps = dest);
 }
 
-function prepareWorktree(task, arm) {
-  const wt = join(workRoot, `${task.id}-${arm}`);
+function prepareWorktree(task, arm, seed) {
+  const wt = join(workRoot, runName(task.id, arm, seed));
   /* A fresh repository with the history up to the base and nothing after
      it, never a worktree of the dataset clone (bench/isolate.mjs). */
   isolatedCheckout(dataset.path, task.base, wt);
@@ -301,7 +309,7 @@ function agentKeeps(wt) {
   return keeps;
 }
 
-async function runAgent(task, arm, wt) {
+async function runAgent(task, arm, wt, seed) {
   let [cmd, a, env] = agentCommand(task, arm, wt);
   let proxy = null;
   const sbx = `${wt}.sandbox`;
@@ -365,7 +373,7 @@ async function runAgent(task, arm, wt) {
       // The harness clock: the agent's own duration_ms comes only with its result event.
       m.wall_ms = Date.now() - t0;
       if (code !== 0 && !killed && !m.error && !m.stopped) m.error = (stderr.join('').trim() || `exit ${code}`).slice(0, 300);
-      writeFileSync(join(outDir, 'transcripts', `${task.id}-${arm}.jsonl`), transcript.join('\n') + '\n');
+      writeFileSync(join(outDir, 'transcripts', `${runName(task.id, arm, seed)}.jsonl`), transcript.join('\n') + '\n');
       resolvePromise(m);
     });
   });
@@ -427,7 +435,7 @@ if (mapsOnly) {
      error when a worker tries again. */
   let failed = 0;
   for (const task of tasks) {
-    if (!mapArms.some((a) => !done.has(`${task.id}/${a}`))) continue;
+    if (!mapArms.some((a) => seeds.some((n) => !done.has(runKey(task.id, a, n))))) continue;
     try { await mapFor(task); } catch (e) { failed++; log(`map for ${task.id} failed: ${String(e.message || e).slice(0, 200)}`); }
   }
   log(`maps built: ${join(cacheDir, 'maps')}${failed ? `, ${failed} tasks without a map` : ''}`);
@@ -436,11 +444,11 @@ if (mapsOnly) {
 
 let added = 0;
 pass: for (const task of tasks) {
-  for (const arm of arms) {
-    if (done.has(`${task.id}/${arm}`)) continue;
+  for (const seed of seeds) for (const arm of arms) {
+    if (done.has(runKey(task.id, arm, seed))) continue;
     if (added >= maxRuns) { log(`--max-runs ${maxRuns} reached`); break pass; }
-    log(`${task.id} ${arm}: ${task.title.slice(0, 60)}`);
-    const wt = prepareWorktree(task, arm);
+    log(`${task.id} ${arm}${seed > 1 ? ` seed ${seed}` : ''}: ${task.title.slice(0, 60)}`);
+    const wt = prepareWorktree(task, arm, seed);
     try {
       /* A failure setting up or driving one run is that run's error, recorded
          as a row, and the pass continues. Before this, a transient exception
@@ -452,7 +460,7 @@ pass: for (const task of tasks) {
         mapCommit = setup?.anchor ?? null;
         mapBytes = setup?.bytes ?? null;
         before = new Set(untracked(wt));
-        m = arm === 'gold' ? goldRun(task, wt) : await runAgent(task, arm, wt);
+        m = arm === 'gold' ? goldRun(task, wt) : await runAgent(task, arm, wt, seed);
       } catch (e) {
         m = { ...newMetrics(), error: `harness: ${String(e.message || e).slice(0, 200)}` };
       }
@@ -467,7 +475,7 @@ pass: for (const task of tasks) {
       const edited = sh('git', ['diff', '--name-only', 'HEAD'], wt).split('\n').filter(Boolean);
       /* The patch itself is kept: a regression count is checkable only with
          the diff that produced it. */
-      writeFileSync(join(outDir, 'patches', `${task.id}-${arm}.diff`), sh('git', ['diff', 'HEAD'], wt));
+      writeFileSync(join(outDir, 'patches', `${runName(task.id, arm, seed)}.diff`), sh('git', ['diff', 'HEAD'], wt));
       /* Diff size, the AAIF metric: lines added plus removed in the final
          patch, and files touched. Both zero when the agent edited nothing. */
       let diff_lines = 0;
@@ -479,7 +487,7 @@ pass: for (const task of tasks) {
       const damage = suiteOn && baseline && !m.error ? await runDamage(task, wt, baseline) : null;
       const success = stopAt === 'none' ? runGoldTests(task, wt) : null;
       const conduct = baseline ? behaviour(edited, m, baseline.risky, wt) : null;
-      const rec = { task: task.id, arm, agent, model: model ?? m.agent_model ?? null, cli_version: CLI_VERSION, cli_commit: CLI_COMMIT, skill: skillText ? createHash('sha1').update(skillText).digest('hex').slice(0, 10) : null, map_commit: mapCommit, map_bytes: mapBytes, map_cap: mapCap || null, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
+      const rec = { task: task.id, arm, seed, agent, model: model ?? m.agent_model ?? null, cli_version: CLI_VERSION, cli_commit: CLI_COMMIT, skill: skillText ? createHash('sha1').update(skillText).digest('hex').slice(0, 10) : null, map_commit: mapCommit, map_bytes: mapBytes, map_cap: mapCap || null, names_gold: task.names_gold, gold: task.gold, edited, gold_edited: edited.some((f) => task.gold.includes(f)), diff_lines, diff_files: edited.length, ...success, ...damage, ...conduct, ...m, at: new Date().toISOString() };
       appendFileSync(runsPath, JSON.stringify(rec) + '\n');
       added++;
       log(`  steps ${m.steps}, first gold read at ${m.first_gold_read ?? '-'}, gold edited ${rec.gold_edited}, success ${rec.success ?? '-'}, regressions ${rec.regressed_tests ?? '-'}, tests run by agent ${m.agent_test_runs}, $${m.cost_usd?.toFixed(3) ?? '?'}${m.gate_fired ? `, gate x${m.gate_fired}` : ''}${m.error ? `, error: ${m.error}` : ''}`);

@@ -169,6 +169,11 @@ the selected tasks need and stops; run it once before two workers share one
 no suite, the cheap way to run a large set. `--no-suite` runs to completion
 without the regression suite.
 
+`--seeds 1,2` runs every arm of every task once per seed. Claude Code takes
+no seed, so a seed is an independent repeat of the same run. Rows record
+`seed`; a row without it is seed 1, and a later seed's patch and
+transcript end in `-s<seed>`.
+
 Runs use the local `claude` login by default; set `ANTHROPIC_API_KEY` to
 bill the API directly instead. `--setting-sources project` keeps the user's
 own CLAUDE.md and hooks out of every arm. The hooks arm points at this

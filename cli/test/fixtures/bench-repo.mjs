@@ -78,8 +78,12 @@ const RUN = join(import.meta.dirname, '..', '..', '..', 'bench', 'run.mjs');
 
 /* Runs without the agent sandbox unless `sandbox` is true, so the harness
    tests pass on hosts that cannot build one; the sandbox tests opt in. */
-export function runHarness(fx, extra = [], { env = {}, sandbox = false } = {}) {
-  const out = join(fx.dir, `out-${Math.random().toString(36).slice(2, 8)}`);
+export function runHarness(fx, extra = [], opts = {}) {
+  return spawnHarnessInto(fx, join(fx.dir, `out-${Math.random().toString(36).slice(2, 8)}`), extra, opts);
+}
+
+/** Runs bench/run.mjs with `out` as its results directory, so a second pass can resume the first. */
+export function spawnHarnessInto(fx, out, extra = [], { env = {}, sandbox = false } = {}) {
   const work = join(fx.dir, 'work');
   mkdirSync(work, { recursive: true });
   const r = spawnSync(process.execPath, [RUN, ...extra, ...(sandbox || extra.includes('--no-sandbox') ? [] : ['--no-sandbox']), '--dataset', fx.datasetPath, '--out', out, '--work', work, '--timeout', '60'], { encoding: 'utf8', env: { ...process.env, CX_BENCH_NO_MODEL: '1', ...env }, timeout: 180000 });
