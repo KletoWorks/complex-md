@@ -227,6 +227,13 @@ These scripts read committed runs and fix history. They spend nothing.
 - `node bench/comply.mjs <results> <dataset>`: for each file an agent
   edited, did it run the tests the map names for that file. Arms pair on
   task and file, with McNemar's exact test per arm.
+- `node bench/damage.mjs screen-set|select|analyze`: collateral damage per
+  task, as `PREREG.md` fixes it. A run is damaged when it broke a test that
+  the gold patch did not also break. `screen-set` takes the usable tasks
+  of each damage dataset, `select` keeps damaged and clean tasks from the
+  screen by a hash order and stops on a damage rate under 15%, and
+  `analyze` runs the per task sign test of each arm pair, with Holm for the
+  secondary pairs.
 - `node bench/partners.mjs`: co-change partner misses per arm on the damage
   runs. It writes `bench/results/partners.json`. The primary definition
   counts a Read or an edit of the partner. The wider definition was chosen
