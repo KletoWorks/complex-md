@@ -223,7 +223,7 @@ registers the server. The MCP server speaks stdio and exposes six tools:
 
 ## Other commands
 
-    npx complex-md check [--staged | --base main] [--json] [--strict]
+    npx complex-md check [--staged | --base main] [--json] [--strict] [--map-ref <ref>] [--note]
     npx complex-md signals [--json | --tsv]
     npx complex-md impact <path> [--json] [--strict]
     npx complex-md report                # write .complex-md/report.html, a page of the map
@@ -247,6 +247,12 @@ absolute, has a `..` segment or starts in `.git`, and they write and
 remove nothing that a symbolic link takes outside the repository.
 
 `check --strict` exits 1 on findings, for pre-commit and CI.
+`check --map-ref <ref>` reads COMPLEX.md from that commit instead of the
+working tree, so a merge request job checks against the target branch's map.
+`check --note` prints the findings as one Markdown merge request note, in
+the format of the complex-md-action pull request comment, or a cleared note
+when the change touches nothing. With `--strict` it exits 1 when the note has
+findings. With no map it prints nothing and exits 0.
 `check --base <ref>` exits 2 when the ref is not in the checkout. In GitHub
 Actions, check out with `fetch-depth: 0` so `origin/main` exists. `check` also
 names a generated brief that differs from what `wire` writes, since review
@@ -263,6 +269,30 @@ tests the map names on 14 of 15 risky edits, against 3 of 17 without it
 (11 of 11 discordant pairs, p about 0.001), with Claude Opus 5 in Claude
 Code. Results and method: `bench/RESULTS.md` in
 https://github.com/KletoWorks/complex-md.
+
+## GitLab merge request notes
+
+On GitHub, [complex-md-action](https://github.com/KletoWorks/complex-md-action)
+posts one pull request comment. On GitLab,
+[`ci/gitlab/complex-md.gitlab-ci.yml`](https://github.com/KletoWorks/complex-md/blob/main/ci/gitlab/complex-md.gitlab-ci.yml)
+posts the same comment as one merge request note:
+
+```yaml
+include:
+  - remote: https://raw.githubusercontent.com/KletoWorks/complex-md/<commit sha>/ci/gitlab/complex-md.gitlab-ci.yml
+```
+
+The job runs on merge request pipelines only. It reads COMPLEX.md from the
+target branch (`check --map-ref`), prints the note with `check --note`, and
+posts or edits it with curl. The CLI makes no request. Each later push edits
+the same note, and a push that drops the last hot file clears it.
+
+`CI_JOB_TOKEN` can read merge request notes but cannot write them. Create a
+project access token with the Reporter role and the `api` scope, and save it
+as a masked CI/CD variable named `COMPLEX_MD_GITLAB_TOKEN`, or set
+`COMPLEX_MD_TOKEN_VARIABLE` to the name you chose. With no token, the job
+prints the note to its log and posts nothing. The header of the file states
+what the job runs and why the token gets the Reporter role.
 
 ## Limits, stated plainly
 

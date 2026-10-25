@@ -28,8 +28,16 @@ export function parseComplexMd(text) {
      sha happened to be 1234567 then failed every string comparison against
      HEAD and reported itself stale. A few percent of shas are all digits,
      which is exactly the rate at which a test with unpinned commit dates
-     fails in CI and passes on the machine that wrote it. */
-  if (fm.commit !== undefined && fm.commit !== null) fm.commit = String(fm.commit);
+     fails in CI and passes on the machine that wrote it. String() of that
+     Number also drops a leading zero: 0179008 came back as 179008, which
+     resolves to no commit, so a note called the map's commit not in the
+     history. frontMatter in generate.js writes the sha unquoted, so an all
+     digit value is taken as written. parseFrontMatter keeps the Number,
+     because lint reports the commit as written. */
+  if (fm.commit !== undefined && fm.commit !== null) {
+    const raw = /^commit:[ \t]*(\d+)[ \t]*$/m.exec(m[1])?.[1];
+    fm.commit = typeof fm.commit === 'number' && raw ? raw : String(fm.commit);
+  }
   const prose = m[2];
   const sections = splitSections(prose);
   const hotspotParas = paragraphs(sections['Why these files are hot'] || '');

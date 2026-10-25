@@ -435,6 +435,17 @@ test('an all digit commit sha in the front matter stays a string', () => {
   assert.equal(m.front.commit, '1234567');
 });
 
+/* The deterministic form of a CI failure on the note test: a fixture
+   commit 0179008... came back as 179008, which names no commit. */
+test('an all digit commit sha keeps its leading zero', () => {
+  const m = parseComplexMd('---\ncomplex_md: "0.3"\ncommit: 0179008\nhotspots: []\n---\n\n## Where the risk lives\n\nx\n');
+  assert.equal(m.front.commit, '0179008');
+  const quoted = parseComplexMd('---\ncomplex_md: "0.3"\ncommit: "0179008"\nhotspots: []\n---\n\n## Where the risk lives\n\nx\n');
+  assert.equal(quoted.front.commit, '0179008');
+  const crlf = parseComplexMd('---\r\ncomplex_md: "0.3"\r\ncommit: 0179008\r\nhotspots: []\r\n---\r\n\r\n## Where the risk lives\r\n\r\nx\r\n');
+  assert.equal(crlf.front.commit, '0179008');
+});
+
 test('wire takes a replacement integration block and keeps the heading that marks it', async () => {
   const { wire } = await import('../src/wire.js');
   const { readFileSync } = await import('node:fs');

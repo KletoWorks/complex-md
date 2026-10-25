@@ -38,6 +38,6 @@
   ],
   "scripts": {
     "prepack": "node scripts/sync-prompts.mjs",
-    "test": "node --test"
+    "test": "node scripts/test.mjs"
   }
 }

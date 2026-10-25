@@ -11,8 +11,10 @@ import { integrationBlock } from './prompts.js';
 import { BRIEF_SPECS, briefFiles, specOwns, SKILL_PATH, portableSkill } from './targets.js';
 import { readManifest } from './manifest.js';
 
-export function runCheck(cwd, { files = null, base = null, staged = false, signals = null } = {}) {
-  const map = loadComplexMd(cwd);
+/* map: a parsed map to check against, or null for none. Left out, the
+   working tree's COMPLEX.md is read. */
+export function runCheck(cwd, { files = null, base = null, staged = false, signals = null, map: given } = {}) {
+  const map = given !== undefined ? given : loadComplexMd(cwd);
   const changed = files || changedFiles(cwd, { base, staged });
   const changedSet = new Set(changed);
   const findings = { hotspots: [], partners: [], tests: [], generated: [], changed, map_present: !!map, test_command: detectTestCommand(cwd) };
