@@ -48,6 +48,10 @@ if [ -z "${CX_ANY_HOUR:-}" ] && [ "$hour" -ge 8 ] && [ "$hour" -lt 22 ]; then sa
 if [ "$hour" -ge 22 ]; then end=$(TZ=America/Montevideo date -d 'tomorrow 08:00' +%s); else end=$(TZ=America/Montevideo date -d 'today 08:00' +%s); fi
 [ -n "${CX_END:-}" ] && end=$CX_END
 start=$(TZ=America/Montevideo date -d "$NIGHT 22:00" +%s)
+# A full disk breaks clones and transcripts mid run. Below $CX_MIN_FREE_GB
+# (default 8) free on the bench volume, skip the night; finished rows stay.
+free_gb=$(( $(df -Pk "${CX_BENCH_DIR:-/root/var/bench}" | awk 'NR==2{print $4}') / 1048576 ))
+if [ "$free_gb" -lt "${CX_MIN_FREE_GB:-8}" ]; then say "refused: ${free_gb} GB free, under ${CX_MIN_FREE_GB:-8} GB"; exit 0; fi
 say "night $NIGHT: $((end - $(now))) seconds until 08:00, cap $CAP agent runs, model $MODEL, cli $(git rev-parse --short HEAD)"
 
 # The other study: a running service, or a timer that fires before 08:00.
