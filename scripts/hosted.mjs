@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { parseComplexMd } from '../cli/src/complexmd.js';
 import { reportParts, grepBlindFiles } from '../cli/src/render.js';
 import { ROOT, ORIGIN, mark, siteHeader, siteFooter } from './chrome.mjs';
+import { OG_WIDTH, OG_HEIGHT } from './og-image.mjs';
 
 export const RESERVED = new Set(JSON.parse(readFileSync(join(ROOT, 'site/reserved.json'), 'utf8')));
 
@@ -189,6 +190,30 @@ function hostedMap(p) {
   };
 }
 
+/**
+ * What the page's Open Graph image shows, from the same cleaned front matter
+ * the page renders: the repository, the number of hotspots, the map's first
+ * co-change pair, and the commit and date. No ranking, no people.
+ */
+export function ogFacts(p) {
+  const { front } = hostedMap(p);
+  const pair = front.co_change[0];
+  return {
+    display: `${p.owner}/${p.name}`,
+    hotspots: front.hotspots.length,
+    pair: pair ? { files: [pair.files[0], pair.files[1]], coupling: pair.coupling } : null,
+    commit: p.sha.slice(0, 7),
+    date: p.date,
+  };
+}
+
+/** The alt text of the Open Graph image: the same facts in one sentence. */
+export function ogAlt(f) {
+  const hot = `${f.hotspots} ${f.hotspots === 1 ? 'hotspot' : 'hotspots'}`;
+  const pair = f.pair ? `, top co-change pair ${f.pair.files[0]} and ${f.pair.files[1]} at ${Math.round(f.pair.coupling)}% coupling` : '';
+  return `COMPLEX.md map of ${f.display}: ${hot}${pair}. Commit ${f.commit}, ${f.date}.`;
+}
+
 /** One hosted page as an HTML document. site: the origin the canonical links name. */
 export function renderHostedPage(p, { site = ORIGIN } = {}) {
   const map = hostedMap(p);
@@ -201,6 +226,8 @@ export function renderHostedPage(p, { site = ORIGIN } = {}) {
   const display = `${p.owner}/${p.name}`;
   const github = `https://github.com/${p.owner}/${p.name}`;
   const self = `${site}/${p.key}/`;
+  const ogImage = `${self}og.png`;
+  const ogAltText = ogAlt(ogFacts(p));
   const canonical = p.indexable ? self : github;
   const files = map.front.hotspots.length;
   const title = `${display}: COMPLEX.md map | complex.md`;
@@ -226,8 +253,13 @@ export function renderHostedPage(p, { site = ORIGIN } = {}) {
 <meta property="og:url" content="${esc(self)}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="complex.md">
-<meta property="og:image" content="${esc(site)}/og.png">
+<meta property="og:image" content="${esc(ogImage)}">
+<meta property="og:image:width" content="${OG_WIDTH}">
+<meta property="og:image:height" content="${OG_HEIGHT}">
+<meta property="og:image:alt" content="${esc(ogAltText)}">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="${esc(ogImage)}">
+<meta name="twitter:image:alt" content="${esc(ogAltText)}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="theme-color" content="#ffffff">
