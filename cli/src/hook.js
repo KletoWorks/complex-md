@@ -10,8 +10,8 @@
 // Modes (--mode or COMPLEX_MD_GATE): gate (default) denies the first edit of a
 // hotspot per session and hands back the paragraph; warn lets the edit through
 // with the paragraph attached; off does nothing.
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { join, isAbsolute, relative, resolve } from 'node:path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, realpathSync } from 'node:fs';
+import { join, isAbsolute, relative, resolve, dirname, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { repoRoot, changedFiles, git, historyRenameArgs } from './git.js';
 import { loadComplexMd } from './complexmd.js';
@@ -54,10 +54,29 @@ function filePathFrom(toolInput) {
   return null;
 }
 
+/* p with every link resolved. A Write can name a file that does not exist
+   yet, so the nearest folder that exists is resolved and the rest kept. */
+function realPath(p) {
+  const rest = [];
+  for (let head = p; ; head = dirname(head)) {
+    try {
+      return join(realpathSync.native(head), ...rest);
+    } catch {}
+    if (dirname(head) === head) return p;
+    rest.unshift(basename(head));
+  }
+}
+
+/* git prints the root with every link resolved, and on Windows with long
+   names. An agent can name the file through a link (macOS /var is
+   /private/var) or an 8.3 short name (RUNNER~1), so a path that falls
+   outside the root as given is compared again with links resolved. */
 function relPath(root, p) {
   const abs = isAbsolute(p) ? p : resolve(root, p);
-  const rel = relative(root, abs);
-  return rel.startsWith('..') ? null : rel.split('\\').join('/');
+  const outside = (r) => r.startsWith('..') || isAbsolute(r);
+  let rel = relative(root, abs);
+  if (outside(rel)) rel = relative(realPath(root), realPath(abs));
+  return outside(rel) ? null : rel.split('\\').join('/');
 }
 
 function fmtRow(r, front = {}) {

@@ -35,7 +35,7 @@ test('hook pre and cursor-pre outside a git repository let the edit through', ()
 });
 
 // ---- JSON shapes, on a repository with a map ------------------------------
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, symlinkSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 
 // One hotspot (src/a.js) and one pair (a, b), so src/b.js is a partner and
@@ -136,6 +136,24 @@ test('pre (Claude Code): hookSpecificOutput with permissionDecision deny, then a
   const none = hook('pre', { session_id: session(), cwd: dir, tool_input: { file_path: 'README.md' } }, dir);
   assert.equal(none.status, 0);
   assert.equal(none.stdout, '', 'an unlisted file gets no output at all');
+});
+
+/* git prints the repository root with every link resolved. An agent names
+   the file through the path it was started in, which can pass a link:
+   /var is a link to /private/var on macOS, where the temporary folder
+   sits. A junction is the Windows link that needs no extra privilege. */
+test('pre and cursor-pre match a hotspot the agent names through a linked folder', () => {
+  const real = makeMappedRepo();
+  const link = join(mkdtempSync(join(tmpdir(), 'cx-hook-link-')), 'repo');
+  symlinkSync(real, link, 'junction');
+  const file = join(link, 'src/a.js');
+  const pre = parse(hook('pre', { session_id: session(), cwd: link, tool_input: { file_path: file } }, link));
+  assert.equal(pre.hookSpecificOutput?.permissionDecision, 'deny', 'the Claude Code hook holds the first edit');
+  const cursor = parse(hook('cursor-pre', { conversation_id: session(), workspace_roots: [link], tool_input: { file_path: file } }, link));
+  assert.equal(cursor.permission, 'deny', 'the Cursor hook holds the first edit');
+  const fresh = hook('pre', { session_id: session(), cwd: link, tool_input: { file_path: join(link, 'src/new.js') } }, link);
+  assert.equal(fresh.status, 0);
+  assert.equal(fresh.stdout, '', 'a new file the map does not list gets no output');
 });
 
 test('stop hooks: Claude emits decision block with reason, Cursor emits followup_message, each once per session', () => {
