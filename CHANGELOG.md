@@ -6,6 +6,12 @@ format.
 
 ## Unreleased
 
+**Intent:** the first model matrix run, `bench/results/models/2026-10-25/`, scored 5 of 45 calls as errors with `HTTP 200: no choices[0].message.content`, all from reasoning models. It failed the front matter check on 22 of 40 maps, but the CLI replaces a model's front matter before it writes COMPLEX.md.
+
+**Change:** `bench/models.mjs` records `finish_reason`, `completion_tokens` and `reasoning_tokens` for each call. A reply with empty content is the error `empty_content`, and its usage stays. A model that lists the `reasoning` parameter gets a 24,000 token output cap with at most 8,000 for reasoning, and the dry run prices that cap.
+
+**Change:** each map gets two columns per check: `raw`, the reply as sent, and `written`, the file after the CLI's own `normalizeOutput`. A reply that `normalizeOutput` refuses fails every written check. `node bench/models.mjs --rescore <results>` scores the saved replies again with no network request, and keeps a failed call failed. The rescored 2026-10-25 run has 8 of 40 maps that pass every written check.
+
 **Intent:** the home page opened with a hand typed excerpt of a fastify map from release 0.4.0 whose numbers matched no file in the repository. It put the benchmark result in its sixth section and sent a visitor to a separate page to look up a repository.
 
 **Change:** the home page leads with "Tell your coding agent what it could break, before it edits.", a repository box and `npx complex-md`. The box is a plain GET form to `/map/?repo=`, so it opens a hosted page, links a committed COMPLEX.md, or shows the command and a request button, with or without script.
