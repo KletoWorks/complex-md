@@ -82,6 +82,15 @@ test('the note has the lines of the complex-md-action comment, worded for a merg
   ].join('\n'));
 });
 
+/* CI once made a fixture commit 0179008...; the footer named 179008, a
+   commit not in the history. This pins that sha instead of a random one. */
+test('a map commit with a leading zero keeps it in the footer and in the age check', () => {
+  const map = parseComplexMd(MAP.replace('COMMIT', '0179008'));
+  assert.equal(map.front.commit, '0179008');
+  const body = renderNote(noteFindings(map, ['src/hot.js']), { ref: 'main', sha: 'def5678', front: map.front, behind: 0 });
+  assert.match(body, /The map was generated 2026-10-01 at `0179008`, current with `main`\./);
+});
+
 test('a pair with both sides touched is no finding, and a clean change gets the cleared note', () => {
   const map = parseComplexMd(MAP.replace('COMMIT', 'abc1234'));
   const f = noteFindings(map, ['README.md', 'docs/guide.md', 'other.txt']);
