@@ -22,28 +22,37 @@ const server = createServer((req, res) => {
   res.writeHead(200, { 'content-type': MIME[extname(p)] || 'application/octet-stream' });
   res.end(readFileSync(p));
 });
-await new Promise((r) => server.listen(0, r));
+await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const port = server.address().port;
 
 // Measured on agents.md, 2026-09-04. Pixel values are exact; colors are the
-// nearest sRGB of the reference's lab() values.
+// nearest sRGB of the reference's lab() values. The home page of 2026-10-25
+// departs in four places, on purpose, and each is marked "home page" below:
+// the tagline carries the pitch, the repository box and its button share one
+// height and radius, the map card's file view is set tighter to show more of
+// the front matter, and the phone wordmark leaves room in the fold.
 const EXPECT = {
   desktop: {
     'h1.wordmark': { fontSize: '60px', fontWeight: '700', lineHeight: '60px', letterSpacing: '-1.5px' },
-    '.hero .pitch': { fontSize: '22px' },
+    // home page: the tagline is the pitch (agents.md: 22px).
+    '.hero .pitch': { fontSize: '24px', fontWeight: '600' },
     '.section h2': { fontSize: '30px', fontWeight: '600', lineHeight: '36px', letterSpacing: '-0.75px', textAlign: 'center' },
-    '.btn.solid': { fontSize: '14px', fontWeight: '500', paddingTop: '12px', paddingLeft: '20px', borderRadius: '4px' },
-    '.file-card pre': { fontSize: '12px', lineHeight: '24px' },
+    // home page: the button matches the input beside it (agents.md: 12px by 20px, 4px).
+    '.repo .btn.solid': { fontSize: '14px', fontWeight: '500', paddingTop: '11px', paddingLeft: '16px', borderRadius: '8px' },
+    // home page: the file view of the map card (agents.md: 12px on 24px).
+    '.map-card pre.yaml': { fontSize: '12px', lineHeight: '20px' },
     '.faq-item summary': { fontSize: '18px', lineHeight: '26px' },
     '.site-footer': { textAlign: 'center', fontSize: '14px' },
     body: { fontSize: '16px', lineHeight: '24px' },
   },
   phone: {
-    'h1.wordmark': { fontSize: '48px', lineHeight: '48px', letterSpacing: '-1.2px' },
+    // home page: the fold holds the tagline, the box and the command (was 48px).
+    'h1.wordmark': { fontSize: '40px', lineHeight: '44px', letterSpacing: '-1px' },
   },
 };
 const WIDTHS = {
-  '.hero .inner': 1152, '#why .inner.narrow': 744, '#examples .inner': 1152,
+  // The narrow column is 816px with 24px gutters: a 768px prose column.
+  '.hero .inner': 1152, '#proof .inner.narrow': 816,
 };
 
 const browser = await chromium.launch();
@@ -64,10 +73,10 @@ for (const [name, width, dark] of [['desktop-light', 1280, false], ['desktop-dar
       out[sel] = Object.fromEntries(Object.keys(expect[sel]).map((k) => [k, cs[k]]));
     }
     out._widths = {};
-    for (const sel of ['.hero .inner', '#why .inner.narrow', '#examples .inner']) out._widths[sel] = Math.round(document.querySelector(sel)?.getBoundingClientRect().width || 0);
+    for (const sel of ['.hero .inner', '#proof .inner.narrow']) out._widths[sel] = Math.round(document.querySelector(sel)?.getBoundingClientRect().width || 0);
     out._bg = getComputedStyle(document.body).backgroundColor;
     out._hero = getComputedStyle(document.querySelector('.hero')).backgroundColor;
-    out._why = getComputedStyle(document.querySelector('#why')).backgroundColor;
+    out._why = getComputedStyle(document.querySelector('#proof')).backgroundColor;
     out._overflow = document.documentElement.scrollWidth > document.documentElement.clientWidth;
     out._order = [...document.querySelectorAll('main h2')].map((h) => h.textContent.trim());
     return out;
@@ -83,7 +92,7 @@ for (const [name, width, dark] of [['desktop-light', 1280, false], ['desktop-dar
   if (got._hero === got._why) problems.push(`${name}: hero band must differ from the first section (${got._hero})`);
   if (got._why !== got._bg && got._why !== 'rgba(0, 0, 0, 0)') problems.push(`${name}: sections below the hero must sit on the page ground, not a band`);
   if (got._overflow) problems.push(`${name}: horizontal overflow`);
-  const order = ['Why COMPLEX.md?', 'Works with the agents you already use.', 'Examples', 'How to use it', 'Why this exists', 'FAQ'];
+  const order = ['Agents follow it.', 'A search that finds nothing looks like nothing to find.', 'How it works', 'Works with the agents you already use.', 'Open models welcome.', 'FAQ'];
   if (JSON.stringify(got._order) !== JSON.stringify(order)) problems.push(`${name}: section order ${JSON.stringify(got._order)}`);
   await ctx.close();
 }

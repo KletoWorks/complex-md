@@ -1,21 +1,31 @@
-/* complex.md site styles, 2026-09-04. Mirrors agents.md (MIT) measured from
-   its live computed styles: white ground and #171717 ink, gray-50 band for
-   the hero and the footer only, every other section white with a centered
-   30px heading and a 768px prose column, a 1152px container, one sans, the
-   artifact in a white card with a hairline, an 8px radius and a faint
-   shadow, system mono at 12px on 24px. Dark mode inverts to #0a0a0a and
-   #ededed. House deviation, deliberate and recorded: buttons and controls
-   keep 4px radii, never pills. platform.css loads first as the layered
-   token floor; everything here wins over it. */
+/* complex.md site styles. Mirrors agents.md (MIT) measured from its live
+   computed styles, 2026-09-04: white ground and #171717 ink, gray-50 band
+   for the hero and the footer only, every other section white with a
+   centered 30px heading and a 768px prose column, a 1152px container, one
+   sans, the artifact in a white card with a hairline, an 8px radius and a
+   faint shadow. Dark mode inverts to #0a0a0a and #ededed. platform.css
+   loads first as the layered token floor; everything here wins over it.
+
+   The home page (2026-10-25) shows the file as a map: a treemap card in
+   the hero, colored by bug fixes on the report page's five steps. It
+   departs from the measured values in three places, on purpose: the
+   tagline is 24px semibold, because it now carries the pitch; the
+   repository box and its button share an 8px radius and one height; and
+   the phone wordmark is 40px, so the fold holds the tagline, the box and
+   the command. scripts/verify-design.mjs checks those values. */
 
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('/fonts/inter-latin-var.woff2') format('woff2'); }
 
 :root {
   --ink: #171717; --ink-2: #374151; --muted: #4b5563; --muted-2: #6b7280;
   --ground: #ffffff; --band: #f9fafb; --line: #e5e7eb; --line-2: #d1d5db;
-  --heat-3: #C24E14;
+  --heat-3: #C24E14; --ok: #15803d;
+  /* Heat steps 0 to 4 by bug fixes, fill and text, as on the report page. */
+  --h0: #f3f4f6; --h1: #fde4d3; --h2: #f8b48c; --h3: #e07a3e; --h4: #C24E14;
+  --f0: #171717; --f1: #171717; --f2: #171717; --f3: #171717; --f4: #ffffff;
   --radius: 4px; --card-radius: 8px;
   --shadow: 0 1px 3px 0 rgba(0,0,0,.1), 0 1px 2px -1px rgba(0,0,0,.1);
+  --ease: cubic-bezier(.2, .7, .2, 1);
   --cx-sans: 'Inter', -apple-system, 'Segoe UI', Arial, Helvetica, sans-serif;
   --cx-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   color-scheme: light dark;
@@ -24,7 +34,9 @@
   :root {
     --ink: #ededed; --ink-2: #d1d5db; --muted: #9ca3af; --muted-2: #9ca3af;
     --ground: #0a0a0a; --band: #111318; --line: #1f2937; --line-2: #374151;
-    --heat-3: #E07A3E;
+    --heat-3: #E07A3E; --ok: #4ade80;
+    --h0: #1f2937; --h1: #3a2418; --h2: #6e3416; --h3: #a8481a; --h4: #E07A3E;
+    --f0: #ededed; --f1: #ededed; --f2: #ededed; --f3: #ffffff; --f4: #0a0a0a;
     --shadow: none;
   }
 }
@@ -35,7 +47,6 @@ body { margin: 0; font-family: var(--cx-sans); font-size: 16px; line-height: 24p
 a { color: var(--ink); text-underline-offset: 3px; }
 h1, h2, h3 { font-family: var(--cx-sans); font-weight: 600; margin: 0; }
 .inner { max-width: 1152px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
-.inner.narrow { max-width: 744px; }
 
 /* Header: one thin row, brand chip as home, skill download square, nav. */
 .site-header { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--ground) 72%, transparent); -webkit-backdrop-filter: saturate(180%) blur(14px); backdrop-filter: saturate(180%) blur(14px); }
@@ -67,15 +78,7 @@ main.doc + .site-footer, main.full + .site-footer { margin-top: 96px; }
 .btn.line:hover { background: var(--band); }
 .btn svg { display: block; }
 
-/* Hero: the band, a two column grid at 1152px, the wordmark and the artifact. */
-main.full { padding: 0; }
-.hero { background: var(--band); padding: 80px 0; }
-.hero .inner { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
-.hero h1.wordmark { font-size: 60px; font-weight: 700; line-height: 60px; letter-spacing: -1.5px; }
-.hero .pitch { font-size: 22px; line-height: 30px; font-weight: 500; color: var(--ink); margin: 12px 0 0; max-width: 30ch; }
-.hero .pitch.sub { font-size: 18px; line-height: 28px; font-weight: 400; color: var(--ink-2); max-width: 44ch; }
-.hero .pitch + .pitch { margin-top: 12px; }
-.hero .pitch a { color: inherit; }
+/* The install line: the command in a small card, a copy button added by site.js. */
 .install { display: inline-flex; align-items: center; gap: 10px; font-family: var(--cx-mono); font-size: 14px; line-height: 20px; background: var(--ground); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 10px 10px 14px; margin: 24px 0 0; box-shadow: var(--shadow); }
 .install code { font-family: inherit; }
 .install .copy { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-left: 6px; color: var(--muted-2); background: transparent; border: 1px solid transparent; border-radius: var(--radius); padding: 0; cursor: pointer; }
@@ -83,7 +86,6 @@ main.full { padding: 0; }
 .install .copy.done { color: var(--ink); }
 .install .copy svg { display: block; }
 .install .p { color: var(--muted-2); }
-.ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
 
 /* The artifact: a white card, hairline, 8px, faint shadow, 12px mono on 24px. */
 .file-card { background: var(--ground); border: 1px solid var(--line); border-radius: var(--card-radius); box-shadow: var(--shadow); overflow: hidden; }
@@ -95,69 +97,199 @@ main.full { padding: 0; }
 .file-card .fm .k { color: var(--ink); }
 .file-card .fm .hot { color: var(--heat-3); font-weight: 700; }
 .file-card .prose-h { font-weight: 700; }
-.file-card.wide pre { max-height: 560px; overflow-y: auto; }
 
-/* Sections: white, centered heading, 768px column, generous top on the first. */
-.section { padding: 48px 0; }
-.section.first { padding-top: 96px; }
-.section.faq { padding: 80px 0; }
-.section .inner.narrow { display: flex; flex-direction: column; gap: 24px; }
-.section h2 { font-size: 30px; font-weight: 600; line-height: 36px; letter-spacing: -0.75px; text-align: center; }
+/* Hero: the band, two columns at 1152px, the copy and the map card. */
+main.full { padding: 0; }
+.hero { background: var(--band); padding: 72px 0 80px; }
+.hero .inner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: 48px; align-items: center; }
+.hero h1.wordmark { font-size: 60px; font-weight: 700; line-height: 60px; letter-spacing: -1.5px; }
+.hero .pitch { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.3px; margin: 16px 0 0; max-width: 22ch; text-wrap: balance; }
+.hero-copy .sub { font-size: 17px; line-height: 26px; color: var(--ink-2); margin: 12px 0 0; max-width: 40ch; }
+
+/* The repository box: a plain GET form to /map/, input and button one height. */
+.repo { margin-top: 28px; max-width: 460px; }
+.repo label { display: block; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+.repo .row { display: flex; gap: 8px; }
+.repo input { flex: 1; min-width: 0; font-family: var(--cx-mono); font-size: 14px; line-height: 20px; color: var(--ink); background: var(--ground); border: 1px solid var(--line-2); border-radius: var(--card-radius); padding: 11px 12px; box-shadow: var(--shadow); }
+.repo input::placeholder { color: var(--muted-2); }
+.repo input:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.repo .btn { font-family: inherit; border: 1px solid var(--ink); border-radius: var(--card-radius); padding: 11px 16px; cursor: pointer; white-space: nowrap; transition: transform .15s var(--ease), opacity .15s; }
+.repo .btn:active { transform: scale(.97); }
+.repo .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.repo .note { font-size: 13px; line-height: 18px; color: var(--muted); margin: 8px 0 0; }
+
+/* The command: a card with its label, the copy button in the upper right. */
+.install.cmd { display: block; position: relative; max-width: 460px; margin: 16px 0 0; padding: 14px 52px 14px 16px; border-radius: var(--card-radius); }
+.install.cmd .lab { display: block; font-family: var(--cx-sans); font-size: 12px; line-height: 16px; color: var(--muted); margin-bottom: 4px; }
+.install.cmd .p { margin-right: 10px; user-select: none; }
+.install.cmd .copy { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; margin: 0; border-radius: 6px; }
+
+/* The map card. Map and File switch with two radio inputs; :has() hides the
+   other view, and a browser without it shows both. */
+.map-card { margin: 0; min-width: 0; background: var(--ground); border: 1px solid var(--line); border-radius: var(--card-radius); box-shadow: var(--shadow); }
+.map-card .bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--line); }
+.map-card .fname { font-family: var(--cx-mono); font-size: 12px; font-weight: 700; flex: none; }
+.map-card .ftag { font-family: var(--cx-mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.map-card code { font-family: var(--cx-mono); background: none; border: 0; padding: 0; border-radius: 0; overflow-wrap: anywhere; }
+.tabs { margin-left: auto; display: inline-flex; flex: none; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 6px; }
+.tabs input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+.tabs label { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--muted); border-radius: var(--radius); padding: 4px 10px; cursor: pointer; }
+.tabs input:checked + label { background: var(--band); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.tabs input:focus-visible + label { outline: 2px solid var(--ink); outline-offset: 1px; }
+.map-card:has(#vw-file:checked) .v-map, .map-card:has(#vw-map:checked) .v-file { display: none; }
+.view { padding: 12px; }
+
+.tm-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.tm-svg.tall { display: none; }
+.tile rect { fill: var(--h0); }
+.tile.h1 rect { fill: var(--h1); } .tile.h2 rect { fill: var(--h2); } .tile.h3 rect { fill: var(--h3); } .tile.h4 rect { fill: var(--h4); }
+.tile text { fill: var(--f0); pointer-events: none; }
+.tile.h1 text { fill: var(--f1); } .tile.h2 text { fill: var(--f2); } .tile.h3 text { fill: var(--f3); } .tile.h4 text { fill: var(--f4); }
+.tile .lbl { font-family: var(--cx-mono); font-weight: 700; font-size: 13px; }
+.tile .sub { font-family: var(--cx-sans); font-size: 12px; opacity: .85; }
+.tm-svg.tall .lbl { font-size: 12.5px; }
+.tile { transition: opacity .35s var(--ease); }
+.tile[role="button"] { cursor: pointer; }
+.tile:focus { outline: none; }
+.tm.has-active .tile { opacity: .72; }
+.tm.has-active .tile.on, .tile:hover, .tile:focus-visible { opacity: 1; }
+.tile.on rect { stroke: var(--ink); stroke-width: 2.5; }
+.tile:focus-visible rect { stroke: var(--ink); stroke-width: 3; stroke-dasharray: 5 3; }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0 0; padding: 0; font-size: 12px; line-height: 16px; color: var(--muted); }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.legend .sw { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--line-2); background: var(--h0); }
+.legend .sw.h1 { background: var(--h1); } .legend .sw.h2 { background: var(--h2); } .legend .sw.h3 { background: var(--h3); } .legend .sw.h4 { background: var(--h4); }
+.map-card pre.yaml { margin: 0; height: 362px; padding: 4px 4px 8px; border: 0; border-radius: 0; box-shadow: none; background: none; font-family: var(--cx-mono); font-size: 12px; line-height: 20px; white-space: pre; overflow: auto; color: var(--ink); }
+.map-card pre.yaml .k { color: var(--muted); }
+.map-card pre.yaml:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+
+/* What the agent reads: one panel per hot file, one shown at a time. */
+.reads { border-top: 1px solid var(--line); padding: 14px 16px 16px; }
+/* Every panel sits in one grid cell, the hidden ones invisible, so the area
+   keeps the height of the tallest and the cycle never moves the page. */
+.panels { display: grid; }
+.panel { grid-area: 1 / 1; }
+.panel[hidden] { display: block; visibility: hidden; }
+.reads .lead { margin: 0; font-size: 12px; line-height: 16px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.reads .lead .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--heat-3); }
+.panels { margin-top: 8px; }
+.panel p { margin: 0; }
+.panel .pf code { font-size: 14px; font-weight: 700; }
+.panel .pt { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 6px; }
+.panel .pt span { font-size: 12px; line-height: 18px; padding: 0 7px; border: 1px solid var(--line-2); border-radius: var(--radius); color: var(--ink-2); }
+.panel .pd { margin-top: 10px; padding-left: 12px; border-left: 3px solid var(--heat-3); font-size: 14px; line-height: 21px; font-weight: 500; }
+.panel .pd code { font-size: 12.5px; }
+.panel .pd.none { font-weight: 400; color: var(--muted); border-left-color: var(--line-2); }
+.panel .pm { margin-top: 8px; font-size: 13px; line-height: 19px; color: var(--muted); }
+.panel .pm code { font-size: 12px; }
+.panel .pm span { color: var(--ink-2); }
+.panel.swap { animation: swap .45s var(--ease); }
+@keyframes swap { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.prog { height: 2px; background: var(--line); border-radius: 2px; margin-top: 14px; overflow: hidden; visibility: hidden; }
+.prog i { display: block; height: 100%; background: var(--heat-3); transform-origin: left; transform: scaleX(0); }
+.prog.on { visibility: visible; }
+.prog i.run { animation: prog 5200ms linear forwards; }
+.map-card.paused .prog i.run { animation-play-state: paused; }
+@keyframes prog { to { transform: scaleX(1); } }
+.map-card .cap { padding: 0 16px 14px; font-size: 12px; line-height: 18px; color: var(--muted); }
+.map-card .cap p { margin: 0; }
+.map-card .cap .prov { margin-top: 2px; font-family: var(--cx-mono); font-size: 11px; color: var(--muted-2); overflow-wrap: anywhere; }
+.map-card .cap a { color: inherit; }
+
+/* Sections: white, a centered 30px heading over a 768px prose column. */
+.inner.narrow { max-width: 816px; }
+.section { padding: 96px 0 0; }
+.section h2 { font-size: 30px; font-weight: 600; line-height: 36px; letter-spacing: -0.75px; text-align: center; text-wrap: balance; }
 .section p { margin: 0; }
-.section .lede { font-size: 20px; font-weight: 300; line-height: 28px; color: var(--muted-2); text-align: center; max-width: 768px; margin: 0 auto; }
+.section .lede { font-size: 18px; line-height: 28px; color: var(--muted); text-align: center; max-width: 40em; margin: 12px auto 0; }
 .section a { text-decoration: underline; text-underline-offset: 3px; }
+.prose p { margin-top: 16px; }
+.prose p:first-child { margin-top: 24px; }
 
-/* Why: three bold benefit rows with a small mark, like the reference. */
-.points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
-.points li { display: flex; gap: 12px; align-items: flex-start; font-weight: 600; }
-.points li svg { flex: none; width: 20px; height: 20px; margin-top: 2px; }
+/* Proof: two rows of dots, filled as the section arrives. */
+.proof { margin: 32px auto 0; max-width: 560px; display: grid; gap: 22px; }
+.prow .pl { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; line-height: 20px; margin-bottom: 8px; }
+.prow .pl b { font-weight: 600; }
+.prow .pl span { font-variant-numeric: tabular-nums; color: var(--muted); }
+.dots { display: grid; grid-template-columns: repeat(17, minmax(0, 1fr)); gap: 6px; }
+.dots i { aspect-ratio: 1; border-radius: 50%; border: 1.5px solid var(--line-2); transition: background .3s var(--ease), border-color .3s, transform .3s var(--ease); }
+.dots i.f { background: var(--ink); border-color: var(--ink); }
+.proof.wait .dots i.f { background: transparent; border-color: var(--line-2); transform: scale(.8); }
+.section .claim { max-width: 640px; margin: 28px auto 0; text-align: center; font-size: 17px; line-height: 27px; }
+.section .fine { max-width: 640px; margin: 10px auto 0; text-align: center; font-size: 14px; line-height: 21px; color: var(--muted); }
+.section .fine.left { text-align: left; margin-left: 0; }
+.section .fine a { color: inherit; }
 
-/* Compatibility: two marquee rows with different agents, bigger marks,
-   slow, drifting in opposite directions, paused on hover; static and
-   wrapping when motion is reduced. Each track is doubled for a seamless loop. */
-.marquees { margin-top: 36px; display: flex; flex-direction: column; gap: 22px; }
+/* The NUL byte story: the repro as a terminal, then the map's own line. */
+.term { margin-top: 28px; background: var(--ground); border: 1px solid var(--line); border-radius: var(--card-radius); box-shadow: var(--shadow); overflow: hidden; }
+.term .bar { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--line); font-family: var(--cx-mono); font-size: 12px; color: var(--muted); }
+.term pre { margin: 0; padding: 14px 16px; border: 0; border-radius: 0; box-shadow: none; font-size: 13px; line-height: 22px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.term .l { display: inline-block; transition: opacity .4s var(--ease), transform .4s var(--ease); }
+.term .l:nth-child(2) { transition-delay: .38s; } .term .l:nth-child(3) { transition-delay: .76s; } .term .l:nth-child(4) { transition-delay: 1.14s; }
+.term.wait .l { opacity: 0; transform: translateY(4px); }
+.term .c { color: var(--muted-2); } .term .e { color: var(--heat-3); } .term .g { color: var(--ok); }
+pre.blind { margin: 16px 0 0; padding: 12px 14px; background: var(--band); box-shadow: none; font-size: 12px; line-height: 20px; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+pre.blind .k { color: var(--muted); }
+
+/* Compatibility: two marquee rows with different agents, slow, drifting in
+   opposite directions, paused on hover; static and wrapping when motion is
+   reduced. Each track is doubled for a seamless loop. */
+.marquees { margin-top: 40px; display: flex; flex-direction: column; gap: 22px; }
 .marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); display: flex; width: 100%; }
-.marquee .track { list-style: none; margin: 0; padding: 0 64px 0 0; display: flex; flex: none; align-items: center; gap: 64px; animation: marquee 90s linear infinite; }
+.marquee .track { list-style: none; margin: 0; padding: 0 56px 0 0; display: flex; flex: none; align-items: center; gap: 56px; animation: marquee 90s linear infinite; }
 .marquee.reverse .track { animation-direction: reverse; animation-duration: 105s; }
 .marquee:hover .track { animation-play-state: paused; }
 .marquee .track li { display: inline-flex; align-items: center; gap: 12px; font-size: 17px; font-weight: 500; color: var(--ink); white-space: nowrap; }
-.marquee .track svg { width: 34px; height: 34px; display: block; flex: none; }
+.marquee .track svg { width: 32px; height: 32px; display: block; flex: none; }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+/* Open models: a hairline list, the name and the switch that selects it. */
+.models { margin: 28px auto 0; max-width: 640px; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.models li { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 11px 2px; border-bottom: 1px solid var(--line); font-size: 15px; }
+.models b { font-weight: 600; }
+.models code { font-family: var(--cx-mono); color: var(--muted); font-size: 13px; text-align: right; }
+
+/* How it works: numbered headings with prose, no boxes. */
+.steps h3 { font-size: 20px; line-height: 28px; margin-top: 32px; }
+.steps h2 + h3 { margin-top: 28px; }
+.steps h3 .n { color: var(--muted-2); font-variant-numeric: tabular-nums; margin-right: 6px; }
+.steps p { margin-top: 8px; color: var(--ink); }
+.steps code, .section p code, .faq-item p code { font-family: var(--cx-mono); font-size: 0.9em; background: var(--band); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; }
+
+/* FAQ: an accordion of hairline rows; the summary is the question. */
+.faq-list { margin-top: 28px; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.faq-item { border-bottom: 1px solid var(--line); }
+.faq-item summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; font-size: 18px; font-weight: 600; line-height: 26px; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: ""; flex: none; width: 9px; height: 9px; border-right: 2px solid var(--muted-2); border-bottom: 2px solid var(--muted-2); transform: translateY(-3px) rotate(45deg); transition: transform .25s var(--ease); margin-right: 6px; }
+.faq-item[open] summary::after { transform: translateY(3px) rotate(-135deg); }
+.faq-item summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.faq-item p { margin: 0 0 20px; font-size: 16px; line-height: 26px; color: var(--muted); max-width: 62ch; }
+.faq-item p a { color: inherit; }
+
+/* Motion. Nothing is hidden in the markup: site.js marks a block that
+   starts below the fold with .wait and lifts it when it scrolls in, so a
+   page without script, or with reduced motion, shows everything at once. */
+.rv { transition: opacity .7s var(--ease), transform .7s var(--ease); }
+.rv.wait { opacity: 0; transform: translateY(14px); }
+@media (prefers-reduced-motion: no-preference) {
+  .tile { animation: assemble .5s var(--ease) backwards; transform-box: fill-box; transform-origin: center; }
+  .tile:nth-child(2) { animation-delay: 70ms; } .tile:nth-child(3) { animation-delay: 140ms; } .tile:nth-child(4) { animation-delay: 210ms; }
+  .tile:nth-child(5) { animation-delay: 280ms; } .tile:nth-child(6) { animation-delay: 350ms; } .tile:nth-child(7) { animation-delay: 420ms; }
+  .tile:nth-child(8) { animation-delay: 490ms; } .tile:nth-child(9) { animation-delay: 560ms; } .tile:nth-child(n+10) { animation-delay: 630ms; }
+  .tm.wait .tile { animation: none; opacity: 0; }
+  /* Once built, the tiles keep still: a resize must not replay the assembly. */
+  .tm.built .tile { animation: none; }
+}
+@keyframes assemble { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
+  .rv, .tile, .term .l, .dots i { transition: none; }
+  .panel.swap { animation: none; }
+  .prog { display: none; }
   .marquee { -webkit-mask-image: none; mask-image: none; }
   .marquee .track { animation: none; flex-wrap: wrap; justify-content: center; gap: 16px 32px; padding: 0; }
   .marquee .track[aria-hidden] { display: none; }
 }
-
-/* Examples: the full width card, then a row of repository cards. */
-.section.examples .inner { display: flex; flex-direction: column; gap: 24px; }
-.examples-row { display: grid; grid-template-columns: repeat(auto-fit, 276px); justify-content: center; gap: 16px; }
-.example { display: block; text-decoration: none; background: var(--ground); border: 1px solid var(--line); border-radius: var(--card-radius); box-shadow: var(--shadow); padding: 16px; color: var(--ink); }
-.example:hover { border-color: var(--line-2); }
-.section a.example, .section a.example * { text-decoration: none; }
-.example h3 { text-decoration: none; }
-.example h3 { font-size: 18px; font-weight: 600; line-height: 24.75px; }
-.example p { font-size: 14px; line-height: 20px; color: var(--muted); margin-top: 4px; }
-.example .meta { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-family: var(--cx-mono); font-size: 12px; color: var(--muted-2); }
-.centered { text-align: center; }
-
-/* How to use: numbered headings with prose, no boxes. */
-.steps h3 { font-size: 18px; font-weight: 600; line-height: 24.75px; margin-top: 8px; }
-.steps h3:first-child { margin-top: 0; }
-.steps p, .steps li { color: var(--ink); }
-.steps ul { margin: 8px 0 0; padding-left: 24px; }
-.steps li { margin: 4px 0; }
-.steps code, .section p code, .faq-item p code { font-family: var(--cx-mono); font-size: 0.9em; background: var(--band); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; }
-
-/* FAQ: an accordion of hairline rows; the summary is the question. */
-.faq-list { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
-.faq-item { border-bottom: 1px solid var(--line); }
-.faq-item summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; font-size: 18px; font-weight: 600; line-height: 26px; }
-.faq-item summary::-webkit-details-marker { display: none; }
-.faq-item summary::after { content: ""; flex: none; width: 9px; height: 9px; border-right: 2px solid var(--muted-2); border-bottom: 2px solid var(--muted-2); transform: translateY(-3px) rotate(45deg); transition: transform .2s; margin-right: 6px; }
-.faq-item[open] summary::after { transform: translateY(3px) rotate(-135deg); }
-.faq-item p { margin: 0 0 20px; font-size: 16px; line-height: 26px; color: var(--muted); max-width: 62ch; }
-.faq-item p a { color: inherit; }
 
 /* Doc pages: spec, skill, articles. platform.css zeroes every block margin
    and strips underlines as its floor; a document restores its rhythm here. */
@@ -217,24 +349,31 @@ main.doc .toc a:hover { text-decoration: underline; }
 .article-list time { font-family: var(--cx-mono); color: var(--muted-2); font-size: 12px; }
 .example figcaption { font-size: 14px; color: var(--muted); margin-top: 6px; }
 
-@media (max-width: 1024px) {
-  .hero .inner { grid-template-columns: 1fr; }
+@media (max-width: 860px) {
+  .hero .inner { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .hero .map-card { width: 100%; max-width: 640px; }
 }
 @media (max-width: 640px) {
-  .site-header nav { gap: 14px; }
-  .site-header a.nav { font-size: 13px; }
-  .install { display: flex; width: 100%; justify-content: center; padding: 12px 10px 12px 14px; }
-  .ctas { flex-direction: column; }
-  .ctas .btn { width: 100%; }
-  .file-card.wide pre { white-space: pre-wrap; overflow-wrap: anywhere; }
-  .wide-only { display: none; }
-  .hero { padding: 64px 0; }
-  .hero h1.wordmark { font-size: 48px; line-height: 48px; letter-spacing: -1.2px; }
-  .section.first { padding-top: 64px; }
-  .section h2 { font-size: 26px; line-height: 32px; }
-  .examples-row { grid-template-columns: 1fr; }
   .site-header nav { gap: 16px; padding: 12px 16px; }
+  .site-header a.nav { font-size: 13px; }
   .inner { padding-left: 16px; padding-right: 16px; }
+  .install { display: flex; width: 100%; justify-content: center; padding: 12px 10px 12px 14px; }
+  .hero { padding: 28px 0 48px; }
+  .hero h1.wordmark { font-size: 40px; line-height: 44px; letter-spacing: -1px; }
+  .hero .pitch { font-size: 22px; line-height: 29px; margin-top: 10px; }
+  .hero-copy .sub { font-size: 16px; line-height: 24px; margin-top: 8px; }
+  .repo { margin-top: 20px; }
+  .install.cmd { margin-top: 12px; }
+  .tm-svg.wide { display: none; }
+  .tm-svg.tall { display: block; }
+  .map-card pre.yaml { height: 368px; }
+  .section { padding-top: 72px; }
+  .section h2 { font-size: 26px; line-height: 32px; }
+  .section .lede { font-size: 16px; line-height: 25px; }
+  .dots { gap: 5px; }
+  .models li { flex-direction: column; gap: 2px; }
+  .models code { text-align: left; }
+  .hide-sm { display: none; }
   main.doc { padding: 40px 16px 0; }
   main.doc h2 { margin-top: 40px; }
   main.doc pre, .faq-item pre { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -250,9 +389,6 @@ main.doc .toc a:hover { text-decoration: underline; }
 @media (max-width: 380px) {
   .brand-chip { font-size: 12px; padding: 6px 8px; }
   .site-header a.nav { font-size: 13px; }
-  .install { display: flex; width: 100%; }
-  .ctas { flex-direction: column; }
-  .ctas .btn { width: 100%; }
 }
 
 /* Copy button on file cards, added by site.js: an icon in the header's
