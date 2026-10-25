@@ -41,8 +41,10 @@ it not to.
 - A repository whose file names or history make the CLI write a
   COMPLEX.md or a brief that injects instructions into an agent.
 - The model call. With a provider key, `generate` sends the signals and
-  the hotspot excerpts to that provider. A credential file that reaches the
-  request is in scope.
+  the hotspot excerpts to that provider. Before the call, it replaces each
+  secret-shaped value in the request with `[redacted:<rule>]`
+  (`cli/src/redact.js`). A credential file that reaches the request is in
+  scope, and so is a key in a known token format that reaches it.
 - The MCP server, `complex-md mcp`. `wire` registers it only with `--mcp`.
 - The release workflow and the npm package provenance.
 

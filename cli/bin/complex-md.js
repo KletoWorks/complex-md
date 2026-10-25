@@ -88,7 +88,9 @@ Without any of them, COMPLEX.md gets template prose built from the computed numb
 prompt bundle goes to .complex-md/prompt.md for the agent you already run. Template prose never
 replaces prose that a model or a person wrote; --template does.
 Without a key nothing is sent. With one, that call sends the signals and excerpts of up to ten
-hotspot files, about 60,000 characters of code at most, to the provider you chose.
+hotspot files, about 60,000 characters of code at most, to the provider you chose. Before
+the call, each secret-shaped value in the bundle (a known token format, a private key, or a
+random value assigned to a key, secret, token or password name) becomes [redacted:<rule>].
 With --via, the same bundle goes to the agent CLI you named, which sends it to the model it uses.`;
 
 /* The --for names come from the target table, so the list in --help
