@@ -11,6 +11,7 @@ import { normalizeOutput, validateOutput, REQUIRED_SECTIONS, generate } from '..
 
 const FM = '---\ncomplex_md: "0.3"\n---\n';
 const FULL = '## Where the risk lives\n\nRisk.\n\n## Why these files are hot\n\nHot.\n\n## Change coupling\n\nCoupled.\n\n## What to read first\n\n1. a';
+const DASH_PROSE = FULL.replace('Risk.', 'Risk — sits in src/a.js.').replace('1. a', '1. a `x — y`');
 
 test('validateOutput names every missing section, in spec order', () => {
   assert.deepEqual(validateOutput(FULL), []);
@@ -160,6 +161,44 @@ test('generate: a complete reply is written with the computed front matter and a
   assert.match(out, /^---\ncomplex_md: "0\.3"\n/);
   assert.ok(!out.includes('bogus'));
   assert.ok(out.endsWith(FULL + '\n'));
+});
+
+test('generate: repairs only dash sentences and keeps code-span dashes', async () => {
+  const dir = makeRepo();
+  let calls = 0;
+  let repairPrompt;
+  const r = await withFetch(async (url, init) => {
+    calls++;
+    if (calls === 1) return jsonResponse(200, { content: [{ type: 'text', text: DASH_PROSE }], usage: { input_tokens: 2, output_tokens: 3 } });
+    repairPrompt = JSON.parse(init.body).messages[0].content;
+    return jsonResponse(200, { content: [{ type: 'text', text: JSON.stringify(['Risk sits in src/a.js.']) }], usage: { input_tokens: 5, output_tokens: 7 } });
+  }, () => generate(dir, { provider: 'anthropic' }));
+  assert.equal(calls, 2);
+  assert.ok(repairPrompt.includes('Risk — sits in src/a.js.'));
+  const out = readFileSync(join(dir, 'COMPLEX.md'), 'utf8');
+  assert.ok(out.endsWith(DASH_PROSE.replace('Risk — sits in src/a.js.', 'Risk sits in src/a.js.') + '\n'));
+  assert.ok(out.includes('`x — y`'));
+  assert.equal(r.usage.input, 7);
+  assert.equal(r.usage.output, 10);
+});
+
+test('generate: replaces dashes that remain after the repair reply and reports the count', async () => {
+  const dir = makeRepo();
+  const logs = [];
+  const stillDashes = DASH_PROSE.replace('Hot.', 'Hot: alpha—beta.');
+  let calls = 0;
+  await withFetch(async () => {
+    calls++;
+    const text = calls === 1
+      ? stillDashes
+      : JSON.stringify(['Risk — sits in src/a.js.', 'Hot: alpha—beta.']);
+    return jsonResponse(200, { content: [{ type: 'text', text }], usage: {} });
+  }, () => generate(dir, { provider: 'anthropic', log: (line) => logs.push(line) }));
+  assert.equal(calls, 2);
+  const out = readFileSync(join(dir, 'COMPLEX.md'), 'utf8');
+  assert.ok(out.endsWith(stillDashes.replace('Risk — sits in src/a.js.', 'Risk, sits in src/a.js.').replace('alpha—beta', 'alpha beta') + '\n'));
+  assert.ok(out.includes('`x — y`'));
+  assert.ok(logs.includes('dash repair fallback: replaced 2 punctuation dashes with commas or spaces.'));
 });
 
 // A reply cut at the output cap can still carry all four headings, so the

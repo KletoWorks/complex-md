@@ -49,6 +49,30 @@ process.stdin.on('end', () => {
   return bin;
 }
 
+function stubPathReplies(replies) {
+  const bin = mkdtempSync(join(tmpdir(), 'cx-genvia-repair-bin-'));
+  const counter = join(bin, 'counter');
+  const request = join(bin, 'repair-request.txt');
+  writeFileSync(counter, '0');
+  writeFileSync(join(bin, 'replies.json'), JSON.stringify(replies));
+  writeFileSync(join(bin, 'claude'), `#!/usr/bin/env node
+const fs = require('fs');
+let input = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => input += chunk);
+process.stdin.on('end', () => {
+  const n = Number(fs.readFileSync(${JSON.stringify(counter)}, 'utf8'));
+  fs.writeFileSync(${JSON.stringify(counter)}, String(n + 1));
+  if (n === 1) fs.writeFileSync(${JSON.stringify(request)}, input);
+  process.stdout.write(JSON.parse(fs.readFileSync(${JSON.stringify(join(bin, 'replies.json'))}, 'utf8'))[n] || '');
+});
+`);
+  chmodSync(join(bin, 'claude'), 0o755);
+  symlinkSync(process.execPath, join(bin, 'node'));
+  symlinkSync(GIT, join(bin, 'git'));
+  return { bin, counter, request };
+}
+
 async function withEnv(vars, fn) {
   const saved = {};
   for (const k of Object.keys(vars)) {
@@ -81,6 +105,24 @@ test('generate --via writes the computed front matter and the CLI prose', { skip
   const out = readFileSync(join(root, 'COMPLEX.md'), 'utf8');
   assert.match(out, /^---\ncomplex_md: "0\.3"\n[\s\S]*\n---\n\n## Where the risk lives/);
   assert.ok(out.endsWith(PROSE));
+});
+
+test('generate --via makes one sentence-only repair call for dash punctuation', { skip: !posix }, async () => {
+  const root = makeRepo();
+  const dashProse = PROSE.replace('Risk sits in src/a.js.', 'Risk — sits in src/a.js.');
+  const repair = JSON.stringify(['Risk sits in src/a.js.']);
+  const stub = stubPathReplies([dashProse, repair]);
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => assert.fail('--via makes no API call');
+  try {
+    const r = await withEnv({ PATH: stub.bin, ANTHROPIC_API_KEY: 'set-but-unused' }, () => generate(root, { via: 'claude' }));
+    assert.equal(r.written, true);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(readFileSync(stub.counter, 'utf8'), '2');
+  assert.ok(readFileSync(stub.request, 'utf8').includes('Risk — sits in src/a.js.'));
+  assert.ok(readFileSync(join(root, 'COMPLEX.md'), 'utf8').endsWith(PROSE));
 });
 
 test('a failed --via run keeps COMPLEX.md and writes the bundle instead', { skip: !posix }, async () => {

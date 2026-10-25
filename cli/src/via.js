@@ -13,6 +13,7 @@
 import { spawn, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import { join, delimiter, extname } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { normalizeOutput } from './generate.js';
 import { inventedPaths } from './paths.js';
 import { trackedFiles } from './git.js';
@@ -22,8 +23,9 @@ const OUTPUT_RULE =
   'Print the complete COMPLEX.md to standard output: the computed front matter, then the four prose sections. ' +
   'Print nothing before or after it. Do not create, edit or delete any file.';
 const STDIN_RULE = `${OUTPUT_RULE} Run no command: every input you need is in this message.`;
-const ARG_INSTRUCTION = `Follow the instructions in the text you received on standard input. ${STDIN_RULE}`;
-const fileInstruction = (rel) => `Read the file ${rel} in the current directory and follow it exactly. ${OUTPUT_RULE} Run no command other than reading that file.`;
+const REPAIR_OUTPUT_RULE = 'Print only the response requested in the input. Print nothing before or after it. Do not create, edit or delete any file.';
+const ARG_INSTRUCTION = (rawOutput) => `Follow the instructions in the text you received on standard input. ${rawOutput ? REPAIR_OUTPUT_RULE : STDIN_RULE}`;
+const fileInstruction = (rel, rawOutput) => `Read the file ${rel} in the current directory and follow it exactly. ${rawOutput ? REPAIR_OUTPUT_RULE : OUTPUT_RULE} Run no command other than reading that file.`;
 const m = (flag, model) => (model ? [flag, model] : []);
 
 /* name: the --via value. bins: executables to look for, in order.
@@ -38,21 +40,21 @@ export const VIA_CLIS = [
     args: ({ model }) => ['exec', '--sandbox', 'read-only', '--ephemeral', ...m('--model', model), '-'] },
   { name: 'gemini', bins: ['gemini'], input: 'stdin', docs: 'https://geminicli.com/docs/cli/cli-reference/',
     // --prompt text is appended to the stdin input.
-    args: ({ model }) => ['--approval-mode', 'plan', '--output-format', 'text', ...m('--model', model), '--prompt', ARG_INSTRUCTION] },
+    args: ({ model, rawOutput }) => ['--approval-mode', 'plan', '--output-format', 'text', ...m('--model', model), '--prompt', ARG_INSTRUCTION(rawOutput)] },
   { name: 'opencode', bins: ['opencode'], input: 'file', docs: 'https://opencode.ai/docs/cli/',
-    args: ({ model, promptRel }) => ['run', ...m('--model', model), fileInstruction(promptRel), '--file', promptRel] },
+    args: ({ model, promptRel, rawOutput }) => ['run', ...m('--model', model), fileInstruction(promptRel, rawOutput), '--file', promptRel] },
   { name: 'qwen', bins: ['qwen'], input: 'stdin', docs: 'https://qwenlm.github.io/qwen-code-docs/en/users/features/headless/',
-    args: ({ model }) => ['--approval-mode', 'plan', '--output-format', 'text', ...m('--model', model), '--prompt', ARG_INSTRUCTION] },
+    args: ({ model, rawOutput }) => ['--approval-mode', 'plan', '--output-format', 'text', ...m('--model', model), '--prompt', ARG_INSTRUCTION(rawOutput)] },
   { name: 'kimi', bins: ['kimi'], input: 'file', docs: 'https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html',
-    args: ({ model, promptRel }) => [...m('--model', model), '--prompt', fileInstruction(promptRel)] },
+    args: ({ model, promptRel, rawOutput }) => [...m('--model', model), '--prompt', fileInstruction(promptRel, rawOutput)] },
   { name: 'crush', bins: ['crush'], input: 'stdin', docs: 'https://github.com/charmbracelet/crush/blob/main/internal/cmd/run.go',
-    args: ({ model }) => ['run', '--quiet', ...m('--model', model), ARG_INSTRUCTION] },
+    args: ({ model, rawOutput }) => ['run', '--quiet', ...m('--model', model), ARG_INSTRUCTION(rawOutput)] },
   { name: 'goose', bins: ['goose'], input: 'stdin', docs: 'https://github.com/block/goose/blob/main/documentation/docs/guides/goose-cli-commands.md',
     args: ({ model }) => ['run', '--instructions', '-', '--no-session', '--quiet', ...m('--model', model)] },
   { name: 'cursor-agent', bins: ['cursor-agent', 'agent'], input: 'file', docs: 'https://cursor.com/docs/cli/headless',
     // Without --force, print mode proposes changes and applies none.
     // --trust trusts the workspace only; print mode stops without it.
-    args: ({ model, promptRel }) => ['--print', '--trust', '--output-format', 'text', ...m('--model', model), fileInstruction(promptRel)] },
+    args: ({ model, promptRel, rawOutput }) => ['--print', '--trust', '--output-format', 'text', ...m('--model', model), fileInstruction(promptRel, rawOutput)] },
   { name: 'copilot', bins: ['copilot'], input: 'stdin', docs: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/automate-copilot-cli/run-cli-programmatically',
     args: ({ model }) => ['--silent', '--no-ask-user', '--deny-tool=shell,write', ...(model ? [`--model=${model}`] : [])] },
   { name: 'hermes', bins: ['hermes'], input: 'stdin', docs: 'https://hermes-agent.nousresearch.com/docs/reference/cli-commands',
@@ -82,9 +84,9 @@ export function viaSelection(name, model = null) {
 }
 
 /** The argv for one CLI, and how the bundle reaches it. */
-export function viaInvocation(name, { model = null, promptRel = PROMPT_REL } = {}) {
+export function viaInvocation(name, { model = null, promptRel = PROMPT_REL, rawOutput = false } = {}) {
   const c = entry(name);
-  return { cli: c, args: c.args({ model, promptRel }), input: c.input };
+  return { cli: c, args: c.args({ model, promptRel, rawOutput }), input: c.input };
 }
 
 /** The first of `bins` found on PATH (with PATHEXT on Windows), or null. */
@@ -226,8 +228,9 @@ function run(file, args, { cwd, env, input, timeoutMs, label }) {
  * { text, usage }. The CLI's own changes to COMPLEX.md are undone: the
  * caller writes the checked map, or keeps the old one when this throws.
  */
-export async function runVia(name, { root, bundle, fm, model = null, timeoutMs = VIA_TIMEOUT_MS, env = process.env, platform = process.platform, log = () => {} }) {
-  const { cli, args, input } = viaInvocation(name, { model });
+export async function runVia(name, { root, bundle, fm, model = null, timeoutMs = VIA_TIMEOUT_MS, env = process.env, platform = process.platform, log = () => {}, rawOutput = false }) {
+  const promptRel = rawOutput ? `.complex-md/repair-${randomUUID()}.md` : PROMPT_REL;
+  const { cli, args, input } = viaInvocation(name, { model, promptRel, rawOutput });
   const file = findExecutable(cli.bins, { env, platform });
   if (!file) throw new Error(`--via ${name}: no ${cli.bins.join(' or ')} executable on PATH. Install it and log in, or pick another --via: ${VIA_NAMES.join(', ')}`);
   if (platform === 'win32' && /^\.(cmd|bat)$/i.test(extname(file))) {
@@ -235,16 +238,16 @@ export async function runVia(name, { root, bundle, fm, model = null, timeoutMs =
   }
   if (input === 'file') {
     mkdirSync(join(root, '.complex-md'), { recursive: true });
-    writeFileSync(join(root, PROMPT_REL), bundle);
+    writeFileSync(join(root, promptRel), bundle);
   }
   const mapPath = join(root, 'COMPLEX.md');
   const before = existsSync(mapPath) ? readFileSync(mapPath) : null;
   const status = porcelain(root);
-  log(`via: ${name} (${file}), ${input === 'stdin' ? 'bundle on stdin' : `bundle in ${PROMPT_REL}`}`);
+  log(`via: ${name} (${file}), ${input === 'stdin' ? 'bundle on stdin' : `bundle in ${promptRel}`}`);
   let stdout;
   let stoppedBy = null;
   try {
-    stdout = await run(file, args, { cwd: root, env, input: input === 'stdin' ? `${bundle}\n\n---\n\n${STDIN_RULE}\n` : '', timeoutMs, label: name });
+    stdout = await run(file, args, { cwd: root, env, input: input === 'stdin' ? `${bundle}\n\n---\n\n${rawOutput ? REPAIR_OUTPUT_RULE : STDIN_RULE}\n` : '', timeoutMs, label: name });
   } catch (e) {
     stoppedBy = e.signal || null;
     throw e;
@@ -257,10 +260,12 @@ export async function runVia(name, { root, bundle, fm, model = null, timeoutMs =
     }
     const changed = [...porcelain(root)].filter((l) => !status.has(l) && !/ \.complex-md\//.test(l) && !/ COMPLEX\.md$/.test(l));
     if (changed.length) log(`note: ${name} changed ${changed.length} other path${changed.length === 1 ? '' : 's'} during the run (${changed.slice(0, 5).map((l) => l.slice(3)).join(', ')}); complex-md left them as they are. Review them with git status.`);
+    if (rawOutput && input === 'file') rmSync(join(root, promptRel), { force: true });
     // Interrupted: COMPLEX.md is restored, so exit by the same signal, with
     // no fallback bundle and no wire step after it.
     if (stoppedBy) process.kill(process.pid, stoppedBy);
   }
+  if (rawOutput) return { text: stdout, usage: {} };
   const r = checkMap(extractMap(stdout), fm, trackedFiles(root));
   if (!r.frontMatterKept) log(`note: ${name} changed the front matter; complex-md writes the computed one.`);
   return { text: r.text, usage: {} };
