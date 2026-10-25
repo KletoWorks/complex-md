@@ -15,6 +15,14 @@ export function parseComplexMd(text) {
   const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text);
   if (!m) return null;
   const fm = parseFrontMatter(m[1]);
+  if (!Object.hasOwn(fm, 'complex_md')) return null;
+  if (fm.complex_md === '0.3' && !Object.hasOwn(fm, 'generator') && typeof fm.tool === 'string') {
+    const slash = fm.tool.indexOf('/');
+    fm.generator = slash < 0
+      ? { name: fm.tool }
+      : { name: fm.tool.slice(0, slash), version: fm.tool.slice(slash + 1) };
+    delete fm.tool;
+  }
   /* A commit sha is a string even when every character is a digit. The
      scalar reader turns an all digit value into a Number, and a map whose
      sha happened to be 1234567 then failed every string comparison against
@@ -191,11 +199,38 @@ export function parseFrontMatter(src) {
        the two character string "[]" is a real defect and not a theoretical
        one. It crashed `wire` on the first end to end run of 0.7.0. */
     if (/^\[.*\]$/.test(v)) {
-      const inner = v.slice(1, -1).trim();
-      if (!inner) return [];
-      return inner.split(',').map((x) => scalar(x));
+      return flowList(v.slice(1, -1));
     }
     return v;
+  };
+  /* A comma inside a double quoted item does not split it. Only a quote
+     that opens an item starts a quoted scalar: spec 0.4 section 6.2 lets a
+     plain scalar hold a quote after its first character, and frontMatter
+     writes co_change paths unquoted, so lib/a"b.js is a plain path. */
+  const flowList = (inner) => {
+    if (!inner.trim()) return [];
+    const items = [];
+    let quoted = false;
+    let escaped = false;
+    let opening = true;
+    let start = 0;
+    for (let j = 0; j < inner.length; j++) {
+      const c = inner[j];
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (c === '\\') escaped = true;
+        else if (c === '"') quoted = false;
+      } else if (c === ',') {
+        items.push(scalar(inner.slice(start, j)));
+        start = j + 1;
+        opening = true;
+      } else if (opening && c === '"') {
+        quoted = true;
+        opening = false;
+      } else if (c !== ' ') opening = false;
+    }
+    items.push(scalar(inner.slice(start)));
+    return items;
   };
   while (i < lines.length) {
     const line = lines[i];
@@ -243,7 +278,7 @@ export function parseFrontMatter(src) {
   function value(v) {
     v = v.trim();
     const arr = /^\[(.*)\]$/.exec(v);
-    if (arr) return arr[1].split(',').map((s) => scalar(s));
+    if (arr) return flowList(arr[1]);
     return scalar(v);
   }
 }

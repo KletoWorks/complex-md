@@ -32,6 +32,28 @@ test('the header names the repository, the commit and the generation date', () =
   assert.match(header, /2026-10-20/);
 });
 
+// The reader reads a 0.3 `tool` as a 0.4 `generator` map, so the footer
+// reads the producer from `generator`. A front built in code, as the hosted
+// page builds one, may still carry `tool`.
+const footerOf = (page) => page.slice(page.indexOf('Rendered from COMPLEX.md'), page.indexOf('Learn the format'));
+const withFront = (front) => parseComplexMd(`---\ncomplex_md: "0.4"\ncommit: "abc1234"\n${front}\nhotspots:\n---\n\n## Where the risk lives\n\nNothing.\n`);
+
+test('the footer names the producer of a 0.3 map, read through generator', () => {
+  assert.deepEqual(map.front.generator, { name: 'complex-md', version: '0.9.2' });
+  assert.match(footerOf(html), /\(complex-md\/0\.9\.2\)/);
+});
+
+test('the footer names the producer of a 0.4 generator map, with and without a version', () => {
+  assert.match(footerOf(renderReport(withFront('generator:\n  name: complex-md\n  version: "0.11.0"'))), /\(complex-md\/0\.11\.0\)/);
+  assert.match(footerOf(renderReport(withFront('generator:\n  name: by-hand'))), /\(by-hand\)/);
+  assert.doesNotMatch(footerOf(renderReport(withFront('generated: 2026-10-25'))), /\(/);
+});
+
+test('the footer still names a tool that a front built in code carries', () => {
+  const built = { ...map, front: { ...map.front, generator: undefined, tool: 'complex-md/0.11.0' } };
+  assert.match(footerOf(renderReport(built)), /\(complex-md\/0\.11\.0\)/);
+});
+
 // The wide and the phone layout each draw every tile; the tests read the wide one.
 const wideSvg = () => html.slice(html.indexOf('<svg class="tm-svg wide"'), html.indexOf('</svg>', html.indexOf('<svg class="tm-svg wide"')));
 
