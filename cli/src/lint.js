@@ -109,7 +109,7 @@ export function lintMap(bytes, { root = null, exists = existsSync } = {}) {
      requires of a reader. The schema checks the data as written, where the
      key is null, so a linter reports it from the text. */
   for (const key of ['hotspots', 'load_bearing', 'co_change', 'seams', 'blind_spots', 'workspaces']) {
-    const at = m[1].split('\n').findIndex((l, i, all) => l === `${key}:` && !/^\s/.test(all[i + 1] ?? 'x'));
+    const at = m[1].split('\n').findIndex((l, i, all) => new RegExp(`^${key}:\\s*$`).test(l) && !/^\s/.test(all[i + 1] ?? 'x'));
     if (at >= 0 && !errors.some((e) => e.rule === 'schema' && e.message.startsWith(`/${key}`))) err(lineOf(`${key}:`), 'schema', `/${key}: expected array, got null`);
   }
 

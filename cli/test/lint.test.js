@@ -114,3 +114,9 @@ test('lint checks the commit as written: an unquoted all digit sha is a number',
   assert.equal(r.ok, false);
   assert.ok(r.errors.some((e) => e.rule === 'schema' && e.message.startsWith('/commit')), JSON.stringify(r.errors));
 });
+
+test('lint reports a list key with no value when the key line ends in spaces', () => {
+  const r = lintMap(MAP.replace('load_bearing: []', 'load_bearing:   '), { root: null });
+  assert.equal(r.ok, false);
+  assert.deepEqual(r.errors.map((e) => e.message), ['/load_bearing: expected array, got null']);
+});
