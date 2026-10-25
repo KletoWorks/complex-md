@@ -14,6 +14,7 @@
 //        front  COMPLEX.md front matter only: computed numbers, no generated prose
 //        file   COMPLEX.md at the task's base commit, wired for Claude Code (CLAUDE.md, per path briefs)
 //        hooks  file + the PreToolUse/Stop hooks
+//        stop   file + the Stop check only, no edit gate
 //        gold   no agent: the real fix's source diff, judged like a patch (an oracle)
 // --stop-at edit kills the run at the agent's first edit: localization only, cheapest.
 // --stop-at none runs to completion, which is what regressions, wall clock,
@@ -52,7 +53,7 @@ const dataset = JSON.parse(readFileSync(opt('--dataset', 'bench/data/fastify.jso
 const arms = opt('--arms', 'none,file').split(',');
 /* The mcp arm (hooks plus the MCP server) is retired. Its rows in
    bench/results stay readable, but no new run can add to them. */
-const ARMS = ['none', 'front', 'file', 'hooks', 'gold'];
+const ARMS = ['none', 'front', 'file', 'hooks', 'stop', 'gold'];
 for (const a of arms) {
   if (a === 'mcp') { console.error('the mcp arm is retired; run hooks for the wired map with its hooks.'); process.exit(2); }
   if (!ARMS.includes(a)) { console.error(`unknown arm ${a}: ${ARMS.join(', ')}`); process.exit(2); }
@@ -275,10 +276,19 @@ async function armSetup(task, arm, wt) {
      CLAUDE.md carries the block, so a rerun of the file arm is not the arm
      those runs measured. Compare a rerun with rows of the same
      cli_version and cli_commit, not with the published rows. */
-  wire(wt, { agents: ['claude'], profile: 'full', hooks: arm === 'hooks', block: skillText });
+  wire(wt, { agents: ['claude'], profile: 'full', hooks: arm === 'hooks' || arm === 'stop', block: skillText });
   // The hooks call this checkout's binary, so a run measures this CLI.
   const settings = join(wt, '.claude/settings.json');
   if (existsSync(settings)) writeFileSync(settings, readFileSync(settings, 'utf8').replace(/"command": "[^"]*\bcomplex-md\b[^"]*?\b(hook [\w-]+)[^"]*"/g, `"command": "node ${BIN} $1"`));
+  /* The stop arm keeps the check that runs when the agent ends its turn and
+     drops the gate that holds the first edit of a hot file. A break exists
+     only after an edit, so this asks whether the check after the edit is
+     the part that cuts damage. */
+  if (arm === 'stop') {
+    const s = JSON.parse(readFileSync(settings, 'utf8'));
+    delete s.hooks.PreToolUse;
+    writeFileSync(settings, JSON.stringify(s, null, 2) + '\n');
+  }
   // The map is context, not a change the agent made.
   sh('git', ['add', '-A'], wt);
   sh('git', ['-c', 'user.email=bench@complex.md', '-c', 'user.name=bench', 'commit', '-q', '-m', 'bench: COMPLEX.md and wiring'], wt);

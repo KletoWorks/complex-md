@@ -18,6 +18,7 @@ arms:
 | `front` | COMPLEX.md front matter only: the computed numbers, no prose |
 | `file` | COMPLEX.md computed as of that commit, wired (`CLAUDE.md`, path-scoped rule) |
 | `hooks` | `file` plus the PreToolUse gate and Stop check |
+| `stop` | `file` plus the Stop check alone, with no edit gate |
 | `gold` | no agent: the real fix's source change, judged like a patch |
 
 `gold` is an oracle. It shows which regressions the fix itself causes and

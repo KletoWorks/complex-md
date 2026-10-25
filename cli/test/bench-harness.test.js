@@ -112,7 +112,7 @@ test('the retired mcp arm and unknown arm names are refused before any run', () 
     assert.deepEqual(mcp.rows, []);
     const typo = runHarness(fx, ['--agent', 'mock', '--arms', 'fiel']);
     assert.equal(typo.status, 2);
-    assert.match(typo.stderr, /unknown arm fiel: none, front, file, hooks, gold/);
+    assert.match(typo.stderr, /unknown arm fiel: none, front, file, hooks, stop, gold/);
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });
 
@@ -202,5 +202,21 @@ test('--seeds runs each arm once a seed, keeps each seed\'s patch, and a rerun r
     const again = spawnHarnessInto(fx, first.out, ['--agent', 'mock', '--arms', 'none,file', '--stop-at', 'none', '--seeds', '1,2']);
     assert.equal(again.status, 0, again.stderr);
     assert.deepEqual(again.rows.slice(3).map((r) => `${r.arm}/${r.seed}`), ['file/2']);
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
+
+test('the stop arm wires the map and the Stop check, without the edit gate', () => {
+  const fx = buildBenchRepo();
+  try {
+    const { status, stderr, rows } = runHarness(fx, ['--agent', 'mock', '--arms', 'stop,hooks', '--stop-at', 'none', '--keep']);
+    assert.equal(status, 0, stderr);
+    assert.deepEqual(rows.map((r) => r.arm), ['stop', 'hooks']);
+    for (const r of rows) assert.equal(r.error, null, `${r.arm}: ${r.error}`);
+    const settings = (arm) => JSON.parse(readFileSync(join(fx.dir, 'work', `${fx.task.id}-${arm}`, '.claude/settings.json'), 'utf8')).hooks;
+    const stop = settings('stop');
+    assert.equal(stop.PreToolUse, undefined);
+    assert.match(stop.Stop[0].hooks[0].command, /complex-md\.js hook stop$/);
+    assert.ok(settings('hooks').PreToolUse.length, 'the hooks arm keeps its gate');
+    assert.ok(existsSync(join(fx.dir, 'work', `${fx.task.id}-stop`, 'COMPLEX.md')));
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });
