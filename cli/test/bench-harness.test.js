@@ -158,3 +158,13 @@ test('a row records the map size, and a map over --map-cap is that row\'s error'
     assert.match(over.rows[0].error, /over the 100 byte cap/);
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });
+
+test('--maps-only logs a month whose map fails, goes on and exits 4', () => {
+  const fx = buildBenchRepo();
+  try {
+    const { status, stderr, rows } = runHarness(fx, ['--agent', 'mock', '--arms', 'file', '--stop-at', 'none', '--maps-only', '--map-cap', '100']);
+    assert.equal(status, 4, stderr);
+    assert.match(stderr, /over the 100 byte cap/);
+    assert.equal(rows.length, 0);
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
