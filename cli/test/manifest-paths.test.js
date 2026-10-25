@@ -80,6 +80,24 @@ test('unwire removes nothing outside the repository and nothing through a link',
   assert.ok(lines.some((l) => /outside the repository/.test(l)), lines.join('\n'));
 });
 
+test('unwire refuses a path through a symlink into the repository git directory', () => {
+  const dir = repo();
+  const configPath = join(dir, '.git/config');
+  const config = '[core]\nrepositoryformatversion = 0\n';
+  writeFileSync(configPath, config);
+  symlinkSync(join(dir, '.git'), join(dir, 'alias'));
+  mkdirSync(join(dir, '.complex-md'));
+  writeFileSync(join(dir, MANIFEST_PATH), JSON.stringify({
+    files: [{ path: 'alias/config', sha256: sha(config) }],
+    blocks: [],
+  }));
+  const lines = [];
+  const result = unwire(dir, { log: (line) => lines.push(line) });
+  assert.equal(readFileSync(configPath, 'utf8'), config);
+  assert.ok(result.left.some((entry) => entry.path === 'alias/config'));
+  assert.match(lines.join('\n'), /alias\/config.*\.git/i);
+});
+
 test('wire and its dry run remove nothing outside the repository', () => {
   const h = hostile();
   planWire(h.dir, MAP, {});

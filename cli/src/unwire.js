@@ -21,7 +21,7 @@ export function unwire(root, { log = () => {} } = {}) {
   if (m.rejected.length) log(`ignored ${m.rejected.length} ${MANIFEST_PATH} entries whose path is outside the repository or in .git: ${m.rejected.join(', ')}`);
   const linked = (entry) => {
     report.left.push(entry);
-    log(`left ${entry.path}: a symbolic link takes it outside the repository, so unwire does not touch it.`);
+    log(`left ${entry.path}: a symbolic link resolves outside the repository or into .git, so unwire does not touch it.`);
   };
 
   const left = { files: [], blocks: [], entries: [], dirs: [] };

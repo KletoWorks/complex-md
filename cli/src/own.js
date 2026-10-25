@@ -28,10 +28,16 @@ export function insideRepo(root, rel) {
   } catch {
     return false;
   }
+  let gitDir = null;
+  try {
+    gitDir = realpathSync(join(base, '.git'));
+  } catch {}
   for (let p = join(root, rel); ; ) {
     try {
       const r = realpathSync(p);
-      return r === base || r.startsWith(base + sep);
+      const inRepo = r === base || r.startsWith(base + sep);
+      const inGitDir = gitDir && (r === gitDir || r.startsWith(gitDir + sep));
+      return inRepo && !inGitDir;
     } catch {
       /* A link to nowhere: writing through it would create its target. */
       try {
