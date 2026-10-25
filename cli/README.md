@@ -38,6 +38,12 @@ Spec, research and the downloadable skill: https://complex.md
    0 and prints one warning line with the reason. The reply itself is never
    written.
 
+   A reply whose prose uses an em dash or an en dash as punctuation gets 1
+   more call to the same model or `--via` CLI. That call rewrites only those
+   sentences, and never the front matter. A dash that is left becomes a
+   comma or a space, and the run prints how many it replaced. A dash in a
+   code span, a path or a code block stays.
+
    Before the first write, the run prints every file it will create or
    change. On a keyed run, the wiring lines come under "After the model
    call". In a terminal it asks once, and `--yes` skips the question. A

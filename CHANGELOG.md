@@ -6,6 +6,10 @@ format.
 
 ## Unreleased
 
+**Intent:** the map's sentence rules allow no em dash, but models write them. In the first model matrix run, `bench/results/models/2026-10-25/summary.md`, the em dash check failed for 25 of 40 scored maps, and the CLI wrote the prose as it came ([issue #23](https://github.com/KletoWorks/complex-md/issues/23)).
+
+**Change:** after a model or `--via` reply passes `normalizeOutput`, each sentence that uses an em dash or an en dash as punctuation goes back to the same model in 1 repair request, and the rewrites replace only those sentences. A dash that is left becomes a comma, a space, or "to" in a range of digits, and the run prints how many it replaced. Dashes in code spans, paths and code blocks stay. `cli/src/dashes.js` holds the rules; `cli/test/dashes.test.js` covers the repair, the fallback and the template prose.
+
 **Intent:** CI ran the tests on Ubuntu with Node 22 only. The CLI writes
 files with line ending rules, runs git and builds paths, and none of that
 ran on Windows or macOS. The first run there failed 4 tests on each macOS
