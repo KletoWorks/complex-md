@@ -155,6 +155,8 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
   const briefs = pathBriefs(map);
   const report = { primary: [], created: [], rules: [], removed: [], hooks: [], mcp: [], skipped: [] };
 
+  const active = TARGET_NAMES.filter((name) => (agents ? agents.includes(name) : !TARGETS[name].global && TARGETS[name].detect(root)));
+
   // 1. Primary files. AGENTS.md comes first in PRIMARY, so once it exists
   // it carries the block by the time the others are read. A CLAUDE.md or
   // GEMINI.md that imports it (the shape this function creates) loads the
@@ -194,7 +196,12 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
     }
     if (r === 'unchanged' || importsAgents) report.skipped.push(f);
   }
-  if (!any) {
+  /* Claude Code reads AGENTS.md when the repository has no CLAUDE.md, and a
+     new root CLAUDE.md would stop it loading nested AGENTS.md files. So
+     wire never creates CLAUDE.md: when Claude Code has neither file to
+     read, it gets an AGENTS.md. */
+  const claudeReadsNothing = active.includes('claude') && !existsSync(join(root, 'AGENTS.md')) && !existsSync(join(root, 'CLAUDE.md'));
+  if (!any || claudeReadsNothing) {
     /* No primary file existed, so this one is ours to create. It is named
        AGENTS.md, which reads as the whole contract for the repository, and it
        holds one section. Say which, so a reader who arrives at it does not
@@ -203,16 +210,6 @@ export function wire(root, { hooks = false, mcp = false, rules = true, agents = 
        already has a contract adds a marked section to it instead. */
     mark('AGENTS.md', CREATED_PREAMBLE + '\n' + block, { create: true, created: true });
     report.created.push('AGENTS.md');
-  }
-
-  const active = TARGET_NAMES.filter((name) => (agents ? agents.includes(name) : !TARGETS[name].global && TARGETS[name].detect(root)));
-
-  // Claude Code reads CLAUDE.md, not AGENTS.md. Without one, the only wiring
-  // it would see is the path-scoped rule, which fires after the file is found.
-  if (active.includes('claude') && !existsSync(join(root, 'CLAUDE.md'))) {
-    const imports = (existsSync(join(root, 'AGENTS.md')) ? '@AGENTS.md\n' : block + '\n') + '@COMPLEX.md\n';
-    writeFileSync(join(root, 'CLAUDE.md'), imports);
-    report.created.push('CLAUDE.md');
   }
 
   // 3-7. Per-target rules, hooks, MCP. `carried` says AGENTS.md now holds
