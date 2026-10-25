@@ -8,7 +8,7 @@ import { join, dirname, relative, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { integrationBlock, BLOCK_HEADING, INTEGRATION_LINE } from './prompts.js';
 import { SPEC_VERSION } from './signals.js';
-import { readManifest, writeManifest, MANIFEST_PATH } from './manifest.js';
+import { readManifest, writeManifest, MANIFEST_PATH, assertManifestPath } from './manifest.js';
 import { createOwner, ensureDir, insideRepo } from './own.js';
 import { git } from './git.js';
 import { findRegion, outsideRegion, upsertRegion, renderRegion, eolOf, normalizedHash } from './markers.js';
@@ -164,6 +164,7 @@ function manifestCommittable(root, log) {
 /* `profile`: 'minimal' or 'full'. Naming targets with `agents` asks for
    their files, so it implies 'full' unless a profile is given. */
 export function wire(root, { profile = null, hooks = false, mcp = false, rules = true, agents = null, block: blockText = null, log = () => {} } = {}) {
+  assertManifestPath(root);
   profile ??= agents ? 'full' : 'minimal';
   if (!PROFILES.includes(profile)) throw new Error(`unknown profile "${profile}"; one of: ${PROFILES.join(', ')}`);
   const full = profile === 'full';

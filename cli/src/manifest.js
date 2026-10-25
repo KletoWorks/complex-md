@@ -7,14 +7,52 @@
 // The manifest holds no clock and no machine path, so a rewire that
 // writes the same files writes the same manifest, and it is small enough
 // to commit: a teammate's unwire then knows what the first wire wrote.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, lstatSync, realpathSync } from 'node:fs';
+import { join, dirname, sep } from 'node:path';
 import { createRequire } from 'node:module';
 import { WORK_DIR } from './gitignore.js';
 import { SPEC_VERSION } from './signals.js';
 
 export const MANIFEST_PATH = `${WORK_DIR}/manifest.json`;
 const pkg = createRequire(import.meta.url)('../package.json');
+
+function resolvedPathOrParent(root, rel) {
+  for (let path = join(root, rel); ; path = dirname(path)) {
+    try {
+      return realpathSync(path);
+    } catch {
+      try {
+        lstatSync(path);
+        return null;
+      } catch {}
+      const parent = dirname(path);
+      if (parent === path) return null;
+    }
+  }
+}
+
+/** Refuse a manifest directory or file whose resolved path is unsafe. */
+export function assertManifestPath(root) {
+  let base;
+  try {
+    base = realpathSync(root);
+  } catch {
+    throw new Error(`${MANIFEST_PATH} cannot be resolved inside the repository; refusing to read, write or remove it.`);
+  }
+  let gitDir = null;
+  try {
+    gitDir = realpathSync(join(base, '.git'));
+  } catch {}
+  for (const rel of [WORK_DIR, MANIFEST_PATH]) {
+    const resolved = resolvedPathOrParent(root, rel);
+    if (!resolved || (resolved !== base && !resolved.startsWith(base + sep))) {
+      throw new Error(`${MANIFEST_PATH} resolves outside the repository; refusing to read, write or remove it.`);
+    }
+    if (gitDir && (resolved === gitDir || resolved.startsWith(gitDir + sep))) {
+      throw new Error(`${MANIFEST_PATH} resolves into .git; refusing to read, write or remove it.`);
+    }
+  }
+}
 
 /* The manifest is committed, so a cloned repository can carry one that
    someone else wrote. A listed path counts only when it is a plain
@@ -34,6 +72,7 @@ export function safeRelPath(rel) {
  * listed in `rejected`.
  */
 export function readManifest(root) {
+  assertManifestPath(root);
   const p = join(root, MANIFEST_PATH);
   if (!existsSync(p)) return null;
   let m;
@@ -78,6 +117,7 @@ export function manifestText(ledger, extra = {}) {
 
 /** Write the manifest when its text changed; remove it when the ledger is empty. */
 export function writeManifest(root, ledger, extra = {}) {
+  assertManifestPath(root);
   const p = join(root, MANIFEST_PATH);
   const empty = !ledger.files.length && !ledger.blocks.length && !ledger.entries?.length;
   if (empty) {
