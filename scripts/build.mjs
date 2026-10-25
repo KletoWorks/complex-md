@@ -7,6 +7,7 @@ import { join, dirname, resolve } from 'node:path';
 import { parseMeta as meta, readArticles, faqItems, llmsFull } from './content.mjs';
 import { renderSkill, renderReference, SKILL_COPIES, stampVersions } from './skill.mjs';
 import { REPORT_CSS, REPORT_JS } from '../cli/src/render.js';
+import { DEMO, demoCard } from './demo-map.mjs';
 import { ROOT, ORIGIN, AUTHOR, AUTHOR_URL, REPO, specVersion, promptVersion, cliVersion, siteHeader, siteFooter } from './chrome.mjs';
 
 // --out <dir> builds somewhere other than dist/. --drafts also renders the
@@ -130,13 +131,33 @@ const siteJsonLd = JSON.stringify({
 // The compatibility marquee: monochrome marks in site/logos, listed in
 // site/logos/agents.json, inlined so currentColor follows the theme. The
 // track is doubled so the loop is seamless.
+//
+// A style attribute is inline style, which a policy without
+// 'unsafe-inline' blocks. Each declaration becomes the SVG presentation
+// attribute of the same name, and a black stroke follows the theme.
+const presentational = (svg) => svg.replace(/\sstyle="([^"]*)"/g, (_, css) => css.split(';')
+  .map((d) => d.split(':').map((x) => x.trim()))
+  .filter(([k, v]) => /^[a-z-]+$/.test(k || '') && v)
+  .map(([k, v]) => ` ${k}="${v === '#000000' ? 'currentColor' : v}"`).join(''));
 function agentMarquee() {
   const list = JSON.parse(readFileSync(join(ROOT, 'site/logos/agents.json'), 'utf8'));
-  const li = (a) => `<li>${readFileSync(join(ROOT, 'site/logos', a.slug + '.svg'), 'utf8').trim()}<span>${a.name}</span></li>`;
+  const li = (a) => `<li>${presentational(readFileSync(join(ROOT, 'site/logos', a.slug + '.svg'), 'utf8').trim())}<span>${a.name}</span></li>`;
   const row = (agents, cls) => { const items = agents.map(li).join(''); return `<div class="marquee${cls}"><ul class="track">${items}</ul><ul class="track" aria-hidden="true">${items}</ul></div>`; };
   const half = Math.ceil(list.length / 2);
   return `<div class="marquees" aria-label="Agents that read COMPLEX.md">${row(list.slice(0, half), '')}${row(list.slice(half), ' reverse')}</div>`;
 }
+/** The proof rows: n dots, the first f of them filled. */
+const proofDots = (f, n) => `<span class="dots" data-f="${f}" data-n="${n}" aria-hidden="true">${'<i class="f"></i>'.repeat(f)}${'<i></i>'.repeat(n - f)}</span>`;
+
+/** The home page's placeholders: the marquee, the map card read from a
+ *  committed map, and the proof dots. */
+function fillHome(body) {
+  return body
+    .replace('{{AGENT_MARQUEE}}', agentMarquee())
+    .replace('{{DEMO_MAP}}', () => demoCard(readFileSync(join(ROOT, DEMO.file), 'utf8'), DEMO))
+    .replace(/\{\{DOTS (\d+) (\d+)\}\}/g, (_, f, n) => proofDots(+f, +n));
+}
+
 const softwareJsonLd = JSON.stringify({
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
@@ -231,7 +252,7 @@ for (const file of readdirSync(join(ROOT, 'content'))) {
   const { meta: m, body } = meta(readFileSync(join(ROOT, 'content', file), 'utf8').replaceAll('{{INTEGRATION_BLOCK}}', integrationBlock));
   const path = m.path ?? '/' + file.replace(/\.(md|html)$/, '');
   const kicker = m.kicker?.replaceAll('{{SPEC_VERSION}}', specVersion).replaceAll('{{PROMPT_VERSION}}', promptVersion);
-  const doc = file.endsWith('.md') ? docify(markdown(body), { kicker }) : { body: body.replace('{{AGENT_MARQUEE}}', agentMarquee()), toc: false };
+  const doc = file.endsWith('.md') ? docify(markdown(body), { kicker }) : { body: fillHome(body), toc: false };
   // script: a page's own module under site/. noindex: true keeps a utility page out of search.
   emit(path, shell({ title: m.title, description: m.description, path, layout: m.layout, script: m.script, noindex: m.noindex === 'true', ...doc }));
   if (file === 'spec.md') writeFileSync(join(DIST, 'spec.md'), body);

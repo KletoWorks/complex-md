@@ -218,7 +218,7 @@ test('the removal page names the three ways, the 24 hours, and posts to the remo
   assert.match(js, /2000/);
 });
 
-test('the header and the home page hero link the /map page', (t) => {
+test('the header and the home page hero lead to the /map page', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   for (const f of ['index.html', 'spec/index.html', 'map/index.html', '404.html']) {
     const html = readFileSync(join(site(), f), 'utf8');
@@ -227,5 +227,6 @@ test('the header and the home page hero link the /map page', (t) => {
   }
   const home = readFileSync(join(site(), 'index.html'), 'utf8');
   const hero = home.slice(home.indexOf('<section class="hero">'), home.indexOf('</section>'));
-  assert.match(hero, /href="\/map\/"/);
+  // The repository box submits to /map/; a link would do as well.
+  assert.match(hero, /action="\/map\/"|href="\/map\/"/);
 });

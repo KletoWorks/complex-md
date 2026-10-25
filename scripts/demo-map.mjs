@@ -130,7 +130,9 @@ export function demoCard(text, { repo, file, label = DEMO.label }) {
 <div class="view v-file"><pre class="yaml" tabindex="0" aria-label="The front matter of this COMPLEX.md">${frontMatterView(text)}</pre></div>
 <div class="reads" id="reads">
 <p class="lead"><span class="dot" aria-hidden="true"></span>Before it edits this file, the agent reads</p>
+<div class="panels">
 ${panels}
+</div>
 <div class="prog" aria-hidden="true"><i></i></div>
 </div>
 <figcaption class="cap"><p>${esc(label)}: ${commits} commits read, ${fmt(fm.files_analyzed)} files ranked. Select a tile.</p>
