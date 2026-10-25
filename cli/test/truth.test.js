@@ -23,6 +23,12 @@ const PUBLIC = [
   // The report page's headings, legend and notes are written here.
   'cli/src/render.js',
   'content/index.html',
+  // The /map lookup page and the messages its script writes.
+  'content/map.html',
+  'site/lookup.js',
+  // The removal page and the messages its script writes.
+  'content/map-remove.html',
+  'site/remove.js',
   'content/spec.md',
   'content/skill.md',
   ...dir('content/articles', '.md'),
@@ -51,8 +57,12 @@ const PUBLIC = [
   ...dir('.github/ISSUE_TEMPLATE', '.yml'),
   ...dir('.github/unlisted', '.yml'),
   'docs/RESEARCH-signals-and-wiring.md',
-  // The build writes llms.txt, the JSON-LD and the footer from this file.
+  // The build writes llms.txt and the JSON-LD from this file.
   'scripts/build.mjs',
+  // The header and the footer of every page, hosted map pages included.
+  'scripts/chrome.mjs',
+  // The text of every hosted map page.
+  'scripts/hosted.mjs',
 ];
 
 /** The texts an agent follows to wire a repository. */
