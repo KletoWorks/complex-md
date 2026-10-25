@@ -184,18 +184,23 @@ async function writeMap(wt, cached) {
 /* The dataset clone's install, copied once (hard links where the file
    system allows) to a directory that holds nothing else. A link straight
    into the clone led an agent from node_modules to the clone and its
-   future history. */
-let deps;
-function depsFor() {
-  if (deps !== undefined) return deps;
-  const src = join(dataset.path, 'node_modules');
-  if (!existsSync(src)) return (deps = null);
-  const dest = join(workRoot, '.deps', (dataset.repo || 'repo').replace('/', '-'), 'node_modules');
+   future history. A task or the dataset may name `deps`, a directory
+   whose node_modules was installed from an older lockfile: an install made
+   at the clone's HEAD can fail to load the code of an older base. */
+const depsCache = new Map();
+function depsFor(task) {
+  const from = task?.deps || dataset.deps || dataset.path;
+  if (depsCache.has(from)) return depsCache.get(from);
+  const src = join(from, 'node_modules');
+  if (!existsSync(src)) { depsCache.set(from, null); return null; }
+  const tag = from === dataset.path ? '' : `-${createHash('sha1').update(resolve(from)).digest('hex').slice(0, 10)}`;
+  const dest = join(workRoot, '.deps', `${(dataset.repo || 'repo').replace('/', '-')}${tag}`, 'node_modules');
   if (!existsSync(dest)) {
     mkdirSync(dirname(dest), { recursive: true });
     if (spawnSync('cp', ['-al', src, dest]).status !== 0) { rmSync(dest, { recursive: true, force: true }); sh('cp', ['-a', src, dest]); }
   }
-  return (deps = dest);
+  depsCache.set(from, dest);
+  return dest;
 }
 
 function prepareWorktree(task, arm, seed) {
@@ -209,7 +214,7 @@ function prepareWorktree(task, arm, seed) {
      agent ran failed with a missing module in every arm, and the success
      metric could never be true. The link is the dataset checkout's install,
      made once; a repository without one records success as null. */
-  const nm = depsFor();
+  const nm = depsFor(task);
   if (nm && !existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
   /* Generated inputs the suite needs (test certificates, a bundled build):
      the dataset lists them as `prepare`, run once per worktree before any
@@ -308,9 +313,9 @@ function agentCommand(task, arm, wt) {
 /* What the agent may see: its checkout, the dependency copy, the Node
    install, and the agent's own install and credentials. The CLI checkout is
    there for the hooks arm, which calls its binary. */
-function agentKeeps(wt) {
+function agentKeeps(wt, task) {
   const keeps = [wt, dirname(dirname(realpathSync(process.execPath)))];
-  if (depsFor()) keeps.push(depsFor());
+  if (depsFor(task)) keeps.push(depsFor(task));
   if (SCRIPTED[agent]) return [...keeps, join(here, SCRIPTED[agent])];
   const c = which('claude');
   if (c) keeps.push(dirname(dirname(realpathSync(c))));
@@ -326,7 +331,7 @@ async function runAgent(task, arm, wt, seed) {
   if (sandboxOn) {
     rmSync(sbx, { recursive: true, force: true });
     mkdirSync(sbx, { recursive: true });
-    const [c2, a2, env2, { socket }] = sandboxCommand({ cmd, args: a, cwd: wt, dir: sbx, roots: maskRoots(), keeps: agentKeeps(wt) });
+    const [c2, a2, env2, { socket }] = sandboxCommand({ cmd, args: a, cwd: wt, dir: sbx, roots: maskRoots(), keeps: agentKeeps(wt, task) });
     proxy = await startProxy({ socket, allow: allowHosts });
     [cmd, a, env] = [c2, a2, { ...env, ...env2 }];
   }

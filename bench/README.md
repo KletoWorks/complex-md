@@ -129,6 +129,12 @@ TAP), `files` (globs), and `include` and `exclude` (patterns that decide
 which hits, and which of a fix's test files, are tests). mocha, which tests
 itself with its own `bin/mocha.js`, needs this.
 
+The agent's dependencies are a copy of the clone's `node_modules`. An
+install made at the clone's HEAD can fail to load an older base: mocha's
+2024 bases need `ansi-colors`, which its HEAD install lacks. A task, or the
+dataset, can name `deps`, a directory whose `node_modules` was installed
+from that era's lockfile.
+
 **Conduct.** Whether the agent did what the map asks: a test run before
 finishing an edit to a risky file, and the other side of a co-change pair
 opened. Judged against the computed risky set at the base commit, the same

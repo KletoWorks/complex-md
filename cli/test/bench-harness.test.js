@@ -2,7 +2,7 @@
    in place of a model. No network and no model call. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, rmSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildBenchRepo, runHarness, spawnHarnessInto } from './fixtures/bench-repo.mjs';
 
@@ -218,5 +218,23 @@ test('the stop arm wires the map and the Stop check, without the edit gate', () 
     assert.match(stop.Stop[0].hooks[0].command, /complex-md\.js hook stop$/);
     assert.ok(settings('hooks').PreToolUse.length, 'the hooks arm keeps its gate');
     assert.ok(existsSync(join(fx.dir, 'work', `${fx.task.id}-stop`, 'COMPLEX.md')));
+  } finally { rmSync(fx.dir, { recursive: true, force: true }); }
+});
+
+test('a task with its own deps directory gets that install, not the clone\'s', () => {
+  const fx = buildBenchRepo();
+  try {
+    const own = join(fx.dir, 'deps-at-base');
+    mkdirSync(join(own, 'node_modules', 'older'), { recursive: true });
+    writeFileSync(join(own, 'node_modules', 'older', 'index.js'), 'module.exports = 0;\n');
+    const ds = JSON.parse(readFileSync(fx.datasetPath, 'utf8'));
+    ds.tasks[0].deps = own;
+    writeFileSync(fx.datasetPath, JSON.stringify(ds));
+    const { status, stderr, rows } = runHarness(fx, ['--agent', 'mock', '--arms', 'none', '--stop-at', 'none', '--keep']);
+    assert.equal(status, 0, stderr);
+    assert.equal(rows[0].error, null);
+    const nm = join(fx.dir, 'work', `${fx.task.id}-none`, 'node_modules');
+    assert.ok(existsSync(join(nm, 'older', 'index.js')), 'the task install is linked');
+    assert.ok(!existsSync(join(nm, 'dep')), 'the clone install is not');
   } finally { rmSync(fx.dir, { recursive: true, force: true }); }
 });
