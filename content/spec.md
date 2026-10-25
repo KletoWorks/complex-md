@@ -624,7 +624,10 @@ folders the generator created. It holds no clock, so a rewire with the same
 map writes the same bytes, and it is small enough to commit. A rewire
 removes a file the previous run wrote and this run does not, while its hash
 still matches. A file whose hash no longer matches was edited by a person,
-and stays.
+and stays. A manifest arrives with a clone, so the generator acts only on a
+listed path that is relative, has no `.` or `..` segment, does not start in
+`.git`, and resolves inside the repository once symbolic links are followed.
+It ignores any other listed path.
 
 `npx complex-md wire` does these steps idempotently: the `minimal` profile
 by default, `full` with `--profile full` or `--for`, step 8 only with

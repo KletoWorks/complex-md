@@ -208,7 +208,10 @@ runs it on stdio. Six tools:
 marked section it wrote with a hash. It deletes those files and cuts out
 those sections. A file or section edited since wire wrote it stays, and
 unwire names it. COMPLEX.md stays too. `--dry-run` on `wire` or `unwire`
-prints the file plan and writes nothing.
+prints the file plan and writes nothing. The manifest is committed, so it
+can come from someone else: wire and unwire ignore a listed path that is
+absolute, has a `..` segment or starts in `.git`, and they write and
+remove nothing that a symbolic link takes outside the repository.
 
 `check --strict` exits 1 on findings, for pre-commit and CI.
 `check --base <ref>` exits 2 when the ref is not in the checkout. In GitHub
