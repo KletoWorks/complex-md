@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { namedPaths, inventedPaths } from '../src/paths.js';
-import { trackedFiles } from '../src/git.js';
+import { git, trackedFiles } from '../src/git.js';
 
 const FILES = ['src/a.js', 'src/lib/b.ts', 'README.md', 'app/[slug]/page.tsx', 'bin/tool', 'packages/x/src/index.ts'];
 
@@ -45,7 +45,11 @@ test('route paths with brackets and files the tool writes are not invented', () 
 test("this repository's own map names no invented path", (t) => {
   const root = join(import.meta.dirname, '..', '..');
   if (!existsSync(join(root, 'COMPLEX.md'))) return t.skip('not a repository checkout');
-  const text = readFileSync(join(root, 'COMPLEX.md'), 'utf8').replace(/^---\n[\s\S]*?\n---\n/, '');
+  const map = readFileSync(join(root, 'COMPLEX.md'), 'utf8');
+  const generatedAt = /^commit:\s*"?([^\s"]+)/m.exec(map)?.[1];
+  const head = git(['rev-parse', 'HEAD'], { cwd: root, allowFail: true }).trim();
+  if (generatedAt && !head.startsWith(generatedAt)) return t.skip('COMPLEX.md was generated from another commit');
+  const text = map.replace(/^---\n[\s\S]*?\n---\n/, '');
   assert.deepEqual(inventedPaths(text, trackedFiles(root)), []);
 });
 
