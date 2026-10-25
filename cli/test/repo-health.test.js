@@ -71,6 +71,8 @@ const FORMS = {
   '.github/ISSUE_TEMPLATE/map-wrong.yml': ['repository', 'commit', 'wrong_line', 'truth'],
   '.github/ISSUE_TEMPLATE/new-language.yml': ['language', 'extensions', 'imports', 'fixture'],
   '.github/ISSUE_TEMPLATE/benchmark-task.yml': ['repository', 'fix_commit', 'issue', 'tests'],
+  '.github/ISSUE_TEMPLATE/conformance-case.yml': ['rule', 'fixture', 'expected'],
+  '.github/ISSUE_TEMPLATE/spec-proposal.yml': ['problem', 'text', 'evidence'],
   '.github/unlisted/page-removal.yml': ['page', 'repository', 'maintainer'],
 };
 
@@ -84,7 +86,7 @@ test('the issue forms ask for the fields a fix needs, and questions go to Discus
     assert.match(s, /required: true/, `${p} requires at least one field`);
   }
   // Each form files its issue under the label a maintainer triages by.
-  for (const [p, label] of [['.github/ISSUE_TEMPLATE/map-wrong.yml', 'map'], ['.github/ISSUE_TEMPLATE/new-language.yml', 'language'], ['.github/ISSUE_TEMPLATE/benchmark-task.yml', 'bench'], ['.github/unlisted/page-removal.yml', 'removal']]) {
+  for (const [p, label] of [['.github/ISSUE_TEMPLATE/map-wrong.yml', 'map'], ['.github/ISSUE_TEMPLATE/new-language.yml', 'language'], ['.github/ISSUE_TEMPLATE/benchmark-task.yml', 'bench'], ['.github/ISSUE_TEMPLATE/conformance-case.yml', 'enhancement'], ['.github/ISSUE_TEMPLATE/spec-proposal.yml', 'enhancement'], ['.github/unlisted/page-removal.yml', 'removal']]) {
     const labels = /^labels: \[([^\]]*)\]$/m.exec(read(p))?.[1].split(',').map((l) => l.trim()) || [];
     assert.ok(labels.includes(label), `${p} labels ${label}, has ${labels}`);
   }
