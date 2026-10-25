@@ -30,10 +30,9 @@ const REQUIRED_SECTIONS = ['Where the risk lives', 'Why these files are hot', 'C
 const DIRECTIVE = 'Before editing this file,';
 
 const READER_GAPS = {
-  'empty-test-files': 'the reader reads an empty flow list inside a list item as [""]',
 };
 /* The gaps above that also change the front matter the reader returns. */
-const FRONT_GAPS = new Set(['empty-test-files']);
+const FRONT_GAPS = new Set();
 
 /* ---------- a validator for the JSON Schema keywords the schema uses ---------- */
 
