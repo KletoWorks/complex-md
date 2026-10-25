@@ -680,22 +680,24 @@ once per session per file, keyed by the tool's session id, and take
 `--mode gate | warn | off`. `warn` lets the edit through with the paragraph
 attached, for teams that find the gate too firm.
 
+### MCP server
+
+The server is an optional package, `complex-md-mcp`, published at the same
+version as the CLI. New `wire --mcp` entries start that package directly;
+entries from earlier versions that start `complex-md mcp` are recognized and
+replaced. An entry that pins an older `complex-md-mcp` moves to the current
+version while its manifest hash matches, and an entry edited since stays.
+The core `complex-md mcp` command remains available through 0.x and hands
+off to `npx -y complex-md-mcp@<the same version> mcp`, printing one line to
+stderr. Source: `cli/package.json` and
+`packages/complex-md-mcp/package.json`.
+
 ### Diff check
 
 `npx complex-md check [--staged | --base ref] [--strict]`
 is the same report on the command line, for pre-commit hooks and CI. It
 also names a generated brief in the change that differs from what `wire`
 writes, because review bots read those files from the pull request.
-
-### MCP server
-
-The server is an optional package, `complex-md-mcp`, published at the same
-version as the CLI. New `wire --mcp` entries start that package directly;
-entries from earlier versions that start `complex-md mcp` are recognized and
-replaced. The core `complex-md mcp` command remains available through 0.x and
-hands off to `npx -y complex-md-mcp@<the same version> mcp`, printing one
-line to stderr. Source: `cli/package.json` and
-`packages/complex-md-mcp/package.json`.
 
 The block is normative: generators and hand authors copy it exactly, because
 identical wording across repositories is what makes it recognizable to
