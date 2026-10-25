@@ -50,7 +50,7 @@ function stubFetch({ failModel = null } = {}) {
     // The computed block, not the shape example in the prompt text above it.
     const fm = /## Front matter \(computed[^\n]*\n\n```yaml\n([\s\S]*?)\n```/.exec(prompt)[1] + '\n';
     const prose = '## Where the risk lives\n\nRisk sits in src/a.js.\n\n## Why these files are hot\n\nsrc/a.js holds the value. Before editing this file, open src/b.js.\n\n## Change coupling\n\nNone.\n\n## What to read first\n\n1. src/a.js: the value.\n';
-    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: fm + '\n' + prose } }], usage: { prompt_tokens: 900, completion_tokens: 300, cost: 0.0012 } }) };
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: fm + '\n' + prose }, finish_reason: 'stop' }], usage: { prompt_tokens: 900, completion_tokens: 300, completion_tokens_details: { reasoning_tokens: 80 }, cost: 0.0012 } }) };
   };
   return { impl, calls, chats: () => calls.filter((c) => c.url.endsWith('/chat/completions')) };
 }
@@ -84,6 +84,16 @@ test('the price of a run: input tokens, the output cap and any per request fee',
   assert.equal(p.rows[0].usd, 1000 * 0.000001 + 1000 * 0.000002);
   assert.equal(p.rows[1].usd, 1000 * 0.000003 + 1000 * 0.000015);
   assert.equal(p.total, p.rows[0].usd + p.rows[1].usd);
+
+  const reasoning = priceRun({
+    models: ['reason/model'],
+    inputs: [{ name: 'r', bundle: 'x'.repeat(3000) }],
+    prices: [{ id: 'reason/model', supported_parameters: ['reasoning'], pricing: { prompt: '0.000001', completion: '0.000002' } }],
+    maxTokens: 1000,
+  });
+  assert.equal(reasoning.rows[0].maxOutputTokens, 24000);
+  assert.equal(reasoning.rows[0].reasoning, true);
+  assert.equal(reasoning.total, 1000 * 0.000001 + 24000 * 0.000002);
 });
 
 test('--dry-run prints the plan and the price, needs no key and calls no model', async (t) => {
@@ -131,21 +141,54 @@ test('a run scores each map, records a failed call and never writes the key', as
   const [a, b] = results.rows;
   assert.equal(a.model, 'open/model-a');
   assert.equal(a.error, null);
+  assert.equal(a.finish_reason, 'stop');
+  assert.deepEqual(a.usage, { prompt_tokens: 900, completion_tokens: 300, completion_tokens_details: { reasoning_tokens: 80 } });
   assert.equal(a.cost_usd, 0.0012);
-  assert.deepEqual(Object.values(a.checks).map((c) => c.pass), [true, true, true, true, true, true], JSON.stringify(a.checks));
+  assert.deepEqual(Object.values(a.checks.raw).map((c) => c.pass), [true, true, true, true, true, true], JSON.stringify(a.checks));
+  assert.deepEqual(Object.values(a.checks.written).map((c) => c.pass), [true, true, true, true, true, true], JSON.stringify(a.checks));
   assert.match(b.error, /HTTP 500: upstream error/);
   assert.equal(b.checks, null);
   assert.ok(existsSync(join(s.out, 'maps', 'fixture', 'open__model-a.md')));
 
   const summary = readFileSync(join(s.out, 'summary.md'), 'utf8');
-  assert.match(summary, /\| open\/model-a \| fixture \| pass \| pass \| pass \| pass \| pass \| pass \|/);
+  assert.match(summary, /\| open\/model-a \| fixture \| pass \| pass \| pass \| pass/);
   assert.match(summary, /\| closed\/model-b \| fixture \| error \|/);
   assert.match(summary, /not a ranking/i);
+  assert.match(summary, /Written maps passing every check: 1 of 1 scored maps/);
   assert.equal(r.rows.length, 2);
 
+  const { rescoreResults } = await load();
+  const rescored = rescoreResults(s.out);
+  assert.deepEqual(Object.values(rescored.rows[0].checks.written).map((c) => c.pass), [true, true, true, true, true, true]);
   for (const text of [JSON.stringify(results), summary, s.logs.join('\n'), ...readdirSync(join(s.out, 'maps', 'fixture')).map((f2) => readFileSync(join(s.out, 'maps', 'fixture', f2), 'utf8'))]) {
     assert.ok(!text.includes(KEY), 'the key appears in no output');
   }
+});
+
+test('reasoning calls reserve answer capacity and preserve metadata on empty content', async (t) => {
+  if (!existsSync(BENCH)) return t.skip('not a repository checkout');
+  const { runMatrix } = await load();
+  const s = setup();
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url: String(url), init });
+    if (String(url).endsWith('/models')) return { ok: true, status: 200, json: async () => ({ data: [{ ...PRICES.data[0], supported_parameters: ['reasoning'] }] }) };
+    return { ok: true, status: 200, json: async () => ({
+      choices: [{ message: { content: null, reasoning: 'internal reasoning only' }, finish_reason: 'length' }],
+      usage: { prompt_tokens: 900, completion_tokens: 24000, completion_tokens_details: { reasoning_tokens: 8000 } },
+    }) };
+  };
+  const r = await runMatrix({ models: ['open/model-a'], repos: s.repos, env: { OPENROUTER_API_KEY_COMPLEXMD: KEY }, fetchImpl, workDir: s.work, outDir: s.out, log: s.log });
+  const body = JSON.parse(calls.find((c) => c.url.endsWith('/chat/completions')).init.body);
+  assert.equal(body.max_tokens, 24000);
+  assert.deepEqual(body.reasoning, { max_tokens: 8000 });
+  const row = r.rows[0];
+  assert.equal(row.error, 'empty_content');
+  assert.equal(row.finish_reason, 'length');
+  assert.deepEqual(row.usage, { prompt_tokens: 900, completion_tokens: 24000, completion_tokens_details: { reasoning_tokens: 8000 } });
+  assert.equal(row.checks, null);
+  assert.equal(r.plan.rows[0].maxOutputTokens, 24000);
+  assert.ok(r.plan.total < 10, `priced run exceeds budget: ${r.plan.total}`);
 });
 
 test('a budget or an output cap that is not a positive number is refused before any call', async (t) => {

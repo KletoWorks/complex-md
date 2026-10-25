@@ -15,7 +15,7 @@
 // in two and makes two short sentences, never a long one. An instruction is
 // a sentence that starts with "Before editing this file," or with a verb on
 // the IMPERATIVES list; any other sentence gets the description limit.
-import { validateOutput } from '../cli/src/generate.js';
+import { normalizeOutput, validateOutput } from '../cli/src/generate.js';
 import { inventedPaths } from '../cli/src/paths.js';
 
 export const CHECKS = ['front_matter', 'sections', 'paths', 'directives', 'sentences', 'em_dashes'];
@@ -139,4 +139,13 @@ export function scoreMap({ reply, fm, files, hot }) {
   out.em_dashes = dashes ? result(false, `${dashes} em dash${dashes === 1 ? '' : 'es'}`) : result(true);
 
   return out;
+}
+
+/** Score the file the CLI would write, using its own front-matter replacement and validation. */
+export function scoreWrittenMap(input) {
+  try {
+    return scoreMap({ ...input, reply: normalizeOutput(input.reply, input.fm) });
+  } catch (e) {
+    return Object.fromEntries(CHECKS.map((check) => [check, result(false, `not written: ${e.message}`)]));
+  }
 }
