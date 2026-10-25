@@ -23,6 +23,9 @@ const PUBLIC = [
   // The report page's headings, legend and notes are written here.
   'cli/src/render.js',
   'content/index.html',
+  // The /map lookup page and the messages its script writes.
+  'content/map.html',
+  'site/lookup.js',
   'content/spec.md',
   'content/skill.md',
   ...dir('content/articles', '.md'),

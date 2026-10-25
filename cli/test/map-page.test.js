@@ -1,0 +1,86 @@
+// The /map page and the removal form: what a visitor types, what the page
+// asks the server and what it shows. Runs only inside the repository
+// checkout; the published CLI package has no site/ folder.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync, mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
+
+const ROOT = join(import.meta.dirname, '..', '..');
+const inCheckout = existsSync(join(ROOT, 'scripts/build.mjs'));
+const repoName = () => import(pathToFileURL(join(ROOT, 'site/repo-name.js')).href);
+
+let built;
+function site() {
+  if (!built) {
+    built = mkdtempSync(join(tmpdir(), 'cx-map-'));
+    execFileSync(process.execPath, [join(ROOT, 'scripts/build.mjs'), '--out', built], { stdio: 'pipe' });
+  }
+  return built;
+}
+
+test('normaliseRepo reads owner/name, GitHub URLs, git URLs and SSH remotes as one lower case key', async (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const { normaliseRepo } = await repoName();
+  const cases = {
+    'fastify/fastify': 'fastify/fastify',
+    '  Fastify/Fastify  ': 'fastify/fastify',
+    'github.com/nodejs/undici': 'nodejs/undici',
+    'https://github.com/nodejs/undici/pulls': 'nodejs/undici',
+    'https://www.github.com/nodejs/undici/tree/main/lib?x=1#top': 'nodejs/undici',
+    'http://github.com/a-b/c.d_e': 'a-b/c.d_e',
+    'https://github.com/fastify/fastify.git': 'fastify/fastify',
+    'git+https://github.com/KletoWorks/complex-md.git': 'kletoworks/complex-md',
+    'git://github.com/o/n.git': 'o/n',
+    'git@github.com:Fastify/Fastify.git': 'fastify/fastify',
+    'ssh://git@github.com/owner/name.git': 'owner/name',
+    'ssh://git@github.com:22/owner/name.git': 'owner/name',
+    'complex.md/fastify/fastify': 'fastify/fastify',
+    'https://complex.md/fastify/fastify/': 'fastify/fastify',
+  };
+  for (const [input, key] of Object.entries(cases)) assert.deepEqual(normaliseRepo(input), { key }, input);
+  assert.deepEqual(normaliseRepo(''), { error: 'empty' });
+  assert.deepEqual(normaliseRepo('   '), { error: 'empty' });
+  assert.equal(normaliseRepo('https://gitlab.com/a/b').error, 'host');
+  assert.equal(normaliseRepo('git@gitlab.com:a/b.git').error, 'host');
+  assert.equal(normaliseRepo('gitlab.com/a/b').error, 'host');
+  assert.deepEqual(normaliseRepo('www.github.com/a/b'), { key: 'a/b' });
+  for (const bad of ['fastify', 'github.com/fastify', 'a/..', '-a/b', 'a--/b', 'o w/n', '<script>/x', 'a/b c', 'x'.repeat(40) + '/y', 'a/' + 'b'.repeat(101)]) {
+    assert.equal(normaliseRepo(bad).error, 'shape', bad);
+  }
+});
+
+test('the /map page works as a plain form, names its parts for screen readers and loads only site files', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const html = readFileSync(join(site(), 'map/index.html'), 'utf8');
+  assert.match(html, /<form [^>]*id="map-form"[^>]*action="\/map\/"[^>]*method="get"/);
+  assert.match(html, /<label for="repo">/);
+  assert.match(html, /<input id="repo" name="repo"/);
+  assert.match(html, /id="map-result"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html, /id="request-status"[^>]*role="status"/);
+  assert.match(html, /<noscript>/);
+  assert.match(html, /<script type="module" src="\/lookup\.js"><\/script>/);
+  assert.match(html, /<code>npx complex-md<\/code>/);
+  assert.match(html, /Who writes the prose\?/);
+  assert.ok(!/\sstyle=/.test(html), 'no style attribute');
+  for (const m of html.matchAll(/<script\b([^>]*)>/g)) assert.ok(/src="\/|type="application\/ld\+json"/.test(m[1]), m[1]);
+  assert.ok(readFileSync(join(site(), 'sitemap.xml'), 'utf8').includes('<loc>https://complex.md/map/</loc>'));
+});
+
+test('the lookup script asks /maps/index.json, posts requests as JSON and writes no markup from data', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  for (const f of ['lookup.js', 'repo-name.js']) assert.ok(existsSync(join(site(), f)), `the build ships ${f}`);
+  const js = readFileSync(join(ROOT, 'site/lookup.js'), 'utf8');
+  assert.match(js, /from '\.\/repo-name\.js'/);
+  assert.match(js, /'\/maps\/index\.json'/);
+  assert.match(js, /'\/api\/complexmd\/requests'/);
+  assert.match(js, /'content-type': 'application\/json'/);
+  for (const s of ['rate_limited', '429', 'already']) assert.ok(js.includes(s), s);
+  for (const f of ['lookup.js']) {
+    const src = readFileSync(join(ROOT, 'site', f), 'utf8');
+    assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(src), `${f} builds the DOM with textContent`);
+  }
+});

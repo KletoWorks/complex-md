@@ -163,7 +163,7 @@ function techArticleJsonLd(title, description, canonical) {
   return JSON.stringify({ '@context': 'https://schema.org', '@type': 'TechArticle', headline: title, description, url: canonical, author: { '@type': 'Person', name: AUTHOR, url: AUTHOR_URL }, license: 'https://opensource.org/license/mit/', isPartOf: { '@type': 'WebSite', name: 'complex.md', url: ORIGIN } });
 }
 
-function shell({ title, description, path, body, article, layout, toc, noindex }) {
+function shell({ title, description, path, body, article, layout, toc, noindex, script }) {
   const canonical = ORIGIN + (path === '/' ? '/' : path + '/');
   const blocks = article ? [articleJsonLd(article, canonical)] : [siteJsonLd];
   if (path === '/') { blocks.push(softwareJsonLd); const f = faqJsonLd(body); if (f) blocks.push(f); }
@@ -198,7 +198,7 @@ function shell({ title, description, path, body, article, layout, toc, noindex }
 <link rel="stylesheet" href="/platform.css">
 <link rel="stylesheet" href="/site.css">
 <script src="/analytics.js" defer></script>
-<script src="/site.js" defer></script>
+<script src="/site.js" defer></script>${script ? `\n<script type="module" src="${script}"></script>` : ''}
 ${jsonLd}
 </head>
 <body>
@@ -232,7 +232,8 @@ for (const file of readdirSync(join(ROOT, 'content'))) {
   const path = m.path ?? '/' + file.replace(/\.(md|html)$/, '');
   const kicker = m.kicker?.replaceAll('{{SPEC_VERSION}}', specVersion).replaceAll('{{PROMPT_VERSION}}', promptVersion);
   const doc = file.endsWith('.md') ? docify(markdown(body), { kicker }) : { body: body.replace('{{AGENT_MARQUEE}}', agentMarquee()), toc: false };
-  emit(path, shell({ title: m.title, description: m.description, path, layout: m.layout, ...doc }));
+  // script: a page's own module under site/. noindex: true keeps a utility page out of search.
+  emit(path, shell({ title: m.title, description: m.description, path, layout: m.layout, script: m.script, noindex: m.noindex === 'true', ...doc }));
   if (file === 'spec.md') writeFileSync(join(DIST, 'spec.md'), body);
   if (file.endsWith('.md')) fullDocs.push({ url: ORIGIN + path + '/', body, order: file === 'spec.md' ? 0 : 1 });
   if (path === '/') faq = faqItems(body);
@@ -286,7 +287,7 @@ mkdirSync(join(ROOT, 'cli/prompts'), { recursive: true });
 cpSync(join(ROOT, 'prompts/generate.md'), join(ROOT, 'cli/prompts/generate.md'));
 cpSync(join(ROOT, 'prompts/integration.md'), join(ROOT, 'cli/prompts/integration.md'));
 
-for (const f of ['site.css', 'site.js', '404.html', 'favicon.svg', 'logo.svg', 'og.png', 'sw.js', 'robots.txt']) cpSync(join(ROOT, 'site', f), join(DIST, f));
+for (const f of ['site.css', 'site.js', 'lookup.js', 'repo-name.js', '404.html', 'favicon.svg', 'logo.svg', 'og.png', 'sw.js', 'robots.txt']) cpSync(join(ROOT, 'site', f), join(DIST, f));
 for (const d of ['fonts', 'icons']) cpSync(join(ROOT, 'site', d), join(DIST, d), { recursive: true });
 // Hosted map pages (scripts/hosted-pages.mjs) load the report renderer's
 // styles and treemap tooltip as files, since their policy allows no inline
@@ -295,7 +296,7 @@ writeFileSync(join(DIST, 'report.css'), REPORT_CSS);
 writeFileSync(join(DIST, 'report.js'), REPORT_JS);
 
 // Sitemap: every rendered page, articles included.
-const pages = ['/', '/spec/', '/skill/', '/articles/', ...articles.map((a) => `/articles/${a.slug}/`)];
+const pages = ['/', '/spec/', '/skill/', '/map/', '/articles/', ...articles.map((a) => `/articles/${a.slug}/`)];
 writeFileSync(join(DIST, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map((p) => `  <url><loc>${ORIGIN}${p}</loc></url>`).join('\n')}\n</urlset>\n`);
 
 // Dual-audience mirror (RESEARCH.md principle 7): tell agents where the raw
