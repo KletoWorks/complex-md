@@ -1,0 +1,139 @@
+diff --git a/docs/Reference/Errors.md b/docs/Reference/Errors.md
+index 04528ec4..6a77abb8 100644
+--- a/docs/Reference/Errors.md
++++ b/docs/Reference/Errors.md
+@@ -49,6 +49,7 @@
+     - [FST_ERR_LOG_INVALID_LOGGER_INSTANCE](#fst_err_log_invalid_logger_instance)
+     - [FST_ERR_LOG_INVALID_LOGGER_CONFIG](#fst_err_log_invalid_logger_config)
+     - [FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED](#fst_err_log_logger_and_logger_instance_provided)
++    - [FST_ERR_LOG_INVALID_LOG_LEVEL](#fst_err_log_invalid_log_level)
+     - [FST_ERR_REP_INVALID_PAYLOAD_TYPE](#fst_err_rep_invalid_payload_type)
+     - [FST_ERR_REP_RESPONSE_BODY_CONSUMED](#fst_err_rep_response_body_consumed)
+     - [FST_ERR_REP_READABLE_STREAM_LOCKED](#fst_err_rep_readable_stream_locked)
+@@ -324,6 +325,7 @@ Below is a table with all the error codes used by Fastify.
+ | <a id="fst_err_log_invalid_logger_instance">FST_ERR_LOG_INVALID_LOGGER_INSTANCE</a> | The `loggerInstance` only accepts a logger instance, not a configuration object. | To pass a configuration object, use `'logger'` instead. | [#5020](https://github.com/fastify/fastify/pull/5020) |
+ | <a id="fst_err_log_invalid_logger_config">FST_ERR_LOG_INVALID_LOGGER_CONFIG</a> | The logger option only accepts a configuration object, not a logger instance. | To pass an instance, use `'loggerInstance'` instead.  | [#5020](https://github.com/fastify/fastify/pull/5020) |
+ | <a id="fst_err_log_logger_and_logger_instance_provided">FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED</a> | You cannot provide both `'logger'` and `'loggerInstance'`. | Please provide only one option.  | [#5020](https://github.com/fastify/fastify/pull/5020) |
++| <a id="fst_err_log_invalid_log_level">FST_ERR_LOG_INVALID_LOG_LEVEL</a> | The route `logLevel` option is not a level supported by the logger. | Use a log level supported by the logger. | |
+ | <a id="fst_err_rep_invalid_payload_type">FST_ERR_REP_INVALID_PAYLOAD_TYPE</a> | Reply payload can be either a `string` or a `Buffer`. | Use a `string` or a `Buffer` for the payload. | [#1168](https://github.com/fastify/fastify/pull/1168) |
+ | <a id="fst_err_rep_response_body_consumed">FST_ERR_REP_RESPONSE_BODY_CONSUMED</a> | Using `Response` as reply payload, but the body is being consumed. | Make sure you don't consume the `Response.body` | [#5286](https://github.com/fastify/fastify/pull/5286) |
+ | <a id="fst_err_rep_readable_stream_locked">FST_ERR_REP_READABLE_STREAM_LOCKED</a> | Using `ReadableStream` as reply payload, but locked with another reader. | Make sure you don't call the `Readable.getReader` before sending or release lock with `reader.releaseLock()` before sending. | [#5920](https://github.com/fastify/fastify/pull/5920) |
+diff --git a/lib/errors.js b/lib/errors.js
+index a5ce70dd..a5a6b67f 100644
+--- a/lib/errors.js
++++ b/lib/errors.js
+@@ -243,6 +243,13 @@ const codes = {
+     TypeError
+   ),
+ 
++  FST_ERR_LOG_INVALID_LOG_LEVEL: createError(
++    'FST_ERR_LOG_INVALID_LOG_LEVEL',
++    "Invalid log level '%s' provided for route '%s'.",
++    500,
++    TypeError
++  ),
++
+   /**
+    * reply
+   */
+diff --git a/lib/route.js b/lib/route.js
+index 290598cc..10ae88f6 100644
+--- a/lib/route.js
++++ b/lib/route.js
+@@ -28,7 +28,8 @@ const {
+   FST_ERR_ROUTE_BODY_LIMIT_OPTION_NOT_INT,
+   FST_ERR_ROUTE_HANDLER_TIMEOUT_OPTION_NOT_INT,
+   FST_ERR_HANDLER_TIMEOUT,
+-  FST_ERR_HOOK_INVALID_ASYNC_HANDLER
++  FST_ERR_HOOK_INVALID_ASYNC_HANDLER,
++  FST_ERR_LOG_INVALID_LOG_LEVEL
+ } = require('./errors')
+ 
+ const {
+@@ -285,6 +286,13 @@ function buildRouting (options) {
+       opts.prefix = prefix
+       opts.logLevel = opts.logLevel || this[kLogLevel]
+ 
++      // pino-compatible loggers expose their known levels; fail fast on unknown ones
++      // instead of throwing when the child logger is created for each request
++      const levelValues = this.log?.levels?.values
++      if (levelValues && opts.logLevel && !(opts.logLevel in levelValues)) {
++        throw new FST_ERR_LOG_INVALID_LOG_LEVEL(opts.logLevel, url)
++      }
++
+       if (this[kLogSerializers] || opts.logSerializers) {
+         opts.logSerializers = Object.assign(Object.create(this[kLogSerializers]), opts.logSerializers)
+       }
+diff --git a/test/internals/errors.test.js b/test/internals/errors.test.js
+index e132f385..276765ec 100644
+--- a/test/internals/errors.test.js
++++ b/test/internals/errors.test.js
+@@ -5,7 +5,7 @@ const errors = require('../../lib/errors')
+ const { readFileSync } = require('node:fs')
+ const { resolve } = require('node:path')
+ 
+-const expectedErrors = 88
++const expectedErrors = 89
+ 
+ test(`should expose ${expectedErrors} errors`, t => {
+   t.plan(1)
+@@ -380,6 +380,16 @@ test('FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED', t => {
+   t.assert.ok(error instanceof TypeError)
+ })
+ 
++test('FST_ERR_LOG_INVALID_LOG_LEVEL', t => {
++  t.plan(5)
++  const error = new errors.FST_ERR_LOG_INVALID_LOG_LEVEL()
++  t.assert.strictEqual(error.name, 'FastifyError')
++  t.assert.strictEqual(error.code, 'FST_ERR_LOG_INVALID_LOG_LEVEL')
++  t.assert.strictEqual(error.message, "Invalid log level '%s' provided for route '%s'.")
++  t.assert.strictEqual(error.statusCode, 500)
++  t.assert.ok(error instanceof TypeError)
++})
++
+ test('FST_ERR_REP_INVALID_PAYLOAD_TYPE', t => {
+   t.plan(5)
+   const error = new errors.FST_ERR_REP_INVALID_PAYLOAD_TYPE()
+diff --git a/test/logger/options.test.js b/test/logger/options.test.js
+index 46b1338e..bb70c181 100644
+--- a/test/logger/options.test.js
++++ b/test/logger/options.test.js
+@@ -10,7 +10,7 @@ const Fastify = require('../../fastify')
+ const { on } = stream
+ 
+ t.test('logger options', { timeout: 60000 }, async (t) => {
+-  t.plan(16)
++  t.plan(17)
+ 
+   await t.test('logger can be silenced', (t) => {
+     t.plan(17)
+@@ -576,4 +576,17 @@ t.test('logger options', { timeout: 60000 }, async (t) => {
+       if (lines.length === 0) break
+     }
+   })
++
++  await t.test('should throw on an invalid route logLevel', (t) => {
++    t.plan(2)
++
++    const fastify = Fastify({ logger: true })
++    t.after(() => fastify.close())
++
++    t.assert.throws(
++      () => fastify.get('/', { logLevel: 'invalid' }, async () => 'hello'),
++      { code: 'FST_ERR_LOG_INVALID_LOG_LEVEL', message: "Invalid log level 'invalid' provided for route '/'." }
++    )
++    t.assert.doesNotThrow(() => fastify.get('/silent', { logLevel: 'silent' }, async () => 'hello'))
++  })
+ })
+diff --git a/types/errors.d.ts b/types/errors.d.ts
+index 13c5cf40..95fc145e 100644
+--- a/types/errors.d.ts
++++ b/types/errors.d.ts
+@@ -40,6 +40,7 @@ export type FastifyErrorCodes = Record<
+   'FST_ERR_LOG_INVALID_LOGGER_INSTANCE' |
+   'FST_ERR_LOG_INVALID_LOGGER_CONFIG' |
+   'FST_ERR_LOG_LOGGER_AND_LOGGER_INSTANCE_PROVIDED' |
++  'FST_ERR_LOG_INVALID_LOG_LEVEL' |
+   'FST_ERR_REP_INVALID_PAYLOAD_TYPE' |
+   'FST_ERR_REP_RESPONSE_BODY_CONSUMED' |
+   'FST_ERR_REP_READABLE_STREAM_LOCKED' |

@@ -67,3 +67,21 @@ dependency copy or the Node install, apart from 2 generic lines
   so the prose names fewer files.
 - The schedule lives in transient systemd units. A reboot drops a timer that
   has not fired yet.
+- The Opus 5.5 maps tell the agent to run tests less often than the
+  Opus 5 maps did. Of the 14 monthly maps, 10 have a "Before editing this
+  file, run" sentence that names test files, for 18 files in all. The 14
+  `fastify-damage` maps had 30. The conduct score judges only those files.
+
+## Smoke run
+
+`bench/results/opus55-smoke`: task `2ae3e1d734`, both arms, the
+configuration above. Both rows: no error, 31 and 36 steps, sandboxed, the
+proxy admitted only `api.anthropic.com` (it denied a telemetry host), no
+web tool in the tool list or the transcript, and the regression suite ran
+(190 files, 0 regressions). The `file` arm's map was 6,978 bytes. Neither
+patch passed the real fix's 2 tests. That month's map names no tests to
+run, so `comply.mjs` scored no edit for this task.
+
+The smoke run found 2 harness defects, fixed before the campaign: the
+sandbox gave the agent no stdin, so every real run ended at 0 steps, and
+`comply.mjs` did not find maps named after their commit.
