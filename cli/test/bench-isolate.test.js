@@ -35,7 +35,10 @@ test('an isolated checkout sits at the base with no git route to the future', ()
   try {
     const wt = isolatedCheckout(fx.repo, fx.base, join(fx.dir, 'iso'));
     assert.equal(git(wt, ['rev-parse', 'HEAD']), fx.base);
-    assert.equal(git(wt, ['status', '--porcelain']), '');
+    /* The status is read with the git config isolatedCheckout used. git()
+       leaves the global config out; with core.autocrlf=true in it the
+       checkout has CRLF files, which git without it reads as edits. */
+    assert.equal(spawnSync('git', ['status', '--porcelain'], { cwd: wt, encoding: 'utf8' }).stdout, '');
     assert.equal(git(wt, ['for-each-ref', '--format=%(refname)']), 'refs/heads/main');
     assert.doesNotMatch(readFileSync(join(wt, 'lib', 'a.js'), 'utf8'), new RegExp(MARKER));
     const events = gitRoutes(probe(wt));
