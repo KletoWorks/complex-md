@@ -27,7 +27,7 @@ import { spawnSync } from 'node:child_process';
 import { createServer, connect } from 'node:net';
 import { readdirSync, lstatSync, realpathSync, mkdirSync, mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, delimiter } from 'node:path';
+import { dirname, join, relative, delimiter, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -41,7 +41,8 @@ const SIBLING_LIMIT = 512;
 
 const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 const real = (p) => { try { return realpathSync(p); } catch { return null; } };
-const under = (p, root) => p === root || p.startsWith(root.endsWith('/') ? root : root + '/');
+// sep, not '/': the plan is a pure function of the tree, and on Windows join() writes \.
+const under = (p, root) => p === root || p.startsWith(root.endsWith(sep) ? root : root + sep);
 
 export function which(bin, path = process.env.PATH) {
   for (const d of (path || '').split(delimiter)) {

@@ -3,7 +3,7 @@
 // no map it says how to make one and exits 2.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -31,7 +31,9 @@ test('report writes .complex-md/report.html from COMPLEX.md and prints its path'
   copyFileSync(join(here, 'fixtures', 'render-map.md'), join(dir, 'COMPLEX.md'));
   const r = run(dir, ['report']);
   assert.equal(r.status, 0, r.stderr);
-  const out = join(dir, '.complex-md', 'report.html');
+  /* The path is printed under the root git reports, with links and, on
+     Windows, short names resolved: /private/var for /var on macOS. */
+  const out = join(realpathSync.native(dir), '.complex-md', 'report.html');
   assert.equal(r.stdout.trim(), out);
   const html = readFileSync(out, 'utf8');
   assert.match(html, /<title>acme\/widgets: COMPLEX\.md report<\/title>/);

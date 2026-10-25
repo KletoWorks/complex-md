@@ -6,14 +6,26 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [22, 24]
     steps:
+      # Git on the Windows runner already defaults to core.autocrlf=true.
+      # Node 22 keeps it, so the tests meet a CRLF checkout as most Windows
+      # users have it. Node 24 sets false, so 1 Windows leg runs on LF files.
+      - name: Set Windows line endings
+        if: matrix.os == 'windows-latest'
+        run: git config --global core.autocrlf ${{ matrix.node == 22 && 'true' || 'false' }}
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
       - run: npm ci
         working-directory: cli
       - run: npm test
         working-directory: cli
       - run: npm run build
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 22

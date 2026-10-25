@@ -25,8 +25,9 @@ function repo(files = {}) {
   return dir;
 }
 
-/* The same map without its co-change pair: two of the four briefed paths drop out. */
-const SMALLER = MAP.replace(/co_change:\n(?: {2}- [\s\S]*?)(?=\n[a-z_]+:|\n---)/, 'co_change: []');
+/* The same map without its co-change pair: two of the four briefed paths drop out.
+   \r?\n: a Windows checkout has the fixture with CRLF line ends. */
+const SMALLER = MAP.replace(/co_change:\r?\n(?: {2}- [\s\S]*?)(?=\r?\n[a-z_]+:|\r?\n---)/, 'co_change: []');
 
 test('a file of the user\'s with the complex-md- prefix survives a rewire', () => {
   const notes = '# My notes on complex-md\n\nKeep the map short.\n';

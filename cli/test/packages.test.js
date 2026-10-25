@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const inCheckout = existsSync(join(ROOT, 'skill/SKILL.tmpl.md'));
@@ -33,7 +33,7 @@ export const SKILL_COPIES = ['skills/complex-md/SKILL.md', 'plugins/complex-md/s
 
 test('every shipped SKILL.md is the rendered template, byte for byte', async (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
-  const { renderSkill, renderReference } = await import(join(ROOT, 'scripts/skill.mjs'));
+  const { renderSkill, renderReference } = await import(pathToFileURL(join(ROOT, 'scripts/skill.mjs')).href);
   const rendered = renderSkill(ROOT, { split: true });
   assert.ok(!rendered.includes('{{'), 'the rendered skill still has a placeholder');
   for (const p of SKILL_COPIES) {
@@ -49,7 +49,7 @@ test('every shipped SKILL.md is the rendered template, byte for byte', async (t)
 // agent reads at Stage 2. The site download stays one file.
 test('each package SKILL.md stays under 5,000 tokens and names its reference file', async (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
-  const { renderSkill } = await import(join(ROOT, 'scripts/skill.mjs'));
+  const { renderSkill } = await import(pathToFileURL(join(ROOT, 'scripts/skill.mjs')).href);
   for (const p of SKILL_COPIES) {
     const text = read(p);
     assert.ok(Math.ceil(text.length / 4) < 5000, `${p} is about ${Math.ceil(text.length / 4)} tokens`);
@@ -218,6 +218,8 @@ const GRADER_OPTIONS = {
   baseline: ['baseline_file', 'criteria'],
 };
 const topKeys = (text) => [...text.matchAll(/^([A-Za-z_][\w-]*):/gm)].map((m) => m[1]);
+// With LF line ends: a Windows checkout has the eval files with CRLF.
+const readLf = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 
 test('every plugin eval case would load: known fields and typed graders', async (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
@@ -230,14 +232,14 @@ test('every plugin eval case would load: known fields and typed graders', async 
     const hasCase = existsSync(join(dir, 'case.yaml'));
     assert.ok(hasPrompt || hasCase, `${c} has neither prompt.md nor case.yaml`);
     if (hasPrompt) {
-      const text = readFileSync(join(dir, 'prompt.md'), 'utf8');
+      const text = readLf(join(dir, 'prompt.md'));
       const fm = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text);
       assert.ok(fm, `${c}/prompt.md has no front matter`);
       for (const k of topKeys(fm[1])) assert.ok(PROMPT_KEYS.has(k), `${c}/prompt.md: unknown key ${k}`);
       assert.ok(fm[2].trim().length > 0, `${c}/prompt.md has no prompt`);
     }
     if (hasCase) {
-      const y = readFileSync(join(dir, 'case.yaml'), 'utf8');
+      const y = readLf(join(dir, 'case.yaml'));
       for (const k of topKeys(y)) assert.ok(CASE_KEYS.has(k), `${c}/case.yaml: unknown key ${k}`);
       assert.match(y, /^schema_version: "1\.1"$/m);
       assert.match(y, new RegExp(`^name: ${c}$`, 'm'));
@@ -248,7 +250,7 @@ test('every plugin eval case would load: known fields and typed graders', async 
     const graders = existsSync(gdir) ? readdirSync(gdir).filter((f) => f.endsWith('.md')) : [];
     assert.ok(graders.length > 0, `${c} has no grader`);
     for (const g of graders) {
-      const fm = /^---\n([\s\S]*?)\n---/.exec(readFileSync(join(gdir, g), 'utf8'));
+      const fm = /^---\n([\s\S]*?)\n---/.exec(readLf(join(gdir, g)));
       assert.ok(fm, `${c}/graders/${g} has no front matter`);
       const type = /^type:\s*(\S+)/m.exec(fm[1])?.[1];
       assert.ok(type in GRADER_OPTIONS, `${c}/graders/${g}: unknown type ${type}`);

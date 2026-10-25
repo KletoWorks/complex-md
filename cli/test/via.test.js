@@ -2,7 +2,7 @@
 // here is a stub executable on PATH; no test starts a real agent.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, mkdirSync, chmodSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, mkdirSync, chmodSync, rmSync, symlinkSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
@@ -56,7 +56,11 @@ function stubEnv(names, { mode = 'ok', reply = MAP } = {}) {
   return { env, bin, read: () => JSON.parse(readFileSync(log, 'utf8')) };
 }
 
-const posix = process.platform !== 'win32';
+/* The stand-in agent CLIs are #! scripts. Windows starts no script as a
+   program without a shell, and runVia starts a CLI without one, so these
+   tests skip there. runVia's Windows lookup and its refusal of a .cmd
+   shim are tested on every OS through the platform option. */
+const SCRIPT_CLI = process.platform === 'win32' && 'Windows cannot start a #! stand-in CLI without a shell';
 
 test('the table names each supported CLI once, with an argv builder and its docs', () => {
   assert.deepEqual(VIA_NAMES, ['claude', 'codex', 'gemini', 'opencode', 'qwen', 'kimi', 'crush', 'goose', 'cursor-agent', 'copilot', 'hermes', 'openclaw']);
@@ -127,7 +131,7 @@ test('checkMap writes the computed front matter and refuses an invented path', (
   assert.throws(() => checkMap('I cannot do that.', FM, files), /missing required sections/);
 });
 
-test('runVia sends the bundle on stdin and returns the checked map', { skip: !posix }, async () => {
+test('runVia sends the bundle on stdin and returns the checked map', { skip: SCRIPT_CLI }, async () => {
   const root = makeRepo();
   const s = stubEnv(['claude']);
   const r = await runVia('claude', { root, bundle: 'THE BUNDLE', fm: FM, env: s.env, timeoutMs: 20000 });
@@ -136,10 +140,11 @@ test('runVia sends the bundle on stdin and returns the checked map', { skip: !po
   assert.match(seen.input, /^THE BUNDLE\n/);
   assert.match(seen.input, /Print the complete COMPLEX\.md to standard output/);
   assert.equal(seen.argv[0], '-p');
-  assert.equal(seen.cwd, root);
+  // The child reads its working folder with links resolved: /private/var for /var on macOS.
+  assert.equal(seen.cwd, realpathSync.native(root));
 });
 
-test('a file mode CLI reads the bundle from .complex-md/prompt.md', { skip: !posix }, async () => {
+test('a file mode CLI reads the bundle from .complex-md/prompt.md', { skip: SCRIPT_CLI }, async () => {
   const root = makeRepo();
   const s = stubEnv(['kimi']);
   await runVia('kimi', { root, bundle: 'THE BUNDLE', fm: FM, env: s.env, timeoutMs: 20000 });
@@ -149,7 +154,7 @@ test('a file mode CLI reads the bundle from .complex-md/prompt.md', { skip: !pos
   assert.match(seen.argv.at(-1), /Read the file \.complex-md\/prompt\.md/);
 });
 
-test('cursor-agent falls back to the agent binary name', { skip: !posix }, async () => {
+test('cursor-agent falls back to the agent binary name', { skip: SCRIPT_CLI }, async () => {
   const root = makeRepo();
   const s = stubEnv(['agent']);
   const r = await runVia('cursor-agent', { root, bundle: 'B', fm: FM, env: s.env, timeoutMs: 20000 });
@@ -167,13 +172,13 @@ test('a Windows .cmd shim is refused: it cannot start without a shell', async ()
   await assert.rejects(runVia('gemini', { root: d, bundle: 'B', fm: FM, env: { PATH: d, PATHEXT: '.CMD' }, platform: 'win32' }), /gemini\.cmd.*without a shell/);
 });
 
-test('a CLI that exits non-zero reports its exit code and its last stderr line', { skip: !posix }, async () => {
+test('a CLI that exits non-zero reports its exit code and its last stderr line', { skip: SCRIPT_CLI }, async () => {
   const root = makeRepo();
   const s = stubEnv(['codex'], { mode: 'fail' });
   await assert.rejects(runVia('codex', { root, bundle: 'B', fm: FM, env: s.env, timeoutMs: 20000 }), /codex exited with code 3: not logged in/);
 });
 
-test('a CLI that does not finish is stopped at the timeout', { skip: !posix }, async () => {
+test('a CLI that does not finish is stopped at the timeout', { skip: SCRIPT_CLI }, async () => {
   const root = makeRepo();
   const s = stubEnv(['qwen'], { mode: 'sleep' });
   const t0 = Date.now();
@@ -181,13 +186,13 @@ test('a CLI that does not finish is stopped at the timeout', { skip: !posix }, a
   assert.ok(Date.now() - t0 < 10000);
 });
 
-test('a reply that names an invented path is refused', { skip: !posix }, async () => {
+test('a reply that names an invented path is refused', { skip: SCRIPT_CLI }, async () => {
   const root = makeRepo();
   const s = stubEnv(['gemini'], { reply: MAP.replace('run `node --test`', 'run src/b.test.js') });
   await assert.rejects(runVia('gemini', { root, bundle: 'B', fm: FM, env: s.env, timeoutMs: 20000 }), /src\/b\.test\.js/);
 });
 
-test('a CLI that writes COMPLEX.md itself has the file put back', { skip: !posix }, async () => {
+test('a CLI that writes COMPLEX.md itself has the file put back', { skip: SCRIPT_CLI }, async () => {
   const root = makeRepo();
   writeFileSync(join(root, 'COMPLEX.md'), 'the reviewed map\n');
   const s = stubEnv(['goose'], { mode: 'write' });
@@ -201,7 +206,7 @@ test('a CLI that writes COMPLEX.md itself has the file put back', { skip: !posix
   assert.ok(!existsSync(join(root, 'COMPLEX.md')), 'a map the agent created is removed; the caller writes the checked one');
 });
 
-test('Ctrl-C on complex-md stops the agent CLI and puts COMPLEX.md back', { skip: !posix }, async () => {
+test('Ctrl-C on complex-md stops the agent CLI and puts COMPLEX.md back', { skip: SCRIPT_CLI }, async () => {
   // The CLI runs in its own process group, so the terminal's SIGINT reaches
   // only complex-md. Without a handler the agent would keep running, and
   // keep spending, after complex-md exits.

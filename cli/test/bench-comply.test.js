@@ -45,6 +45,14 @@ test('adviceFromMap reads the tests named in each "Before editing" sentence', as
   assert.deepEqual(adviceFromMap('no sections here'), {});
 });
 
+/* A map checked out on Windows with core.autocrlf=true has CRLF line
+   ends, as the committed maps under bench/results do on that checkout. */
+test('adviceFromMap reads a CRLF map the same as an LF map', async (t) => {
+  if (!existsSync(BENCH)) return t.skip('not a repository checkout');
+  const { adviceFromMap } = await load();
+  assert.deepEqual(adviceFromMap(MAP.replace(/\n/g, '\r\n')), adviceFromMap(MAP));
+});
+
 test('bashCommands lists the Bash commands of a stream-json transcript and skips broken lines', async (t) => {
   if (!existsSync(BENCH)) return t.skip('not a repository checkout');
   const { bashCommands } = await load();

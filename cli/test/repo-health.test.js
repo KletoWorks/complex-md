@@ -6,6 +6,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const inCheckout = existsSync(join(ROOT, 'scripts/build.mjs'));
@@ -16,7 +18,7 @@ test('every workflow action is pinned by a full commit SHA with its version besi
   if (!inCheckout) return t.skip('not a repository checkout');
   const bad = [];
   for (const f of workflows()) {
-    for (const line of readFileSync(join(WORKFLOWS, f), 'utf8').split('\n')) {
+    for (const line of readFileSync(join(WORKFLOWS, f), 'utf8').split(/\r?\n/)) {
       const m = /^\s*(?:-\s+)?uses:\s*(\S+)(.*)$/.exec(line);
       if (!m) continue;
       if (m[1].startsWith('./')) continue;
@@ -35,7 +37,8 @@ test('every workflow declares its token permissions at the top level', (t) => {
   assert.deepEqual(missing, [], 'add a top level permissions: block');
 });
 
-const read = (f) => readFileSync(join(ROOT, f), 'utf8');
+// With LF line ends: a Windows checkout has CRLF files, and the patterns below match on \n.
+const read = (f) => readFileSync(join(ROOT, f), 'utf8').replace(/\r\n/g, '\n');
 
 /* A reporter who finds a hole must find a private path before a public
    one. GitHub shows SECURITY.md on the Security tab and on the new issue
@@ -166,4 +169,19 @@ test('the release workflow installs an exact npm version', (t) => {
 test('this repository commits no edit hooks and no MCP server config', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   for (const f of ['.claude/settings.json', '.cursor/hooks.json', '.mcp.json']) assert.ok(!existsSync(join(ROOT, f)), `${f} is not committed`);
+});
+
+/* Git for Windows writes CRLF on checkout (core.autocrlf=true). bash does
+   not run a script with CRLF line ends, and the build writes the skill
+   copies with LF, which a test compares byte for byte. So these files
+   check out with LF on every OS. */
+test('shell scripts and the skill copies the build writes check out with LF', async (t) => {
+  if (!inCheckout || !existsSync(join(ROOT, '.git'))) return t.skip('not a git checkout');
+  const { SKILL_COPIES } = await import(pathToFileURL(join(ROOT, 'scripts/skill.mjs')).href);
+  const git = (...args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+  const scripts = git('ls-files', '*.sh').split('\n').filter(Boolean);
+  assert.ok(scripts.length > 0, 'the repository has shell scripts');
+  const copies = SKILL_COPIES.flatMap((p) => [p, `${p.slice(0, p.lastIndexOf('/'))}/references/generate.md`]);
+  const eol = git('check-attr', 'eol', '--', ...scripts, ...copies).trim().split('\n');
+  assert.deepEqual(eol.filter((l) => !l.endsWith(': eol: lf')), []);
 });

@@ -6,13 +6,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { buildRegressionRepo } from './fixtures/regression-repo.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'complex-md.js');
-const PRELOAD = join(here, 'fixtures', 'no-network.mjs');
+// --import takes a URL, and on Windows a drive letter reads as a scheme.
+const PRELOAD = pathToFileURL(join(here, 'fixtures', 'no-network.mjs')).href;
 const NO_KEYS = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/_API_KEY$|^COMPLEX_MD_|^OLLAMA_HOST$/.test(k)));
 
 function offline(cwd, args) {

@@ -71,7 +71,8 @@ test('the proof states the claim verbatim and names the model', (t) => {
    for that one file, so a change to the sentence fails here. */
 test('the quoted blind spot is the sentence the signals write for a NUL byte', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
-  const src = readFileSync(join(ROOT, 'content/index.html'), 'utf8');
+  // With LF, as the build reads it: a Windows checkout has the page with CRLF.
+  const src = readFileSync(join(ROOT, 'content/index.html'), 'utf8').replace(/\r\n/g, '\n');
   const quoted = /<pre class="blind[^"]*"[^>]*><span class="k">blind_spots:<\/span>\n {2}- "([^"]+)"<\/pre>/.exec(src)?.[1];
   assert.ok(quoted, 'the page quotes one blind spot');
   const dir = mkdtempSync(join(tmpdir(), 'cx-home-nul-'));

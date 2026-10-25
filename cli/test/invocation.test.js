@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, delimiter } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -44,10 +44,22 @@ function stub(dir, name, label) {
   chmodSync(p, 0o755);
 }
 
+/* The hook command is POSIX shell. Windows has no /bin/sh, so there the
+   command runs in the sh that Git for Windows installs beside git, and its
+   usr/bin stands in for the system directories. */
+function posixShell() {
+  if (process.platform !== 'win32') return { sh: '/bin/sh', system: ['/usr/bin', '/bin'], env: {} };
+  const core = spawnSync('git', ['--exec-path'], { encoding: 'utf8' }).stdout.trim();
+  const usrBin = join(core, '..', '..', '..', 'usr', 'bin');
+  return { sh: join(usrBin, 'sh.exe'), system: [usrBin], env: { SYSTEMROOT: process.env.SYSTEMROOT } };
+}
+const SHELL = posixShell();
+
 /* PATH holds the stand-ins and the system directories only, so a real
    complex-md or npx on this machine cannot answer for a stand-in. */
 function runIn(cwd, command, bin) {
-  return spawnSync('/bin/sh', ['-c', command], { cwd, encoding: 'utf8', env: { PATH: `${bin}:/usr/bin:/bin` } });
+  const PATH = [bin, ...SHELL.system].join(delimiter);
+  return spawnSync(SHELL.sh, ['-c', command], { cwd, encoding: 'utf8', env: { ...SHELL.env, PATH } });
 }
 
 test('wired hook commands pin the exact version and never run an unpinned npx', () => {

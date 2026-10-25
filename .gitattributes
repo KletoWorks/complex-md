@@ -1,3 +1,12 @@
+# bash does not run a script with CRLF line ends.
+*.sh text eol=lf
+# The site build writes these copies of the skill with LF line ends, and a
+# test compares each with the rendered template byte for byte.
+/skills/complex-md/SKILL.md text eol=lf
+/skills/complex-md/references/generate.md text eol=lf
+/plugins/complex-md/skills/complex-md/SKILL.md text eol=lf
+/plugins/complex-md/skills/complex-md/references/generate.md text eol=lf
+
 # BEGIN complex-md (spec 0.3)
 # Files complex-md generates. Edit COMPLEX.md, not them.
 /.claude/rules/complex-md/bench-run.mjs-wagotw.md eol=lf linguist-generated

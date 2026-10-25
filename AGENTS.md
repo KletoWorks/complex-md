@@ -6,7 +6,8 @@ complex-md has two parts: the `cli/` npm package and the complex.md site.
 These rules are for a coding agent that works on either part.
 
 - Run `cd cli && npm test` before you finish a change. The exit code is
-  the gate, not the printed summary. CI runs it on Node 22.
+  the gate, not the printed summary. CI runs it on Ubuntu, Windows and
+  macOS, each with Node 22 and 24.
 - Run `npm run build` at the root after a change to `content/`, `site/`
   or `scripts/build.mjs`. It writes `dist/`.
 - Edit the prompts in `prompts/`. The files in `cli/prompts/` are copies

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { PROVIDERS } from '../src/providers.js';
 
@@ -72,7 +72,7 @@ test('a run of every local command with no key makes no network request', () => 
   writeFileSync(join(dir, 'b.js'), 'export const b = 2;\n');
   g('commit', '-qam', 'fix: b');
 
-  const run = (args, input) => spawnSync(process.execPath, ['--import', trap, BIN, ...args], { cwd: dir, env, encoding: 'utf8', input });
+  const run = (args, input) => spawnSync(process.execPath, ['--import', pathToFileURL(trap).href, BIN, ...args], { cwd: dir, env, encoding: 'utf8', input });
   const ran = [];
   for (const args of [[], ['signals'], ['wire'], ['report'], ['impact', 'a.js'], ['check']]) {
     const r = run(args);

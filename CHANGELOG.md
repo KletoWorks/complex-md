@@ -6,6 +6,34 @@ format.
 
 ## Unreleased
 
+**Intent:** CI ran the tests on Ubuntu with Node 22 only. The CLI writes
+files with line ending rules, runs git and builds paths, and none of that
+ran on Windows or macOS. The first run there failed 4 tests on each macOS
+leg, 17 on Windows with LF files and 37 on Windows with CRLF files.
+
+**Change:** CI runs the tests on Ubuntu, Windows and macOS, each with Node
+22 and 24, and a failing leg does not stop the others. The Windows Node 22
+leg checks out with `core.autocrlf=true`, as most Windows users have it,
+and the Node 24 leg with `false`. The site build runs on Ubuntu with Node
+22 only. A test that skips on one OS says why: Windows has no SIGINT for a
+child process, and starts no `#!` stand-in CLI without a shell.
+
+**Change:** the `pre` and `cursor-pre` hooks match a file that the agent
+names through a linked folder or an 8.3 short name. git gives the root
+with links resolved, so on macOS a path under `/var`, a link to
+`/private/var`, matched no file, and the first edit of a hotspot went
+through with no paragraph.
+
+**Change:** a CRLF checkout of this repository gives the same results as
+an LF one. The CLI reads its prompts with LF, so wire writes no mixed line
+ends into AGENTS.md or the skill, and check reports no drift. The site
+build reads its text inputs with LF; on CRLF it had published 2 draft
+articles and titled pages "undefined". The bench reads the advice in a
+CRLF map. Shell scripts and the 4 skill copies check out with LF.
+
+**Change:** the bench names test files with `/` on Windows, and its mask
+plan compares paths with the OS separator.
+
 **Intent:** the home page opened with a hand typed excerpt of a fastify map from release 0.4.0 whose numbers matched no file in the repository. It put the benchmark result in its sixth section and sent a visitor to a separate page to look up a repository.
 
 **Change:** the home page leads with "Tell your coding agent what it could break, before it edits.", a repository box and `npx complex-md`. The box is a plain GET form to `/map/?repo=`, so it opens a hosted page, links a committed COMPLEX.md, or shows the command and a request button, with or without script.

@@ -3,7 +3,7 @@
 // the published CLI package has no scripts/ folder.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -62,6 +62,29 @@ test('llmsFull puts each page under its own h1 with its URL, links made absolute
   assert.ok(text.includes('### Why?\n\nBecause.'));
   assert.ok(text.includes('# Page A\n\nSource: https://example.test/a/\n\nSee [the spec](https://example.test/spec/).'));
   assert.ok(text.endsWith('\n') && !text.endsWith('\n\n'));
+});
+
+/* A Windows checkout with core.autocrlf=true has CRLF articles, prompts
+   and templates. The build reads each with LF, so it renders the same
+   pages and the same skill as an LF checkout. */
+test('the build reads CRLF articles, prompts and the skill template the same as LF ones', async (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const crlf = (s) => s.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+  const { readArticles } = await content();
+  const dir = mkdtempSync(join(tmpdir(), 'cx-articles-crlf-'));
+  writeFileSync(join(dir, 'live.md'), crlf(article({ title: 'Live', description: 'd', date: '2026-10-01' }, '# Live')));
+  const [a] = readArticles(dir);
+  assert.equal(a.meta.title, 'Live', 'the meta block of a CRLF article is read');
+  assert.equal(a.body, '# Live\n');
+  const { renderSkill, renderReference } = await import(pathToFileURL(join(ROOT, 'scripts/skill.mjs')).href);
+  const root = mkdtempSync(join(tmpdir(), 'cx-skill-crlf-'));
+  for (const p of ['prompts/generate.md', 'prompts/integration.md', 'skill/SKILL.tmpl.md']) {
+    mkdirSync(join(root, dirname(p)), { recursive: true });
+    writeFileSync(join(root, p), crlf(readFileSync(join(ROOT, p), 'utf8')));
+  }
+  assert.equal(renderSkill(root, { split: true }), renderSkill(ROOT, { split: true }));
+  assert.equal(renderSkill(root), renderSkill(ROOT));
+  assert.equal(renderReference(root), renderReference(ROOT));
 });
 
 test('the build publishes no draft and lists none', (t) => {
