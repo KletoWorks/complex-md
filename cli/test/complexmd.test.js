@@ -151,6 +151,28 @@ test('quoted scalars and list items read back without their escapes', async () =
   assert.deepEqual(hand.blind_spots, ['say "hi"', "single 'quoted' item", 'odd \\x escape']);
 });
 
+/* Spec 0.4 section 6.2 lets a plain scalar in a flow list hold a double
+   quote after its first character, and frontMatter writes co_change paths
+   unquoted. A quote inside lib/a"b.js opened quoted mode, so the comma after
+   it was skipped and the 2 paths read back as 1. */
+test('a double quote inside a plain flow list path does not join it to the next path', async () => {
+  const m = parseComplexMd(`---\ncomplex_md: "0.4"\nco_change:\n  - files: [lib/a"b.js, lib/c.js]\n    count: 3\n    coupling: 60\n---\n`);
+  assert.deepEqual(m.co_change[0].files, ['lib/a"b.js', 'lib/c.js']);
+  assert.deepEqual(m.partnersOf('lib/c.js'), [{ partner: 'lib/a"b.js', count: 3 }]);
+  assert.deepEqual(parseFrontMatter('tags: [say"hi, there]').tags, ['say"hi', 'there']);
+
+  const { frontMatter } = await import('../src/generate.js');
+  const sig = {
+    spec: '0.3', generated: '2026-10-25', commit: 'abc1234', window_commits: 1, files_analyzed: 1, profile: {},
+    hotspots: [], load_bearing: [], co_change: [{ files: ['lib/a"b.js', 'lib/c.js'], count: 3, coupling: 60 }], seams: [], blind_spots: [],
+  };
+  assert.deepEqual(parseFrontMatter(frontMatter(sig, 'complex-md/test')).co_change[0].files, ['lib/a"b.js', 'lib/c.js']);
+
+  // A quote that opens an item still guards its commas, after a space too.
+  assert.deepEqual(parseFrontMatter('files: ["lib/b,c.js", lib/d.js]').files, ['lib/b,c.js', 'lib/d.js']);
+  assert.deepEqual(parseFrontMatter('files: [lib/a.js,  "lib/b,c.js"]').files, ['lib/a.js', 'lib/b,c.js']);
+});
+
 test('a paragraph that names the full path beats an earlier mention of the basename', () => {
   // The first paragraph names generate.js by its basename near its start.
   // The second paragraph is the file's own, and it names the full path a

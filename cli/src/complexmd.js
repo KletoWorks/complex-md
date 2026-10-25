@@ -203,11 +203,16 @@ export function parseFrontMatter(src) {
     }
     return v;
   };
+  /* A comma inside a double quoted item does not split it. Only a quote
+     that opens an item starts a quoted scalar: spec 0.4 section 6.2 lets a
+     plain scalar hold a quote after its first character, and frontMatter
+     writes co_change paths unquoted, so lib/a"b.js is a plain path. */
   const flowList = (inner) => {
     if (!inner.trim()) return [];
     const items = [];
     let quoted = false;
     let escaped = false;
+    let opening = true;
     let start = 0;
     for (let j = 0; j < inner.length; j++) {
       const c = inner[j];
@@ -215,11 +220,14 @@ export function parseFrontMatter(src) {
         if (escaped) escaped = false;
         else if (c === '\\') escaped = true;
         else if (c === '"') quoted = false;
-      } else if (c === '"') quoted = true;
-      else if (c === ',') {
+      } else if (c === ',') {
         items.push(scalar(inner.slice(start, j)));
         start = j + 1;
-      }
+        opening = true;
+      } else if (opening && c === '"') {
+        quoted = true;
+        opening = false;
+      } else if (c !== ' ') opening = false;
     }
     items.push(scalar(inner.slice(start)));
     return items;
