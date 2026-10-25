@@ -261,6 +261,30 @@ tests the map names on 14 of 15 risky edits, against 3 of 17 without it
 Code. Results and method: `bench/RESULTS.md` in
 https://github.com/KletoWorks/complex-md.
 
+## GitLab merge request notes
+
+On GitHub, [complex-md-action](https://github.com/KletoWorks/complex-md-action)
+posts one pull request comment. On GitLab,
+[`ci/gitlab/complex-md.gitlab-ci.yml`](https://github.com/KletoWorks/complex-md/blob/main/ci/gitlab/complex-md.gitlab-ci.yml)
+posts the same comment as one merge request note:
+
+```yaml
+include:
+  - remote: https://raw.githubusercontent.com/KletoWorks/complex-md/<commit sha>/ci/gitlab/complex-md.gitlab-ci.yml
+```
+
+The job runs on merge request pipelines only. It reads COMPLEX.md from the
+target branch (`check --map-ref`), prints the note with `check --note`, and
+posts or edits it with curl. The CLI makes no request. Each later push edits
+the same note, and a push that drops the last hot file clears it.
+
+`CI_JOB_TOKEN` can read merge request notes but cannot write them. Create a
+project access token with the Reporter role and the `api` scope, and save it
+as a masked CI/CD variable named `COMPLEX_MD_GITLAB_TOKEN`, or set
+`COMPLEX_MD_TOKEN_VARIABLE` to the name you chose. With no token, the job
+prints the note to its log and posts nothing. The header of the file states
+what the job runs and why the token gets the Reporter role.
+
 ## Limits, stated plainly
 
 The analysis is text-level: regular expressions and lightweight parsers

@@ -16,6 +16,15 @@ files, directives and co-change partners left unchanged, with a renamed file
 counted under its old path. A clean change prints a cleared note. The CLI
 makes no request for it.
 
+**Change:** `ci/gitlab/complex-md.gitlab-ci.yml` is a GitLab CI include that
+runs on merge request pipelines. It installs a pinned complex-md outside the
+checkout, runs `check --note` against the target branch's map with the
+token removed from the CLI's environment, and creates, edits or clears one
+note through the notes API with curl. One run makes 2 reads, 1 more for each
+100 notes past the first 100, and 1 write at most. It needs a token with the `api` scope and the Reporter role, because
+`CI_JOB_TOKEN` cannot write notes. It pins 0.12.0, the first release with
+`--note`.
+
 **Intent:** CI ran the tests on Ubuntu with Node 22 only. The CLI writes
 files with line ending rules, runs git and builds paths, and none of that
 ran on Windows or macOS. The first run there failed 4 tests on each macOS
