@@ -3,7 +3,8 @@
 // published CLI package has no bench/ directory.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -109,4 +110,26 @@ test('the committed runs reproduce the compliance result: 14 of 15 edits with th
   assert.equal(undici.tally.file.edits + fastify.tally.file.edits, 15);
   assert.equal(undici.tally.none.all + fastify.tally.none.all, 3);
   assert.equal(undici.tally.none.edits + fastify.tally.none.edits, 17);
+});
+
+/* run.mjs names a map after its month and the commit it was built at
+   (fastify-fastify-2026-04-d33f017ffe.md). scoreDir looked only for the
+   older name (fastify-fastify-2026-04.md), so it scored no run made since. */
+test('scoreDir finds a map named after its month and commit, also in a separate cache', async (t) => {
+  if (!existsSync(MODULE)) return t.skip('bench/ is not in this checkout');
+  const { scoreDir } = await load();
+  const dir = mkdtempSync(join(tmpdir(), 'cx-comply-'));
+  try {
+    const cache = join(dir, 'cache');
+    for (const d of [join(dir, 'out', 'transcripts'), join(cache, 'maps')]) mkdirSync(d, { recursive: true });
+    const ds = { repo: 'nodejs/undici', tasks: [{ id: 't1', date: '2026-04-19' }] };
+    writeFileSync(join(cache, 'maps', 'nodejs-undici-2026-04-a1d6766ade.md'), MAP);
+    const rows = [{ task: 't1', arm: 'none', edited: ['lib/core/request.js'], map_commit: null }, { task: 't1', arm: 'file', edited: ['lib/core/request.js'], map_commit: 'a1d6766adef9' }];
+    writeFileSync(join(dir, 'out', 'runs.jsonl'), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    const bash = (cmd) => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: cmd } }] } });
+    writeFileSync(join(dir, 'out', 'transcripts', 't1-none.jsonl'), bash('ls') + '\n');
+    writeFileSync(join(dir, 'out', 'transcripts', 't1-file.jsonl'), bash('node --test test/request.js') + '\n');
+    const { tally } = scoreDir(join(dir, 'out'), ds, { mapsDir: join(cache, 'maps') });
+    assert.deepEqual([tally.none?.all, tally.file?.all], [0, 1]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
