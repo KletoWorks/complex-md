@@ -43,8 +43,13 @@ it not to.
 - The model call. With a provider key, `generate` sends the signals and
   the hotspot excerpts to that provider. Before the call, it replaces each
   secret-shaped value in the request with `[redacted:<rule>]`
-  (`cli/src/redact.js`). A credential file that reaches the request is in
-  scope, and so is a key in a known token format that reaches it.
+  (`cli/src/redact.js`, with the rules in `cli/rules/exposure.json`). A
+  credential file that reaches the request is in scope, and so is a key in
+  a known token format that reaches it.
+- `complex-md exposure`. A secret value in its report, its SARIF file, its
+  baseline or its terminal output is in scope. So is a rule file in a
+  cloned repository (`.complex-md/exposure.json`) that makes the scan run
+  code, stall, or fetch from a remote.
 - The MCP server, `complex-md mcp`. `wire` registers it only with `--mcp`.
 - The release workflow and the npm package provenance.
 

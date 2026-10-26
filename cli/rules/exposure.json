@@ -1,0 +1,1009 @@
+{
+  "format": "complex-md/exposure-rules",
+  "version": 1,
+  "placeholders": [
+    "^\\[redacted:",
+    "\\$[{(]",
+    "\\$[A-Z_][A-Z0-9_]{2,40}",
+    "^\\$[A-Za-z_]",
+    "^<[^>]{0,200}>$",
+    "^%[^%]{0,200}%$",
+    "^\\{\\{",
+    "process\\.env",
+    "os\\.environ",
+    "getenv"
+  ],
+  "stopwords": [
+    "example",
+    "placeholder",
+    "changeme",
+    "your_",
+    "your-",
+    "xxxxxxxx",
+    "dummy",
+    "redacted"
+  ],
+  "rules": [
+    {
+      "id": "private-key",
+      "slice": "E1",
+      "title": "Private key block",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "private key"
+        ],
+        "regex": "(-----BEGIN[A-Z0-9 ]{0,40}PRIVATE KEY(?: BLOCK)?-----[A-Za-z0-9+\\/=\\s:,\\\\]{0,12000}(?:-----END[A-Z0-9 ]{0,40}PRIVATE KEY(?: BLOCK)?-----)?)",
+        "minLength": 60
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-321",
+      "directive": "Replace this key pair, then remove the private key from the file and from the git history."
+    },
+    {
+      "id": "aws-access-key",
+      "slice": "E1",
+      "title": "AWS access key ID",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "akia",
+          "asia",
+          "abia",
+          "acca",
+          "a3t"
+        ],
+        "regex": "\\b((?:A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[A-Z2-7]{16})\\b"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with AWS IAM, then remove it from the file and from the git history."
+    },
+    {
+      "id": "aws-secret-key",
+      "slice": "E1",
+      "title": "AWS secret access key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "aws"
+        ],
+        "regex": "aws[A-Za-z0-9_.-]{0,20}(?:secret|private)[A-Za-z0-9_.-]{0,20}[\"']?[ \\t]{0,40}(?:=>|:=|=|:)[ \\t]{0,5}[\"'`]?([A-Za-z0-9\\/+]{40})(?:[^A-Za-z0-9\\/+=]|$)",
+        "flags": "i",
+        "minEntropy": 4
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "medium",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with AWS IAM, then remove it from the file and from the git history."
+    },
+    {
+      "id": "github-token",
+      "slice": "E1",
+      "title": "GitHub token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "ghp_",
+          "gho_",
+          "ghu_",
+          "ghs_",
+          "ghr_",
+          "github_pat_"
+        ],
+        "regex": "\\b((?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9]{22}_[A-Za-z0-9]{59})\\b"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with GitHub, then remove it from the file and from the git history."
+    },
+    {
+      "id": "gitlab-token",
+      "slice": "E1",
+      "title": "GitLab token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "glpat-",
+          "gldt-",
+          "glrt-",
+          "glptt-",
+          "glcbt-",
+          "gloas-"
+        ],
+        "regex": "\\b((?:glpat|gldt|glrt|glptt|glcbt|gloas)-[A-Za-z0-9_-]{20,64})(?:[^A-Za-z0-9_-]|$)"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with GitLab, then remove it from the file and from the git history."
+    },
+    {
+      "id": "anthropic-key",
+      "slice": "E1",
+      "title": "Anthropic API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "sk-ant-"
+        ],
+        "regex": "\\b(sk-ant-[a-z]{2,10}[0-9]{2}-[A-Za-z0-9_-]{32,300})"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Anthropic, then remove it from the file and from the git history."
+    },
+    {
+      "id": "openai-key",
+      "slice": "E1",
+      "title": "OpenAI API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "t3blbkfj",
+          "sk-proj-",
+          "sk-svcacct-",
+          "sk-admin-"
+        ],
+        "regex": "\\b(sk-(?:(?:proj|svcacct|admin)-)?[A-Za-z0-9_-]{20,200}T3BlbkFJ[A-Za-z0-9_-]{20,200}|sk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{40,300})"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with OpenAI, then remove it from the file and from the git history."
+    },
+    {
+      "id": "openrouter-key",
+      "slice": "E1",
+      "title": "OpenRouter API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "sk-or-v1-"
+        ],
+        "regex": "\\b(sk-or-v1-[a-f0-9]{64})\\b"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with OpenRouter, then remove it from the file and from the git history."
+    },
+    {
+      "id": "groq-key",
+      "slice": "E1",
+      "title": "Groq API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "gsk_"
+        ],
+        "regex": "\\b(gsk_[A-Za-z0-9]{52})\\b"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Groq, then remove it from the file and from the git history."
+    },
+    {
+      "id": "xai-key",
+      "slice": "E1",
+      "title": "xAI API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "xai-"
+        ],
+        "regex": "\\b(xai-[A-Za-z0-9]{80})\\b"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with xAI, then remove it from the file and from the git history."
+    },
+    {
+      "id": "perplexity-key",
+      "slice": "E1",
+      "title": "Perplexity API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "pplx-"
+        ],
+        "regex": "\\b(pplx-[A-Za-z0-9]{48})\\b"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Perplexity, then remove it from the file and from the git history."
+    },
+    {
+      "id": "huggingface-token",
+      "slice": "E1",
+      "title": "Hugging Face token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "hf_"
+        ],
+        "regex": "\\b(hf_[A-Za-z0-9]{34})\\b",
+        "minEntropy": 3.5
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Hugging Face, then remove it from the file and from the git history."
+    },
+    {
+      "id": "replicate-token",
+      "slice": "E1",
+      "title": "Replicate API token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "r8_"
+        ],
+        "regex": "\\b(r8_[A-Za-z0-9]{37})\\b"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Replicate, then remove it from the file and from the git history."
+    },
+    {
+      "id": "slack-token",
+      "slice": "E1",
+      "title": "Slack token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "xoxa-",
+          "xoxb-",
+          "xoxp-",
+          "xoxo-",
+          "xoxs-",
+          "xoxr-",
+          "xapp-"
+        ],
+        "regex": "\\b(xox[abposr]-[0-9]{1,20}-[0-9]{1,20}-[A-Za-z0-9-]{10,80}|xapp-[0-9]-[A-Z0-9]{1,20}-[0-9]{1,20}-[a-z0-9]{32,80})"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Slack, then remove it from the file and from the git history."
+    },
+    {
+      "id": "slack-webhook",
+      "slice": "E1",
+      "title": "Slack incoming webhook URL",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "hooks.slack.com"
+        ],
+        "regex": "(https:\\/\\/hooks\\.slack\\.com\\/(?:services|workflows|triggers)\\/[A-Za-z0-9+\\/_-]{20,200})"
+      },
+      "established": "exact",
+      "severity": "medium",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Slack, then remove it from the file and from the git history."
+    },
+    {
+      "id": "discord-webhook",
+      "slice": "E1",
+      "title": "Discord webhook URL",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "discord"
+        ],
+        "regex": "(https:\\/\\/(?:ptb\\.|canary\\.)?discord(?:app)?\\.com\\/api\\/webhooks\\/[0-9]{5,30}\\/[A-Za-z0-9_-]{50,100})"
+      },
+      "established": "exact",
+      "severity": "medium",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Discord, then remove it from the file and from the git history."
+    },
+    {
+      "id": "telegram-bot-token",
+      "slice": "E1",
+      "title": "Telegram bot token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          ":aa"
+        ],
+        "regex": "\\b([0-9]{8,10}:AA[A-Za-z0-9_-]{33})(?:[^A-Za-z0-9_-]|$)"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Telegram BotFather, then remove it from the file and from the git history."
+    },
+    {
+      "id": "stripe-key",
+      "slice": "E1",
+      "title": "Stripe live secret or restricted key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "sk_live_",
+          "rk_live_"
+        ],
+        "regex": "\\b((?:sk|rk)_live_[A-Za-z0-9]{20,250})\\b"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Stripe, then remove it from the file and from the git history."
+    },
+    {
+      "id": "stripe-webhook-secret",
+      "slice": "E1",
+      "title": "Stripe webhook signing secret",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "whsec_"
+        ],
+        "regex": "\\b(whsec_[A-Za-z0-9]{32,80})\\b"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Stripe, then remove it from the file and from the git history."
+    },
+    {
+      "id": "google-api-key",
+      "slice": "E1",
+      "title": "Google API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "aiza"
+        ],
+        "regex": "\\b(AIza[A-Za-z0-9_-]{35})(?:[^A-Za-z0-9_-]|$)"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Google Cloud, then remove it from the file and from the git history."
+    },
+    {
+      "id": "google-oauth-secret",
+      "slice": "E1",
+      "title": "Google OAuth client secret",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "gocspx-"
+        ],
+        "regex": "\\b(GOCSPX-[A-Za-z0-9_-]{28})(?:[^A-Za-z0-9_-]|$)"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Google Cloud, then remove it from the file and from the git history."
+    },
+    {
+      "id": "alibaba-access-key",
+      "slice": "E1",
+      "title": "Alibaba Cloud AccessKey ID",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "ltai"
+        ],
+        "regex": "\\b(LTAI[A-Za-z0-9]{12,20})\\b",
+        "minEntropy": 3
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "medium",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Alibaba Cloud RAM, then remove it from the file and from the git history."
+    },
+    {
+      "id": "tencent-secret-id",
+      "slice": "E1",
+      "title": "Tencent Cloud SecretId",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "akid"
+        ],
+        "regex": "\\b(AKID[A-Za-z0-9]{32})\\b",
+        "minEntropy": 3
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "medium",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Tencent Cloud CAM, then remove it from the file and from the git history."
+    },
+    {
+      "id": "azure-storage-key",
+      "slice": "E1",
+      "title": "Azure storage account key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "accountkey="
+        ],
+        "regex": "AccountKey=([A-Za-z0-9+\\/]{86}==)",
+        "flags": "i"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Azure, then remove it from the file and from the git history."
+    },
+    {
+      "id": "digitalocean-token",
+      "slice": "E1",
+      "title": "DigitalOcean token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "dop_v1_",
+          "doo_v1_",
+          "dor_v1_"
+        ],
+        "regex": "\\b(do[por]_v1_[a-f0-9]{64})\\b"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with DigitalOcean, then remove it from the file and from the git history."
+    },
+    {
+      "id": "npm-token",
+      "slice": "E1",
+      "title": "npm access token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "npm_"
+        ],
+        "regex": "\\b(npm_[A-Za-z0-9]{36})\\b",
+        "minEntropy": 3
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with npm, then remove it from the file and from the git history."
+    },
+    {
+      "id": "pypi-token",
+      "slice": "E1",
+      "title": "PyPI upload token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "pypi-ageichlwas5vcmc"
+        ],
+        "regex": "\\b(pypi-AgEIcHlwaS5vcmc[A-Za-z0-9_-]{50,300})"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with PyPI, then remove it from the file and from the git history."
+    },
+    {
+      "id": "rubygems-key",
+      "slice": "E1",
+      "title": "RubyGems API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "rubygems_"
+        ],
+        "regex": "\\b(rubygems_[a-f0-9]{48})\\b"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with RubyGems, then remove it from the file and from the git history."
+    },
+    {
+      "id": "docker-hub-token",
+      "slice": "E1",
+      "title": "Docker Hub access token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "dckr_pat_"
+        ],
+        "regex": "\\b(dckr_pat_[A-Za-z0-9_-]{27})(?:[^A-Za-z0-9_-]|$)"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Docker Hub, then remove it from the file and from the git history."
+    },
+    {
+      "id": "sendgrid-key",
+      "slice": "E1",
+      "title": "SendGrid API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "sg."
+        ],
+        "regex": "\\b(SG\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{43})(?:[^A-Za-z0-9_-]|$)"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with SendGrid, then remove it from the file and from the git history."
+    },
+    {
+      "id": "mailchimp-key",
+      "slice": "E1",
+      "title": "Mailchimp API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "-us"
+        ],
+        "regex": "\\b([0-9a-f]{32}-us[0-9]{1,2})\\b",
+        "minEntropy": 3
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "medium",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Mailchimp, then remove it from the file and from the git history."
+    },
+    {
+      "id": "shopify-token",
+      "slice": "E1",
+      "title": "Shopify token or shared secret",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "shpat_",
+          "shpss_",
+          "shpca_",
+          "shppa_"
+        ],
+        "regex": "\\b(shp(?:at|ss|ca|pa)_[a-fA-F0-9]{32})\\b"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Shopify, then remove it from the file and from the git history."
+    },
+    {
+      "id": "linear-key",
+      "slice": "E1",
+      "title": "Linear API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "lin_api_"
+        ],
+        "regex": "\\b(lin_api_[A-Za-z0-9]{40})\\b"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Linear, then remove it from the file and from the git history."
+    },
+    {
+      "id": "notion-token",
+      "slice": "E1",
+      "title": "Notion integration token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "ntn_",
+          "secret_"
+        ],
+        "regex": "\\b(ntn_[A-Za-z0-9]{40,50}|secret_[A-Za-z0-9]{43})\\b",
+        "minEntropy": 3.5
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Notion, then remove it from the file and from the git history."
+    },
+    {
+      "id": "airtable-token",
+      "slice": "E1",
+      "title": "Airtable personal access token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "pat"
+        ],
+        "regex": "\\b(pat[A-Za-z0-9]{14}\\.[a-f0-9]{64})\\b"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Airtable, then remove it from the file and from the git history."
+    },
+    {
+      "id": "figma-token",
+      "slice": "E1",
+      "title": "Figma personal access token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "figd_"
+        ],
+        "regex": "\\b(figd_[A-Za-z0-9_-]{40,64})(?:[^A-Za-z0-9_-]|$)"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Figma, then remove it from the file and from the git history."
+    },
+    {
+      "id": "postman-key",
+      "slice": "E1",
+      "title": "Postman API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "pmak-"
+        ],
+        "regex": "\\b(PMAK-[a-f0-9]{24}-[a-f0-9]{34})\\b"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Postman, then remove it from the file and from the git history."
+    },
+    {
+      "id": "databricks-token",
+      "slice": "E1",
+      "title": "Databricks access token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "dapi"
+        ],
+        "regex": "\\b(dapi[a-f0-9]{32}(?:-[0-9])?)\\b",
+        "minEntropy": 3
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Databricks, then remove it from the file and from the git history."
+    },
+    {
+      "id": "doppler-token",
+      "slice": "E1",
+      "title": "Doppler token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "dp."
+        ],
+        "regex": "\\b(dp\\.(?:pt|st|sa|ct|scim|audit)\\.[A-Za-z0-9]{40,44})\\b"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Doppler, then remove it from the file and from the git history."
+    },
+    {
+      "id": "vault-token",
+      "slice": "E1",
+      "title": "HashiCorp Vault token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "hvs.",
+          "hvb."
+        ],
+        "regex": "\\b(hv[sb]\\.[A-Za-z0-9_-]{24,200})(?:[^A-Za-z0-9_-]|$)",
+        "minEntropy": 3.5
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Vault, then remove it from the file and from the git history."
+    },
+    {
+      "id": "terraform-token",
+      "slice": "E1",
+      "title": "Terraform Cloud API token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "atlasv1"
+        ],
+        "regex": "\\b([A-Za-z0-9]{14}\\.atlasv1\\.[A-Za-z0-9_-]{60,70})(?:[^A-Za-z0-9_-]|$)"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Terraform Cloud, then remove it from the file and from the git history."
+    },
+    {
+      "id": "atlassian-token",
+      "slice": "E1",
+      "title": "Atlassian API token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "atatt3"
+        ],
+        "regex": "\\b(ATATT3[A-Za-z0-9_=-]{150,250})(?:[^A-Za-z0-9_=-]|$)"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Atlassian, then remove it from the file and from the git history."
+    },
+    {
+      "id": "sentry-token",
+      "slice": "E1",
+      "title": "Sentry auth token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "sntrys_",
+          "sntryu_"
+        ],
+        "regex": "\\b(sntry[su]_[A-Za-z0-9+\\/=_]{40,300})"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Sentry, then remove it from the file and from the git history."
+    },
+    {
+      "id": "grafana-token",
+      "slice": "E1",
+      "title": "Grafana token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "glsa_",
+          "glc_"
+        ],
+        "regex": "\\b(glsa_[A-Za-z0-9]{32}_[A-Fa-f0-9]{8}|glc_[A-Za-z0-9+\\/]{32,400}={0,2})"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Grafana, then remove it from the file and from the git history."
+    },
+    {
+      "id": "newrelic-key",
+      "slice": "E1",
+      "title": "New Relic user API key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "nrak-"
+        ],
+        "regex": "\\b(NRAK-[A-Z0-9]{27})\\b"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with New Relic, then remove it from the file and from the git history."
+    },
+    {
+      "id": "planetscale-token",
+      "slice": "E1",
+      "title": "PlanetScale token or password",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "pscale_"
+        ],
+        "regex": "\\b(pscale_(?:tkn|pw|oauth)_[A-Za-z0-9_.=-]{32,64})"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with PlanetScale, then remove it from the file and from the git history."
+    },
+    {
+      "id": "supabase-key",
+      "slice": "E1",
+      "title": "Supabase access token or secret key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "sbp_",
+          "sb_secret_"
+        ],
+        "regex": "\\b(sbp_[a-f0-9]{40}|sb_secret_[A-Za-z0-9_-]{20,80})(?:[^A-Za-z0-9_-]|$)"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Supabase, then remove it from the file and from the git history."
+    },
+    {
+      "id": "square-token",
+      "slice": "E1",
+      "title": "Square access token or application secret",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "sq0atp-",
+          "sq0csp-"
+        ],
+        "regex": "\\b(sq0(?:atp|csp)-[A-Za-z0-9_-]{22,43})(?:[^A-Za-z0-9_-]|$)"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Square, then remove it from the file and from the git history."
+    },
+    {
+      "id": "mapbox-secret-token",
+      "slice": "E1",
+      "title": "Mapbox secret token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "sk.eyj"
+        ],
+        "regex": "\\b(sk\\.eyJ[A-Za-z0-9_-]{50,400}\\.[A-Za-z0-9_-]{20,100})"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Mapbox, then remove it from the file and from the git history."
+    },
+    {
+      "id": "age-secret-key",
+      "slice": "E1",
+      "title": "age secret key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "age-secret-key-1"
+        ],
+        "regex": "\\b(AGE-SECRET-KEY-1[QPZRY9X8GF2TVDW0S3JN54KHCE6MUA7L]{58})\\b"
+      },
+      "established": "exact",
+      "severity": "critical",
+      "confidence": "high",
+      "cwe": "CWE-321",
+      "directive": "Make a new age identity, re-encrypt what this key opens, then remove it from the file and from the git history."
+    },
+    {
+      "id": "fcm-server-key",
+      "slice": "E1",
+      "title": "Firebase Cloud Messaging server key",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "aaaa"
+        ],
+        "regex": "\\b(AAAA[A-Za-z0-9_-]{7}:[A-Za-z0-9_-]{140})"
+      },
+      "established": "exact",
+      "severity": "high",
+      "confidence": "high",
+      "cwe": "CWE-798",
+      "directive": "Rotate this credential with Firebase, then remove it from the file and from the git history."
+    },
+    {
+      "id": "jwt",
+      "slice": "E1",
+      "title": "JSON web token",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "eyj"
+        ],
+        "regex": "\\b(eyJ[A-Za-z0-9_-]{10,2000}\\.eyJ[A-Za-z0-9_-]{10,4000}\\.[A-Za-z0-9_-]{10,1000})"
+      },
+      "established": "exact",
+      "severity": "medium",
+      "confidence": "medium",
+      "cwe": "CWE-798",
+      "directive": "Revoke or let this token expire, rotate the key that signed it if the token is long lived, then remove it from the file."
+    },
+    {
+      "id": "credentials-in-url",
+      "slice": "E1",
+      "title": "Password in a connection URL",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "://"
+        ],
+        "regex": "\\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\\+srv)?|rediss?|amqps?|mssql|sqlserver|ftps?|sftp|smtps?|https?):\\/\\/[^\\s:@\\/\"'`]{1,64}:([^\\s:@\\/\"'`]{6,128})@[A-Za-z0-9.-]{1,253}",
+        "predicate": "random-value",
+        "params": {
+          "minEntropy": 3
+        }
+      },
+      "established": "structural",
+      "severity": "high",
+      "confidence": "medium",
+      "cwe": "CWE-259",
+      "directive": "Change this password, read it from the environment or a secret store, then remove it from the file and from the git history."
+    },
+    {
+      "id": "generic-assignment",
+      "slice": "E1",
+      "title": "Random value assigned to a secret name",
+      "match": {
+        "type": "content",
+        "keywords": [
+          "key",
+          "secret",
+          "token",
+          "passw",
+          "pwd",
+          "credential",
+          "jwt"
+        ],
+        "regex": "(?:key|secret|token|passw(?:or)?d|pwd|credential|jwt)[A-Za-z0-9_.-]{0,40}[\"']?[ \\t]{0,40}(?:=>|:=|=|:)[ \\t]{0,5}(?:\"([^\"'\\x60\\s]{12,1000})\"|'([^\"'\\x60\\s]{12,1000})'|\\x60([^\"'\\x60\\s]{12,1000})\\x60|([A-Za-z0-9+/_-][A-Za-z0-9+/=_.~!@#%^&*-]{15,999})(?:[ \\t\\r\"'\\x60]|$))",
+        "flags": "im",
+        "predicate": "random-value",
+        "params": {
+          "minEntropy": 3.5,
+          "nameNot": "(?:id|ids|name|names|type|types|url|urls|uri|file|files|path|dir|endpoint|service|services|provider|class|alias|version|format|prefix|suffix|header|field|count|length|size|len|policy|mode|hash|digest|ttl|expiry|expires|timeout|label|index)(?:[_.-]?[0-9]{1,3})?[\"'\\]]{0,2}[ \\t]{0,40}(?:=>|:=|=|:)[ \\t]{0,5}[\"'\\x60]?$"
+        }
+      },
+      "established": "heuristic",
+      "severity": "low",
+      "confidence": "low",
+      "cwe": "CWE-798",
+      "directive": "Check whether this value is a real credential; if it is, rotate it and read it from the environment or a secret store instead."
+    }
+  ]
+}

@@ -73,6 +73,13 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  exit 0 fresh, 1 drift past tolerance, 2 cannot verify  (--json)
   npx complex-md lint [path]     check a map against the spec 0.4 schema (default ./COMPLEX.md)
                                  path:line: rule: message; exit 1 on an error; over 8,192 bytes warns  (--json)
+  npx complex-md exposure        opt in: scan the tracked files and every commit HEAD reaches for secret-shaped
+                                 values (E1); writes .complex-md/exposure-report.json, never a value
+                                 --no-history (tracked files only) | --all-refs (every ref, not only HEAD)
+                                 --sarif [path] also writes SARIF 2.1.0 (default .complex-md/exposure.sarif)
+                                 --baseline accepts the current findings into .complex-md/exposure.json
+                                 --config-ref <ref> reads .complex-md/exposure.json from that commit (CI: the
+                                 base branch) | --json | --strict (exit 1 on a new finding; 2 on a broken config)
   npx complex-md signals         print the signals table  (--json | --tsv)
   npx complex-md report          render COMPLEX.md as a page: .complex-md/report.html (treemap, directives,
                                  co-change, blind spots); one self contained file, no network
@@ -196,6 +203,40 @@ async function main() {
     if (s.co_change.length) { console.error('co-change:'); for (const c of s.co_change) console.error(`  ${c.count}  coupling ${c.coupling}%  ${c.files[0]}  +  ${c.files[1]}`); }
     if (s.seams.length) { console.error('seams (directories that move together):'); for (const c of s.seams) console.error(`  ${c.count}  coupling ${c.coupling}%  ${c.dirs[0]}  +  ${c.dirs[1]}`); }
     for (const b of s.blind_spots) console.error(`note: ${b}`);
+    return;
+  }
+
+  /* exposure is opt in: no other command runs it. It reads the tracked
+     tree and the history, and writes .complex-md/exposure-report.json. */
+  if (cmd === 'exposure') {
+    const configRef = opt('--config-ref');
+    if (flag('--config-ref') && (!configRef || configRef.startsWith('-') || !resolvesCommit(root, configRef))) {
+      log(`complex-md: --config-ref needs a commit ref in this checkout, for example --config-ref origin/main${configRef && !configRef.startsWith('-') ? `; ${configRef} does not resolve` : ''}.`);
+      process.exit(2);
+    }
+    if (flag('--baseline') && configRef) {
+      log('complex-md: --baseline writes .complex-md/exposure.json in the working tree, so it does not take --config-ref.');
+      process.exit(2);
+    }
+    const sarifArg = opt('--sarif');
+    const { runExposure, writeExposure, writeBaseline, formatExposure, ExposureConfigError, SARIF_PATH, CONFIG_PATH } = await import('../src/exposure.js');
+    const sarif = flag('--sarif') ? (sarifArg && !sarifArg.startsWith('-') ? sarifArg : SARIF_PATH) : null;
+    let report;
+    try {
+      report = await runExposure(root, { configRef, history: !flag('--no-history'), allRefs: flag('--all-refs'), version: pkg.version });
+    } catch (e) {
+      if (e instanceof ExposureConfigError) { log(e.message); process.exit(2); }
+      throw e;
+    }
+    if (flag('--baseline')) {
+      const b = writeBaseline(root, report);
+      report = b.report;
+      log(`baseline: ${b.added} finding${b.added === 1 ? '' : 's'} added to ${CONFIG_PATH}; commit it with a reason for each one you keep.`);
+    }
+    writeExposure(root, report, { sarif, log });
+    if (flag('--json')) console.log(JSON.stringify(report, null, 2));
+    else console.log(formatExposure(report) + (sarif ? `\nsarif: ${sarif}` : ''));
+    if (flag('--strict') && report.counts.new > 0) process.exit(1);
     return;
   }
 

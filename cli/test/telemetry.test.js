@@ -75,7 +75,7 @@ test('a run of every local command with no key makes no network request', () => 
 
   const run = (args, input) => spawnSync(process.execPath, ['--import', pathToFileURL(trap).href, BIN, ...args], { cwd: dir, env, encoding: 'utf8', input });
   const ran = [];
-  for (const args of [[], ['signals'], ['wire'], ['report'], ['impact', 'a.js'], ['check']]) {
+  for (const args of [[], ['signals'], ['wire'], ['report'], ['impact', 'a.js'], ['check'], ['exposure', '--sarif']]) {
     const r = run(args);
     ran.push(`${args.join(' ') || '(default)'}: ${r.status}`);
   }

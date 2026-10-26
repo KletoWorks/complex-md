@@ -19,6 +19,7 @@
     "src",
     "prompts",
     "schema",
+    "rules",
     "README.md"
   ],
   "engines": {
