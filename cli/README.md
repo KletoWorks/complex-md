@@ -318,7 +318,13 @@ With a key, the call goes to the provider you chose. It carries the
 generation prompt, the computed signals (paths, their numbers, co-change
 pairs, the repository profile) and excerpts of up to ten hotspot files:
 about 14,000 characters each and 60,000 in all. On undici the request held
-five excerpts and 80,000 characters, about 20,000 tokens. `generate --agent`
+five excerpts and 80,000 characters, about 20,000 tokens. Before the
+request is sent or written, each secret-shaped value in it becomes
+`[redacted:<rule>]`: a known token format (AWS, GitHub, OpenAI, Anthropic,
+Slack, Stripe and Google keys, JSON web tokens), a private key block, or a
+random value assigned to a name with key, secret, token or password in it.
+The run prints how many it replaced, never a value. A secret in another
+shape is sent as it is. `generate --agent`
 writes the same request to `.complex-md/prompt.md` and sends nothing, so you
 can read it first. With `--via`, the same bundle goes to the agent CLI you
 named, which sends it to the model it uses.

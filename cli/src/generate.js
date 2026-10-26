@@ -11,6 +11,7 @@ import { generatePrompt, promptVersion } from './prompts.js';
 import { resolveProvider, PROVIDERS } from './providers.js';
 import { runVia, askVia, viaSelection, viaInvocation } from './via.js';
 import { removeDashes } from './dashes.js';
+import { redact, addCounts, redactionLine } from './redact.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json');
@@ -44,13 +45,19 @@ export function frontMatter(sig, tool, { prose = null } = {}) {
   return lines.join('\n') + '\n';
 }
 
-function excerpt(root, path) {
+/* The excerpt of 1 hotspot file, with each secret-shaped value already
+   replaced (redact.js). Redaction runs on the whole file before any cut, so
+   a cut never leaves half of a key that no rule matches. */
+function excerpt(root, path, seen) {
   let text;
   try {
     text = readFileSync(join(root, path), 'utf8');
   } catch {
     return null;
   }
+  const r = redact(text);
+  addCounts(seen, r);
+  text = r.text;
   if (text.length <= PER_FILE_CHARS) return text;
   const lines = text.split('\n');
   let head = '';
@@ -64,8 +71,13 @@ function excerpt(root, path) {
   return `${head}\n[... ${lines.length - i} more lines; symbols defined below this point follow ...]\n${symbols}`;
 }
 
+/* `redacted` counts the secret-shaped values that redact.js replaced, per
+   rule. The bundle carries `[redacted:<rule>]` in their place. The front
+   matter that generate writes is `frontMatter`, computed from `sig` and
+   never passed through redact, so no redaction can change a number. */
 export function buildBundle(root, sig, tool) {
   const fm = frontMatter(sig, tool);
+  const seen = { total: 0, counts: {} };
   const p = sig.profile;
   const parts = [generatePrompt().trim(), '', '---', '', '# Inputs for this repository', '', '## Front matter (computed; copy verbatim, do not alter a number)', '', '```yaml', fm.trim(), '```', '', '## Signals table (all rows, sorted by score)', '', TABLE_HEAD.join('\t')];
   for (const r of sig.table) parts.push(rowToArray(r).join('\t'));
@@ -87,7 +99,7 @@ export function buildBundle(root, sig, tool) {
   let n = 0;
   for (const h of sig.hotspots) {
     if (n >= 10 || budget <= 0) break;
-    const ex = excerpt(root, h.path);
+    const ex = excerpt(root, h.path, seen);
     if (ex === null) continue;
     const cut = ex.length > budget ? ex.slice(0, budget) + '\n[... truncated ...]' : ex;
     const tests = sig.tests[h.path] || [];
@@ -97,7 +109,10 @@ export function buildBundle(root, sig, tool) {
     n++;
     if (n >= 5 && budget < MAX_FILE_CHARS * 0.3) break;
   }
-  return { bundle: parts.join('\n'), frontMatter: fm };
+  // A second pass covers the rest of the text: paths, blind spots, names.
+  const rest = redact(parts.join('\n'));
+  addCounts(seen, rest);
+  return { bundle: rest.text, frontMatter: fm, redacted: seen };
 }
 
 // The four prose sections the spec requires, in order. A model reply that
@@ -232,7 +247,9 @@ export async function generate(root, { model = null, provider = null, agent = fa
   log(`signals: ${sig.files_analyzed} files in scope, ${sig.profile.dependency_edges} dependency edges, ${sig.commits_analyzed} commits (${sig.fix_commits} fixes), ${sig.hotspots.length} hotspots, ${sig.co_change.length} pairs, confidence ${sig.profile.confidence}, ${Date.now() - t0} ms`);
   for (const b of sig.blind_spots) log(`note: ${b}`);
   const tool = `complex-md/${pkg.version}`;
-  const { bundle, frontMatter: fm } = buildBundle(root, sig, tool);
+  const { bundle, frontMatter: fm, redacted } = buildBundle(root, sig, tool);
+  const redactedNote = redactionLine(redacted);
+  if (redactedNote) log(redactedNote);
 
   // The bundle is the fallback for every path that does not end in a
   // written COMPLEX.md: no key, --agent, or a model call that failed.
