@@ -7,3 +7,4 @@ analytics/
 !.complex-md/manifest.json
 !.complex-md/bounds.json
 plugins/complex-md/evals/results/
+!.complex-md/exposure.json
