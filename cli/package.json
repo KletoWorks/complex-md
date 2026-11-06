@@ -12,6 +12,8 @@
   },
   "type": "module",
   "bin": {
+    "complex": "bin/complex-md.js",
+    "complex.md": "bin/complex-md.js",
     "complex-md": "bin/complex-md.js"
   },
   "files": [
