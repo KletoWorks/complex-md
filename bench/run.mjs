@@ -295,6 +295,11 @@ async function runAgent(task, arm, wt) {
       const pid = proxy && sig !== 'SIGKILL' ? innerPid(child.pid) : null;
       try { if (pid) process.kill(pid, sig); else child.kill(sig); } catch {}
     };
+    /* An agent that exits before it reads stdin closes the pipe, and the
+       write fails with EPIPE. Its exit code and output are recorded
+       below, so the failed write is not the run's error. Unhandled, it
+       ended the harness (seen with the mock agent on Windows). */
+    child.stdin.on('error', () => {});
     child.stdin.end(SCRIPTED[agent] ? '' : PROMPT(task));
     const transcript = [];
     const { m, onEvent } = createMeter({ wt, gold: task.gold, stopAt });
