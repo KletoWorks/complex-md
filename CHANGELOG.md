@@ -6,6 +6,10 @@ format.
 
 ## Unreleased
 
+**Intent:** `bunx complex-md` runs the CLI on Bun, and no test ran on Bun. Under Bun 1.3.14, 827 of 830 tests passed, 2 are todo and 1 failed. The failure matched the error text of Node's engine only.
+
+**Change:** CI has a `bun` job that runs the CLI suite under Bun 1.3.14 on Ubuntu. The hosted pages test also accepts Bun's error text for a malformed map ("No default value"); the behavior it checks is unchanged.
+
 **Intent:** the command was `complex-md`, 10 characters, and the project is named complex.md. A short command is easier to type and to remember.
 
 **Change:** the package installs 3 commands that run the same entry: `complex`, `complex.md` and `complex-md`. `complex-md` stays, so the hooks, CI files and AGENTS.md lines that earlier versions wrote keep working. The `complex.md` command lets `npx complex.md` pick the entry once the package is also published under that name. `cli/test/bin-names.test.js` checks the 3 names.
