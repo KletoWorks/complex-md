@@ -14,3 +14,10 @@ if (!existsSync(src)) {
 mkdirSync(dst, { recursive: true });
 for (const f of ['generate.md', 'integration.md']) copyFileSync(join(src, f), join(dst, f));
 console.log('sync-prompts: copied generate.md, integration.md');
+
+const schema = join(here, '..', '..', 'spec', '0.4', 'complex-md.schema.json');
+if (existsSync(schema)) {
+  mkdirSync(join(here, '..', 'schema'), { recursive: true });
+  copyFileSync(schema, join(here, '..', 'schema', 'complex-md.schema.json'));
+  console.log('sync-prompts: copied complex-md.schema.json');
+}

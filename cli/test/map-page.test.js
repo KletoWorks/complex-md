@@ -23,7 +23,7 @@ function site() {
   return built;
 }
 
-test('normaliseRepo reads owner/name, GitHub URLs, git URLs and SSH remotes as one lower case key', async (t) => {
+test('normaliseRepo reads owner/name, GitHub URLs, git URLs and SSH remotes as one lower case GitHub key', async (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const { normaliseRepo } = await repoName();
   const cases = {
@@ -42,16 +42,41 @@ test('normaliseRepo reads owner/name, GitHub URLs, git URLs and SSH remotes as o
     'complex.md/fastify/fastify': 'fastify/fastify',
     'https://complex.md/fastify/fastify/': 'fastify/fastify',
   };
-  for (const [input, key] of Object.entries(cases)) assert.deepEqual(normaliseRepo(input), { key }, input);
+  for (const [input, key] of Object.entries(cases)) assert.deepEqual(normaliseRepo(input), { host: 'github', key }, input);
   assert.deepEqual(normaliseRepo(''), { error: 'empty' });
   assert.deepEqual(normaliseRepo('   '), { error: 'empty' });
-  assert.equal(normaliseRepo('https://gitlab.com/a/b').error, 'host');
-  assert.equal(normaliseRepo('git@gitlab.com:a/b.git').error, 'host');
-  assert.equal(normaliseRepo('gitlab.com/a/b').error, 'host');
-  assert.deepEqual(normaliseRepo('www.github.com/a/b'), { key: 'a/b' });
+  assert.equal(normaliseRepo('https://sr.ht/~a/b').error, 'host');
+  assert.equal(normaliseRepo('git@example.org:a/b.git').error, 'host');
+  assert.equal(normaliseRepo('gitea.com/a/b').error, 'host');
+  assert.deepEqual(normaliseRepo('www.github.com/a/b'), { host: 'github', key: 'a/b' });
   for (const bad of ['fastify', 'github.com/fastify', 'a/..', '-a/b', 'a--/b', 'o w/n', '<script>/x', 'a/b c', 'x'.repeat(40) + '/y', 'a/' + 'b'.repeat(101)]) {
     assert.equal(normaliseRepo(bad).error, 'shape', bad);
   }
+});
+
+test('normaliseRepo reads GitLab, Codeberg and Bitbucket URLs and remotes under the request route rules', async (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const { normaliseRepo, repoAddress } = await repoName();
+  const cases = {
+    'https://gitlab.com/gitlab-org/cli': ['gitlab', 'gitlab-org/cli'],
+    'https://gitlab.com/Group/Sub/Project/-/tree/main?x=1': ['gitlab', 'group/sub/project'],
+    'gitlab.com/a/b/c/d': ['gitlab', 'a/b/c/d'],
+    'git@gitlab.com:gitlab-org/cli.git': ['gitlab', 'gitlab-org/cli'],
+    'https://www.gitlab.com/_x/.y': ['gitlab', '_x/.y'],
+    'https://codeberg.org/forgejo/forgejo/src/branch/forgejo': ['codeberg', 'forgejo/forgejo'],
+    'git@codeberg.org:a.b/c_d.git': ['codeberg', 'a.b/c_d'],
+    'https://bitbucket.org/Atlassian/Python-Bitbucket/src/master/': ['bitbucket', 'atlassian/python-bitbucket'],
+    'ssh://git@bitbucket.org/ws_1/repo.git': ['bitbucket', 'ws_1/repo'],
+  };
+  for (const [input, [host, key]] of Object.entries(cases)) assert.deepEqual(normaliseRepo(input), { host, key }, input);
+  assert.equal(repoAddress({ host: 'gitlab', key: 'a/b/c' }), 'gitlab.com/a/b/c');
+  assert.equal(repoAddress({ host: 'github', key: 'a/b' }), 'github.com/a/b');
+  const bad = [
+    'gitlab.com/a', 'gitlab.com/a/b/c/d/e', 'gitlab.com/a./b', 'gitlab.com/a.git/b', 'gitlab.com/a/b.atom', 'gitlab.com/-a/b',
+    'codeberg.org/a', 'codeberg.org/a..b/c', 'codeberg.org/-a/b', 'codeberg.org/a/..', 'codeberg.org/' + 'a'.repeat(42) + '/b',
+    'bitbucket.org/a', 'bitbucket.org/a.b/c', 'bitbucket.org/a/' + 'b'.repeat(63), 'bitbucket.org/<x>/y',
+  ];
+  for (const input of bad) assert.equal(normaliseRepo(input).error, 'shape', input);
 });
 
 test('the /map page works as a plain form, names its parts for screen readers and loads only site files', (t) => {
@@ -78,6 +103,7 @@ test('the lookup script asks /maps/index.json, posts requests as JSON and writes
   assert.match(js, /from '\.\/repo-name\.js'/);
   assert.match(js, /'\/maps\/index\.json'/);
   assert.match(js, /'\/api\/complexmd\/requests'/);
+  assert.match(js, /JSON\.stringify\(\{ repo: key, host \}\)/);
   assert.match(js, /'content-type': 'application\/json'/);
   for (const s of ['rate_limited', '429', 'already']) assert.ok(js.includes(s), s);
   for (const f of ['lookup.js', 'remove.js']) {
@@ -87,7 +113,6 @@ test('the lookup script asks /maps/index.json, posts requests as JSON and writes
 });
 
 async function lookupApp(fetch) {
-  const { normaliseRepo } = await repoName();
   const makeElement = () => ({
     textContent: '',
     hidden: false,
@@ -105,10 +130,12 @@ async function lookupApp(fetch) {
   const elements = Object.fromEntries(ids.map((id) => [id, makeElement()]));
   const storage = new Map();
   const location = { search: '', assigned: null, assign(path) { this.assigned = path; } };
+  const mod = await repoName();
   const source = readFileSync(join(ROOT, 'site/lookup.js'), 'utf8')
-    .replace("import { normaliseRepo } from './repo-name.js';", 'const normaliseRepo = globalThis.__normaliseRepo;');
+    .replace(/^import \{ ([^}]+) \} from '\.\/repo-name\.js';$/m, 'const { $1 } = globalThis.__repoName;');
+  assert.ok(!/^import /m.test(source), 'the test stands in for every import of lookup.js');
   runInNewContext(source, {
-    __normaliseRepo: normaliseRepo,
+    __repoName: mod,
     document: {
       getElementById(id) { return elements[id]; },
       createElement() { return makeElement(); },
@@ -202,11 +229,50 @@ test('a request response for an earlier repository cannot update the current loo
   await requestD;
 });
 
-test('the removal page names the three ways, the 24 hours, and posts to the removals route', (t) => {
+test('a GitLab, Codeberg or Bitbucket repository skips the index, says hosted pages are GitHub first, and requests with its host', async (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const calls = [];
+  const app = await lookupApp(async (url, options) => {
+    calls.push({ url, body: options && JSON.parse(options.body) });
+    return { status: 202, json: async () => ({ ok: true }) };
+  });
+  const cases = [
+    ['https://gitlab.com/Group/Sub/Project/-/tree/main', 'gitlab', 'group/sub/project', 'gitlab.com/group/sub/project', 'GitLab'],
+    ['git@codeberg.org:forgejo/forgejo.git', 'codeberg', 'forgejo/forgejo', 'codeberg.org/forgejo/forgejo', 'Codeberg'],
+    ['https://bitbucket.org/ws/repo/src/main/', 'bitbucket', 'ws/repo', 'bitbucket.org/ws/repo', 'Bitbucket'],
+  ];
+  for (const [input, host, key, address, name] of cases) {
+    calls.length = 0;
+    app.submit(input);
+    await nextTurn();
+    assert.equal(calls.length, 0, 'no index fetch for a host without hosted pages');
+    assert.equal(app.location.assigned, null);
+    assert.equal(app.elements['map-unmapped'].hidden, false, 'the command and the request button show');
+    assert.match(app.elements['unmapped-text'].textContent, /Hosted pages cover GitHub repositories first/);
+    assert.ok(app.elements['unmapped-text'].textContent.includes(`${address} on ${name}`));
+    await app.request();
+    assert.deepEqual(calls, [{ url: '/api/complexmd/requests', body: { repo: key, host } }]);
+    assert.equal(app.storage.get(`cx-requested:${host}:${key}`), '1');
+    assert.match(app.elements['request-status'].textContent, new RegExp(`Request recorded for ${address.replace(/\./g, '\\.')}\\. Hosted pages cover GitHub first\\.`));
+  }
+  // A GitHub request names its host too, and keeps the storage key it had.
+  calls.length = 0;
+  app.submit('org/repo');
+  await nextTurn();
+  await app.request();
+  assert.deepEqual(calls.at(-1), { url: '/api/complexmd/requests', body: { repo: 'org/repo', host: 'github' } });
+  assert.equal(app.storage.get('cx-requested:org/repo'), '1');
+});
+
+test('the removal page names the three ways, the 24 hours, the review within 72 hours, and posts to the removals route', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const html = readFileSync(join(site(), 'map/remove/index.html'), 'utf8');
   assert.match(html, /<meta name="robots" content="noindex">/);
   assert.match(html, /within 24 hours/);
+  // A person reviews a form request; the exporter applies it 72 hours after the request at the latest.
+  assert.match(html, /A person\s+reviews it within 72 hours\./);
+  assert.ok(!/each takes effect within 24 hours/i.test(html), 'a form request is not a 24 hour removal');
+  assert.match(readFileSync(join(site(), 'map/index.html'), 'utf8'), /A person reviews each removal request within 72\s+hours\./);
   assert.match(html, /Commit COMPLEX\.md/);
   assert.match(html, /<code>hosted: false<\/code>/);
   assert.match(html, /<textarea id="remove-note" name="note"[^>]*maxlength="2000"/);
@@ -216,6 +282,8 @@ test('the removal page names the three ways, the 24 hours, and posts to the remo
   const js = readFileSync(join(ROOT, 'site/remove.js'), 'utf8');
   assert.match(js, /'\/api\/complexmd\/removals'/);
   assert.match(js, /2000/);
+  // The removals route takes GitHub repositories only.
+  assert.match(js, /r\.host !== 'github'/);
 });
 
 test('the header and the home page hero lead to the /map page', (t) => {

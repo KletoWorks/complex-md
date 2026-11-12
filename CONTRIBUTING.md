@@ -2,6 +2,30 @@
 
 Issues and pull requests are welcome. The spec changes by evidence: a new signal or rule needs a citation or a benchmark run in `bench/`, and a line in `CHANGELOG.md` saying why. Plain prose, no emphasis words, numbers over adjectives; read the spec for the register.
 
+## Ways to contribute
+
+Outside code costs review time, so each kind of contribution has a form
+and a test as its bar. Start at the top of the list.
+
+1. [A wrong map](https://github.com/KletoWorks/complex-md/issues/new?template=map-wrong.yml):
+   a public repository, the commit, the line of COMPLEX.md that is wrong
+   and why. The bar is a fixture or a test that shows the wrong output.
+2. [A language module](https://github.com/KletoWorks/complex-md/issues/new?template=new-language.yml):
+   the language, 3 public repositories to test on and the import forms to
+   resolve. The bar is an edge fixture like the ones in
+   `cli/test/resolve.test.js`.
+3. [A conformance case](https://github.com/KletoWorks/complex-md/issues/new?template=conformance-case.yml):
+   a spec 0.4 fixture in `spec/0.4/fixtures/` with its expected result.
+   The bar is the fixture and its entry in `cli/test/spec-fixtures.test.js`.
+4. [A spec proposal](https://github.com/KletoWorks/complex-md/issues/new?template=spec-proposal.yml):
+   the problem, the proposed text and a benchmark run or a source that
+   supports it. The bar is that citation, as `AGENTS.md` says.
+
+A real fix commit for the benchmark has its own
+[form](https://github.com/KletoWorks/complex-md/issues/new?template=benchmark-task.yml).
+Ask a question in
+[Discussions](https://github.com/KletoWorks/complex-md/discussions/categories/q-a).
+
 ## AI assistance
 
 You may use AI tools to write a contribution. Three rules apply.

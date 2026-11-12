@@ -1,0 +1,130 @@
+# complex-md merge request note for GitLab CI/CD.
+#
+# When a merge request touches a COMPLEX.md hotspot or a load bearing file,
+# or changes one side of a co-change pair and not the other, this job posts
+# one note on it. Each later push edits the same note, and a push that drops
+# the last hot file clears it. A merge request that touches none of them
+# gets no note. The note has the format of the pull request comment that
+# KletoWorks/complex-md-action posts on GitHub.
+#
+# Setup:
+#   1. Commit a COMPLEX.md at the repository root: npx complex-md
+#   2. Create a project access token with the Reporter role and the api
+#      scope. CI_JOB_TOKEN can read merge request notes but cannot write
+#      them. On GitLab.com Free, where project access tokens need Premium,
+#      use a personal access token of a separate account with the api scope.
+#   3. Save it as a masked CI/CD variable named COMPLEX_MD_GITLAB_TOKEN, or
+#      set COMPLEX_MD_TOKEN_VARIABLE to the name you chose. Do not mark it
+#      protected unless every merge request source branch is protected:
+#      GitLab gives a protected variable only to protected branches.
+#   4. Include this file at a full commit sha, which cannot move:
+#
+#      include:
+#        - remote: https://raw.githubusercontent.com/KletoWorks/complex-md/<commit sha>/ci/gitlab/complex-md.gitlab-ci.yml
+#
+# What the job runs:
+#   - It runs on merge request pipelines only.
+#   - It reads COMPLEX.md from the target branch with git show. The copy
+#     on the merge request branch is never read, so a merge request cannot
+#     change its own note by editing the map.
+#   - It installs complex-md at the pinned COMPLEX_MD_VERSION in an empty
+#     directory outside the checkout, so a .npmrc or package.json from the
+#     merge request does not apply. The CLI reads git history and file
+#     names. It runs no code from the merge request, makes no network
+#     request, and runs with the token and CI_JOB_TOKEN removed from its
+#     environment.
+#   - curl posts or edits the note. One run makes 2 reads (the token's
+#     user and the first 100 notes), 1 more read for each further 100
+#     notes, and 1 write at most.
+#
+# GitLab runs a merge request pipeline with the .gitlab-ci.yml of the
+# source branch. Anyone who can push a branch can change this job and read
+# an unprotected variable, so the token gets the Reporter role: it can
+# comment, and it cannot push or merge. A pipeline for a merge request from
+# a fork runs in the fork, without this project's variables: it prints the
+# note to the job log and posts nothing.
+
+complex-md:
+  stage: test
+  image: node:24
+  needs: []
+  allow_failure: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    # The full history, so git can find the merge base and the map's age.
+    GIT_DEPTH: "0"
+    # The first complex-md release with check --note and --map-ref.
+    COMPLEX_MD_VERSION: "0.12.0"
+    # The name of the CI/CD variable that holds the token.
+    COMPLEX_MD_TOKEN_VARIABLE: "COMPLEX_MD_GITLAB_TOKEN"
+  script:
+    - |
+      set -eu
+      token_var="${COMPLEX_MD_TOKEN_VARIABLE:-COMPLEX_MD_GITLAB_TOKEN}"
+      target="$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+      git fetch --quiet --no-tags origin "+refs/heads/$target:refs/remotes/origin/$target"
+      base=$(git merge-base "origin/$target" HEAD)
+      work=$(mktemp -d)
+      # COMPLEX_MD_CLI names another command, for a mirror or a test.
+      if [ -n "${COMPLEX_MD_CLI:-}" ]; then
+        cli="$COMPLEX_MD_CLI"
+      else
+        (cd "$work" && npm install --silent --no-save --no-package-lock --no-audit --no-fund --ignore-scripts "complex-md@$COMPLEX_MD_VERSION")
+        cli="node $work/node_modules/complex-md/bin/complex-md.js"
+      fi
+      set +e
+      env -u "$token_var" -u CI_JOB_TOKEN $cli check --base "$base" --map-ref "origin/$target" --note --strict > "$work/note.md"
+      status=$?
+      set -e
+      if [ "$status" -gt 1 ]; then
+        echo "complex-md: check exited $status, so no note was posted."
+        exit "$status"
+      fi
+      if [ ! -s "$work/note.md" ]; then
+        exit 0
+      fi
+      cat "$work/note.md"
+      token=$(printenv "$token_var" || true)
+      if [ -z "$token" ]; then
+        echo "complex-md: the variable $token_var is not set, so no note was posted."
+        exit 0
+      fi
+      api="$CI_API_V4_URL/projects/$CI_MERGE_REQUEST_PROJECT_ID/merge_requests/$CI_MERGE_REQUEST_IID/notes"
+      gl() { curl --silent --show-error --fail --header "PRIVATE-TOKEN: $token" "$@"; }
+      gl "$CI_API_V4_URL/user" > "$work/user.json"
+      page=1
+      while [ "$page" -le 50 ]; do
+        gl "$api?per_page=100&page=$page&sort=asc&order_by=created_at" > "$work/notes-$page.json"
+        count=$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).length' "$work/notes-$page.json")
+        if [ "$count" -lt 100 ]; then break; fi
+        page=$((page + 1))
+      done
+      # The note this token wrote that opens with the note's first line.
+      # A person who pastes that line does not take over the note.
+      plan=$(node -e '
+        const fs = require("fs");
+        const [dir, status] = process.argv.slice(1);
+        const want = fs.readFileSync(dir + "/note.md", "utf8").replace(/\s+$/, "");
+        const marker = want.split("\n")[0];
+        const me = JSON.parse(fs.readFileSync(dir + "/user.json", "utf8")).id;
+        const pages = fs.readdirSync(dir).filter((f) => /^notes-\d+\.json$/.test(f));
+        const notes = pages.flatMap((f) => JSON.parse(fs.readFileSync(dir + "/" + f, "utf8")));
+        const mine = notes.find((n) => n && !n.system && n.author && n.author.id === me && typeof n.body === "string" && n.body.startsWith(marker + "\n"));
+        if (!mine) console.log(status === "1" ? "create" : "none");
+        else if (mine.body.replace(/\r/g, "").replace(/\s+$/, "") === want) console.log("unchanged");
+        else console.log("update " + mine.id);
+      ' "$work" "$status")
+      denied="complex-md: the token cannot write merge request notes. It needs the api scope and the Reporter role or higher."
+      case "$plan" in
+        create)
+          gl --request POST --data-urlencode "body@$work/note.md" "$api" > /dev/null || { echo "$denied"; exit 1; }
+          echo "complex-md: note created." ;;
+        update*)
+          gl --request PUT --data-urlencode "body@$work/note.md" "$api/${plan#update }" > /dev/null || { echo "$denied"; exit 1; }
+          echo "complex-md: note updated." ;;
+        unchanged)
+          echo "complex-md: note unchanged." ;;
+        *)
+          echo "complex-md: no note needed." ;;
+      esac

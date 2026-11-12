@@ -135,11 +135,11 @@ test('a second wire rewrites the unpinned commands an earlier version wrote, and
   assert.deepEqual(again.hooks, [], 'a third run changes nothing');
 });
 
-test('the MCP entry runs the pinned package through npx with the cache first', () => {
+test('the MCP entry runs the version-pinned server package through npx', () => {
   const w = wiredRepo({ mcp: true });
   const entry = JSON.parse(readFileSync(join(w.dir, '.mcp.json'), 'utf8')).mcpServers['complex-md'];
   assert.equal(entry.command, 'npx');
-  assert.deepEqual(entry.args, ['-y', '--prefer-offline', `complex-md@${VERSION}`, 'mcp']);
+  assert.deepEqual(entry.args, ['-y', `complex-md-mcp@${VERSION}`, 'mcp']);
 });
 
 /* Hooks are opt in. A default wire writes no hook into any file, so a

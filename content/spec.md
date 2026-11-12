@@ -175,22 +175,30 @@ derived from `__init__.py` chains (so `src/` layouts resolve without a
 hardcoded list), Ruby requires (`require_relative` file-relative, `require`
 through `lib/`), PHP requires, shell `source`, Caddy `import` globs, Go
 package imports resolved against `go.mod` (a package import depends on
-every file in the package), and path literals in scripts and configuration
-that name a repository file outright. Languages the graph does not resolve (Rust, Java,
-C, and others) are named in `blind_spots` with their file counts, and when
-they are most of the repository `confidence` is `history-only`. Tests are
-not counted here; they are covering tests. Documentation never counts; a
-path in prose describes, it does not depend. Fan-in is not evidence of
-defects; it is the blast radius, and it enters the score as the squared
-logarithm of the dependent count: each doubling of dependents widens the
-radius by a fixed step, and radius compounds with the chance of a mistake.
+every file in the package), Rust `mod` declarations and `use` paths resolved
+through module files, crate roots and Cargo package names, and path literals
+in scripts and configuration that name a repository file outright. Rust
+`#[path]` attributes resolve their literal path; external crates do not add
+edges. Languages the graph does not resolve (Java, C, and others) are named
+in `blind_spots` with their file counts, and when they are most of the
+repository `confidence` is `history-only`. Tests are not counted here; they
+are covering tests. Documentation never counts; a path in prose describes,
+it does not depend. Fan-in is not evidence of defects; it is the blast radius,
+and it enters the score as the squared logarithm of the dependent count: each
+doubling of dependents widens the radius by a fixed step, and radius compounds
+with the chance of a mistake.
 
 ### Covering tests (`tests`)
 
 The number of test files that reach the file through an import, a path
-reference, or an exact stem match in the same area (`a.test.js` beside
-`a.js`, or `test/a.test.js` for `src/a.js`). Never a substring match; before exact matching,
-that is how `app.js` was reported covered by `admin.test.mjs`. Zero means no
+reference, or an exact stem match in the same package and language
+(`a.test.js` beside `a.js`, or `test/a.test.js` for `src/a.js`). The
+package is the folder of the nearest manifest. A stem that 2 files of 1
+package share matches only the file beside the test or beside its test
+folder: an `index.spec.ts` names no other `index.ts`. Never a substring match; before exact matching,
+that is how `app.js` was reported covered by `admin.test.mjs`. A covering
+test runs a test case: `__init__.py` never counts, and a Python or Go file
+counts only when it defines a test function. Zero means no
 test references the file, which is a finding the paragraph states; it does
 not mean untested, because a suite that imports the package root (express's
 `test/res.*.js` for `lib/response.js`) is not attributed to the files behind
@@ -589,7 +597,13 @@ In both profiles:
 9. OpenClaw and Hermes are wired only on request: they get the portable
    skill `.agents/skills/complex-md/SKILL.md`, which both load from the
    project.
-10. In CI, regenerate on the default branch only. A pull request build that
+10. The optional MCP server is registered only with `--mcp`. It lives in the
+   separate `complex-md-mcp` package, at the same version as `complex-md`,
+   so ordinary core installs do not install the MCP SDK or zod. JSON
+   registrations are recorded in the manifest with their hashes; `unwire`
+   removes them only while those hashes match. OpenClaw and Hermes use their
+   own CLIs and receive `--root <repo>`.
+11. In CI, regenerate on the default branch only. A pull request build that
     rewrote the generated files would conflict at merge and change what
     review bots read about the files it changes.
 
@@ -631,7 +645,9 @@ It ignores any other listed path.
 
 `npx complex-md wire` does these steps idempotently: the `minimal` profile
 by default, `full` with `--profile full` or `--for`, step 8 only with
-`--hooks`, and step 9 only with `--for openclaw,hermes`. `--dry-run` prints
+`--hooks`, step 9 only with `--for openclaw,hermes`, and step 10 only with
+`--mcp`. `complex-md mcp` remains a compatibility command and starts
+`npx -y complex-md-mcp@<the same version> mcp`. `--dry-run` prints
 the file plan and writes nothing. `npx complex-md unwire` reverses a wire
 from the manifest: it deletes each file and cuts each marked block whose
 hash still matches, leaves and names the rest, and keeps COMPLEX.md. When
@@ -672,12 +688,32 @@ once per session per file, keyed by the tool's session id, and take
 `--mode gate | warn | off`. `warn` lets the edit through with the paragraph
 attached, for teams that find the gate too firm.
 
+### MCP server
+
+The server is an optional package, `complex-md-mcp`, published at the same
+version as the CLI. New `wire --mcp` entries start that package directly;
+entries from earlier versions that start `complex-md mcp` are recognized and
+replaced. An entry that pins an older `complex-md-mcp` moves to the current
+version while its manifest hash matches, and an entry edited since stays.
+The core `complex-md mcp` command remains available through 0.x and hands
+off to `npx -y complex-md-mcp@<the same version> mcp`, printing one line to
+stderr. Source: `cli/package.json` and
+`packages/complex-md-mcp/package.json`.
+
 ### Diff check
 
 `npx complex-md check [--staged | --base ref] [--strict]`
 is the same report on the command line, for pre-commit hooks and CI. It
 also names a generated brief in the change that differs from what `wire`
 writes, because review bots read those files from the pull request.
+
+### Lint
+
+`npx complex-md lint [path] [--json]` checks a map against the 0.4 draft
+schema and its path rules, for a maintainer or a CI job that wants to know
+whether a hand edited or third party map conforms. It prints one
+`path:line: rule: message` per finding and exits 1 on an error. A file over
+8,192 bytes is a warning.
 
 The block is normative: generators and hand authors copy it exactly, because
 identical wording across repositories is what makes it recognizable to

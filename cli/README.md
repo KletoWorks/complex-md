@@ -38,12 +38,19 @@ Spec, research and the downloadable skill: https://complex.md
    0 and prints one warning line with the reason. The reply itself is never
    written.
 
+   A reply whose prose uses an em dash or an en dash as punctuation gets 1
+   more call to the same model or `--via` CLI. That call rewrites only those
+   sentences, and never the front matter. A dash that is left becomes a
+   comma or a space, and the run prints how many it replaced. A dash in a
+   code span, a path or a code block stays.
+
    Before the first write, the run prints every file it will create or
    change. On a keyed run, the wiring lines come under "After the model
    call". In a terminal it asks once, and `--yes` skips the question. A
    stdin that is not a terminal never blocks the run. `.complex-md/*` goes
-   into `.gitignore` when a run writes there, and `.complex-md/bounds.json`
-   stays committable.
+   into `.gitignore` when a run writes there, and `.complex-md/bounds.json`,
+   `.complex-md/manifest.json` and `.complex-md/exposure.json` stay
+   committable.
 3. Wires the map in, idempotently. Each text it writes into a file you own
    sits between `<!-- BEGIN complex-md (spec 0.3) -->` and
    `<!-- END complex-md (spec 0.3) -->`, and text outside the markers is
@@ -174,13 +181,37 @@ a list only at 125% of the fresh cut and drops off only under 75%, so two
 files that trade the last place never flip the result. In CI, check out the
 full history (`fetch-depth: 0`) and run `npx complex-md verify`.
 
+## Is the map valid?
+
+    npx complex-md lint [path] [--json]
+
+`lint` checks a COMPLEX.md (default `./COMPLEX.md`) against the spec 0.4
+draft, with no model call and no network. It validates the front matter
+against `spec/0.4/complex-md.schema.json`, which the package carries, and then
+the rules the schema cannot state: every path is relative to the repository
+root, every listed path exists in the working tree, and the sections and
+directives are in place. It prints one line per finding as
+`path:line: rule: message` and exits 1 on any error, 0 otherwise. A file over
+8,192 bytes gets a warning, which does not fail. `--json` prints
+`{"ok": bool, "errors": [...], "warnings": [...]}`.
+
 ## Optional: the MCP server (`--mcp`)
 
-Off by default. `wire --mcp` registers it in `.mcp.json`, `.cursor/mcp.json`
-and `.codex/config.toml`. OpenClaw and Hermes keep a machine-level registry,
+The server and its MCP SDK and zod dependencies live in the separate
+`complex-md-mcp` package, so a normal `complex-md` install does not download
+them. It is off by default. `wire --mcp` registers the package in
+`.mcp.json`, `.cursor/mcp.json` and `.codex/config.toml`; those entries use
+the same version as `complex-md`, and their ownership and hashes stay in
+`.complex-md/manifest.json`. OpenClaw and Hermes keep a machine-level registry,
 so `wire --mcp --for openclaw,hermes` registers it through their own CLIs,
-with `mcp --root <repo>` pinning it to this repository. `npx complex-md mcp`
-runs it on stdio. Six tools:
+with `--root <repo>` pinning it to this repository.
+
+    npx complex-md mcp
+    npx complex-md-mcp register
+
+The first command remains a compatibility handoff to the matching, pinned
+`complex-md-mcp` package and prints one line to stderr. The second directly
+registers the server. The MCP server speaks stdio and exposes six tools:
 
 | Tool | Use it when |
 | --- | --- |
@@ -193,10 +224,11 @@ runs it on stdio. Six tools:
 
 ## Other commands
 
-    npx complex-md check [--staged | --base main] [--json] [--strict]
+    npx complex-md check [--staged | --base main] [--json] [--strict] [--map-ref <ref>] [--note]
     npx complex-md signals [--json | --tsv]
     npx complex-md impact <path> [--json] [--strict]
     npx complex-md report                # write .complex-md/report.html, a page of the map
+    npx complex-md exposure [--no-history | --all-refs] [--sarif [path]] [--baseline] [--config-ref <ref>] [--json] [--strict]
     npx complex-md wire [--profile minimal|full] [--dry-run] [--hooks [--local]] [--mcp]
                         [--for claude,cursor,openhands,antigravity,codex,copilot,review,devin,windsurf,kiro,cline,openclaw,hermes]
     npx complex-md unwire [--dry-run]    # remove what wire wrote, as its manifest records it
@@ -207,13 +239,22 @@ runs it on stdio. Six tools:
 `unwire` reads `.complex-md/manifest.json`, where wire records each file and
 marked section it wrote with a hash. It deletes those files and cuts out
 those sections. A file or section edited since wire wrote it stays, and
-unwire names it. COMPLEX.md stays too. `--dry-run` on `wire` or `unwire`
+unwire names it. COMPLEX.md stays too. A `CLAUDE.md` that holds only the
+2 import lines that 0.10.0 wrote is recorded by the next wire, so unwire
+deletes it. wire and unwire remove a brief folder named after complex-md,
+such as `.claude/rules/complex-md/`, once it is empty. `--dry-run` on `wire` or `unwire`
 prints the file plan and writes nothing. The manifest is committed, so it
 can come from someone else: wire and unwire ignore a listed path that is
 absolute, has a `..` segment or starts in `.git`, and they write and
 remove nothing that a symbolic link takes outside the repository.
 
 `check --strict` exits 1 on findings, for pre-commit and CI.
+`check --map-ref <ref>` reads COMPLEX.md from that commit instead of the
+working tree, so a merge request job checks against the target branch's map.
+`check --note` prints the findings as one Markdown merge request note, in
+the format of the complex-md-action pull request comment, or a cleared note
+when the change touches nothing. With `--strict` it exits 1 when the note has
+findings. With no map it prints nothing and exits 0.
 `check --base <ref>` exits 2 when the ref is not in the checkout. In GitHub
 Actions, check out with `fetch-depth: 0` so `origin/main` exists. `check` also
 names a generated brief that differs from what `wire` writes, since review
@@ -230,6 +271,114 @@ tests the map names on 14 of 15 risky edits, against 3 of 17 without it
 (11 of 11 discordant pairs, p about 0.001), with Claude Opus 5 in Claude
 Code. Results and method: `bench/RESULTS.md` in
 https://github.com/KletoWorks/complex-md.
+
+## GitLab merge request notes
+
+On GitHub, [complex-md-action](https://github.com/KletoWorks/complex-md-action)
+posts one pull request comment. On GitLab,
+[`ci/gitlab/complex-md.gitlab-ci.yml`](https://github.com/KletoWorks/complex-md/blob/main/ci/gitlab/complex-md.gitlab-ci.yml)
+posts the same comment as one merge request note:
+
+```yaml
+include:
+  - remote: https://raw.githubusercontent.com/KletoWorks/complex-md/<commit sha>/ci/gitlab/complex-md.gitlab-ci.yml
+```
+
+The job runs on merge request pipelines only. It reads COMPLEX.md from the
+target branch (`check --map-ref`), prints the note with `check --note`, and
+posts or edits it with curl. The CLI makes no request. Each later push edits
+the same note, and a push that drops the last hot file clears it.
+
+`CI_JOB_TOKEN` can read merge request notes but cannot write them. Create a
+project access token with the Reporter role and the `api` scope, and save it
+as a masked CI/CD variable named `COMPLEX_MD_GITLAB_TOKEN`, or set
+`COMPLEX_MD_TOKEN_VARIABLE` to the name you chose. With no token, the job
+prints the note to its log and posts nothing. The header of the file states
+what the job runs and why the token gets the Reporter role.
+
+## Secrets in the tree and in history (`exposure`)
+
+A key that was committed once stays in every clone of the history, even
+after a later commit deletes it. `exposure` looks for secret-shaped values
+in the tracked files and in every line that a commit added. It is opt in:
+no other command runs it, and it changes neither COMPLEX.md nor the hooks.
+
+    npx complex-md exposure [--no-history | --all-refs] [--sarif [path]] [--baseline]
+                            [--config-ref <ref>] [--json] [--strict]
+
+- The rules are data, in `cli/rules/exposure.json`: 53 rules for known
+  shapes (token formats with a fixed prefix, alphabet and length for cloud,
+  source host, AI provider, payment, chat and package registry services,
+  private key blocks, JSON web tokens and passwords in connection URLs),
+  and 1 heuristic,
+  `generic-assignment`: a random looking value assigned to a name with
+  key, secret, token, password, credential or jwt in it. Each rule states
+  how a finding is established (`exact`, `structural` or `heuristic`), a
+  severity, a confidence, a CWE id and the sentence to act on. The
+  heuristic rule reports at `low` confidence. The same rules redact the
+  model bundle of `generate`.
+- History: `git log -p` over every commit that HEAD reaches, streamed, one
+  scan per added line. `--all-refs` reads every ref instead, so the result
+  depends on the refs your clone has. Lockfiles, `node_modules`, `vendor`
+  and minified files are left out in the git command itself. A secret that
+  left a file is reported with the commit that added it and the commit
+  that removed it. On a blobless or treeless partial clone the history is
+  not read, because git would fetch each old blob from the remote; the
+  report says so. `--no-history` reads the tracked files only.
+- A finding in a test or fixture path is labelled `test_path` and is 1
+  severity step lower. It is not dropped: real keys get committed in tests.
+- Output: `.complex-md/exposure-report.json`, which `.gitignore` keeps out
+  of commits, and with `--sarif` a SARIF 2.1.0 file for code scanning
+  (default `.complex-md/exposure.sarif`). No output holds a secret value. A
+  finding carries the rule, the path, the line, the commits, the length and
+  entropy of the value, and a fingerprint: 16 hex characters of a SHA-256
+  over the rule id and the value. A finding that only history holds stays
+  out of the SARIF file, because its file is not at the analyzed commit.
+- `--strict` exits 1 when a finding is new, and 2 when
+  `.complex-md/exposure.json` cannot be used. A broken file is never read as
+  an empty one.
+
+Accepting findings. `.complex-md/exposure.json` is yours, and it is
+committed (the `.gitignore` entry keeps it, and an older entry gets that
+line once):
+
+```json
+{
+  "disable": ["jwt"],
+  "allow": [
+    { "rule": "generic-assignment", "paths": ["docs/**"], "reason": "sample values in the guide", "expires": "2027-01-31" },
+    { "fingerprint": "3f1c0a9b7d2e4c61", "reason": "test key, revoked 2026-09-01" }
+  ],
+  "baseline": [
+    { "rule": "aws-access-key", "fingerprint": "5e3a9c0d2b7f4e18", "reason": "rotated, still in history" }
+  ]
+}
+```
+
+Each allow needs a reason. `expires` is compared with the commit date of
+HEAD, not with today, so 1 commit gives 1 result on any day. `--baseline`
+adds every finding that is not allowed to `baseline` and keeps the other
+keys. A comment `complex-md: allow <rule-id> <reason>` on the line of a
+finding, or on the line above it, allows that rule there; it must name the
+rule, and there is no allow for every rule. The report counts each allow.
+An own rule goes under `rules`, in the format of the shipped file; it
+can name only the predicates the CLI has, and an expression must bound
+every quantifier and use no lookaround and no back reference, so a rule
+from a cloned repository cannot stall a run.
+
+In CI, read the allows and the baseline from the target branch, so a pull
+request cannot silence its own finding:
+
+    npx complex-md exposure --config-ref origin/main --strict --sarif
+
+The scan matches shapes. It does not find a secret in a shape that no rule
+has, a short or low entropy password, or a line that only a merge
+resolution added, and it calls no vendor, so it cannot tell a live key
+from a revoked one. Rotate a real key with its issuer first: a commit that
+deletes it from the file does not remove it from the history. On the full
+history of django
+(35,052 commits, 286 MB of patches), `git log -p` took 41 s and the whole
+run 99 s; the tracked files alone took 5.4 s.
 
 ## Limits, stated plainly
 
@@ -255,7 +404,15 @@ With a key, the call goes to the provider you chose. It carries the
 generation prompt, the computed signals (paths, their numbers, co-change
 pairs, the repository profile) and excerpts of up to ten hotspot files:
 about 14,000 characters each and 60,000 in all. On undici the request held
-five excerpts and 80,000 characters, about 20,000 tokens. `generate --agent`
+five excerpts and 80,000 characters, about 20,000 tokens. Before the
+request is sent or written, each secret-shaped value in it becomes
+`[redacted:<rule>]`, by the rules in `cli/rules/exposure.json`: a known token format
+(53 rules, among them AWS, GitHub, GitLab, OpenAI, Anthropic, Slack, Stripe,
+Google and npm keys and JSON web tokens), a private key block, a password in
+a connection URL, or a random value assigned to a name with key, secret,
+token or password in it.
+The run prints how many it replaced, never a value. A secret in another
+shape is sent as it is. `generate --agent`
 writes the same request to `.complex-md/prompt.md` and sends nothing, so you
 can read it first. With `--via`, the same bundle goes to the agent CLI you
 named, which sends it to the model it uses.

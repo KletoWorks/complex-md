@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 import { repoRoot, hasCommits, resolvesCommit } from '../src/git.js';
+import { npxExecutable } from '../src/invoke.js';
 
 const pkg = createRequire(import.meta.url)('../package.json');
 /* `npx complex-md --no-wire` is the default command with a flag, so a first
@@ -62,10 +64,22 @@ const HELP = `complex-md ${pkg.version}  https://complex.md
                                  section edited since wire wrote it is left in place and named (--dry-run)
   npx complex-md impact <path>   what changing a file reaches, against .complex-md/bounds.json
                                  --json | --strict (exit 1 when a declared bound is exceeded)
+  npx complex-md mcp             start the optional complex-md-mcp server on stdio
   npx complex-md check           report hotspots, untouched co-change partners and hand edited briefs in the change
                                  --staged | --base <ref> | --json | --strict (exit 1 on findings)
+                                 --map-ref <ref> reads COMPLEX.md from that commit, not the working tree
+                                 --note prints one Markdown merge request note, as ci/gitlab/ posts it
   npx complex-md verify          recompute the signals and compare them with COMPLEX.md, no model call
                                  exit 0 fresh, 1 drift past tolerance, 2 cannot verify  (--json)
+  npx complex-md lint [path]     check a map against the spec 0.4 schema (default ./COMPLEX.md)
+                                 path:line: rule: message; exit 1 on an error; over 8,192 bytes warns  (--json)
+  npx complex-md exposure        opt in: scan the tracked files and every commit HEAD reaches for secret-shaped
+                                 values (E1); writes .complex-md/exposure-report.json, never a value
+                                 --no-history (tracked files only) | --all-refs (every ref, not only HEAD)
+                                 --sarif [path] also writes SARIF 2.1.0 (default .complex-md/exposure.sarif)
+                                 --baseline accepts the current findings into .complex-md/exposure.json
+                                 --config-ref <ref> reads .complex-md/exposure.json from that commit (CI: the
+                                 base branch) | --json | --strict (exit 1 on a new finding; 2 on a broken config)
   npx complex-md signals         print the signals table  (--json | --tsv)
   npx complex-md report          render COMPLEX.md as a page: .complex-md/report.html (treemap, directives,
                                  co-change, blind spots); one self contained file, no network
@@ -81,7 +95,9 @@ Without any of them, COMPLEX.md gets template prose built from the computed numb
 prompt bundle goes to .complex-md/prompt.md for the agent you already run. Template prose never
 replaces prose that a model or a person wrote; --template does.
 Without a key nothing is sent. With one, that call sends the signals and excerpts of up to ten
-hotspot files, about 60,000 characters of code at most, to the provider you chose.
+hotspot files, about 60,000 characters of code at most, to the provider you chose. Before
+the call, each secret-shaped value in the bundle (a known token format, a private key, or a
+random value assigned to a key, secret, token or password name) becomes [redacted:<rule>].
 With --via, the same bundle goes to the agent CLI you named, which sends it to the model it uses.`;
 
 /* The --for names come from the target table, so the list in --help
@@ -113,8 +129,12 @@ async function main() {
   // Global MCP registries (openclaw, hermes) launch the server from an
   // arbitrary cwd; --root pins it to the repository it was wired for.
   if (cmd === 'mcp') {
-    const { serveStdio } = await import('../src/mcp.js');
-    return serveStdio(opt('--root') || process.cwd());
+    log(`complex-md: handing MCP to complex-md-mcp@${pkg.version}.`);
+    const npx = npxExecutable();
+    const r = spawnSync(npx.command, [...npx.args, '-y', `complex-md-mcp@${pkg.version}`, 'mcp', ...args], { stdio: 'inherit' });
+    if (r.error) throw r.error;
+    process.exitCode = r.status ?? 1;
+    return;
   }
 
   // The report reads the map, not the history: it needs no commits, and
@@ -132,6 +152,18 @@ async function main() {
       process.exit(2);
     }
     console.log(out);
+    return;
+  }
+
+  // Lint reads one file and the working tree; it needs no git history.
+  if (cmd === 'lint') {
+    const { resolve, dirname } = await import('node:path');
+    const { lintFile, formatLint } = await import('../src/lint.js');
+    const file = resolve(args.find((a) => !a.startsWith('-')) || 'COMPLEX.md');
+    const r = lintFile(file, { root: dirname(file) });
+    if (flag('--json')) console.log(JSON.stringify({ ok: r.ok, errors: r.errors, warnings: r.warnings }, null, 2));
+    else if (r.errors.length || r.warnings.length) console.log(formatLint(args.find((a) => !a.startsWith('-')) || 'COMPLEX.md', r));
+    process.exitCode = r.ok ? 0 : 1;
     return;
   }
 
@@ -174,6 +206,40 @@ async function main() {
     return;
   }
 
+  /* exposure is opt in: no other command runs it. It reads the tracked
+     tree and the history, and writes .complex-md/exposure-report.json. */
+  if (cmd === 'exposure') {
+    const configRef = opt('--config-ref');
+    if (flag('--config-ref') && (!configRef || configRef.startsWith('-') || !resolvesCommit(root, configRef))) {
+      log(`complex-md: --config-ref needs a commit ref in this checkout, for example --config-ref origin/main${configRef && !configRef.startsWith('-') ? `; ${configRef} does not resolve` : ''}.`);
+      process.exit(2);
+    }
+    if (flag('--baseline') && configRef) {
+      log('complex-md: --baseline writes .complex-md/exposure.json in the working tree, so it does not take --config-ref.');
+      process.exit(2);
+    }
+    const sarifArg = opt('--sarif');
+    const { runExposure, writeExposure, writeBaseline, formatExposure, ExposureConfigError, SARIF_PATH, CONFIG_PATH } = await import('../src/exposure.js');
+    const sarif = flag('--sarif') ? (sarifArg && !sarifArg.startsWith('-') ? sarifArg : SARIF_PATH) : null;
+    let report;
+    try {
+      report = await runExposure(root, { configRef, history: !flag('--no-history'), allRefs: flag('--all-refs'), version: pkg.version });
+    } catch (e) {
+      if (e instanceof ExposureConfigError) { log(e.message); process.exit(2); }
+      throw e;
+    }
+    if (flag('--baseline')) {
+      const b = writeBaseline(root, report);
+      report = b.report;
+      log(`baseline: ${b.added} finding${b.added === 1 ? '' : 's'} added to ${CONFIG_PATH}; commit it with a reason for each one you keep.`);
+    }
+    writeExposure(root, report, { sarif, log });
+    if (flag('--json')) console.log(JSON.stringify(report, null, 2));
+    else console.log(formatExposure(report) + (sarif ? `\nsarif: ${sarif}` : ''));
+    if (flag('--strict') && report.counts.new > 0) process.exit(1);
+    return;
+  }
+
   if (cmd === 'check') {
     const base = opt('--base');
     if (flag('--base') && (!base || base.startsWith('-'))) {
@@ -187,8 +253,39 @@ async function main() {
       log(`complex-md: the base ref ${base} does not exist in this checkout, so there is no change to check. A shallow CI checkout fetches one commit and no other branch: fetch the history first (actions/checkout with fetch-depth: 0, or git fetch origin).`);
       process.exit(2);
     }
+    /* --map-ref reads COMPLEX.md from a commit, so a merge request job uses
+       the target branch's map and not the copy the merge request edits. */
+    const mapRef = opt('--map-ref');
+    if (flag('--map-ref') && (!mapRef || mapRef.startsWith('-') || !resolvesCommit(root, mapRef))) {
+      log(`complex-md: --map-ref needs a commit ref in this checkout, for example --map-ref origin/main${mapRef && !mapRef.startsWith('-') ? `; ${mapRef} does not resolve` : ''}.`);
+      process.exit(2);
+    }
+    let map;
+    if (mapRef) {
+      const { readAt } = await import('../src/git.js');
+      const { parseComplexMd } = await import('../src/complexmd.js');
+      const text = readAt(root, mapRef, 'COMPLEX.md');
+      map = text === null ? null : parseComplexMd(text);
+    }
+    if (flag('--note')) {
+      const { changedFiles, commitSha, commitsBehind } = await import('../src/git.js');
+      const { loadComplexMd } = await import('../src/complexmd.js');
+      const { noteFindings, renderNote, renderNoteCleared } = await import('../src/note.js');
+      if (!mapRef) map = loadComplexMd(root);
+      if (!map) {
+        log(`complex-md: no COMPLEX.md with front matter ${mapRef ? `at ${mapRef}` : 'at the repository root'}, so there is no note. Generate one: npx complex-md`);
+        return;
+      }
+      const f = noteFindings(map, changedFiles(root, { base, staged: flag('--staged'), renames: false }));
+      const sha = mapRef ? commitSha(root, mapRef) : null;
+      const ctx = { ref: mapRef, sha, front: map.front };
+      if (f.clean) console.log(renderNoteCleared(ctx));
+      else console.log(renderNote(f, { ...ctx, behind: mapRef ? commitsBehind(root, map.front.commit, sha) : undefined }));
+      if (flag('--strict') && !f.clean) process.exit(1);
+      return;
+    }
     const { runCheck, formatCheck } = await import('../src/check.js');
-    const f = runCheck(root, { base, staged: flag('--staged') });
+    const f = runCheck(root, { base, staged: flag('--staged'), map });
     if (flag('--json')) console.log(JSON.stringify(f, null, 2));
     else console.log(formatCheck(f));
     if (flag('--strict') && !f.clean) process.exit(1);

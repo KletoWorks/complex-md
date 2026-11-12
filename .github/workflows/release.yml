@@ -23,8 +23,12 @@ jobs:
       - run: npm install -g npm@11.21.1 && npm --version
       - name: tag matches package version
         run: |
-          v=$(node -p "require('./cli/package.json').version")
-          [ "refs/tags/v$v" = "$GITHUB_REF" ] || { echo "tag $GITHUB_REF does not match cli/package.json $v"; exit 1; }
+          cli=$(node -p "require('./cli/package.json').version")
+          mcp=$(node -p "require('./packages/complex-md-mcp/package.json').version")
+          [ "$cli" = "$mcp" ] || { echo "cli/package.json $cli does not match complex-md-mcp/package.json $mcp"; exit 1; }
+          [ "refs/tags/v$cli" = "$GITHUB_REF" ] || { echo "tag $GITHUB_REF does not match package version $cli"; exit 1; }
       - run: cd cli && npm ci && npm test
+      - run: cd packages/complex-md-mcp && npm ci && npm test
       - run: npm run build
       - run: cd cli && npm publish --access public --provenance
+      - run: cd packages/complex-md-mcp && npm publish --access public --provenance

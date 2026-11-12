@@ -7,8 +7,8 @@ paths: cli/src/signals.js
 
 Listed in COMPLEX.md as a file where edits are risky.
 
-    churn 11  fixes 5  fan_in 14  tests 12  loc 435  score 3560
+    churn 14  fixes 7  fan_in 13  tests 14  loc 486  score 5185
 
-cli/src/signals.js computes every front matter number: the commit window, churn, fixes, co-change pairs, seams, load-bearing files and the profile. It also exports DEFAULTS, FIX_RE, TABLE_HEAD and rowToArray, and cli/src/generate.js prints the signals table with the last 2. 14 files depend on it, among them 7 bench scripts and the bin. A renamed export therefore breaks the benchmark and the CLI together. 5 of its 11 commits were fixes. Before editing this file, run `cd cli && npm test`, because 12 test files reach it.
+cli/src/signals.js computes every front matter number: the commit window, churn, fixes, co-change pairs, seams, load-bearing files and the profile. It also exports DEFAULTS, FIX_RE, TABLE_HEAD and rowToArray, and cli/src/generate.js prints the signals table with the last 2. 13 files depend on it, among them 7 bench scripts and cli/bin/complex-md.js. A renamed export therefore breaks the benchmark and the CLI together. 7 of its 14 commits were fixes, and 14 test files reach it. Before editing this file, run `cd cli && npm test`.
 
-**Before editing this file, run `cd cli && npm test`, because 12 test files reach it.**
+**Before editing this file, run `cd cli && npm test`.**

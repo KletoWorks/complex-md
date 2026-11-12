@@ -7,7 +7,9 @@ import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, existsSync } from 
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { normalizeOutput, validateOutput, REQUIRED_SECTIONS, generate } from '../src/generate.js';
+import { normalizeOutput, validateOutput, REQUIRED_SECTIONS, generate, frontMatter } from '../src/generate.js';
+import { computeSignals } from '../src/signals.js';
+import { ALL_FAKES, leakyRepo } from './fixtures/fake-secrets.mjs';
 
 const FM = '---\ncomplex_md: "0.3"\n---\n';
 const FULL = '## Where the risk lives\n\nRisk.\n\n## Why these files are hot\n\nHot.\n\n## Change coupling\n\nCoupled.\n\n## What to read first\n\n1. a';
@@ -160,6 +162,21 @@ test('generate: a complete reply is written with the computed front matter and a
   assert.match(out, /^---\ncomplex_md: "0\.3"\n/);
   assert.ok(!out.includes('bogus'));
   assert.ok(out.endsWith(FULL + '\n'));
+});
+
+test('generate: the provider call carries the redacted bundle, and the map keeps the computed front matter', async () => {
+  const dir = leakyRepo();
+  let body;
+  const logs = [];
+  const r = await withFetch(async (url, i) => { body = JSON.parse(i.body); return jsonResponse(200, { content: [{ type: 'text', text: FULL }], stop_reason: 'end_turn', usage: {} }); }, () => generate(dir, { provider: 'anthropic', log: (s) => logs.push(s) }));
+  assert.equal(r.written, true);
+  const sent = body.messages[0].content;
+  assert.match(sent, /\[redacted:private-key\]/);
+  for (const v of ALL_FAKES) assert.ok(!sent.includes(v), `the request holds no ${v.slice(0, 6)}... value`);
+  for (const v of ALL_FAKES) assert.ok(!logs.join('\n').includes(v), 'no log line holds a value');
+  assert.equal(logs.filter((l) => l.startsWith('redacted ')).length, 1);
+  const out = readFileSync(join(dir, 'COMPLEX.md'), 'utf8');
+  assert.equal(out, frontMatter(computeSignals(dir), out.match(/^tool: (.*)$/m)[1]) + '\n' + FULL + '\n');
 });
 
 // A reply cut at the output cap can still carry all four headings, so the

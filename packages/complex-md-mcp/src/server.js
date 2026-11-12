@@ -4,11 +4,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { repoRoot } from './git.js';
-import { loadComplexMd } from './complexmd.js';
-import { computeSignals, findImporters, findCoveringTests, detectTestCommand, kindOf, TABLE_HEAD, rowToArray } from './signals.js';
-import { git } from './git.js';
-import { runCheck, formatCheck } from './check.js';
+import { repoRoot, git } from 'complex-md/src/git.js';
+import { loadComplexMd } from 'complex-md/src/complexmd.js';
+import { computeSignals, findImporters, findCoveringTests, detectTestCommand, kindOf, TABLE_HEAD, rowToArray } from 'complex-md/src/signals.js';
+import { runCheck, formatCheck } from 'complex-md/src/check.js';
 import { createRequire } from 'node:module';
 
 const pkg = createRequire(import.meta.url)('../package.json');

@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Ways to contribute
+    url: https://github.com/KletoWorks/complex-md/blob/main/CONTRIBUTING.md#ways-to-contribute
+    about: The forms in order, and the test that each one needs as its bar.
   - name: A question
     url: https://github.com/KletoWorks/complex-md/discussions/categories/q-a
     about: Ask how to run, read or wire the map in Discussions. Issues are for defects and requests.

@@ -15,7 +15,7 @@
 // in two and makes two short sentences, never a long one. An instruction is
 // a sentence that starts with "Before editing this file," or with a verb on
 // the IMPERATIVES list; any other sentence gets the description limit.
-import { validateOutput } from '../cli/src/generate.js';
+import { normalizeOutput, validateOutput } from '../cli/src/generate.js';
 import { inventedPaths } from '../cli/src/paths.js';
 
 export const CHECKS = ['front_matter', 'sections', 'paths', 'directives', 'sentences', 'em_dashes'];
@@ -100,7 +100,10 @@ export function scoreMap({ reply, fm, files, hot }) {
   const { fm: got, prose } = splitReply(reply);
   const out = {};
 
-  out.front_matter = got === null ? result(false, 'no front matter block') : got === fm ? result(true) : result(false, firstDiff(got, fm));
+  // A rescore of an old results.json may have no computed front matter to
+  // compare with; the check then fails and the other checks still run.
+  if (typeof fm !== 'string') out.front_matter = result(false, 'no computed front matter to compare with');
+  else out.front_matter = got === null ? result(false, 'no front matter block') : got === fm ? result(true) : result(false, firstDiff(got, fm));
 
   const missing = validateOutput(prose);
   out.sections = missing.length ? result(false, `missing ${missing.join(', ')}`) : result(true);
@@ -138,5 +141,23 @@ export function scoreMap({ reply, fm, files, hot }) {
   const dashes = (prose.match(/—/g) || []).length;
   out.em_dashes = dashes ? result(false, `${dashes} em dash${dashes === 1 ? '' : 'es'}`) : result(true);
 
+  return out;
+}
+
+/**
+ * Score the file the CLI would write, using its own front-matter replacement
+ * and validation. A reply the CLI refuses fails every check. `paths`, when
+ * given, replaces the path check of a written file: a rescore passes the
+ * saved one when the results hold no file list.
+ */
+export function scoreWrittenMap(input, { paths = null } = {}) {
+  let written;
+  try {
+    written = normalizeOutput(input.reply, input.fm);
+  } catch (e) {
+    return Object.fromEntries(CHECKS.map((check) => [check, result(false, `not written: ${e.message}`)]));
+  }
+  const out = scoreMap({ ...input, reply: written });
+  if (paths) out.paths = paths;
   return out;
 }

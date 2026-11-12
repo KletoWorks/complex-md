@@ -18,6 +18,8 @@
     "bin",
     "src",
     "prompts",
+    "schema",
+    "rules",
     "README.md"
   ],
   "engines": {
@@ -37,10 +39,6 @@
   ],
   "scripts": {
     "prepack": "node scripts/sync-prompts.mjs",
-    "test": "node --test"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
-    "zod": "^4.6.7"
+    "test": "node scripts/test.mjs"
   }
 }

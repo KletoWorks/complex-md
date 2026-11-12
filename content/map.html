@@ -1,24 +1,25 @@
 <!-- meta
 title: Look up a repository's map | complex.md
-description: Paste a public GitHub repository to open its COMPLEX.md map: the files where edits break things, the tests to run before editing them and the files that change together.
+description: Paste a public repository to open its COMPLEX.md map: the files where edits break things, the tests to run before editing them and the files that change together.
 path: /map
 script: /lookup.js
 -->
 
 <header class="doc-head">
 <h1>Look up a repository's map</h1>
-<p>Paste a public GitHub repository. A mapped repository opens its page: the
-files where edits break things, the tests to run before editing them and the
-files that change together.</p>
+<p>Paste a public repository from GitHub, GitLab, Codeberg or Bitbucket. A
+mapped repository opens its page: the files where edits break things, the
+tests to run before editing them and the files that change together. Hosted
+pages cover GitHub repositories first.</p>
 </header>
 
 <form class="lookup" id="map-form" action="/map/" method="get" role="search" aria-label="Look up a repository">
 <label for="repo">Repository</label>
 <div class="lookup-row">
-<input id="repo" name="repo" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="owner/name or a GitHub URL" aria-describedby="repo-hint" required>
+<input id="repo" name="repo" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="owner/name or a repository URL" aria-describedby="repo-hint" required>
 <button class="btn solid" type="submit">Show the map</button>
 </div>
-<p class="hint" id="repo-hint">Takes owner/name, a github.com URL, a git URL or an SSH remote, such as fastify/fastify or git@github.com:nodejs/undici.git.</p>
+<p class="hint" id="repo-hint">Takes owner/name for GitHub, or a URL or SSH remote from github.com, gitlab.com, codeberg.org or bitbucket.org, such as fastify/fastify or https://codeberg.org/forgejo/forgejo.</p>
 </form>
 
 <div class="lookup-result" id="map-result" role="status" aria-live="polite"></div>
@@ -36,9 +37,10 @@ open complex.md/OWNER/REPO for a mapped repository, or run
 <code>npx complex-md</code> in a clone of the repository.</p></noscript>
 
 <h2 id="how-a-repository-gets-a-page">How a repository gets a page</h2>
-<p>complex.md computes maps of a set of public repositories ahead of time,
-from their git history. Each request for a repository counts toward the next
-set. Every hosted page asks the repository's maintainers to commit the file,
+<p>complex.md computes maps of a set of public GitHub repositories ahead of
+time, from their git history. Each request for a repository counts toward the
+next set. Requests for GitLab, Codeberg and Bitbucket repositories are counted
+too. The command works in a clone from any host. Every hosted page asks the repository's maintainers to commit the file,
 and a committed file replaces the page.</p>
 
 <h2 id="who-writes-the-prose">Who writes the prose?</h2>
@@ -46,6 +48,6 @@ and a committed file replaces the page.</p>
 numbers. No model and no person writes a hosted page.</p>
 
 <h2 id="removing-a-page">Removing a page</h2>
-<p>A maintainer can remove the page of a repository in three ways, and each
-takes effect within 24 hours. The <a href="/map/remove/">removal page</a> lists
-them.</p>
+<p>A maintainer can remove the page of a repository in three ways. A commit
+takes effect within 24 hours. A person reviews each removal request within 72
+hours. The <a href="/map/remove/">removal page</a> lists the three ways.</p>

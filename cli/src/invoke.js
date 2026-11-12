@@ -1,7 +1,23 @@
 // How a wired hook or MCP entry runs the CLI when it came from the registry.
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
+import { delimiter, dirname, join } from 'node:path';
 
 const { version } = createRequire(import.meta.url)('../package.json');
+
+export function npxExecutable({ platform = process.platform, env = process.env, nodePath = process.execPath } = {}) {
+  if (platform !== 'win32') return { command: 'npx', args: [] };
+
+  const candidates = [];
+  if (env.npm_execpath) candidates.push(join(dirname(env.npm_execpath), 'npx-cli.js'));
+  for (const dir of (env.PATH || '').split(delimiter).filter(Boolean)) {
+    candidates.push(join(dir, 'npx-cli.js'), join(dir, 'node_modules', 'npm', 'bin', 'npx-cli.js'));
+  }
+  candidates.push(join(dirname(nodePath), 'node_modules', 'npm', 'bin', 'npx-cli.js'));
+  const script = candidates.find(existsSync);
+  if (!script) throw new Error('could not locate npm\'s npx-cli.js for the MCP handoff');
+  return { command: nodePath, args: [script] };
+}
 
 /* An unpinned `npx -y complex-md` ran on every edit. It cost about 0.8 s
    warm, ran whatever version was published last, and with the registry

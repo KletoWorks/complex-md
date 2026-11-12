@@ -307,6 +307,14 @@ Open the partner and say in the change description whether it needed a change to
    a marked line or block to, each file you wrote whole, and whether hooks
    were installed.
 
+The MCP server is optional and ships as `complex-md-mcp`, at the same
+version as the core. Do not install or register it by default. When asked,
+pass `--mcp` to `wire`; it writes entries for configured agents and records
+their ownership and hashes in `.complex-md/manifest.json`. The compatibility
+command `npx -y complex-md mcp` hands off to the version-matched package and
+prints one line to stderr. OpenClaw and Hermes use their own CLIs and receive
+`--root <repo>`.
+
 Do not paraphrase, trim, or restyle the block; identical wording across
 repositories is what makes it recognizable and quotable. The block carries
 exactly one emphasized line, on purpose: Anthropic's guidance is that

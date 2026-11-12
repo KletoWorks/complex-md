@@ -100,6 +100,44 @@ export function isTestHelper(path, ctx = null) {
   return TEST_HELPER_RE.test(path) && !matchesTestPatterns(path, ctx);
 }
 
+/* The language family of a path, for the test case check and the name
+   match. A JavaScript test never tests a Python module of the same name. */
+const FAMILY_EXT = {
+  js: 'js', mjs: 'js', cjs: 'js', jsx: 'js', ts: 'js', mts: 'js', cts: 'js', tsx: 'js', vue: 'js', svelte: 'js', astro: 'js',
+  py: 'py', pyi: 'py', go: 'go', rs: 'rs', rb: 'rb', php: 'php',
+};
+export function languageFamily(path) {
+  return FAMILY_EXT[posix.extname(path).slice(1)] || null;
+}
+
+/* A covering test runs at least 1 test case. A test folder also holds
+   package initializers and modules of shared data, and before this check
+   voicebox's empty backend/tests/__init__.py was named as a test to run.
+   pytest, unittest and go test run only the cases they collect, so a
+   Python or Go file needs one. In other languages a file named as a test
+   (a.test.js, a_spec.rb) can be a plain script that a runner executes, so
+   only a file that is a test by its folder alone needs a case. The
+   patterns are wide on purpose: a family without a pattern, or a file too
+   large to read, counts as a test. */
+const NAMED_TEST_RE = /\.(tests?|specs?|tst|e2e)\.[a-z]+$|[_-](test|spec)\.[a-z]+$|(^|\/)test_[^/]+$/;
+const CASES_REQUIRED = new Set(['py', 'go']);
+const TEST_CASE_RE = {
+  js: /\b(?:describe|it|test|suite|bench|specify|context)(?:\.\w+)*\s*[(`]|\bDeno\.test\b|\b(?:expect|assert|expectType|expectTypeOf|expectError|assertType)\b/,
+  py: /^[ \t]*(?:async[ \t]+)?def[ \t]+test|^[ \t]*class[ \t]+Test/m,
+  go: /^func\s+(?:\([^)]*\)\s*)?(?:Test|Benchmark|Example|Fuzz)/m,
+  rs: /#\[\s*(?:\w+::)*test\b/,
+  rb: /\b(?:describe|context|it|test|specify|scenario)\b|\bdef\s+test_/,
+  php: /\bfunction\s+test|@test\b|#\[Test\]|\b(?:test|it|describe)\s*\(/,
+};
+export function hasTestCases(path, text) {
+  if (/(^|\/)__init__\.py$/.test(path)) return false;
+  const family = languageFamily(path);
+  const re = TEST_CASE_RE[family];
+  if (text === undefined || text === null || !re) return true;
+  if (!CASES_REQUIRED.has(family) && NAMED_TEST_RE.test(path)) return true;
+  return re.test(text);
+}
+
 /* pytest collects python_files only under testpaths when the config sets
    them. Without testpaths, a pattern that also matches __init__.py, such
    as *.py, would make every module a test, so it names nothing. */
@@ -281,6 +319,14 @@ const CADDY_IMPORT_RE = /^\s*import\s+([^\s]+)/gm;
 // go.mod; standard library and third-party paths do not resolve.
 const GO_IMPORT_BLOCK_RE = /^import\s*\(([\s\S]*?)\)|^import\s+(?:\w+\s+)?"([^"]+)"/gm;
 const GO_IMPORT_LINE_RE = /(?:^|\n)\s*(?:\w+\s+)?"([^"]+)"/g;
+const RS_MOD_RE = /^\s*(?:#\[path\s*=\s*(__RUST_STRING_\d+__)\]\s*)?(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_]\w*)\s*;/gm;
+const RS_USE_RE = /^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([\s\S]*?);/gm;
+// A char literal holds 1 character or 1 escape; anything longer after a
+// quote is a lifetime such as 'a.
+const RS_CHAR_RE = /'(?:\\(?:x[0-9A-Fa-f]{2}|u\{[0-9A-Fa-f]{1,6}\}|.)|[^'\\\n])'/y;
+const RS_RAW_OPEN_RE = /(?:b|c)?r(#*)"/y;
+const RS_PLAIN_RE = /[\/"'bcr]/g;
+const RS_TARGET_ROOT_RE = /^(?:src\/bin|tests|benches|examples)\/(?:[^/]+\.rs|[^/]+\/main\.rs)$/;
 // Anything that looks like a repo path with an extension, for scripts, cron,
 // compose files and configs that name files without an import keyword.
 const PATH_LITERAL_RE = /(?<![\w@])((?:\.\.?\/|\/)?(?:[\w@][\w@.-]*\/)+[\w@][\w@.-]*\.[A-Za-z0-9]{1,8})(?![\w/])/g;
@@ -305,6 +351,275 @@ function pyModuleToPath(mod, fromDir, files, roots) {
     if (files.has(base + '/__init__.py')) return base + '/__init__.py';
   }
   return null;
+}
+
+// Comments and literals are read in 1 pass, in source order, so a quote
+// inside a comment opens no string and a // inside a string starts no
+// comment. Comments become spaces with their newlines kept; each string
+// becomes a placeholder that RS_MOD_RE can match in a #[path] attribute.
+function maskRustText(text) {
+  const strings = [];
+  let out = '';
+  let i = 0;
+  const blank = (s) => s.replace(/[^\n]/g, ' ');
+  const word = (at) => at > 0 && /\w/.test(text[at - 1]);
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '/' && text[i + 1] === '/') {
+      const stop = text.indexOf('\n', i);
+      const end = stop < 0 ? text.length : stop;
+      out += blank(text.slice(i, end));
+      i = end;
+    } else if (c === '/' && text[i + 1] === '*') {
+      let depth = 1;
+      let j = i + 2;
+      while (j < text.length && depth) {
+        if (text[j] === '/' && text[j + 1] === '*') { depth++; j += 2; }
+        else if (text[j] === '*' && text[j + 1] === '/') { depth--; j += 2; }
+        else j++;
+      }
+      out += blank(text.slice(i, j));
+      i = j;
+    } else if (/[bcr]/.test(c) && !word(i) && (RS_RAW_OPEN_RE.lastIndex = i, RS_RAW_OPEN_RE.test(text))) {
+      const open = RS_RAW_OPEN_RE.lastIndex;
+      const hashes = text.slice(i, open).replace(/^[bc]?r/, '').slice(0, -1);
+      const close = text.indexOf('"' + hashes, open);
+      const end = close < 0 ? text.length : close + 1 + hashes.length;
+      strings.push(text.slice(open, close < 0 ? text.length : close));
+      out += `__RUST_STRING_${strings.length - 1}__`;
+      i = end;
+    } else if (c === '"' || (/[bc]/.test(c) && text[i + 1] === '"' && !word(i))) {
+      let j = c === '"' ? i + 1 : i + 2;
+      let body = '';
+      while (j < text.length && text[j] !== '"') {
+        if (text[j] === '\\') { body += text[j + 1] ?? ''; j += 2; } else body += text[j++];
+      }
+      strings.push(body);
+      out += `__RUST_STRING_${strings.length - 1}__`;
+      i = j + 1;
+    } else if (c === "'" && (RS_CHAR_RE.lastIndex = i, RS_CHAR_RE.test(text))) {
+      out += ' '.repeat(RS_CHAR_RE.lastIndex - i);
+      i = RS_CHAR_RE.lastIndex;
+    } else {
+      RS_PLAIN_RE.lastIndex = i + 1;
+      const next = RS_PLAIN_RE.exec(text);
+      const end = next ? next.index : text.length;
+      out += text.slice(i, end);
+      i = end;
+    }
+  }
+  return {
+    text: out,
+    string(index) {
+      return strings[Number(index)] ?? null;
+    },
+  };
+}
+
+// A crate root, a mod.rs file and a file loaded by #[path] own the modules
+// in their directory; any other module file owns the directory named after
+// it. rustc treats every #[path] file as a mod.rs file.
+function rustModuleBase(file, scopes = [], at = Infinity, ownsDir = false) {
+  const dir = posix.dirname(file);
+  const name = posix.basename(file);
+  return rustScopeBase(ownsDir || /^(?:lib|main|mod)\.rs$/.test(name) ? dir : posix.join(dir, name.slice(0, -3)), scopes, at);
+}
+
+function rustScopeBase(base, scopes, at) {
+  for (const scope of scopes.filter((s) => s.start <= at && at < s.end).sort((a, b) => a.start - b.start)) {
+    base = posix.join(base, scope.name);
+  }
+  return base;
+}
+
+// The file a `mod name;` match loads. A #[path] literal is relative to the
+// declaring file's directory, or, inside an inline module, to that module's
+// directory, as the Rust Reference states for path attributes.
+function rustModTarget(file, match, scopes, rust, files, ownsDir = false) {
+  const base = rustModuleBase(file, scopes, match.index, ownsDir);
+  if (!match[1]) {
+    const path = posix.join(base, match[2]);
+    return files.has(path + '.rs') ? path + '.rs' : files.has(path + '/mod.rs') ? path + '/mod.rs' : null;
+  }
+  const inline = scopes.some((s) => s.start <= match.index && match.index < s.end);
+  const path = posix.normalize(posix.join(inline ? base : posix.dirname(file), rust.string(match[1].match(/\d+/)[0]) || ''));
+  return files.has(path) && !path.startsWith('../') ? path : null;
+}
+
+function rustInlineScopes(text) {
+  const scopes = [];
+  const re = /\bmod\s+([A-Za-z_]\w*)\s*\{/g;
+  let match;
+  while ((match = re.exec(text))) {
+    const open = re.lastIndex - 1;
+    let depth = 1;
+    for (let i = open + 1; i < text.length; i++) {
+      if (text[i] === '{') depth++;
+      else if (text[i] === '}' && --depth === 0) {
+        scopes.push({ name: match[1], start: open + 1, end: i });
+        break;
+      }
+    }
+  }
+  return scopes;
+}
+
+// base and the parts form a logical module path; modules maps the logical
+// paths that the crate's declarations set up, #[path] targets among them,
+// to their files.
+function rustModulePath(parts, base, files, fallback = null, modules = null) {
+  for (let n = parts.length; n > 0; n--) {
+    const path = posix.join(base, ...parts.slice(0, n));
+    if (modules?.has(path)) return modules.get(path);
+    if (files.has(path + '.rs')) return path + '.rs';
+    if (files.has(path + '/mod.rs')) return path + '/mod.rs';
+  }
+  return fallback;
+}
+
+// The file of the module at base. When base is a crate root's directory,
+// that is the root which owns the importing file: in a package with both
+// src/lib.rs and src/main.rs, `super::` from a module of main.rs is main.rs.
+function rustModuleFile(base, files, root, fallback, modules = null) {
+  if (modules?.has(base)) return modules.get(base);
+  if (files.has(base + '.rs')) return base + '.rs';
+  if (files.has(base + '/mod.rs')) return base + '/mod.rs';
+  return root && posix.dirname(root) === base ? root : fallback;
+}
+
+function rustCrates(files, texts) {
+  const crates = [];
+  for (const manifest of files) {
+    if (posix.basename(manifest) !== 'Cargo.toml') continue;
+    const text = texts.get(manifest) || '';
+    let section = '';
+    let name = null;
+    for (const line of text.split(/\r?\n/)) {
+      const heading = /^\s*\[([^\]]+)\]\s*$/.exec(line);
+      if (heading) { section = heading[1]; continue; }
+      if (section === 'package') {
+        const value = /^\s*name\s*=\s*"([^"]+)"/.exec(line);
+        if (value) { name = value[1]; break; }
+      }
+    }
+    if (!name) continue;
+    const dir = posix.dirname(manifest) === '.' ? '' : posix.dirname(manifest);
+    const lib = files.has(posix.join(dir, 'src/lib.rs')) ? posix.join(dir, 'src/lib.rs') : null;
+    const main = files.has(posix.join(dir, 'src/main.rs')) ? posix.join(dir, 'src/main.rs') : null;
+    crates.push({ dir, name: name.replace(/-/g, '_'), roots: [lib, main].filter(Boolean), lib, rootFile: lib || main });
+  }
+  const byName = new Map(crates.map((crate) => [crate.name, crate]));
+  const forFile = (file) => {
+    let best = null;
+    for (const crate of crates) {
+      if (file !== crate.dir && !file.startsWith(crate.dir ? crate.dir + '/' : '')) continue;
+      if (!best || crate.dir.length > best.dir.length) best = crate;
+    }
+    return best;
+  };
+  // Cargo's other target roots: each binary, integration test, benchmark and
+  // example is its own crate that may import the package library by name.
+  for (const f of files) {
+    if (!f.endsWith('.rs')) continue;
+    const crate = forFile(f);
+    if (!crate) continue;
+    const rel = crate.dir ? f.slice(crate.dir.length + 1) : f;
+    if (RS_TARGET_ROOT_RE.test(rel)) crate.roots.push(f);
+  }
+  const rootSet = new Set(crates.flatMap((crate) => crate.roots));
+  const pathLoaded = new Set();
+  const ownsDir = (file) => rootSet.has(file) || pathLoaded.has(file);
+  const rootOwners = new Map();
+  // Per root: logical module path to file, and file to logical module path.
+  const modules = new Map();
+  const logical = new Map();
+  const visit = (file, root, crate, seen, at) => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    if (!rootOwners.has(file)) rootOwners.set(file, new Set());
+    rootOwners.get(file).add(root);
+    if (!modules.get(root).has(at)) modules.get(root).set(at, file);
+    logical.get(root).set(file, at);
+    const rust = maskRustText(texts.get(file) || '');
+    const scopes = rustInlineScopes(rust.text);
+    RS_MOD_RE.lastIndex = 0;
+    let match;
+    while ((match = RS_MOD_RE.exec(rust.text))) {
+      const target = rustModTarget(file, match, scopes, rust, files, ownsDir(file));
+      if (!target || forFile(target) !== crate) continue;
+      if (match[1]) pathLoaded.add(target);
+      visit(target, root, crate, seen, posix.join(rustScopeBase(at, scopes, match.index), match[2]));
+    }
+  };
+  for (const crate of crates) for (const root of crate.roots) {
+    modules.set(root, new Map());
+    logical.set(root, new Map());
+    visit(root, root, crate, new Set(), posix.dirname(root));
+  }
+  const rootForFile = (file, crate) => {
+    if (crate?.roots.includes(file)) return file;
+    const owners = rootOwners.get(file);
+    return owners?.size === 1 ? [...owners][0] : crate?.rootFile || null;
+  };
+  const ownedBy = (file, root) => rootOwners.get(file)?.has(root) || false;
+  const modulesFor = (root) => modules.get(root) || null;
+  const logicalOf = (file, crate) => logical.get(rootForFile(file, crate))?.get(file) ?? null;
+  return { byName, forFile, rootForFile, ownsDir, ownedBy, modulesFor, logicalOf };
+}
+
+function rootOwnedElsewhere(file, crate, crates) {
+  if (crates.ownedBy(file, crate.lib)) return false;
+  return crate.roots.some((root) => root !== crate.lib && crates.ownedBy(file, root));
+}
+
+function expandRustUse(spec) {
+  const group = /^(.*)::\{([^{}]*)\}(.*)$/.exec(spec);
+  if (!group) return [spec];
+  const prefix = group[1] ? group[1] + '::' : '';
+  return group[2].split(',').map((part) => part.trim()).filter(Boolean)
+    .flatMap((part) => expandRustUse(prefix + (part === 'self' ? '' : part) + group[3]));
+}
+
+function rustUsePath(spec, file, crate, crates, files, scopeBase) {
+  const path = spec.trim().replace(/\s+as\s+[\w_]+$/, '').replace(/\s+/g, '');
+  const parts = path.split('::').filter(Boolean);
+  if (!parts.length) return null;
+  let base;
+  let moduleParts;
+  let fallback;
+  let modules = crates.modulesFor(crates.rootForFile(file, crate));
+  if (parts[0] === 'crate') {
+    const root = crates.rootForFile(file, crate);
+    if (!root) return null;
+    base = posix.dirname(root);
+    moduleParts = parts.slice(1);
+    fallback = root;
+  } else if (parts[0] === 'self') {
+    base = scopeBase;
+    moduleParts = parts.slice(1);
+    fallback = rustModuleFile(base, files, crates.rootForFile(file, crate), file, modules);
+  } else if (parts[0] === 'super') {
+    base = scopeBase;
+    let i = 0;
+    while (parts[i] === 'super') { base = posix.dirname(base); i++; }
+    moduleParts = parts.slice(i);
+    fallback = rustModuleFile(base, files, crates.rootForFile(file, crate), file, modules);
+  } else {
+    const target = crates.byName.get(parts[0]);
+    if (!target || !target.rootFile) return null;
+    let root = target.rootFile;
+    if (target === crate) {
+      // Inside the library its own name is not a path; every other target
+      // of the package reaches the library by that name.
+      if (!target.lib || !rootOwnedElsewhere(file, target, crates)) return null;
+      root = target.lib;
+    }
+    modules = crates.modulesFor(root);
+    base = posix.dirname(root);
+    moduleParts = parts.slice(1);
+    fallback = root;
+  }
+  return rustModulePath(moduleParts, base, files, fallback, modules);
 }
 
 function globToRe(g) {
@@ -379,6 +694,7 @@ export function buildGraph(root, tracked) {
   const workspaces = loadWorkspaces(root, trackedList);
   const importMaps = loadImportMaps(root, trackedList);
   const pyRoots = pythonRoots(files);
+  const rustCratesByFile = rustCrates(files, texts);
   const goModule = files.has('go.mod') ? (/^module\s+(\S+)/m.exec(texts.get('go.mod') || '') || [])[1] : null;
   const goPkgFiles = new Map();
   if (goModule) for (const f of files) if (/\.go$/.test(f) && !/_test\.go$/.test(f)) {
@@ -433,6 +749,7 @@ export function buildGraph(root, tracked) {
       : /\.(sh|bash|zsh)$/.test(f) || /^#!.*\b(ba|z)?sh\b/.test(heads.get(f) || '') ? 'sh'
       : /(^|\/)Caddyfile$|\.caddy$/.test(f) ? 'caddy'
       : /\.go$/.test(f) && goModule ? 'go'
+      : /\.rs$/.test(f) ? 'rs'
       : null;
     let m;
     if (family === 'js') {
@@ -482,6 +799,20 @@ export function buildGraph(root, tracked) {
           for (const g of goPkgFiles.get(dir) || []) add(f, g);
         }
       }
+    } else if (family === 'rs') {
+      const rust = maskRustText(text);
+      const scopes = rustInlineScopes(rust.text);
+      const crate = rustCratesByFile.forFile(f);
+      RS_MOD_RE.lastIndex = 0;
+      while ((m = RS_MOD_RE.exec(rust.text))) {
+        add(f, rustModTarget(f, m, scopes, rust, files, rustCratesByFile.ownsDir(f)));
+      }
+      const at = rustCratesByFile.logicalOf(f, crate);
+      RS_USE_RE.lastIndex = 0;
+      while ((m = RS_USE_RE.exec(rust.text))) {
+        const base = at === null ? rustModuleBase(f, scopes, m.index, rustCratesByFile.ownsDir(f)) : rustScopeBase(at, scopes, m.index);
+        for (const spec of expandRustUse(m[1])) add(f, rustUsePath(spec, f, crate, rustCratesByFile, files, base));
+      }
     } else if (family === 'caddy') {
       CADDY_IMPORT_RE.lastIndex = 0;
       while ((m = CADDY_IMPORT_RE.exec(text))) {
@@ -504,13 +835,15 @@ export function buildGraph(root, tracked) {
 
   const fanIn = new Map();
   const tests = new Map();
+  // A covering test runs: it is no helper, and it defines a test case.
+  const runs = (t) => !isTestHelper(t, ctx) && hasTestCases(t, texts.get(t));
   for (const [from, set] of edges) {
     const k = kinds.get(from);
     for (const to of set) {
       // Only files that can be hotspots have a blast radius worth counting.
       if (!(kinds.get(to) in RANKED_KINDS)) continue;
       if (TEST_KINDS.has(k)) {
-        if (isTestHelper(from, ctx)) continue;
+        if (!runs(from)) continue;
         let t = tests.get(to);
         if (!t) tests.set(to, (t = new Set()));
         t.add(from);
@@ -521,35 +854,58 @@ export function buildGraph(root, tracked) {
       }
     }
   }
-  // Name-adjacent tests: a.test.js next to a.js, or test/a.test.js for src/a.js,
-  // exact stem only. Never a substring match; that is how the 0.2 tool told an
-  // agent app.js was covered by admin.test.mjs.
+  /* Name matched tests: a.test.js beside a.js, test/a.test.js or
+     test/specs/a.tests.js for src/a.js, test_a.py for a.py. Exact stem
+     only, never a substring: that is how the 0.2 tool told an agent app.js
+     was covered by admin.test.mjs. The test and the file share a package
+     (the folder of the nearest manifest) and a language family. Before the
+     package rule, the same top folder was enough, and in vite's packages/
+     the plugin-legacy spec index.spec.ts was named for the dev server's
+     index.ts. A stem that 2 ranked files of 1 package share names neither
+     of them by itself, so it matches only the file beside the test or
+     beside its test folder. byName records the tests that only the name
+     found, so the prose can say how each test was found. */
+  const manifestDirs = new Set();
+  for (const f of files) if (MANIFEST_RE.test(f) && kinds.get(f) === 'manifest') manifestDirs.add(posix.dirname(f));
+  const packageOf = (p) => {
+    let d = posix.dirname(p);
+    while (d !== '.' && !manifestDirs.has(d)) d = posix.dirname(d);
+    return d;
+  };
   const byStem = new Map();
-  for (const [f, k] of kinds) if (k === 'test' && !isTestHelper(f, ctx)) {
-    const stem = posix.basename(f).replace(/\.(test|spec|tst|e2e)\.[a-z]+$|_test\.[a-z]+$|\.[a-z]+$/g, '').replace(/^test_/, '');
+  for (const [f, k] of kinds) if (k === 'test' && runs(f)) {
+    const stem = posix.basename(f).replace(/\.(tests?|specs?|tst|e2e)\.[a-z]+$|[_-](test|spec)\.[a-z]+$|\.[a-z]+$/, '').replace(/^test_/, '');
     if (!byStem.has(stem)) byStem.set(stem, []);
     byStem.get(stem).push(f);
   }
+  const fileStem = (f) => posix.basename(f).replace(/\.d\.ts$|\.[a-z]+$/, '');
+  const shared = new Map();
+  for (const [f, k] of kinds) if (k in RANKED_KINDS && byStem.has(fileStem(f))) {
+    const key = packageOf(f) + '\0' + fileStem(f);
+    shared.set(key, (shared.get(key) || 0) + 1);
+  }
+  const byName = new Map();
   for (const [f, k] of kinds) {
     if (!(k in RANKED_KINDS)) continue;
-    const stem = posix.basename(f).replace(/\.d\.ts$|\.[a-z]+$/g, '');
+    const stem = fileStem(f);
     const cands = byStem.get(stem);
     if (!cands) continue;
+    const family = languageFamily(f);
+    const pkg = packageOf(f);
+    const ambiguous = shared.get(pkg + '\0' + stem) > 1;
     for (const t of cands) {
-      // Same top-level area, or a sibling tests dir: keep it local.
-      if (topDir(t) === topDir(f) || posix.dirname(t).replace(/\/(tests?|__tests__|specs?)$/, '') === posix.dirname(f)) {
-        let s = tests.get(f);
-        if (!s) tests.set(f, (s = new Set()));
-        s.add(t);
-      }
+      if (!family || languageFamily(t) !== family || packageOf(t) !== pkg) continue;
+      const beside = (posix.dirname(t).replace(/(^|\/)(tests?|__tests__|specs?)$/, '') || '.') === posix.dirname(f);
+      if (ambiguous && !beside) continue;
+      let s = tests.get(f);
+      if (!s) tests.set(f, (s = new Set()));
+      if (s.has(t)) continue;
+      s.add(t);
+      if (!byName.has(f)) byName.set(f, new Set());
+      byName.get(f).add(t);
     }
   }
-  return { kinds, loc, edges, fanIn, tests, skippedLarge, grepBlind };
-}
-
-function topDir(p) {
-  const i = p.indexOf('/');
-  return i < 0 ? '' : p.slice(0, i);
+  return { kinds, loc, edges, fanIn, tests, byName, skippedLarge, grepBlind };
 }
 
 // Root-relative URLs in HTML ("/app.js") resolve against the nearest ancestor

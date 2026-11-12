@@ -1,6 +1,6 @@
 <!-- meta
 title: Remove a hosted map page | complex.md
-description: How a maintainer removes the hosted COMPLEX.md map page of a repository from complex.md. Each way takes effect within 24 hours.
+description: How a maintainer removes the hosted COMPLEX.md map page of a repository from complex.md. A commit takes effect within 24 hours, and a person reviews each removal request within 72 hours.
 path: /map/remove
 script: /remove.js
 noindex: true
@@ -9,17 +9,19 @@ noindex: true
 <header class="doc-head">
 <h1>Remove a hosted map page</h1>
 <p>A hosted page on complex.md shows the map of one public repository. There
-are three ways to take a page down, and each takes effect within 24 hours.</p>
+are three ways to take a page down. The first two take effect within 24 hours.
+A person reviews each request sent with the form within 72 hours.</p>
 </header>
 
 <ol class="ways">
 <li><strong>Commit COMPLEX.md to the repository.</strong> Run
-<code>npx complex-md</code> in a clone and commit the file. The page then gives
-way to a link to the committed file.</li>
+<code>npx complex-md</code> in a clone and commit the file. Within 24 hours,
+the page gives way to a link to the committed file.</li>
 <li><strong>Set <code>hosted: false</code> in its front matter.</strong> Add the
-line to the front matter of the COMPLEX.md you commit. complex.md then builds
-no page for the repository.</li>
-<li><strong>Send this form.</strong> A request needs no reason.</li>
+line to the front matter of the COMPLEX.md you commit. Within 24 hours,
+complex.md stops building a page for the repository.</li>
+<li><strong>Send this form.</strong> A request needs no reason. A person
+reviews it within 72 hours.</li>
 </ol>
 
 <form class="lookup" id="remove-form" action="/map/remove/" method="get" aria-label="Request removal of a hosted page">

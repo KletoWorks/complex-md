@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
 import { join, dirname, relative, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { integrationBlock, BLOCK_HEADING, INTEGRATION_LINE } from './prompts.js';
 import { SPEC_VERSION } from './signals.js';
 import { readManifest, writeManifest, MANIFEST_PATH, assertManifestPath } from './manifest.js';
@@ -16,6 +17,8 @@ import { loadComplexMd } from './complexmd.js';
 import { wiredBriefs } from './brief.js';
 import { TARGETS, TARGET_NAMES, holdsOurHooks, cleanTarget } from './targets.js';
 import { registryInvocation } from './invoke.js';
+
+const pkg = createRequire(import.meta.url)('../package.json');
 
 /* minimal: one line near the top of AGENTS.md, and no brief. full: the
    integration block in each agent file, and at most ten briefs per agent. */
@@ -30,12 +33,10 @@ const PRIMARY = [OVERRIDE, 'AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.github/copil
 const IMPORTERS = ['CLAUDE.md', 'GEMINI.md'];
 
 /**
- * How hooks and the MCP entry invoke the CLI. The pinned registry form
- * (invoke.js) when the tool came from the registry; the checkout's own bin when it is being run
- * from inside the repository it is wiring (dogfooding, or a vendored copy),
- * since npx would fetch a different version or nothing at all. Global
- * registries (openclaw, hermes) launch from an arbitrary cwd, so they get
- * the absolute form.
+ * How hooks invoke the CLI: the pinned registry form (invoke.js) when the
+ * tool came from the registry, or the checkout's own bin when it is being
+ * run from inside the repository it is wiring. Global registries launch from
+ * an arbitrary cwd, so they get the absolute form.
  */
 function invocation(root) {
   try {
@@ -48,6 +49,23 @@ function invocation(root) {
     }
   } catch {}
   return registryInvocation();
+}
+
+function mcpInvocation(root) {
+  const bin = resolve(dirname(fileURLToPath(import.meta.url)), '../../packages/complex-md-mcp/bin/complex-md-mcp.js');
+  try {
+    const deps = resolve(dirname(bin), '..', 'node_modules');
+    if (!existsSync(join(deps, '@modelcontextprotocol/sdk')) || !existsSync(join(deps, 'zod'))) throw new Error('MCP package dependencies are not installed');
+    const rel = relative(realpathSync(root), realpathSync(bin));
+    if (rel && !rel.startsWith('..') && !isAbsolute(rel)) {
+      const p = rel.split('\\').join('/');
+      const abs = realpathSync(bin).split('\\').join('/');
+      return { shell: `node ${p}`, command: 'node', args: [p], absShell: `node ${abs}`, absCommand: 'node', absArgs: [abs] };
+    }
+  } catch {}
+  const args = ['-y', `complex-md-mcp@${pkg.version}`];
+  const npx = `npx ${args.join(' ')}`;
+  return { shell: npx, command: 'npx', args, absShell: npx, absCommand: 'npx', absArgs: args };
 }
 
 /* The first text of an AGENTS.md that wire CREATES, inside the marked
@@ -124,12 +142,35 @@ export function markBlock(root, rel, content, { place = 'end', style = 'html', l
   return 'written';
 }
 
+/* 0.10.0 created a CLAUDE.md beside AGENTS.md with only these 2 import
+   lines, and wrote no manifest. The file is recorded as complex-md's while
+   it holds exactly them, with CRLF or without the last newline, so unwire
+   removes it. Any other byte makes it the user's, and it stays. */
+const OLD_CLAUDE = '@AGENTS.md\n@COMPLEX.md';
+
+function adoptOldClaude(root, ledger, log) {
+  const rel = 'CLAUDE.md';
+  const p = join(root, rel);
+  if (!insideRepo(root, rel) || !existsSync(p)) return;
+  const cur = readFileSync(p, 'utf8');
+  const lf = cur.replace(/\r\n/g, '\n');
+  if (lf === OLD_CLAUDE || lf === OLD_CLAUDE + '\n') {
+    ledger.files.push({ path: rel, sha256: normalizedHash(cur), adopted: '0.10.0' });
+    return;
+  }
+  const listed = ledger.previous?.files?.some((f) => f.path === rel);
+  if (!listed && !findRegion(cur) && IMPORTS_AGENTS.test(cur) && IMPORTS_MAP.test(cur)) {
+    log(`${rel} holds the 2 import lines that complex-md 0.10.0 wrote, and other text, so it is yours; wire and unwire leave it.`);
+  }
+}
+
 /* Every generated path gets eol=lf and linguist-generated in a marked
    block of .gitattributes. LF on every checkout keeps a Windows clone with
    core.autocrlf from rewriting them, and GitHub folds them in a diff. The
    leading slash anchors each path at the repository root. */
 function markGenerated(root, ledger, mark) {
-  const paths = [...new Set(['COMPLEX.md', MANIFEST_PATH, ...ledger.files.map((f) => f.path)])].sort();
+  // An adopted CLAUDE.md is read and edited by people, so it is not marked.
+  const paths = [...new Set(['COMPLEX.md', MANIFEST_PATH, ...ledger.files.filter((f) => !f.adopted).map((f) => f.path)])].sort();
   const lines = paths.map((p) => `/${p} eol=lf linguist-generated`);
   mark('.gitattributes', `# Files complex-md generates. Edit COMPLEX.md, not them.\n${lines.join('\n')}\n`, { style: 'hash', create: true, created: !existsSync(join(root, '.gitattributes')) });
 }
@@ -172,6 +213,7 @@ export function wire(root, { profile = null, hooks = false, mcp = false, rules =
   if (!map) throw new Error('No COMPLEX.md at the repository root; generate it first.');
   for (const name of agents || []) if (!TARGETS[name]) throw new Error(`unknown wiring target "${name}"; one of: ${TARGET_NAMES.join(', ')}`);
   const inv = invocation(root);
+  const mcpInv = mcp ? mcpInvocation(root) : null;
   const block = blockText ? (blockText.includes(BLOCK_HEADING) ? blockText.trim() + '\n' : `${BLOCK_HEADING}\n\n${blockText.trim()}\n`) : integrationBlock();
   /* Coerced rather than trusted. A hand written map can put anything in these
      keys, and wiring crashing on a malformed map helps nobody: the worst
@@ -244,6 +286,7 @@ export function wire(root, { profile = null, hooks = false, mcp = false, rules =
     }
     if (r === 'unchanged' || importsAgents) report.skipped.push(f);
   }
+  adoptOldClaude(root, ledger, log);
   /* Claude Code reads AGENTS.md when the repository has no CLAUDE.md, and a
      new root CLAUDE.md would stop it loading nested AGENTS.md files. So
      wire never creates CLAUDE.md: when Claude Code has neither file to
@@ -266,7 +309,20 @@ export function wire(root, { profile = null, hooks = false, mcp = false, rules =
   for (const name of active) {
     const t = TARGETS[name];
     const tinv = t.global ? { shell: inv.absShell, command: inv.absCommand, args: inv.absArgs } : inv;
-    const ctx = { root, inv: tinv, block, paths, briefs, report, log, carried, ledger, mark, own };
+    const ctx = {
+      root,
+      inv: tinv,
+      mcpInv: mcpInv && t.global ? { shell: mcpInv.absShell, command: mcpInv.absCommand, args: mcpInv.absArgs } : mcpInv,
+      block,
+      paths,
+      briefs,
+      report,
+      log,
+      carried,
+      ledger,
+      mark,
+      own,
+    };
     ledger.target = name;
     /* The minimal profile writes no brief; it clears the ones an earlier
        wire wrote, which finish() and cleanTarget() find. */
@@ -287,5 +343,53 @@ export function wire(root, { profile = null, hooks = false, mcp = false, rules =
   manifestCommittable(root, log);
 
   for (const [k, v] of Object.entries(report)) if (v.length) log(`${k}: ${v.join(', ')}`);
+  return report;
+}
+
+/** Register only the MCP entries, preserving the other manifest-owned writes. */
+export function registerMcp(root, { agents = null, log = () => {} } = {}) {
+  assertManifestPath(root);
+  for (const name of agents || []) {
+    if (!TARGETS[name]?.mcp) throw new Error(`unknown MCP target "${name}"; one of: ${TARGET_NAMES.filter((n) => TARGETS[n].mcp).join(', ')}`);
+  }
+  const names = agents || TARGET_NAMES.filter((name) => TARGETS[name].mcp && !TARGETS[name].global && TARGETS[name].detect(root));
+  const report = { primary: [], created: [], rules: [], removed: [], hooks: [], mcp: [], replaced: [], skipped: [], names };
+  if (!names.length) return report;
+
+  let previous = readManifest(root);
+  if (previous?.invalid) {
+    log(`${MANIFEST_PATH} is not readable JSON; writing a new one and removing no file it cannot prove it wrote.`);
+    previous = null;
+  }
+  const touchedJson = new Set(names.flatMap((name) => name === 'claude' ? ['.mcp.json'] : name === 'cursor' ? ['.cursor/mcp.json'] : []));
+  const ledger = {
+    files: [...(previous?.files || [])],
+    blocks: (previous?.blocks || []).filter((b) => !(names.includes('codex') && b.path === '.codex/config.toml')),
+    entries: (previous?.entries || []).filter((e) => !(e.kind === 'mcp-json' && touchedJson.has(e.path))),
+    dirs: [...(previous?.dirs || [])],
+    previous,
+  };
+  const own = createOwner({ root, ledger, report, log });
+  const mark = (rel, content, opts = {}) => markBlock(root, rel, content, { ledger, log, ...opts });
+  const inv = mcpInvocation(root);
+  for (const name of names) {
+    const target = TARGETS[name];
+    ledger.target = name;
+    target.mcp({
+      root,
+      mcpInv: target.global ? { shell: inv.absShell, command: inv.absCommand, args: inv.absArgs } : inv,
+      report,
+      log,
+      ledger,
+      own,
+      mark,
+    });
+  }
+  ledger.target = null;
+  writeManifest(root, ledger, previous?.profile ? { profile: previous.profile } : {});
+  manifestCommittable(root, log);
+  for (const [key, values] of Object.entries(report)) {
+    if (Array.isArray(values) && values.length && key !== 'names') log(`${key}: ${values.join(', ')}`);
+  }
   return report;
 }

@@ -28,7 +28,8 @@ test('the card names the map\'s repository, commit, date and tool, read from the
   const text = readFileSync(join(ROOT, DEMO.file), 'utf8');
   const fm = parseComplexMd(text).front;
   const html = demoCard(text, DEMO);
-  for (const v of [DEMO.repo, fm.commit, fm.generated, fm.tool, `spec ${fm.complex_md}`]) assert.ok(html.includes(esc(v)), `names ${v}`);
+  const tool = fm.tool ?? [fm.generator?.name, fm.generator?.version].filter(Boolean).join('/');
+  for (const v of [DEMO.repo, fm.commit, fm.generated, tool, `spec ${fm.complex_md}`]) assert.ok(html.includes(esc(v)), `names ${v}`);
   assert.ok(html.includes(Number(fm.profile.commits_analyzed).toLocaleString('en-US')), 'commits read');
   assert.ok(html.includes(`href="https://github.com/KletoWorks/complex-md/blob/main/${DEMO.file}"`), 'links the source file');
 });

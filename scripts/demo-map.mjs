@@ -11,6 +11,9 @@
 import { parseComplexMd } from '../cli/src/complexmd.js';
 import { squarify } from '../cli/src/render.js';
 
+/* A 0.3 map names its writer in `tool`; the reader maps it to `generator` {name, version}. */
+const toolName = (fm) => fm.tool ?? (fm.generator ? [fm.generator.name, fm.generator.version].filter(Boolean).join('/') : '');
+
 /** The map the card draws: a committed file and the repository it maps. */
 export const DEMO = {
   file: 'bench/results/fastify-damage/maps/fastify-fastify-2026-07.md',
@@ -136,6 +139,6 @@ ${panels}
 <div class="prog" aria-hidden="true"><i></i></div>
 </div>
 <figcaption class="cap"><p>${esc(label)}: ${commits} commits read, ${fmt(fm.files_analyzed)} files ranked. Select a tile.</p>
-<p class="prov"><a href="${SOURCE}${esc(file)}">${esc(repo)} at commit ${esc(short)}</a>, generated ${esc(fm.generated)} by ${esc(fm.tool)}, spec ${esc(fm.complex_md)}.</p></figcaption>
+<p class="prov"><a href="${SOURCE}${esc(file)}">${esc(repo)} at commit ${esc(short)}</a>, generated ${esc(fm.generated)} by ${esc(toolName(fm))}, spec ${esc(fm.complex_md)}.</p></figcaption>
 </figure>`;
 }

@@ -15,13 +15,29 @@ export function parseComplexMd(text) {
   const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text);
   if (!m) return null;
   const fm = parseFrontMatter(m[1]);
+  if (!Object.hasOwn(fm, 'complex_md')) return null;
+  if (fm.complex_md === '0.3' && !Object.hasOwn(fm, 'generator') && typeof fm.tool === 'string') {
+    const slash = fm.tool.indexOf('/');
+    fm.generator = slash < 0
+      ? { name: fm.tool }
+      : { name: fm.tool.slice(0, slash), version: fm.tool.slice(slash + 1) };
+    delete fm.tool;
+  }
   /* A commit sha is a string even when every character is a digit. The
      scalar reader turns an all digit value into a Number, and a map whose
      sha happened to be 1234567 then failed every string comparison against
      HEAD and reported itself stale. A few percent of shas are all digits,
      which is exactly the rate at which a test with unpinned commit dates
-     fails in CI and passes on the machine that wrote it. */
-  if (fm.commit !== undefined && fm.commit !== null) fm.commit = String(fm.commit);
+     fails in CI and passes on the machine that wrote it. String() of that
+     Number also drops a leading zero: 0179008 came back as 179008, which
+     resolves to no commit, so a note called the map's commit not in the
+     history. frontMatter in generate.js writes the sha unquoted, so an all
+     digit value is taken as written. parseFrontMatter keeps the Number,
+     because lint reports the commit as written. */
+  if (fm.commit !== undefined && fm.commit !== null) {
+    const raw = /^commit:[ \t]*(\d+)[ \t]*$/m.exec(m[1])?.[1];
+    fm.commit = typeof fm.commit === 'number' && raw ? raw : String(fm.commit);
+  }
   const prose = m[2];
   const sections = splitSections(prose);
   const hotspotParas = paragraphs(sections['Why these files are hot'] || '');
@@ -191,11 +207,38 @@ export function parseFrontMatter(src) {
        the two character string "[]" is a real defect and not a theoretical
        one. It crashed `wire` on the first end to end run of 0.7.0. */
     if (/^\[.*\]$/.test(v)) {
-      const inner = v.slice(1, -1).trim();
-      if (!inner) return [];
-      return inner.split(',').map((x) => scalar(x));
+      return flowList(v.slice(1, -1));
     }
     return v;
+  };
+  /* A comma inside a double quoted item does not split it. Only a quote
+     that opens an item starts a quoted scalar: spec 0.4 section 6.2 lets a
+     plain scalar hold a quote after its first character, and frontMatter
+     writes co_change paths unquoted, so lib/a"b.js is a plain path. */
+  const flowList = (inner) => {
+    if (!inner.trim()) return [];
+    const items = [];
+    let quoted = false;
+    let escaped = false;
+    let opening = true;
+    let start = 0;
+    for (let j = 0; j < inner.length; j++) {
+      const c = inner[j];
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (c === '\\') escaped = true;
+        else if (c === '"') quoted = false;
+      } else if (c === ',') {
+        items.push(scalar(inner.slice(start, j)));
+        start = j + 1;
+        opening = true;
+      } else if (opening && c === '"') {
+        quoted = true;
+        opening = false;
+      } else if (c !== ' ') opening = false;
+    }
+    items.push(scalar(inner.slice(start)));
+    return items;
   };
   while (i < lines.length) {
     const line = lines[i];
@@ -243,7 +286,7 @@ export function parseFrontMatter(src) {
   function value(v) {
     v = v.trim();
     const arr = /^\[(.*)\]$/.exec(v);
-    if (arr) return arr[1].split(',').map((s) => scalar(s));
+    if (arr) return flowList(arr[1]);
     return scalar(v);
   }
 }
