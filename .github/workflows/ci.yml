@@ -1,6 +1,9 @@
 name: ci
+# A pull request runs once, on pull_request. A push runs only on main, to
+# test each merge result. A release tag runs the same tests in release.yml.
 on:
   push:
+    branches: [main]
   pull_request:
 permissions:
   contents: read
@@ -19,7 +22,7 @@ jobs:
       - name: Set Windows line endings
         if: matrix.os == 'windows-latest'
         run: git config --global core.autocrlf ${{ matrix.node == 22 && 'true' || 'false' }}
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ matrix.node }}
