@@ -13,3 +13,4 @@
 - [ ] An AI tool helped write this change. The tool and the part it wrote are stated above.
 - [ ] Each commit the tool helped write has an `Assisted-by:` or a `Co-Authored-By:` trailer.
 - [ ] A person read the whole diff and will answer the review comments.
+- [ ] Or: a maintainer agent opened this pull request, and "Maintainer agents" in CONTRIBUTING.md decides who merges it (gated: the `owner` label).
