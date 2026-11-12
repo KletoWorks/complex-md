@@ -1,6 +1,9 @@
 name: ci
+# A pull request runs once, on pull_request. A push runs only on main, to
+# test each merge result. A release tag runs the same tests in release.yml.
 on:
   push:
+    branches: [main]
   pull_request:
 permissions:
   contents: read
