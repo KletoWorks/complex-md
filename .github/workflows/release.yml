@@ -2,16 +2,20 @@
 # (OIDC): no token in secrets, no second factor prompt, provenance attached.
 # The tag must match cli/package.json, and the package must be configured on
 # npmjs.com with this repository and workflow as its trusted publisher.
+# After both packages publish, the github-release job creates the GitHub
+# release from the version's section in CHANGELOG.md.
 name: release
 on:
   push:
     tags: ['v*.*.*']
 permissions:
   contents: read
-  id-token: write
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -27,8 +31,37 @@ jobs:
           mcp=$(node -p "require('./packages/complex-md-mcp/package.json').version")
           [ "$cli" = "$mcp" ] || { echo "cli/package.json $cli does not match complex-md-mcp/package.json $mcp"; exit 1; }
           [ "refs/tags/v$cli" = "$GITHUB_REF" ] || { echo "tag $GITHUB_REF does not match package version $cli"; exit 1; }
+      # The release notes come from this section, so a release without one
+      # stops here, before anything is published.
+      - name: CHANGELOG.md has a section for the version
+        run: node scripts/release-notes.mjs "${GITHUB_REF_NAME#v}" > /dev/null
       - run: cd cli && npm ci && npm test
       - run: cd packages/complex-md-mcp && npm ci && npm test
       - run: npm run build
       - run: cd cli && npm publish --access public --provenance
       - run: cd packages/complex-md-mcp && npm publish --access public --provenance
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    # The only job that writes to the repository: it creates the release.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      # A re-run of this job edits the release that the first run created.
+      - name: create the GitHub release from CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          node scripts/release-notes.mjs "${GITHUB_REF_NAME#v}" > "$RUNNER_TEMP/notes.md"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "complex-md ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "complex-md ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md"
+          fi

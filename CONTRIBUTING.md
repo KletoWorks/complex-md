@@ -52,8 +52,10 @@ patch, a new signal or wiring target is a minor, a breaking flag or output
 change is a major. A test fails if the spec version disagrees between the
 engine, the prompt and the spec page.
 
-To release: add the dated entry to `CHANGELOG.md`, bump `cli/package.json`,
-commit, then tag `vX.Y.Z` and push the tag. The release workflow verifies
-the tag matches the package, runs the tests and the build, and publishes to
-npm with provenance through trusted publishing. Create the GitHub release
-from the changelog entry afterward.
+To release: add the dated entry to `CHANGELOG.md` under the heading
+`## YYYY-MM-DD  X.Y.Z: summary`, bump `cli/package.json`, commit, then tag
+`vX.Y.Z` and push the tag. The release workflow verifies the tag matches
+the package and the changelog has that heading, runs the tests and the
+build, and publishes to npm with provenance through trusted publishing.
+After the publish, it creates the GitHub release with that changelog
+section as its notes (`scripts/release-notes.mjs`).
