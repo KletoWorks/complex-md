@@ -3,16 +3,24 @@
 //
 //   node scripts/hosted-pages.mjs --in maps.json --out <dir>
 //
-// It writes, under <dir> only: <owner>/<repo>/index.html and
-// <owner>/<repo>/COMPLEX.md for each page, maps/index.json for the /map
-// lookup, and sitemap-maps.xml with the indexable pages. No network, no
-// clock: the same input gives the same bytes. An entry that fails a check is
+// It writes, under <dir> only, for each page:
+//
+//   <repo_key>/index.html   the page
+//   <repo_key>/COMPLEX.md   the raw map
+//   <repo_key>/og.png       its Open Graph image, 1200 by 630 (og-image.mjs)
+//
+// and, once, maps/index.json for the /map lookup and sitemap-maps.xml with
+// the indexable pages. <repo_key> is the lower case owner/name. A step that
+// publishes the tree copies every file of each page folder, og.png
+// included: the page names its image by absolute URL. No network, no clock:
+// the same input gives the same bytes. An entry that fails a check is
 // left out with one line on stderr, and the run still exits 0. A missing
 // argument or an unreadable input exits 2 and writes nothing. Pass an empty
 // <dir>: the command adds files and removes none.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
-import { checkEntry, checkCommitted, renderHostedPage, sitemap, mapsIndex, siteOf, LIMITS } from './hosted.mjs';
+import { checkEntry, checkCommitted, renderHostedPage, ogFacts, sitemap, mapsIndex, siteOf, LIMITS } from './hosted.mjs';
+import { renderOgImage } from './og-image.mjs';
 
 const USAGE = 'usage: node scripts/hosted-pages.mjs --in maps.json --out <dir>';
 const argv = process.argv.slice(2);
@@ -49,8 +57,9 @@ for (const [i, e] of input.maps.entries()) {
     if (seen.has(r.page.key)) { reject(`a second entry for ${r.page.key}`); continue; }
     const html = renderHostedPage(r.page, { site });
     if (Buffer.byteLength(html) > LIMITS.page) { reject(`the page is over ${LIMITS.page} bytes`); continue; }
+    const og = renderOgImage(ogFacts(r.page));
     seen.add(r.page.key);
-    pages.push({ ...r.page, html });
+    pages.push({ ...r.page, html, og });
   } catch (error) {
     reject(error instanceof Error ? error.message : 'unknown error');
   }
@@ -70,6 +79,7 @@ for (const p of pages) {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'index.html'), p.html);
   writeFileSync(join(dir, 'COMPLEX.md'), p.raw);
+  writeFileSync(join(dir, 'og.png'), p.og);
 }
 mkdirSync(under('maps'), { recursive: true });
 writeFileSync(under('maps', 'index.json'), mapsIndex(pages, committed));

@@ -177,6 +177,27 @@ tolerance, and 2 means there is no map or the clone is shallow. A file that
 sits at the edge of a list does not flip the result on every commit, so the
 command can run in CI on each push.
 
+## Secrets in the history
+
+```sh
+npx complex-md exposure
+```
+
+A key that a commit added stays in every clone, even after a later commit
+deletes it. `exposure` is opt in. It reads the tracked files and every line
+that a commit added, and matches 53 known secret shapes and 1 heuristic for
+random values assigned to secret names. Each finding names the rule, the
+file, the line, and the commits that added and removed the value. It never
+holds the value itself. The findings go to `.complex-md/exposure-report.json`,
+and `--sarif` writes a SARIF file for code scanning. Accepted findings and
+allows, each with a reason, live in `.complex-md/exposure.json`, and CI reads
+that file from the target branch with `--config-ref`. The heuristic finds
+the hard-coded JWT and session secrets that security advisories report, and
+it reports at low confidence. On 9 snapshots of 4 public repositories with
+such advisories, the scan made 61 distinct findings, 59 of them heuristic:
+46 were credentials, 14 were unclear and 1 was not. The author labelled
+them, and they are a development set, not the held-out measurement.
+
 ## Measured, not asserted
 
 Agents follow it. On two repositories with no shared tasks, agents ran the

@@ -50,7 +50,7 @@ function stubFetch({ failModel = null } = {}) {
     // The computed block, not the shape example in the prompt text above it.
     const fm = /## Front matter \(computed[^\n]*\n\n```yaml\n([\s\S]*?)\n```/.exec(prompt)[1] + '\n';
     const prose = '## Where the risk lives\n\nRisk sits in src/a.js.\n\n## Why these files are hot\n\nsrc/a.js holds the value. Before editing this file, open src/b.js.\n\n## Change coupling\n\nNone.\n\n## What to read first\n\n1. src/a.js: the value.\n';
-    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: fm + '\n' + prose } }], usage: { prompt_tokens: 900, completion_tokens: 300, cost: 0.0012 } }) };
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: fm + '\n' + prose }, finish_reason: 'stop' }], usage: { prompt_tokens: 900, completion_tokens: 300, completion_tokens_details: { reasoning_tokens: 80 }, cost: 0.0012 } }) };
   };
   return { impl, calls, chats: () => calls.filter((c) => c.url.endsWith('/chat/completions')) };
 }
@@ -84,6 +84,16 @@ test('the price of a run: input tokens, the output cap and any per request fee',
   assert.equal(p.rows[0].usd, 1000 * 0.000001 + 1000 * 0.000002);
   assert.equal(p.rows[1].usd, 1000 * 0.000003 + 1000 * 0.000015);
   assert.equal(p.total, p.rows[0].usd + p.rows[1].usd);
+
+  const reasoning = priceRun({
+    models: ['reason/model'],
+    inputs: [{ name: 'r', bundle: 'x'.repeat(3000) }],
+    prices: [{ id: 'reason/model', supported_parameters: ['reasoning'], pricing: { prompt: '0.000001', completion: '0.000002' } }],
+    maxTokens: 1000,
+  });
+  assert.equal(reasoning.rows[0].maxOutputTokens, 24000);
+  assert.equal(reasoning.rows[0].reasoning, true);
+  assert.equal(reasoning.total, 1000 * 0.000001 + 24000 * 0.000002);
 });
 
 test('--dry-run prints the plan and the price, needs no key and calls no model', async (t) => {
@@ -131,21 +141,57 @@ test('a run scores each map, records a failed call and never writes the key', as
   const [a, b] = results.rows;
   assert.equal(a.model, 'open/model-a');
   assert.equal(a.error, null);
+  assert.equal(a.finish_reason, 'stop');
+  assert.deepEqual(a.usage, { prompt_tokens: 900, completion_tokens: 300, completion_tokens_details: { reasoning_tokens: 80 } });
   assert.equal(a.cost_usd, 0.0012);
-  assert.deepEqual(Object.values(a.checks).map((c) => c.pass), [true, true, true, true, true, true], JSON.stringify(a.checks));
+  assert.deepEqual(Object.values(a.checks.raw).map((c) => c.pass), [true, true, true, true, true, true], JSON.stringify(a.checks));
+  assert.deepEqual(Object.values(a.checks.written).map((c) => c.pass), [true, true, true, true, true, true], JSON.stringify(a.checks));
   assert.match(b.error, /HTTP 500: upstream error/);
   assert.equal(b.checks, null);
   assert.ok(existsSync(join(s.out, 'maps', 'fixture', 'open__model-a.md')));
 
   const summary = readFileSync(join(s.out, 'summary.md'), 'utf8');
-  assert.match(summary, /\| open\/model-a \| fixture \| pass \| pass \| pass \| pass \| pass \| pass \|/);
+  assert.match(summary, /\| open\/model-a \| fixture \| pass \| pass \| pass \| pass/);
   assert.match(summary, /\| closed\/model-b \| fixture \| error \|/);
+  const errorLine = summary.split('\n').find((line) => line.includes('| closed/model-b |'));
+  assert.equal(errorLine.split('|').length - 2, 2 + 2 * 6);
   assert.match(summary, /not a ranking/i);
+  assert.match(summary, /Written maps passing every check: 1 of 1 scored maps/);
   assert.equal(r.rows.length, 2);
 
+  const stdout = execFileSync('node', [join(BENCH, 'models.mjs'), '--rescore', s.out], { encoding: 'utf8' });
+  assert.match(stdout, /rescored 2 calls/);
+  const rescored = JSON.parse(readFileSync(join(s.out, 'results.json'), 'utf8'));
+  assert.deepEqual(Object.values(rescored.rows[0].checks.written).map((c) => c.pass), [true, true, true, true, true, true]);
   for (const text of [JSON.stringify(results), summary, s.logs.join('\n'), ...readdirSync(join(s.out, 'maps', 'fixture')).map((f2) => readFileSync(join(s.out, 'maps', 'fixture', f2), 'utf8'))]) {
     assert.ok(!text.includes(KEY), 'the key appears in no output');
   }
+});
+
+test('reasoning calls reserve answer capacity and preserve metadata on empty content', async (t) => {
+  if (!existsSync(BENCH)) return t.skip('not a repository checkout');
+  const { runMatrix } = await load();
+  const s = setup();
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url: String(url), init });
+    if (String(url).endsWith('/models')) return { ok: true, status: 200, json: async () => ({ data: [{ ...PRICES.data[0], supported_parameters: ['reasoning'] }] }) };
+    return { ok: true, status: 200, json: async () => ({
+      choices: [{ message: { content: null, reasoning: 'internal reasoning only' }, finish_reason: 'length' }],
+      usage: { prompt_tokens: 900, completion_tokens: 24000, completion_tokens_details: { reasoning_tokens: 8000 } },
+    }) };
+  };
+  const r = await runMatrix({ models: ['open/model-a'], repos: s.repos, env: { OPENROUTER_API_KEY_COMPLEXMD: KEY }, fetchImpl, workDir: s.work, outDir: s.out, log: s.log });
+  const body = JSON.parse(calls.find((c) => c.url.endsWith('/chat/completions')).init.body);
+  assert.equal(body.max_tokens, 24000);
+  assert.deepEqual(body.reasoning, { max_tokens: 8000 });
+  const row = r.rows[0];
+  assert.equal(row.error, 'empty_content');
+  assert.equal(row.finish_reason, 'length');
+  assert.deepEqual(row.usage, { prompt_tokens: 900, completion_tokens: 24000, completion_tokens_details: { reasoning_tokens: 8000 } });
+  assert.equal(row.checks, null);
+  assert.equal(r.plan.rows[0].maxOutputTokens, 24000);
+  assert.ok(r.plan.total < 10, `priced run exceeds budget: ${r.plan.total}`);
 });
 
 test('a budget or an output cap that is not a positive number is refused before any call', async (t) => {
@@ -173,4 +219,76 @@ test('a model with no price, or a negative price, is refused: it cannot be price
   assert.deepEqual(p.unpriced, ['router/auto', 'no/pricing']);
   assert.deepEqual(p.rows.map((r) => r.model), ['open/model-a']);
   assert.ok(p.total > 0);
+});
+
+/* A saved results directory for --rescore, written by hand: results.json
+   plus the replies under maps/<repo>/<model slug>.md. */
+const RESCORE_FM = '---\ncomplex_md: "0.3"\ncommit: abc1234\n---\n';
+const RESCORE_PROSE = '## Where the risk lives\n\nRisk sits in src/a.js.\n\n## Why these files are hot\n\nsrc/a.js holds the value. Before editing this file, open src/b.js.\n\n## Change coupling\n\nNone.\n\n## What to read first\n\n1. src/a.js: the value.\n';
+function savedResults({ repo, rows, maps }) {
+  const out = mkdtempSync(join(tmpdir(), 'cx-rescore-'));
+  mkdirSync(join(out, 'maps', repo.name), { recursive: true });
+  for (const [model, text] of Object.entries(maps)) writeFileSync(join(out, 'maps', repo.name, `${model.replace(/[/:]/g, '__')}.md`), text);
+  writeFileSync(join(out, 'results.json'), JSON.stringify({ repos: [repo], rows }));
+  return out;
+}
+
+test('--rescore leaves a failed call failed, even when an earlier run left a reply', async (t) => {
+  if (!existsSync(BENCH)) return t.skip('not a repository checkout');
+  const { rescoreResults } = await load();
+  const repo = { name: 'fixture', hot: ['src/a.js'], files: ['src/a.js', 'src/b.js'], front_matter: RESCORE_FM };
+  const stale = RESCORE_FM + '\n' + RESCORE_PROSE;
+  const out = savedResults({
+    repo,
+    rows: [
+      { model: 'open/model-a', repo: 'fixture', error: 'HTTP 500: upstream error', checks: null },
+      { model: 'open/model-b', repo: 'fixture', error: 'HTTP 200: no choices[0].message.content', checks: null },
+    ],
+    maps: { 'open/model-a': stale, 'open/model-b': stale },
+  });
+  const [a, b] = rescoreResults(out).rows;
+  assert.equal(a.error, 'HTTP 500: upstream error');
+  assert.equal(a.checks, null);
+  assert.equal(b.error, 'empty_content');
+  assert.equal(b.checks, null);
+  assert.match(readFileSync(join(out, 'summary.md'), 'utf8'), /0 of 0 scored maps/);
+});
+
+test('--rescore fails the front matter check, and does not stop, when no computed front matter was saved', async (t) => {
+  if (!existsSync(BENCH)) return t.skip('not a repository checkout');
+  const { rescoreResults } = await load();
+  // A legacy results.json: no files and no front matter per repository, and
+  // no reply that passed the front matter check to take it from.
+  const legacy = { front_matter: { pass: false, detail: 'line 3' }, sections: { pass: true }, paths: { pass: true, detail: '' }, directives: { pass: true }, sentences: { pass: true }, em_dashes: { pass: true } };
+  const out = savedResults({
+    repo: { name: 'fixture', hot: ['src/a.js'] },
+    rows: [{ model: 'open/model-a', repo: 'fixture', error: null, checks: legacy }],
+    maps: { 'open/model-a': RESCORE_FM + '\n' + RESCORE_PROSE },
+  });
+  const [row] = rescoreResults(out).rows;
+  assert.equal(row.checks.raw.front_matter.pass, false);
+  assert.match(row.checks.raw.front_matter.detail, /computed front matter/);
+  assert.equal(row.checks.raw.sections.pass, true);
+  assert.equal(row.checks.written.front_matter.pass, false);
+  assert.match(row.checks.written.sections.detail, /not written/);
+});
+
+test('--rescore reuses the saved path check only for a reply the CLI would write', async (t) => {
+  if (!existsSync(BENCH)) return t.skip('not a repository checkout');
+  const { rescoreResults } = await load();
+  // No saved file list, so the raw path check comes from the old row.
+  const legacy = { front_matter: { pass: true }, sections: { pass: false }, paths: { pass: true, detail: '' }, directives: { pass: false }, sentences: { pass: true }, em_dashes: { pass: true } };
+  const out = savedResults({
+    repo: { name: 'fixture', hot: ['src/a.js'], front_matter: RESCORE_FM },
+    rows: [
+      { model: 'open/model-a', repo: 'fixture', error: null, checks: legacy },
+      { model: 'open/model-b', repo: 'fixture', error: null, checks: legacy },
+    ],
+    maps: { 'open/model-a': RESCORE_FM + '\nRisk sits in src/a.js.\n', 'open/model-b': RESCORE_FM + '\n' + RESCORE_PROSE },
+  });
+  const [rejected, written] = rescoreResults(out).rows;
+  assert.equal(rejected.checks.raw.paths.pass, true);
+  assert.equal(rejected.checks.written.paths.pass, false);
+  assert.match(rejected.checks.written.paths.detail, /not written/);
+  assert.equal(written.checks.written.paths.pass, true);
 });

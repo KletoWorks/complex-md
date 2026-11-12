@@ -133,6 +133,17 @@ function treemapSvg(kind, order, rects, { measure, maxFix, grepBlind }) {
   return `<svg class="tm-svg ${kind}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="group" aria-label="Treemap of ${esc(plural(order.length, 'hotspot'))}">${defs}\n${tiles}\n</svg>`;
 }
 
+/* The producer as `name/version`. The reader turns a 0.3 `tool` into a 0.4
+   `generator` map, so a footer that read only `tool` lost the producer of
+   every map the CLI writes. A front built in code may still carry `tool`. */
+function producer(fm) {
+  const g = fm.generator;
+  if (g && typeof g === 'object' && g.name !== undefined && g.name !== null && g.name !== '') {
+    return g.version !== undefined && g.version !== null && g.version !== '' ? `${g.name}/${g.version}` : String(g.name);
+  }
+  return fm.tool ? String(fm.tool) : '';
+}
+
 /**
  * The sections of a report, each an HTML fragment, for a page that composes
  * them itself. Wrap them in an element with the class cxr and load
@@ -233,7 +244,7 @@ ${context ? `<details><summary>Why this file is hot</summary><p>${inline(context
   const factsHtml = `<dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${k === 'Commit' ? `<code>${esc(v)}</code>` : esc(v)}</dd></div>`).join('')}</dl>`;
   return {
     repo,
-    tool: fm.tool ? String(fm.tool) : '',
+    tool: producer(fm),
     facts: factsHtml,
     lede: map.riskSummary ? `<p class="lede">${inline(map.riskSummary.replace(/\s*\n\s*/g, ' '))}</p>` : '',
     hotspots: `<section id="hotspots" aria-labelledby="h-hot">

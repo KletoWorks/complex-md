@@ -6,6 +6,74 @@ format.
 
 ## Unreleased
 
+**Intent:** a key that a commit added stays in every clone of the history after a later commit deletes it, and the map had no way to show it. The bundle redaction also had its own 11 rules in code, so a second detector would drift from it.
+
+**Change:** new opt in command `complex-md exposure` (E1). It scans the tracked files and every line that a commit reachable from HEAD added (`--all-refs` for every ref, `--no-history` for the files only), with `git log -p` streamed and lockfiles, `node_modules`, `vendor` and minified files excluded in the git command. A partial clone skips the history and says so, since git would fetch each old blob. The 54 rules are data in `cli/rules/exposure.json` (53 known shapes, CWE ids, a severity, a confidence and a directive each, and 1 heuristic, `generic-assignment`, at low confidence); every quantifier is bounded and a rule names predicates, never code. The bundle redaction now uses the same rules. Output: `.complex-md/exposure-report.json` and with `--sarif` a SARIF 2.1.0 file with `partialFingerprints`; no output holds a value, only rule, path, line, commits, length, entropy and a fingerprint. `.complex-md/exposure.json` holds disabled rules, allows with a reason and an expiry compared with the commit date of HEAD, a baseline (`--baseline` writes it) and own rules; `--config-ref` reads it from a commit for CI; a comment `complex-md: allow <rule-id> <reason>` allows 1 rule on its line. A finding in a test path is labelled and 1 severity step lower. `--strict` exits 1 on a new finding and 2 on a broken config. A `.gitignore` entry written before this release gets `!.complex-md/exposure.json` once. Measured on a development set of 9 snapshots of 4 public repositories with hard-coded credential advisories: 61 distinct findings (2 exact, 59 heuristic), 46 credentials, 14 unclear, 1 not, labelled by the author; every value that left a file was reported with the commit that removed it. The full history of django (35,052 commits) took 99 s, of which `git log -p` took 41 s. `cli/test/exposure.test.js`, `cli/test/exposure-rules.test.js`, `cli/test/partial-clone.test.js` and `cli/test/gitignore.test.js` cover it with fake keys built from fragments.
+
+**Intent:** the prompt bundle copied up to 10 hotspot files as they were, about 60,000 characters. A key hard-coded in a hotspot file went to the model provider, to the `--via` agent CLI, or into `.complex-md/prompt.md` for the user's agent.
+
+**Change:** `buildBundle` replaces each secret-shaped value in the bundle with `[redacted:<rule>]` before the bundle is sent or written. 11 rules in `cli/src/redact.js`, with no dependency: AWS access keys, GitHub tokens (`ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`), OpenAI and Anthropic keys, Slack tokens and webhooks, Stripe live keys, Google API keys, private key blocks, JSON web tokens, and a value assigned to a key, secret, token or password name when its Shannon entropy is 3.5 bits per character or more and it holds a digit. Each file is redacted whole before the excerpt is cut, so a cut never leaves half of a key. The run prints 1 line with the count per rule, never a value. The front matter that generate writes never passes through redaction, and template prose is unchanged. `cli/test/redact.test.js` checks each rule with built-up fake tokens and checks that the CLI's own source passes through unchanged. `generate.test.js` and `generate-via.test.js` check that the provider request and the agent CLI's stdin hold no original value.
+
+**Intent:** an audit of 20 hosted maps checked 95 "Before editing this file" directives of template prose against the repositories and found 11 false. 4 named a test command for another language, 2 named a test that does not test the file, and 5 said no test covers a file that has a test.
+
+**Change:** template prose takes the test command per file from the nearest test setup of its language (`package.json` scripts for JavaScript and TypeScript, pytest configuration for Python, `go.mod`, `Cargo.toml`), names its folder when it is not the root, and names no command when none fits. A covering test must run a test case: `__init__.py` never counts, and a Python or Go file needs a test function. A name match needs the same package and language, and a stem that 2 files of 1 package share matches only the file beside the test. A test found only by its name is named as such ("which matches it by name"), and "no test file imports it or matches its name" replaces "no test covers it". On the 5 audited repositories at the audited commits, all 11 directives now name a true command or test. `cli/test/directive-truth.test.js` rebuilds each case.
+
+**Intent:** after a new `wire` and `unwire`, a repository first wired by 0.10.0 kept 2 leftovers: the `CLAUDE.md` that 0.10.0 created with only `@AGENTS.md` and `@COMPLEX.md`, and the brief folders that a minimal rewire empties ([issue #25](https://github.com/KletoWorks/complex-md/issues/25)).
+
+**Change:** wire records a `CLAUDE.md` whose text is exactly those 2 lines, with CRLF or without the last newline, in the manifest, and unwire deletes it. Any other byte makes it the user's: it stays, and wire says so. wire and unwire remove `.claude/rules/complex-md/`, `.cursor/rules/complex-md/` and `.github/instructions/complex-md/` once they are empty, and never a folder that holds another file. `cli/test/upgrade-0.10.test.js` models a 0.10.0 repository.
+
+**Intent:** the map's sentence rules allow no em dash, but models write them. In the first model matrix run, `bench/results/models/2026-10-25/summary.md`, the em dash check failed for 25 of 40 scored maps, and the CLI wrote the prose as it came ([issue #23](https://github.com/KletoWorks/complex-md/issues/23)).
+
+**Change:** after a model or `--via` reply passes `normalizeOutput`, each sentence that uses an em dash or an en dash as punctuation goes back to the same model in 1 repair request, and the rewrites replace only those sentences. A dash that is left becomes a comma, a space, or "to" in a range of digits, and the run prints how many it replaced. Dashes in code spans, paths and code blocks stay. `cli/src/dashes.js` holds the rules; `cli/test/dashes.test.js` covers the repair, the fallback and the template prose.
+
+**Intent:** a GitLab project had no way to get the merge request feedback
+that complex-md-action gives a GitHub pull request (issue #26).
+
+**Change:** `check --map-ref <ref>` reads COMPLEX.md from a commit instead
+of the working tree, and `check --note` prints the findings as one Markdown
+merge request note in the action's comment format: hotspots, load bearing
+files, directives and co-change partners left unchanged, with a renamed file
+counted under its old path. A clean change prints a cleared note. The CLI
+makes no request for it.
+
+**Change:** `ci/gitlab/complex-md.gitlab-ci.yml` is a GitLab CI include that
+runs on merge request pipelines. It installs a pinned complex-md outside the
+checkout, runs `check --note` against the target branch's map with the
+token removed from the CLI's environment, and creates, edits or clears one
+note through the notes API with curl. One run makes 2 reads, 1 more for each
+100 notes past the first 100, and 1 write at most. It needs a token with the
+`api` scope and the Reporter role, because `CI_JOB_TOKEN` cannot write notes.
+It pins 0.12.0, the first release with `--note`.
+
+**Change:** the map reader keeps the leading zero of an all digit commit
+sha. `commit: 0179008` came back as `179008`, which names no commit, so a
+check of the map's age found the commit missing from the history.
+
+**Intent:** a shared link to a hosted map page showed the site's generic card, so the preview named neither the repository nor what its map found (#28).
+
+**Change:** `scripts/hosted-pages.mjs` writes `<repo_key>/og.png` beside each page: a 1200 by 630 PNG with the repository name, the number of hotspots, the map's first co-change pair and its coupling, the map's commit and date, and the complex.md mark. Each page names it in `og:image` and `twitter:image`, with width, height and alt text. `scripts/og-image.mjs` draws it with no dependency: a scanline rasterizer, `node:zlib` for the PNG, and Inter outlines in `scripts/og-glyphs.json`, which `scripts/og-font.py` writes once from the site's font. A character outside that table is drawn as "?". Each image is about 75 kB.
+
+**Intent:** /map/remove said each of the 3 ways to remove a hosted page takes effect within 24 hours. A removal request sent with the form waits for a person's review of up to 72 hours, so the form promised a time it does not keep.
+
+**Change:** /map/remove, the "Removing a page" section of /map and the form's confirmation say that a person reviews each removal request within 72 hours. A commit of COMPLEX.md or of `hosted: false` still takes effect within 24 hours.
+
+**Intent:** /map refused every repository outside GitHub with "complex.md maps repositories on GitHub", though `npx complex-md` works in a clone from any host and the request route counts requests for GitLab, Codeberg and Bitbucket.
+
+**Change:** /map reads gitlab.com (1 to 3 groups and a project), codeberg.org and bitbucket.org URLs and SSH remotes. For those it skips the hosted map index, says that hosted pages cover GitHub first, shows the command and sends the request with its `host`. A GitHub request now names `host: github` too. The removal form still takes GitHub repositories only.
+
+**Intent:** an outside contributor had no clear first step, and the issue
+forms did not say what a pull request must bring
+([issue #29](https://github.com/KletoWorks/complex-md/issues/29)).
+
+**Change:** CONTRIBUTING.md has a "Ways to contribute" section that links
+4 issue forms in order, each with a test as its bar: a wrong map (a
+fixture or a test that shows the wrong output), a language module (an
+edge fixture like those in `cli/test/resolve.test.js`, tested on 3 public
+repositories), a conformance case (a `spec/0.4/fixtures/` folder and its
+entry in the fixture test) and a spec proposal (a benchmark run or a
+source). The conformance case and spec proposal forms are new. The issue
+chooser links the section.
+
 **Intent:** CI ran the tests on Ubuntu with Node 22 only. The CLI writes
 files with line ending rules, runs git and builds paths, and none of that
 ran on Windows or macOS. The first run there failed 4 tests on each macOS
@@ -33,6 +101,11 @@ CRLF map. Shell scripts and the 4 skill copies check out with LF.
 
 **Change:** the bench names test files with `/` on Windows, and its mask
 plan compares paths with the OS separator.
+**Intent:** the first model matrix run, `bench/results/models/2026-10-25/`, scored 5 of 45 calls as errors with `HTTP 200: no choices[0].message.content`, all from reasoning models. It failed the front matter check on 22 of 40 maps, but the CLI replaces a model's front matter before it writes COMPLEX.md.
+
+**Change:** `bench/models.mjs` records `finish_reason`, `completion_tokens` and `reasoning_tokens` for each call. A reply with empty content is the error `empty_content`, and its usage stays. A model that lists the `reasoning` parameter gets a 24,000 token output cap with at most 8,000 for reasoning, and the dry run prices that cap.
+
+**Change:** each map gets two columns per check: `raw`, the reply as sent, and `written`, the file after the CLI's own `normalizeOutput`. A reply that `normalizeOutput` refuses fails every written check. `node bench/models.mjs --rescore <results>` scores the saved replies again with no network request, and keeps a failed call failed. The rescored 2026-10-25 run has 8 of 40 maps that pass every written check.
 
 **Intent:** the home page opened with a hand typed excerpt of a fastify map from release 0.4.0 whose numbers matched no file in the repository. It put the benchmark result in its sixth section and sent a visitor to a separate page to look up a repository.
 
@@ -43,6 +116,21 @@ plan compares paths with the OS separator.
 **Change:** the page states the benchmark claim with Claude Opus 5 named, the NUL byte repro with the blind spot line from the 0.10.0 map, open model support, and a FAQ that covers what the CLI sends, who writes the prose, how a maintainer removes a hosted page, and hosts other than GitHub. Motion respects `prefers-reduced-motion`.
 
 **Change:** the home page carries no style attribute and no inline script. The build turns the style attributes in the agent logos into SVG presentation attributes. `cli/test/home.test.js` checks the form, the policy, the claim and the quoted blind spot, and `cli/test/demo-map.test.js` checks the card against its source map.
+**Intent:** the reader in `cli/src/complexmd.js` failed 5 checks of the spec 0.4 draft, and `cli/test/spec-fixtures.test.js` ran them as todos. It returned a map for front matter with no `complex_md` key, did not read the 0.3 key `tool` as `generator`, and split a flow list at a comma inside a double quoted path.
+
+**Change:** front matter with no `complex_md` key is not a valid map, and the reader returns null for it. A 0.3 map with `tool` and no `generator` reads `tool` as `generator`: the text before the first `/` is `name`, and the text after it is `version`. A flow list splits only at a comma outside a double quoted item. A quote opens a quoted item only as its first character, so the plain path `lib/a"b.js` stays 1 path. `[]` inside a list item reads as the empty list. The 5 fixture checks now run, with 0 todo.
+
+**Change:** the report footer names the producer from `generator.name` and `generator.version`, with `tool` as the fallback. A 0.3 map written by complex-md 0.9.2 still shows `complex-md/0.9.2` there.
+**Intent:** a maintainer or a CI job could not tell whether a hand edited or third party COMPLEX.md conforms to the spec 0.4 draft.
+
+**Change:** `complex-md lint [path]` checks a map against the spec 0.4 JSON Schema and the rules the schema cannot state (relative paths, listed paths that exist, sections and directives), and warns on a file over 8,192 bytes. It prints one `path:line: rule: message` line per finding, or `{"ok", "errors", "warnings"}` with `--json`, and exits 1 on any error. It validates the front matter as written, so `commit: 1234567` is a number and `hotspots: invalid` is a schema finding. The schema validator moves from `cli/test/spec-fixtures.test.js` to `cli/src/schema.js`, and the schema ships in the package.
+**Intent:** the import graph gave Rust files no edges, so a Rust repository had no `load_bearing` rows and no covering tests from the graph ([issue #9](https://github.com/KletoWorks/complex-md/issues/9)).
+
+**Change:** Rust `mod` declarations and `use` paths resolve through module files, crate roots, literal `#[path]` attributes and Cargo package names, as the [Rust Reference on modules](https://doc.rust-lang.org/reference/items/modules.html) states. Every Cargo target is a crate root: `src/lib.rs`, `src/main.rs`, and the files under `src/bin`, `tests`, `benches` and `examples`. An integration test that imports its own library by the package name now counts as a covering test. External crates and `std` add no edge. Comments and string literals are read in source order, so a `mod` or `use` inside either adds no edge. On ripgrep's `crates/ignore` at commit 6892bc2, edges from Rust files went from 2 to 29.
+
+**Intent:** every cold `npx complex-md` downloaded the MCP SDK and zod, though most runs never start the MCP server.
+
+**Change:** the MCP server moves to the package `complex-md-mcp` in `packages/complex-md-mcp`, whose version matches `cli/package.json`. The core has no runtime dependency. `complex-md mcp` keeps working through 0.x: it prints one line and runs `npx -y complex-md-mcp@<same version> mcp`. `wire --mcp` writes entries that start `complex-md-mcp` directly. An entry that an earlier version wrote, or one whose manifest hash still matches, moves to the current version, and an entry edited since stays. CI tests both packages, and a `v*` tag publishes `complex-md` and then `complex-md-mcp`. A cold install of the 0.11.0 core installed 92 packages in 17,672,997 bytes; from this branch it installs 1 package in 350,754 bytes. The packed tarball goes from 120,447 to 118,594 bytes.
 
 ## 2026-10-25  0.11.0: a map on every first run, --via for 12 agent CLIs, open model providers, verify, reversible wiring with unwire, hosted map pages
 

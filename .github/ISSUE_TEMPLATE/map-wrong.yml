@@ -7,6 +7,7 @@ body:
       value: |
         A wrong map tells every agent in your repository something false. With the four fields below, the maintainer can rerun the CLI on the same commit and see the same line.
         Only report a public repository here. For a private repository, describe its shape in "Anything else" and leave the URL out.
+        The bar for a fix is a fixture or a test that shows the wrong output. It fails before the fix and passes after it.
   - type: input
     id: repository
     attributes:
@@ -46,3 +47,9 @@ body:
     id: other
     attributes:
       label: Anything else
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I can send a pull request with a fixture or a test that shows the wrong output.

@@ -1,0 +1,32 @@
+# This repository runs its own action on its own map (2026-10-25).
+#
+# One comment when a pull request touches a COMPLEX.md hotspot or a load
+# bearing file, or leaves a co-change partner unchanged.
+#
+# pull_request_target runs with the base branch's workflow and a token
+# that can comment on pull requests from forks. This job checks out
+# nothing and runs no code from the pull request: the action reads
+# COMPLEX.md at the base commit and the file list through the API.
+# Do not add actions/checkout or a run step to this job.
+name: complex-md
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions: {}
+
+concurrency:
+  group: complex-md-comment-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # Pin to the full commit SHA of a release. Find it with:
+      # git ls-remote https://github.com/KletoWorks/complex-md-action refs/tags/v0.2.0
+      - uses: KletoWorks/complex-md-action@c45289ecb00feaf88199bb12f48a0a2830c8c9fb # v0.2.0

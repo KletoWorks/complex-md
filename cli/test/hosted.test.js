@@ -8,6 +8,8 @@ import { existsSync, readFileSync, readdirSync, mkdtempSync, mkdirSync, writeFil
 import { join, relative, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { inflateSync } from 'node:zlib';
+import { pathToFileURL } from 'node:url';
 import { hostileInput, entry, cleanMap, RLO, LONG, SUBJECT } from './fixtures/hosted-maps.mjs';
 
 const ROOT = join(import.meta.dirname, '..', '..');
@@ -49,14 +51,14 @@ const basic = () => ({
   committed: [{ repo_key: 'gamma/done', url: 'https://github.com/Gamma/Done/blob/main/COMPLEX.md' }],
 });
 
-test('the generator writes each page, its raw file, the index and the sitemap, and nothing else', (t) => {
+test('the generator writes each page, its raw file, its Open Graph image, the index and the sitemap, and nothing else', (t) => {
   if (!inCheckout) return t.skip('not a repository checkout');
   const input = basic();
   const r = run(input);
   assert.equal(r.status, 0, r.stderr);
   assert.deepEqual(files(r.out), [
-    'acme/widgets.js/COMPLEX.md', 'acme/widgets.js/index.html',
-    'beta/thing/COMPLEX.md', 'beta/thing/index.html',
+    'acme/widgets.js/COMPLEX.md', 'acme/widgets.js/index.html', 'acme/widgets.js/og.png',
+    'beta/thing/COMPLEX.md', 'beta/thing/index.html', 'beta/thing/og.png',
     'maps/index.json', 'sitemap-maps.xml',
   ]);
   assert.equal(readFileSync(join(r.out, 'acme/widgets.js/COMPLEX.md'), 'utf8'), input.maps[0].raw_text, 'the raw file is raw_text exactly');
@@ -100,6 +102,98 @@ test('the same input gives byte identical output', (t) => {
   const fa = files(a.out);
   assert.deepEqual(fa, files(b.out));
   for (const f of fa) assert.ok(readFileSync(join(a.out, f)).equals(readFileSync(join(b.out, f))), f);
+});
+
+/** CRC-32 as PNG defines it, written here so the test checks the generator's own. */
+function crc32(buf) {
+  let c = 0xffffffff;
+  for (const byte of buf) {
+    c ^= byte;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+/** A PNG checked chunk by chunk and decoded: { width, height, pixel(x, y) } for 8 bit RGB. */
+function readPng(buf) {
+  assert.ok(buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), 'the PNG signature');
+  let at = 8;
+  const types = [];
+  const idat = [];
+  let width = 0, height = 0;
+  while (at < buf.length) {
+    const len = buf.readUInt32BE(at);
+    const type = buf.toString('latin1', at + 4, at + 8);
+    const data = buf.subarray(at + 8, at + 8 + len);
+    assert.equal(buf.readUInt32BE(at + 8 + len), crc32(buf.subarray(at + 4, at + 8 + len)), `${type} CRC`);
+    types.push(type);
+    if (type === 'IHDR') {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      assert.deepEqual([...data.subarray(8)], [8, 2, 0, 0, 0], '8 bit RGB, no interlace');
+    }
+    if (type === 'IDAT') idat.push(data);
+    at += 12 + len;
+  }
+  assert.deepEqual(types, ['IHDR', 'IDAT', 'IEND'], 'no text or time chunk: nothing but the pixels');
+  const raw = inflateSync(Buffer.concat(idat));
+  const stride = width * 3 + 1;
+  assert.equal(raw.length, stride * height);
+  const px = Buffer.alloc(width * height * 3);
+  for (let y = 0; y < height; y++) {
+    const filter = raw[y * stride];
+    assert.equal(filter, 1, 'each row uses the Sub filter');
+    for (let x = 0; x < width * 3; x++) px[y * width * 3 + x] = (raw[y * stride + 1 + x] + (x >= 3 ? px[y * width * 3 + x - 3] : 0)) & 0xff;
+  }
+  return { width, height, pixel: (x, y) => [...px.subarray((y * width + x) * 3, (y * width + x) * 3 + 3)] };
+}
+
+test('each page gets a 1200 by 630 PNG Open Graph image, and its meta tags name it with size and alt text', (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const r = run(basic());
+  assert.equal(r.status, 0, r.stderr);
+  const a = readFileSync(join(r.out, 'acme/widgets.js/og.png'));
+  const b = readFileSync(join(r.out, 'beta/thing/og.png'));
+  const png = readPng(a);
+  assert.equal(png.width, 1200);
+  assert.equal(png.height, 630);
+  assert.deepEqual(png.pixel(5, 5), [0xf3, 0xf4, 0xf6], 'the band around the card');
+  assert.deepEqual(png.pixel(1100, 300), [0xff, 0xff, 0xff], 'the card');
+  assert.ok(a.length < 200_000, `a bounded file: ${a.length} bytes`);
+  assert.ok(!a.equals(b), 'each repository gets its own image');
+  const html = readFileSync(join(r.out, 'acme/widgets.js/index.html'), 'utf8');
+  assert.match(html, /<meta property="og:image" content="https:\/\/complex\.md\/acme\/widgets\.js\/og\.png">/);
+  assert.match(html, /<meta property="og:image:width" content="1200">/);
+  assert.match(html, /<meta property="og:image:height" content="630">/);
+  assert.match(html, /<meta name="twitter:image" content="https:\/\/complex\.md\/acme\/widgets\.js\/og\.png">/);
+  const alt = /<meta property="og:image:alt" content="([^"]*)">/.exec(html)?.[1];
+  assert.equal(alt, 'COMPLEX.md map of Acme/Widgets.js: 3 hotspots, top co-change pair src/core/engine.js and src/net/parser.js at 64% coupling. Commit aaaaaaa, 2026-10-20.');
+  assert.match(html, new RegExp(`<meta name="twitter:image:alt" content="${alt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">`));
+  assert.doesNotMatch(html, /content="https:\/\/complex\.md\/og\.png"/, 'not the generic site card');
+});
+
+test('the Open Graph image draws only glyphs from its table and only the cleaned front matter', async (t) => {
+  if (!inCheckout) return t.skip('not a repository checkout');
+  const og = await import(pathToFileURL(join(ROOT, 'scripts/og-image.mjs')).href);
+  const hosted = await import(pathToFileURL(join(ROOT, 'scripts/hosted.mjs')).href);
+  assert.equal(og.glyphSafe(`a${RLO}b<é>​`), 'a?b<?>?', 'a character outside the table is a question mark');
+  // A long name and long paths still fit: they are cut, never drawn past the card.
+  assert.ok(og.textWidth(og.fitMiddle('x'.repeat(300), 'bold', 44, 1072), 'bold', 44) <= 1072);
+  const cut = og.fitPath('a/b/c/d/' + 'e'.repeat(80) + '.js', 'bold', 30, 300);
+  assert.ok(og.textWidth(cut, 'bold', 30) <= 300, cut);
+  assert.ok(og.fitPath('src/core/engine.js', 'bold', 30, 1000) === 'src/core/engine.js');
+  // The facts come from the cleaned front matter: an unsafe path never reaches the image or its alt text.
+  const map = cleanMap({ pair: ['src/a.js', 'src/b.js'] }).replace('  - files: [src/a.js, src/b.js]', '  - files: ["<img src=x>", src/b.js]\n    count: 9\n    coupling: 99\n  - files: [src/a.js, src/b.js]');
+  const page = hosted.checkEntry(entry('acme', 'thing', { raw_text: map })).page;
+  const facts = hosted.ogFacts(page);
+  assert.deepEqual(facts.pair, { files: ['src/a.js', 'src/b.js'], coupling: 64 });
+  assert.equal(facts.display, 'acme/thing');
+  assert.equal(facts.commit, 'aaaaaaa');
+  assert.ok(!hosted.ogAlt(facts).includes('<'));
+  // A map with no pair says so; the same facts give the same bytes.
+  const none = { ...facts, pair: null };
+  assert.ok(og.renderOgImage(none).equals(og.renderOgImage(none)));
+  assert.ok(!og.renderOgImage(none).equals(og.renderOgImage(facts)));
 });
 
 test('a page leads with the directives, then the commit panel, the treemap, co-change and blind spots', (t) => {

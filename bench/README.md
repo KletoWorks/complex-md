@@ -211,15 +211,20 @@ prices its run before the first call.
 - `node bench/models.mjs`: the model matrix. It writes a map for ky,
   itsdangerous and pflag, each pinned by commit, with each model on
   OpenRouter. It scores each map with `mapcheck.mjs` and writes pass or fail
-  per check per model, with no ranking. `--dry-run` prices the run and calls
+  per check per model for both the raw reply and the file the CLI would write,
+  with no ranking. Reasoning-capable models get a 24,000-token output cap and
+  an 8,000-token reasoning budget. `--dry-run` prices the run and calls
   nothing, and `--budget` (default 10 USD) refuses a larger run. A model with
   no fixed price is refused. The key comes from
   `OPENROUTER_API_KEY_COMPLEXMD` only. The default matrix of 15 models, 12
-  of them open weights, prices at 2.02 USD at most for 45 calls.
+  of them open weights, is priced before any calls.
 - `bench/mapcheck.mjs`: six string checks on one map: the front matter is
   byte identical, the four sections are present, every named path exists,
   there is one directive per hot file, the sentences are within the length
   limit, and there are no em dashes.
+- `node bench/models.mjs --rescore <results>` re-scores saved replies in
+  `<results>/maps/` and rewrites its `results.json` and `summary.md` without
+  preparing repositories or making a network request.
 
 ## Caveats
 

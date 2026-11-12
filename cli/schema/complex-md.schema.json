@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://complex.md/schema/0.4.json",
+  "title": "COMPLEX.md front matter 0.4 (draft)",
+  "description": "The front matter of a COMPLEX.md map, as the data that a YAML 1.2 parser returns. Dates are strings. The size cap, the YAML subset, the list order and the prose rules are in spec.md and are not checked here.",
+  "type": "object",
+  "required": ["complex_md", "generated", "commit", "generator", "window_commits", "files_analyzed", "profile", "hotspots", "load_bearing", "co_change", "seams", "blind_spots"],
+  "properties": {
+    "complex_md": { "const": "0.4" },
+    "generated": { "$ref": "#/$defs/date" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{7,64}$" },
+    "generator": { "$ref": "#/$defs/generator" },
+    "window_commits": { "$ref": "#/$defs/count" },
+    "files_analyzed": { "$ref": "#/$defs/count" },
+    "profile": { "$ref": "#/$defs/profile" },
+    "hotspots": { "type": "array", "maxItems": 15, "items": { "$ref": "#/$defs/hotspot" } },
+    "load_bearing": { "type": "array", "maxItems": 5, "items": { "$ref": "#/$defs/loadBearing" } },
+    "co_change": { "type": "array", "maxItems": 10, "items": { "$ref": "#/$defs/coChange" } },
+    "seams": { "type": "array", "maxItems": 6, "items": { "$ref": "#/$defs/seam" } },
+    "blind_spots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "stale_after": { "$ref": "#/$defs/date" },
+    "verified": { "$ref": "#/$defs/date" },
+    "prose": { "$ref": "#/$defs/prose" },
+    "workspaces": { "type": "array", "items": { "$ref": "#/$defs/workspace" } }
+  },
+  "patternProperties": { "^x-": true },
+  "additionalProperties": false,
+  "$defs": {
+    "date": { "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$" },
+    "count": { "type": "integer", "minimum": 0 },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![/])(?!\\./)(?!(.*/)?\\.\\.(/|$))(?!.*/$)[^\\u0000]+$"
+    },
+    "pair": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/path" }
+    },
+    "testFiles": { "type": "array", "items": { "$ref": "#/$defs/path" } },
+    "rankedKind": { "enum": ["source", "config", "markup", "style"] },
+    "generator": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "pattern": "^https?://" }
+      },
+      "patternProperties": { "^x-": true },
+      "additionalProperties": false
+    },
+    "profile": {
+      "type": "object",
+      "required": ["confidence"],
+      "properties": {
+        "files_total": { "$ref": "#/$defs/count" },
+        "files_in_scope": { "$ref": "#/$defs/count" },
+        "loc_in_scope": { "$ref": "#/$defs/count" },
+        "kinds": { "type": "string" },
+        "languages": { "type": "string" },
+        "dependency_edges": { "$ref": "#/$defs/count" },
+        "commits_total": { "$ref": "#/$defs/count" },
+        "commits_analyzed": { "$ref": "#/$defs/count" },
+        "commits_skipped": { "$ref": "#/$defs/count" },
+        "half_life_commits": { "$ref": "#/$defs/count" },
+        "window_from": { "$ref": "#/$defs/date" },
+        "window_to": { "$ref": "#/$defs/date" },
+        "velocity_30d": { "type": "number", "minimum": 0 },
+        "authors_total": { "$ref": "#/$defs/count" },
+        "concentration_50": { "$ref": "#/$defs/count" },
+        "hotspot_cut": { "$ref": "#/$defs/count" },
+        "pair_min": { "$ref": "#/$defs/count" },
+        "confidence": { "type": "string", "pattern": "^(structure\\+history|structure-only|history-only|size-only)(, single author)?$" }
+      },
+      "patternProperties": { "^x-": true },
+      "additionalProperties": false
+    },
+    "hotspot": {
+      "type": "object",
+      "required": ["path", "kind", "loc", "churn", "churn_w", "fixes", "authors", "owner_share", "fan_in", "tests", "score"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "kind": { "$ref": "#/$defs/rankedKind" },
+        "loc": { "$ref": "#/$defs/count" },
+        "churn": { "$ref": "#/$defs/count" },
+        "churn_w": { "type": "number", "minimum": 0 },
+        "fixes": { "$ref": "#/$defs/count" },
+        "authors": { "$ref": "#/$defs/count" },
+        "owner_share": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fan_in": { "$ref": "#/$defs/count" },
+        "tests": { "$ref": "#/$defs/count" },
+        "score": { "$ref": "#/$defs/count" },
+        "test_files": { "$ref": "#/$defs/testFiles" }
+      },
+      "patternProperties": { "^x-": true },
+      "additionalProperties": false
+    },
+    "loadBearing": {
+      "type": "object",
+      "required": ["path", "kind", "loc", "fan_in", "tests"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "kind": { "$ref": "#/$defs/rankedKind" },
+        "loc": { "$ref": "#/$defs/count" },
+        "fan_in": { "$ref": "#/$defs/count" },
+        "tests": { "$ref": "#/$defs/count" },
+        "test_files": { "$ref": "#/$defs/testFiles" }
+      },
+      "patternProperties": { "^x-": true },
+      "additionalProperties": false
+    },
+    "coChange": {
+      "type": "object",
+      "required": ["files", "count", "coupling"],
+      "properties": {
+        "files": { "$ref": "#/$defs/pair" },
+        "count": { "type": "integer", "minimum": 1 },
+        "coupling": { "type": "integer", "minimum": 0, "maximum": 100 }
+      },
+      "patternProperties": { "^x-": true },
+      "additionalProperties": false
+    },
+    "seam": {
+      "type": "object",
+      "required": ["dirs", "count", "coupling"],
+      "properties": {
+        "dirs": { "$ref": "#/$defs/pair" },
+        "count": { "type": "integer", "minimum": 1 },
+        "coupling": { "type": "integer", "minimum": 0, "maximum": 100 }
+      },
+      "patternProperties": { "^x-": true },
+      "additionalProperties": false
+    },
+    "prose": {
+      "type": "object",
+      "required": ["by"],
+      "properties": {
+        "by": { "enum": ["template", "model", "human"] }
+      },
+      "patternProperties": { "^x-": true },
+      "additionalProperties": false
+    },
+    "workspace": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" }
+      },
+      "patternProperties": { "^x-": true },
+      "additionalProperties": false
+    }
+  }
+}

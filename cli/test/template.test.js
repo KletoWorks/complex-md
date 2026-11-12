@@ -57,7 +57,7 @@ test('importers are named in full when all of them fit, and as examples otherwis
 });
 
 test('a hotspot with no tests and no importers gets a directive to plan the verification', () => {
-  assert.match(map.directive('src/render.css'), /^Before editing this file, .*no test covers it\.$/);
+  assert.match(map.directive('src/render.css'), /^Before editing this file, .*no test file imports it or matches its name\.$/);
 });
 
 test('the coupling section names each pair, and what to read first lists load bearing files first', () => {

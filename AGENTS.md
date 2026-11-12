@@ -12,8 +12,9 @@ These rules are for a coding agent that works on either part.
   or `scripts/build.mjs`. It writes `dist/`.
 - Edit the prompts in `prompts/`. The files in `cli/prompts/` are copies
   that `cli/scripts/sync-prompts.mjs` makes before each pack.
-- Add no runtime dependency to `cli/package.json`. The CLI imports the
-  MCP SDK and zod only.
+- Add no runtime dependency to `cli/package.json`. The core has none.
+  The MCP server in `packages/complex-md-mcp` imports the MCP SDK and zod
+  only. Run `cd packages/complex-md-mcp && npm test` after a change there.
 - Add no network call. The only requests are the model calls in
   `cli/src/generate.js`, and `cli/test/telemetry.test.js` fails on any
   other.

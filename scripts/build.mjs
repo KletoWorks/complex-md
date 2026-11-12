@@ -2,7 +2,7 @@
 // Build the complex.md static site into dist/. Zero dependencies: a minimal
 // markdown renderer plus a shared page shell. deploy-site.sh runs `npm run
 // build` and rsyncs dist/ to the webroot, then fingerprints assets.
-import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, existsSync, renameSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { parseMeta as meta, readArticles, faqItems, llmsFull } from './content.mjs';
 import { readText } from './text.mjs';
@@ -290,6 +290,21 @@ if (existsSync(artDir)) {
   }));
 }
 
+// The skill and prompt copies below live in the repository, not in --out,
+// so every build writes the same files. The CLI tests run up to 9 builds at
+// once, and cpSync unlinks a file before it copies it: when a second build
+// touched the file in between, the first failed with EEXIST, or on Node 22
+// with an empty unlink error. A copy that is already current is left alone,
+// and a changed one is written to a temporary file and renamed, so no
+// reader sees it half written.
+function writeIfChanged(path, data) {
+  const next = typeof data === 'string' ? Buffer.from(data) : data;
+  if (existsSync(path) && readFileSync(path).equals(next)) return;
+  const tmp = `${path}.${process.pid}.tmp`;
+  writeFileSync(tmp, next);
+  renameSync(tmp, path);
+}
+
 // The downloadable skill: template + the generation prompt + the canonical
 // integration block, all verbatim from their single sources in prompts/.
 // Each agent package gets the same text split in two: SKILL.md, and the
@@ -298,16 +313,16 @@ const skill = renderSkill(ROOT);
 writeFileSync(join(DIST, 'complex-md.skill.md'), skill);
 for (const p of SKILL_COPIES) {
   mkdirSync(join(dirname(join(ROOT, p)), 'references'), { recursive: true });
-  writeFileSync(join(ROOT, p), renderSkill(ROOT, { split: true }));
-  writeFileSync(join(dirname(join(ROOT, p)), 'references', 'generate.md'), renderReference(ROOT));
+  writeIfChanged(join(ROOT, p), renderSkill(ROOT, { split: true }));
+  writeIfChanged(join(dirname(join(ROOT, p)), 'references', 'generate.md'), renderReference(ROOT));
 }
 stampVersions(ROOT);
 writeFileSync(join(DIST, 'integration.md'), integrationBlock + '\n');
 
 // The CLI package ships the same two prompts; keep its copies in lockstep.
 mkdirSync(join(ROOT, 'cli/prompts'), { recursive: true });
-cpSync(join(ROOT, 'prompts/generate.md'), join(ROOT, 'cli/prompts/generate.md'));
-cpSync(join(ROOT, 'prompts/integration.md'), join(ROOT, 'cli/prompts/integration.md'));
+writeIfChanged(join(ROOT, 'cli/prompts/generate.md'), readFileSync(join(ROOT, 'prompts/generate.md')));
+writeIfChanged(join(ROOT, 'cli/prompts/integration.md'), readFileSync(join(ROOT, 'prompts/integration.md')));
 
 for (const f of ['site.css', 'site.js', 'lookup.js', 'remove.js', 'repo-name.js', '404.html', 'favicon.svg', 'logo.svg', 'og.png', 'sw.js', 'robots.txt']) cpSync(join(ROOT, 'site', f), join(DIST, f));
 for (const d of ['fonts', 'icons']) cpSync(join(ROOT, 'site', d), join(DIST, d), { recursive: true });

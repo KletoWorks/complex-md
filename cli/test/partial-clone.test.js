@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { computeSignals } from '../src/signals.js';
 import { stopAdvice } from '../src/hook.js';
+import { runExposure } from '../src/exposure.js';
 
 const ENV = { ...process.env, GIT_AUTHOR_NAME: 'A', GIT_AUTHOR_EMAIL: 'a@x', GIT_COMMITTER_NAME: 'A', GIT_COMMITTER_EMAIL: 'a@x', GIT_TERMINAL_PROMPT: '0' };
 const git = (cwd, ...a) => execFileSync('git', a, { cwd, stdio: 'pipe', env: ENV, encoding: 'utf8' });
@@ -59,6 +60,17 @@ test('blobless clone: the Stop hook lists session commits without fetching blobs
   writeFileSync(join(dir, 'COMPLEX.md'), map);
   const advice = stopAdvice(dir, { started: new Date(Date.now() - 3600 * 1000).toISOString(), acknowledged: [] });
   assert.match(advice || '', /src\/b\.js/, 'the commits made since the session started name src/b.js');
+});
+
+test('blobless clone: the exposure history walk is skipped and declared, and fetches nothing', async () => {
+  const dir = partialClone('blob:none');
+  const objects = () => git(dir, 'count-objects', '-v');
+  const before = objects();
+  const r = await runExposure(dir, { version: 'test' });
+  assert.equal(r.scope.history.mode, 'skipped');
+  assert.ok(r.blind_spots.some((b) => /partial clone \(filter blob:none\)/.test(b) && /fetch each missing blob/.test(b)), JSON.stringify(r.blind_spots));
+  assert.equal(r.scope.files.read, 2, 'the checked out tree is still scanned');
+  assert.equal(objects(), before, 'no object was fetched');
 });
 
 test('treeless clone: history is skipped and declared, not fetched one tree at a time', () => {
