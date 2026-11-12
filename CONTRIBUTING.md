@@ -42,6 +42,24 @@ You may use AI tools to write a contribution. Three rules apply.
 
 The same rules hold for a coding agent. `AGENTS.md` sends agents here.
 
+### Maintainer agents
+
+The maintainer runs coding agents on this repository, and rule 3 works
+differently for them. An agent opens 1 pull request per change, and CI runs
+on Linux, macOS and Windows. The maintainer reads every gated pull request
+and merges it. A gated pull request does at least 1 of these things:
+
+- It releases: a version bump, a tag, or a change to `release.yml`.
+- It changes the spec or the file format.
+- It changes a public claim in a README or on the site.
+- It changes how secrets are handled: the bundle redaction or the
+  exposure scan.
+
+The agent adds the `owner` label to a gated pull request. Every other
+pull request is routine: docs, tests, fixes and refactors. The agent merges
+a routine pull request with a merge commit when CI passes. The maintainer
+reviews routine work after the merge and answers its review comments.
+
 ## Releasing
 
 Three things carry a version. The spec version (`complex_md` in every

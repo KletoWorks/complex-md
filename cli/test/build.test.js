@@ -2,8 +2,9 @@
 // repository checkout; the published CLI package has no scripts/build.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, mkdtempSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { registryInvocation, hookCommand } from '../src/invoke.js';
@@ -51,4 +52,27 @@ test('the skill\'s hand written hooks are the commands wire writes', (t) => {
     assert.ok(skill.includes(JSON.stringify(hookCommand(inv, sub))), `the skill writes the pinned ${sub} command`);
   }
   assert.doesNotMatch(skill, /"npx -y complex-md hook/, 'no unpinned hook command is left');
+});
+
+/* node --test runs the test files at once, and 9 of them run this build.
+   Each build also writes copies inside the repository: the 2 skill copies,
+   their references/generate.md and the 2 prompts in cli/prompts/. When 2
+   builds replaced the same copy at once, 1 failed with EEXIST, or with an
+   empty error on Node 22. A build must leave a current copy alone. */
+test('a build leaves the current copies in the repository untouched', (t) => {
+  if (!existsSync(join(ROOT, 'scripts/build.mjs'))) return t.skip('not a repository checkout');
+  const copies = [
+    'skills/complex-md/SKILL.md', 'skills/complex-md/references/generate.md',
+    'plugins/complex-md/skills/complex-md/SKILL.md', 'plugins/complex-md/skills/complex-md/references/generate.md',
+    'cli/prompts/generate.md', 'cli/prompts/integration.md',
+  ];
+  const build = () => execFileSync(process.execPath, [join(ROOT, 'scripts/build.mjs'), '--out', mkdtempSync(join(tmpdir(), 'cx-build-'))], { stdio: 'pipe' });
+  build();
+  const before = copies.map((p) => statSync(join(ROOT, p), { bigint: true }));
+  build();
+  copies.forEach((p, i) => {
+    const after = statSync(join(ROOT, p), { bigint: true });
+    assert.equal(after.ino, before[i].ino, `${p} was replaced`);
+    assert.equal(after.mtimeNs, before[i].mtimeNs, `${p} was rewritten`);
+  });
 });

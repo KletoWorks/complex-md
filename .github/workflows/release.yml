@@ -2,8 +2,8 @@
 # (OIDC): no token in secrets, no second factor prompt, provenance attached.
 # The tag must match cli/package.json, and the package must be configured on
 # npmjs.com with this repository and workflow as its trusted publisher.
-# After both packages publish, the github-release job creates the GitHub
-# release from the version's section in CHANGELOG.md.
+# After the publish job succeeds, the github-release job creates the
+# GitHub release from the version's section in CHANGELOG.md.
 name: release
 on:
   push:
@@ -17,8 +17,8 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -40,6 +40,17 @@ jobs:
       - run: npm run build
       - run: cd cli && npm publish --access public --provenance
       - run: cd packages/complex-md-mcp && npm publish --access public --provenance
+      # The same CLI build under the name complex.md, so `npx complex.md` works.
+      # Trusted publishing needs a package that exists: the maintainer makes the
+      # first publish by hand and adds this workflow as its trusted publisher.
+      # Until then the step skips and the release stays green.
+      - name: publish complex.md
+        run: |
+          if npm view complex.md version >/dev/null 2>&1; then
+            cd cli && npm pkg set name=complex.md && npm publish --access public --provenance
+          else
+            echo "complex.md is not on npm yet; skipped"
+          fi
   github-release:
     needs: publish
     runs-on: ubuntu-latest
@@ -47,10 +58,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
       # A re-run of this job edits the release that the first run created.

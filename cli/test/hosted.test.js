@@ -91,7 +91,8 @@ test('a malformed map is rejected without stopping the other pages', (t) => {
   const rejected = r.stderr.trim().split('\n').filter((line) => line.includes('bad/broken'));
   assert.equal(rejected.length, 1, r.stderr);
   assert.match(rejected[0], /reject|drop/i);
-  assert.match(rejected[0], /Cannot convert|primitive|toString/i);
+  // V8 says "Cannot convert object to primitive value"; Bun (JavaScriptCore) says "No default value".
+  assert.match(rejected[0], /Cannot convert|primitive|toString|No default value/i);
 });
 
 test('the same input gives byte identical output', (t) => {

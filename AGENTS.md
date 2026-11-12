@@ -34,10 +34,15 @@ These rules are for a coding agent that works on either part.
 - A change to the spec or a signal cites a benchmark run or a source, and
   adds a line to `CHANGELOG.md`.
 - Follow the AI assistance policy in `CONTRIBUTING.md`: disclose the
-  tool in the pull request description, add an `Assisted-by:` or a
-  `Co-Authored-By:` trailer, and leave the review of the diff and the
-  answers to review comments to a person. Fill in each section of
-  `.github/PULL_REQUEST_TEMPLATE.md`, including the AI assistance box.
+  tool in the pull request description, and add an `Assisted-by:` or a
+  `Co-Authored-By:` trailer. Unless you are a maintainer agent, leave the
+  review of the diff and the answers to review comments to a person. Fill
+  in each section of `.github/PULL_REQUEST_TEMPLATE.md`, including the AI
+  assistance box.
+- A maintainer agent follows "Maintainer agents" in `CONTRIBUTING.md`:
+  open 1 pull request per change, add the `owner` label to a gated pull
+  request and leave its merge to the maintainer, and merge a routine pull
+  request with a merge commit when CI passes. Never rebase.
 
 <!-- BEGIN complex-md (spec 0.3) -->
 ## COMPLEX.md: the structural risk map
