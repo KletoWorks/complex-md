@@ -6,6 +6,10 @@ format.
 
 ## Unreleased
 
+**Intent:** the release workflow published to npm and left the GitHub release to a manual step. The newest GitHub release was 0.4.1 while npm had 0.11.0, and 9 tags had no release.
+
+**Change:** after the publish job succeeds, `release.yml` creates the GitHub release for the tag with the version's `CHANGELOG.md` section as its notes. `scripts/release-notes.mjs` reads the section under `## YYYY-MM-DD  X.Y.Z: summary` and joins its wrapped lines. The workflow checks that the section exists before it publishes. Only the new job may write to the repository; the publish job keeps `id-token: write` and read access. `cli/test/release-notes.test.js` covers the reader and fails when the version in `cli/package.json` has no section.
+
 **Intent:** `bunx complex-md` runs the CLI on Bun, and no test ran on Bun. Under Bun 1.3.14, 827 of 830 tests passed, 2 are todo and 1 failed. The failure matched the error text of Node's engine only.
 
 **Change:** CI has a `bun` job that runs the CLI suite under Bun 1.3.14 on Ubuntu. The hosted pages test also accepts Bun's error text for a malformed map ("No default value"); the behavior it checks is unchanged.
